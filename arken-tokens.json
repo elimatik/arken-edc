@@ -226,15 +226,6 @@
           "text":    { "value": "{global.color.blue.700}",  "type": "color" },
           "icon":    { "value": "{global.color.blue.500}",  "type": "color" }
         }
-      },
-      "role": {
-        "pi":        { "value": "{global.color.teal.500}",  "type": "color", "description": "Principal Investigator" },
-        "crc":       { "value": "{global.color.blue.500}",  "type": "color", "description": "Clinical Research Coordinator" },
-        "cra":       { "value": "{global.color.amber.500}", "type": "color", "description": "Clinical Research Associate" },
-        "dm":        { "value": "{global.color.red.500}",   "type": "color", "description": "Data Manager" },
-        "pm":        { "value": "{global.color.slate.500}", "type": "color", "description": "Project Manager" },
-        "admin":     { "value": "{global.color.slate.700}", "type": "color", "description": "System Admin" },
-        "field":     { "value": "{global.color.green.600}", "type": "color", "description": "Field Technician" }
       }
     }
   },
@@ -302,15 +293,6 @@
           "text":    { "value": "{global.color.blue.300}",   "type": "color" },
           "icon":    { "value": "{global.color.blue.400}",   "type": "color" }
         }
-      },
-      "role": {
-        "pi":        { "value": "{global.color.teal.400}",   "type": "color" },
-        "crc":       { "value": "{global.color.blue.400}",   "type": "color" },
-        "cra":       { "value": "{global.color.amber.400}",  "type": "color" },
-        "dm":        { "value": "{global.color.red.400}",    "type": "color" },
-        "pm":        { "value": "{global.color.slate.400}",  "type": "color" },
-        "admin":     { "value": "{global.color.slate.300}",  "type": "color" },
-        "field":     { "value": "{global.color.green.400}",  "type": "color" }
       }
     }
   }
