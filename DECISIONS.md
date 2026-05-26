@@ -140,3 +140,13 @@ Every time a decision is made — about tokens, components, UX patterns, tech ch
 ### Alert banner action link — icon excluded from underline
 **Decision:** Only the text `<span>` inside `.banner-action` is underlined. The arrow icon is not.
 **Rationale:** Underlined icons read as broken UI — the underline doesn't sit under the glyph cleanly, especially with external-link and arrow icons. Text underline alone is sufficient affordance for a link.
+
+### Role colour system removed
+**Decision:** All role tokens (`--role-pi`, `--role-crc`, etc.) now resolve to `--slate-600` (#3D5A78). Role colour differentiation dropped entirely.
+**Rationale:** The platform supports user-created roles, which would immediately break any fixed colour mapping. Seven predefined role colours is also too many for users to reliably memorise. The role abbreviation (CRC, CRA, DM) already carries the signal as text — colour was redundant rather than additive. Slate is neutral, accessible, and scales to any number of roles.
+**Files updated:** arken-tokens.css · 04-app-shell · 02-badge
+
+### font-variant: small-caps replaced with text-transform: uppercase
+**Decision:** All `font-variant: small-caps` and `font-variant: all-small-caps` replaced with `text-transform: uppercase`.
+**Rationale:** `font-variant: small-caps` renders inconsistently across browsers and OS font rendering engines, particularly on Windows Chrome where it can render as full caps at the wrong size. `text-transform: uppercase` with `letter-spacing: 0.07em` produces the same visual result with fully predictable cross-platform rendering. Clinical software is commonly used on Windows workstations — this matters.
+**Files updated:** arken-tokens.css · all component files

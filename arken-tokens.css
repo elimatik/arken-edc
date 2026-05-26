@@ -118,13 +118,13 @@
   --field-locked-text:   #6B6B6B;
 
   /* Role colours */
-  --role-pi:    #1760A8;
-  --role-crc:   #534AB7;
-  --role-cra:   #B87800;
-  --role-dm:    #B52626;
-  --role-pm:    #3D5A78;
-  --role-admin: #1A1F2E;
-  --role-field: #1A6B47;
+  --role-pi:    var(--slate-600);
+  --role-crc:   var(--slate-600);
+  --role-cra:   var(--slate-600);
+  --role-dm:    var(--slate-600);
+  --role-pm:    var(--slate-600);
+  --role-admin: var(--slate-600);
+  --role-field: var(--slate-600);
 }
 
 /* ── Typography ─────────────────────────────────────────────────────────── */
@@ -223,5 +223,5 @@ body {
   -webkit-font-smoothing: antialiased;
 }
 
-.small-caps { font-variant: small-caps; letter-spacing: var(--tracking-caps); font-weight: var(--weight-medium); }
+.small-caps { text-transform: uppercase; letter-spacing: var(--tracking-caps); font-weight: var(--weight-medium); }
 .mono       { font-family: var(--font-mono); }
