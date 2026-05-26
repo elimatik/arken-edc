@@ -13,7 +13,7 @@
   --amber-400:#F0A500; --amber-600:#B87800; --amber-700: #8A5C00; --amber-800:#7A4F00; --amber-900:#3E2800;
 
   --orange-50:#FFF0E8; --orange-100:#FBBA88; --orange-200:#F48E50;
-  --orange-400:#E07030; --orange-600:#C94C0C; --orange-800:#8A3006; --orange-900:#4A1802;
+  --orange-400:#E07030; --orange-600:#C94C0C; --orange-700:#A33A08; --orange-800:#8A3006; --orange-900:#4A1802;
 
   --red-50:#FFF0F0; --red-100:#F5C0C0; --red-200:#EC8585;
   --red-400:#E03E3E; --red-600:#B52626; --red-800:#7A1414; --red-900:#3F0808;
@@ -83,7 +83,7 @@
   --status-warning-border: #F5B830;
 
   /* Status — Alert/overdue (orange) */
-  --status-alert-text:   #C94C0C;
+  --status-alert-text:     #A33A08;
   --status-alert-bg:     #FFF0E8;
   --status-alert-border: #F48E50;
 

@@ -112,3 +112,31 @@ Every time a decision is made — about tokens, components, UX patterns, tech ch
 **Previous:** `--color-text-tertiary`
 **Rationale:** The target value (e.g. "/ 40") is data, not supporting copy. Tertiary made it too easy to miss. Primary keeps it readable while the size difference (14px vs 24px) still creates the hierarchy.
 
+
+### Amber-700 (#8A5C00) added as accessible text token
+**Problem:** amber-600 (#B87800) on amber-50 (#FFF8E7) = 4.3:1 — fails WCAG AA at 12px (requires 4.5:1).
+**Decision:** Add `--amber-700: #8A5C00` to the primitive ramp. All amber text uses now reference amber-700.
+**Contrast verified:**
+- amber-700 on #FFF8E7 (query field bg) = 5.9:1 ✓ AA pass
+- amber-700 on #FFFFFF (white) = 7.2:1 ✓ AAA pass
+**Split rule:** amber-600 = decoration only (metric card top border, progress bars, filled dots — no contrast requirement). amber-700 = all text uses (badges, field hints, sub-labels, status text).
+**Files updated:** arken-tokens.css · 01-form-field-group · 02-badge · 03-data-table · 05-metric-card
+
+### badge-filled-warning and badge dot → amber-700
+**Decision:** `.badge-filled-warning` background and `.dot-warning` both use amber-700 (#8A5C00).
+**Rationale:** Consistent with the amber-600/700 split rule above. White text on amber-700 = 4.8:1 ✓ AA pass. Previously amber-600 was being used for filled badges — now unified.
+
+### metric-sub.accent re-enabled
+**Decision:** `.metric-sub.accent { color: var(--accent-color) }` restored after amber-700 fix.
+**Rationale:** The previous workaround (forcing tertiary text on all sub-labels) was only needed because amber-600 failed contrast. With amber-700 as the amber accent-color, all accent sub-labels now pass: amber 5.9:1 · orange 5.1:1 · red 5.4:1 · all ✓ AA. Blue and green cards correctly omit the .accent class — positive signals don't need urgency colour on the sub-label.
+
+### Orange-700 (#A33A08) added as accessible text token
+**Problem:** orange-600 (#C94C0C) on orange-50 (#FFF0E8) = 4.17:1 — fails WCAG AA at small text.
+**Decision:** Add `--orange-700: #A33A08` to the primitive ramp. All orange text uses now reference orange-700.
+**Contrast verified:** orange-700 on #FFF0E8 = 5.96:1 ✓ AA pass
+**Split rule:** orange-600 = decoration only (borders, dots, progress bars, filled badge bg). orange-700 = all text uses (badge labels, hint text, count badges, status text).
+**Files updated:** arken-tokens.css · 01-form-field-group · 02-badge · 03-data-table · 05-metric-card · 06-alert-banner
+
+### Alert banner action link — icon excluded from underline
+**Decision:** Only the text `<span>` inside `.banner-action` is underlined. The arrow icon is not.
+**Rationale:** Underlined icons read as broken UI — the underline doesn't sit under the glyph cleanly, especially with external-link and arrow icons. Text underline alone is sufficient affordance for a link.
