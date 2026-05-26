@@ -1,0 +1,227 @@
+/*
+ * Arken EDC — Design Tokens v2.0
+ * Source: User-defined BRD Cattle palette + Arken spec
+ * Typography: Roboto  |  Radius: 4px base  |  Stroke: 1px  |  Shadow: 0 2px 4px 0 rgba(0,0,0,0.10)
+ * shadcn/ui compatible  |  Generated: 2026-05-25
+ *
+ * <link href="https://fonts.googleapis.com/css2?family=Roboto:wght@400;500;700&family=Roboto+Mono:wght@400;500&display=swap" rel="stylesheet">
+ */
+
+/* ── Primitive ramps (never use directly in components) ─────────────────── */
+:root {
+  --amber-50:#FFF8E7; --amber-100:#FAD280; --amber-200:#F5B830;
+  --amber-400:#F0A500; --amber-600:#B87800; --amber-700: #8A5C00; --amber-800:#7A4F00; --amber-900:#3E2800;
+
+  --orange-50:#FFF0E8; --orange-100:#FBBA88; --orange-200:#F48E50;
+  --orange-400:#E07030; --orange-600:#C94C0C; --orange-800:#8A3006; --orange-900:#4A1802;
+
+  --red-50:#FFF0F0; --red-100:#F5C0C0; --red-200:#EC8585;
+  --red-400:#E03E3E; --red-600:#B52626; --red-800:#7A1414; --red-900:#3F0808;
+
+  --blue-50:#E8F4FF; --blue-100:#B8D5F5; --blue-200:#7AB8EE;
+  --blue-400:#3D8FE0; --blue-600:#1760A8; --blue-800:#0D3D72; --blue-900:#071F3C;
+
+  --green-50:#EEFAF4; --green-100:#A3DBBE; --green-200:#58BC88;
+  --green-400:#28A062; --green-600:#1A6B47; --green-800:#0E4427; --green-900:#072516;
+
+  --purple-50:#F0EEFF; --purple-100:#CECBF6; --purple-200:#A9A3EC;
+  --purple-400:#7F77DD; --purple-600:#534AB7; --purple-800:#3C3489; --purple-900:#26215C;
+
+  --slate-50:#EEF1F6; --slate-100:#B8C5D6; --slate-200:#8AA0B8;
+  --slate-400:#5C7A96; --slate-600:#3D5A78; --slate-800:#1E3048; --slate-900:#0C1824;
+}
+
+/* ── Semantic tokens — light mode ───────────────────────────────────────── */
+:root, [data-theme="light"] {
+
+  /* Structural */
+  --color-nav-bg:      #1A1F2E;
+  --color-nav-hover:   #2C3248;
+  --color-page-bg:     #FBFBFB;
+  --color-surface:     #FFFFFF;
+  --color-border:      #E8E8E6;
+
+  /* Text */
+  --color-text-primary:     #2C2D33;
+  --color-text-secondary:   #4F535B;
+  --color-text-tertiary:    #6D7480;
+  --color-text-placeholder: #C4C4C2;
+  --color-text-inverse:     #FFFFFF;
+
+  /* Links & icons */
+  --color-link: #3D4A5C;
+
+  /* Interaction */
+  --color-cta-bg:     #1A1F2E;
+  --color-cta-hover:  #2C3248;
+  --color-hover-bg:   #F0F0EE;
+  --color-focus-ring: #3D8FE0;
+
+  /* Status — Active/on-track (blue) */
+  --status-active-text:   #1760A8;
+  --status-active-bg:     #E8F4FF;
+  --status-active-border: #7AB8EE;
+
+  /* Status — Complete (green, administrative) */
+  --status-success-text:   #1A6B47;
+  --status-success-bg:     #EEFAF4;
+  --status-success-border: #58BC88;
+
+  /* Status — Pending/awaiting (purple) */
+  --status-pending-text:   #534AB7;
+  --status-pending-bg:     #F0EEFF;
+  --status-pending-border: #A9A3EC;
+
+  /* Status — Info/neutral (slate) */
+  --status-info-text:   #3D5A78;
+  --status-info-bg:     #EEF1F6;
+  --status-info-border: #8AA0B8;
+
+  /* Status — Warning/draft (amber) */
+  --status-warning-text:   #8A5C00;
+  --status-warning-bg:     #FFF8E7;
+  --status-warning-border: #F5B830;
+
+  /* Status — Alert/overdue (orange) */
+  --status-alert-text:   #C94C0C;
+  --status-alert-bg:     #FFF0E8;
+  --status-alert-border: #F48E50;
+
+  /* Status — Critical/SAE (red) */
+  --status-critical-text:   #B52626;
+  --status-critical-bg:     #FFF0F0;
+  --status-critical-border: #EC8585;
+
+  /* Field data states */
+  --field-default-bg:     #FFFFFF;
+  --field-default-border: #E8E8E6;
+  --field-default-text:   #2C2D33;
+
+  --field-query-bg:     #FFF8E7;
+  --field-query-border: #8A5C00;
+  --field-query-text:   #7A4F00;
+
+  --field-disc-bg:     #FFF0E8;
+  --field-disc-border: #C94C0C;
+  --field-disc-text:   #8A3006;
+
+  --field-critical-bg:     #FFF0F0;
+  --field-critical-border: #B52626;
+  --field-critical-text:   #7A1414;
+
+  --field-clean-bg:     #EEFAF4;
+  --field-clean-border: #1A6B47;
+  --field-clean-text:   #0E4427;
+
+  --field-locked-bg:     #F4F5F7;
+  --field-locked-border: #C8CBD4;
+  --field-locked-text:   #6B6B6B;
+
+  /* Role colours */
+  --role-pi:    #1760A8;
+  --role-crc:   #534AB7;
+  --role-cra:   #B87800;
+  --role-dm:    #B52626;
+  --role-pm:    #3D5A78;
+  --role-admin: #1A1F2E;
+  --role-field: #1A6B47;
+}
+
+/* ── Typography ─────────────────────────────────────────────────────────── */
+:root {
+  --font-sans: 'Roboto', system-ui, sans-serif;
+  --font-mono: 'Roboto Mono', 'Fira Code', monospace;
+
+  --text-xs:   11px;
+  --text-sm:   12px;
+  --text-base: 14px;
+  --text-lg:   16px;
+  --text-xl:   18px;
+  --text-2xl:  20px;
+  --text-3xl:  24px;
+
+  --weight-regular: 400;
+  --weight-medium:  500;
+  --weight-bold:    700;
+
+  --leading-tight:  1.2;
+  --leading-snug:   1.35;
+  --leading-normal: 1.5;
+
+  --tracking-normal: 0em;
+  --tracking-wide:   0.04em;
+  --tracking-caps:   0.07em;
+}
+
+/* ── Spacing (4px base) ─────────────────────────────────────────────────── */
+:root {
+  --space-1: 4px;  --space-2: 8px;   --space-3: 12px;
+  --space-4: 16px; --space-5: 20px;  --space-6: 24px;
+  --space-8: 32px; --space-10: 40px; --space-12: 48px; --space-16: 64px;
+}
+
+/* ── Border radius (base 4px) ───────────────────────────────────────────── */
+:root {
+  --radius-sm:   2px;
+  --radius-md:   4px;   /* ★ base */
+  --radius-lg:   6px;
+  --radius-xl:   8px;
+  --radius-full: 9999px;
+  --radius: 4px;         /* shadcn reads this */
+}
+
+/* ── shadcn/ui CSS variable bridge ──────────────────────────────────────── */
+:root {
+  --background: 251 251 251;
+  --foreground: 17 17 17;
+  --card: 255 255 255;
+  --card-foreground: 17 17 17;
+  --border: 232 232 230;
+  --input: 232 232 230;
+  --ring: 61 143 224;
+  --primary: 26 31 46;
+  --primary-foreground: 255 255 255;
+  --secondary: 240 240 238;
+  --secondary-foreground: 17 17 17;
+  --muted: 240 240 238;
+  --muted-foreground: 107 107 107;
+  --accent: 240 240 238;
+  --accent-foreground: 17 17 17;
+  --destructive: 181 38 38;
+  --destructive-foreground: 255 255 255;
+}
+
+/* ── Shadows ─────────────────────────────────────────────────────────────── */
+:root {
+  --shadow-field:  none;                                  /* fields: border only, no shadow */
+  --shadow-none:   none;
+  --shadow-xs:     0 1px 2px 0 rgba(0,0,0,0.06);
+  --shadow-sm:     0 1px 3px 0 rgba(0,0,0,0.10), 0 1px 2px -1px rgba(0,0,0,0.06);
+  --shadow-md:     0 4px 6px -1px rgba(0,0,0,0.10), 0 2px 4px -2px rgba(0,0,0,0.06);
+  --shadow-focus:  0 0 0 3px rgba(61,143,224,0.35);
+}
+
+/* ── Motion ──────────────────────────────────────────────────────────────── */
+:root {
+  --duration-fast:   120ms;
+  --duration-normal: 200ms;
+  --duration-slow:   300ms;
+  --ease-default:    cubic-bezier(0.16, 1, 0.3, 1);
+  --ease-out:        cubic-bezier(0, 0, 0.2, 1);
+}
+
+/* ── Base reset ──────────────────────────────────────────────────────────── */
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+body {
+  font-family: var(--font-sans);
+  font-size: var(--text-base);
+  font-weight: var(--weight-regular);
+  line-height: var(--leading-normal);
+  color: var(--color-text-primary);
+  background: var(--color-page-bg);
+  -webkit-font-smoothing: antialiased;
+}
+
+.small-caps { font-variant: small-caps; letter-spacing: var(--tracking-caps); font-weight: var(--weight-medium); }
+.mono       { font-family: var(--font-mono); }

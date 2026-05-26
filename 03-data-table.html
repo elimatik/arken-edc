@@ -1,0 +1,438 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Arken EDC — Data Table</title>
+<link href="https://fonts.googleapis.com/css2?family=Roboto:wght@400;500;700&family=Roboto+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+:root {
+  --amber-50:#FFF8E7; --amber-200:#F5B830; --amber-600:#B87800; --amber-700: #8A5C00;
+  --orange-50:#FFF0E8; --orange-200:#F48E50; --orange-600:#C94C0C;
+  --red-50:#FFF0F0;   --red-200:#EC8585;   --red-600:#B52626;
+  --blue-50:#E8F4FF;  --blue-200:#7AB8EE;  --blue-600:#1760A8;
+  --green-50:#EEFAF4; --green-200:#58BC88; --green-600:#1A6B47;
+  --purple-50:#F0EEFF;--purple-200:#A9A3EC;--purple-600:#534AB7;
+  --slate-50:#EEF1F6; --slate-200:#8AA0B8; --slate-600:#3D5A78;
+
+  --color-page-bg:#FBFBFB; --color-surface:#FFFFFF; --color-border:#E8E8E6;
+  --color-nav-bg:#1A1F2E; --color-nav-hover:#2C3248;
+  --color-text-primary:#2C2D33; --color-text-secondary:#4F535B;
+  --color-text-tertiary:#6D7480; --color-text-inverse:#FFFFFF;
+  --color-cta-bg:#1A1F2E; --color-cta-hover:#2C3248;
+  --color-hover-bg:#F0F0EE; --color-focus-ring:#3D8FE0;
+
+  --font-sans:'Roboto',system-ui,sans-serif;
+  --font-mono:'Roboto Mono','Fira Code',monospace;
+  --text-xs:11px; --text-sm:12px; --text-base:14px; --text-lg:16px; --text-3xl:24px;
+  --weight-regular:400; --weight-medium:500; --weight-bold:700;
+  --leading-normal:1.5; --tracking-caps:0.07em;
+  --radius-sm:2px; --radius-md:4px; --radius-lg:6px; --radius-full:9999px;
+  --space-1:4px; --space-2:8px; --space-3:12px; --space-4:16px;
+  --space-5:20px; --space-6:24px; --space-8:32px; --space-10:40px;
+  --duration-fast:120ms; --duration-normal:200ms;
+  --ease-default:cubic-bezier(0.16,1,0.3,1);
+}
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+body{font-family:var(--font-sans);font-size:var(--text-base);line-height:var(--leading-normal);color:var(--color-text-primary);background:var(--color-page-bg);-webkit-font-smoothing:antialiased}
+.page{max-width:1100px;margin:0 auto;padding:var(--space-8) var(--space-6)}
+.page-title{font-size:var(--text-3xl);font-weight:var(--weight-medium);margin-bottom:var(--space-2)}
+.page-meta{font-size:var(--text-sm);color:var(--color-text-tertiary);font-family:var(--font-mono);margin-bottom:var(--space-8)}
+.section{margin-bottom:var(--space-10)}
+.section-title{font-size:var(--text-lg);font-weight:var(--weight-medium);font-variant:small-caps;letter-spacing:var(--tracking-caps);color:var(--color-text-secondary);margin-bottom:var(--space-5);padding-bottom:var(--space-3);border-bottom:1px solid var(--color-border)}
+
+/* ── Table shell ── */
+.table-shell {
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-lg);
+  overflow: hidden;
+}
+
+/* ── Table toolbar ── */
+.table-toolbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: var(--space-3) var(--space-4);
+  border-bottom: 1px solid var(--color-border);
+  background: var(--color-surface);
+  gap: var(--space-3);
+  flex-wrap: wrap;
+}
+.toolbar-left  { display: flex; align-items: center; gap: var(--space-2); }
+.toolbar-right { display: flex; align-items: center; gap: var(--space-2); }
+
+.table-title {
+  font-size: var(--text-base);
+  font-weight: var(--weight-medium);
+  color: var(--color-text-primary);
+}
+.table-count {
+  font-size: var(--text-sm);
+  color: var(--color-text-tertiary);
+  font-family: var(--font-mono);
+}
+
+/* Search input */
+.search-input {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  padding: 5px var(--space-3);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  background: var(--color-surface);
+  color: var(--color-text-primary);
+  font-family: var(--font-sans);
+  font-size: var(--text-sm);
+  width: 220px;
+  outline: none;
+  transition: border-color var(--duration-fast);
+}
+.search-input:focus { border-color: var(--color-focus-ring); box-shadow: 0 0 0 3px rgba(61,143,224,0.20); }
+.search-wrap { position: relative; }
+.search-wrap svg { position: absolute; left: 9px; top: 50%; transform: translateY(-50%); color: var(--color-text-tertiary); pointer-events: none; }
+.search-wrap input { padding-left: 28px; border: 1px solid var(--color-border); border-radius: var(--radius-md); background: var(--color-surface); font-family: var(--font-sans); font-size: var(--text-sm); color: var(--color-text-primary); outline: none; padding-top: 5px; padding-bottom: 5px; padding-right: var(--space-3); width: 220px; transition: border-color var(--duration-fast), box-shadow var(--duration-fast); }
+.search-wrap input:focus { border-color: var(--color-focus-ring); box-shadow: 0 0 0 3px rgba(61,143,224,0.20); }
+.search-wrap input::placeholder { color: var(--color-text-placeholder); }
+
+/* Toolbar button */
+.tb-btn {
+  display: flex; align-items: center; gap: 5px;
+  padding: 5px var(--space-3);
+  font-family: var(--font-sans); font-size: var(--text-sm); font-weight: var(--weight-medium);
+  border: 1px solid var(--color-border); border-radius: var(--radius-md);
+  background: var(--color-surface); color: var(--color-text-secondary);
+  cursor: pointer; white-space: nowrap;
+  transition: all var(--duration-fast);
+}
+.tb-btn:hover { border-color: #c8c8c6; background: var(--color-hover-bg); color: var(--color-text-primary); }
+.tb-btn-primary {
+  background: var(--color-cta-bg); color: var(--color-text-inverse);
+  border-color: var(--color-cta-bg);
+}
+.tb-btn-primary:hover { background: var(--color-cta-hover); border-color: var(--color-cta-hover); color: var(--color-text-inverse); }
+
+/* ── Table itself ── */
+.data-table { width: 100%; border-collapse: collapse; }
+
+.data-table thead tr {
+  background: var(--color-page-bg);
+  border-bottom: 1px solid var(--color-border);
+}
+
+/* Column headers — small caps per spec */
+.data-table th {
+  padding: var(--space-2) var(--space-4);
+  text-align: left;
+  font-size: var(--text-base);
+  font-weight: var(--weight-medium);
+  font-variant: small-caps;
+  letter-spacing: var(--tracking-caps);
+  color: var(--color-text-tertiary);
+  white-space: nowrap;
+  user-select: none;
+}
+.data-table th.sortable { cursor: pointer; }
+.data-table th.sortable:hover { color: var(--color-text-primary); }
+.th-inner { display: flex; align-items: center; gap: 4px; }
+.sort-icon { opacity: 0.4; transition: opacity var(--duration-fast); }
+th.sorted .sort-icon { opacity: 1; color: var(--color-text-primary); }
+th.sort-desc .sort-icon { transform: rotate(180deg); }
+
+/* Table rows */
+.data-table tbody tr {
+  border-bottom: 1px solid var(--color-border);
+  transition: background var(--duration-fast);
+}
+.data-table tbody tr:last-child { border-bottom: none; }
+.data-table tbody tr:hover { background: var(--color-hover-bg); }
+.data-table tbody tr.row-selected { background: var(--blue-50); }
+.data-table tbody tr.row-critical { background: #FFF8F8; }
+.data-table tbody tr.row-critical:hover { background: #FFF0F0; }
+
+.data-table td {
+  padding: var(--space-2) var(--space-4);
+  font-size: var(--text-base);
+  color: var(--color-text-primary);
+  vertical-align: middle;
+}
+
+/* Cell types */
+.cell-mono    { font-family: var(--font-mono); font-size: var(--text-sm); color: var(--color-text-secondary); }
+.cell-primary { font-weight: var(--weight-medium); }
+.cell-secondary { color: var(--color-text-secondary); font-size: var(--text-sm); }
+.cell-dim     { color: var(--color-text-tertiary); font-size: var(--text-sm); }
+
+/* Progress bar — form completion */
+.progress-bar {
+  display: flex; align-items: center; gap: var(--space-2);
+}
+.progress-track {
+  flex: 1; height: 5px; background: var(--color-border);
+  border-radius: var(--radius-full); overflow: hidden; min-width: 60px;
+}
+.progress-fill { height: 100%; border-radius: var(--radius-full); transition: width var(--duration-normal); }
+.progress-label { font-size: var(--text-xs); font-family: var(--font-mono); color: var(--color-text-tertiary); white-space: nowrap; }
+
+/* Badge (inline — copy from 02-badge for self-contained file) */
+.badge {
+  display: inline-flex; align-items: center; gap: 5px;
+  padding: 2px 8px; border-radius: var(--radius-full);
+  font-size: var(--text-xs); font-weight: var(--weight-medium);
+  border: 1px solid; white-space: nowrap; line-height: 1.6;
+}
+.dot { width: 6px; height: 6px; border-radius: 50%; flex-shrink: 0; }
+.badge-active   { background:var(--blue-50);   border-color:var(--blue-200);   color:var(--blue-600); }
+.badge-success  { background:var(--green-50);  border-color:var(--green-200);  color:var(--green-600); }
+.badge-pending  { background:var(--purple-50); border-color:var(--purple-200); color:var(--purple-600); }
+.badge-warning  { background:var(--amber-50);  border-color:var(--amber-200);  color:var(--amber-700); }
+.badge-alert    { background:var(--orange-50); border-color:var(--orange-200); color:var(--orange-600); }
+.badge-critical { background:var(--red-50);    border-color:var(--red-200);    color:var(--red-600); }
+.badge-info     { background:var(--slate-50);  border-color:var(--slate-200);  color:var(--slate-600); }
+
+/* Row actions */
+.row-actions { display: flex; align-items: center; gap: 2px; opacity: 0; transition: opacity var(--duration-fast); }
+tr:hover .row-actions { opacity: 1; }
+.row-btn {
+  display: flex; align-items: center; justify-content: center;
+  width: 28px; height: 28px; border-radius: var(--radius-md);
+  border: none; background: transparent; color: var(--color-text-tertiary);
+  cursor: pointer; transition: all var(--duration-fast);
+}
+.row-btn:hover { background: var(--color-border); color: var(--color-text-primary); }
+
+/* Checkbox */
+.cb { width: 15px; height: 15px; border: 1px solid var(--color-border); border-radius: var(--radius-sm); cursor: pointer; accent-color: var(--color-nav-bg); }
+
+/* Table footer */
+.table-footer {
+  display: flex; align-items: center; justify-content: space-between;
+  padding: var(--space-3) var(--space-4);
+  border-top: 1px solid var(--color-border);
+  background: var(--color-page-bg);
+}
+.footer-info { font-size: var(--text-sm); color: var(--color-text-tertiary); font-family: var(--font-mono); }
+.pagination { display: flex; align-items: center; gap: var(--space-1); }
+.page-btn {
+  display: flex; align-items: center; justify-content: center;
+  width: 28px; height: 28px; border-radius: var(--radius-md);
+  border: 1px solid var(--color-border); background: var(--color-surface);
+  font-size: var(--text-sm); color: var(--color-text-secondary); cursor: pointer;
+  transition: all var(--duration-fast); font-family: var(--font-mono);
+}
+.page-btn:hover { border-color: #c8c8c6; background: var(--color-hover-bg); color: var(--color-text-primary); }
+.page-btn.active { background: var(--color-nav-bg); border-color: var(--color-nav-bg); color: #fff; }
+.page-btn:disabled { opacity: 0.4; cursor: default; }
+</style>
+</head>
+<body>
+<div class="page">
+
+  <h1 class="page-title">Data table</h1>
+  <p class="page-meta">Component 03 · Layer 3 block · arken-edc/components/03-data-table.html</p>
+
+  <!-- Subject listing table -->
+  <div class="section">
+    <h2 class="section-title">Subject listing — Arken Canine · Study AK-2401</h2>
+    <div class="table-shell">
+
+      <!-- Toolbar -->
+      <div class="table-toolbar">
+        <div class="toolbar-left">
+          <span class="table-title">Subjects</span>
+          <span class="table-count">12 enrolled · 2 screening</span>
+        </div>
+        <div class="toolbar-right">
+          <div class="search-wrap">
+            <svg width="14" height="14" viewBox="0 0 16 16" fill="none"><circle cx="6.5" cy="6.5" r="4.5" stroke="currentColor" stroke-width="1.5"/><line x1="10" y1="10" x2="14" y2="14" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg>
+            <input type="text" placeholder="Search subjects…">
+          </div>
+          <button class="tb-btn">
+            <svg width="13" height="13" viewBox="0 0 16 16" fill="none"><path d="M2 4h12M4 8h8M6 12h4" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg>
+            Filter
+          </button>
+          <button class="tb-btn tb-btn-primary">
+            <svg width="13" height="13" viewBox="0 0 16 16" fill="none"><line x1="8" y1="2" x2="8" y2="14" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/><line x1="2" y1="8" x2="14" y2="8" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg>
+            Enrol subject
+          </button>
+        </div>
+      </div>
+
+      <!-- Table -->
+      <table class="data-table">
+        <thead>
+          <tr>
+            <th style="width:36px"><input type="checkbox" class="cb"></th>
+            <th class="sortable sorted">
+              <div class="th-inner">Subject ID
+                <svg class="sort-icon" width="11" height="11" viewBox="0 0 12 12" fill="none"><path d="M6 2v8M3 7l3 3 3-3" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>
+              </div>
+            </th>
+            <th>Species / Sex</th>
+            <th class="sortable">
+              <div class="th-inner">Current visit
+                <svg class="sort-icon" width="11" height="11" viewBox="0 0 12 12" fill="none"><path d="M6 2v8M3 7l3 3 3-3" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>
+              </div>
+            </th>
+            <th>Form completion</th>
+            <th class="sortable">
+              <div class="th-inner">Body weight
+                <svg class="sort-icon" width="11" height="11" viewBox="0 0 12 12" fill="none"><path d="M6 2v8M3 7l3 3 3-3" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>
+              </div>
+            </th>
+            <th>Status</th>
+            <th style="width:80px"></th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td><input type="checkbox" class="cb"></td>
+            <td><span class="cell-mono cell-primary">AK-2401-C01</span></td>
+            <td><span class="cell-primary">Canine</span> <span class="cell-secondary">/ M / 4yr</span></td>
+            <td class="cell-mono">Visit 4 — Wk 12</td>
+            <td>
+              <div class="progress-bar">
+                <div class="progress-track"><div class="progress-fill" style="width:100%;background:var(--green-600)"></div></div>
+                <span class="progress-label">6/6</span>
+              </div>
+            </td>
+            <td class="cell-mono">26.4 kg</td>
+            <td><span class="badge badge-success"><span class="dot" style="background:var(--green-600)"></span>SDV complete</span></td>
+            <td>
+              <div class="row-actions">
+                <button class="row-btn" title="View subject">
+                  <svg width="14" height="14" viewBox="0 0 16 16" fill="none"><path d="M1 8s2.5-5 7-5 7 5 7 5-2.5 5-7 5-7-5-7-5z" stroke="currentColor" stroke-width="1.5"/><circle cx="8" cy="8" r="2" stroke="currentColor" stroke-width="1.5"/></svg>
+                </button>
+                <button class="row-btn" title="Enter data">
+                  <svg width="14" height="14" viewBox="0 0 16 16" fill="none"><path d="M11 2l3 3-8 8H3v-3L11 2z" stroke="currentColor" stroke-width="1.5" stroke-linejoin="round"/></svg>
+                </button>
+              </div>
+            </td>
+          </tr>
+          <tr>
+            <td><input type="checkbox" class="cb"></td>
+            <td><span class="cell-mono cell-primary">AK-2401-C02</span></td>
+            <td><span class="cell-primary">Canine</span> <span class="cell-secondary">/ F / 3yr</span></td>
+            <td class="cell-mono">Visit 4 — Wk 12</td>
+            <td>
+              <div class="progress-bar">
+                <div class="progress-track"><div class="progress-fill" style="width:67%;background:var(--amber-600)"></div></div>
+                <span class="progress-label">4/6</span>
+              </div>
+            </td>
+            <td class="cell-mono">19.2 kg</td>
+            <td><span class="badge badge-warning"><span class="dot" style="background:var(--amber-700)"></span>Query open</span></td>
+            <td>
+              <div class="row-actions">
+                <button class="row-btn" title="View subject"><svg width="14" height="14" viewBox="0 0 16 16" fill="none"><path d="M1 8s2.5-5 7-5 7 5 7 5-2.5 5-7 5-7-5-7-5z" stroke="currentColor" stroke-width="1.5"/><circle cx="8" cy="8" r="2" stroke="currentColor" stroke-width="1.5"/></svg></button>
+                <button class="row-btn" title="Enter data"><svg width="14" height="14" viewBox="0 0 16 16" fill="none"><path d="M11 2l3 3-8 8H3v-3L11 2z" stroke="currentColor" stroke-width="1.5" stroke-linejoin="round"/></svg></button>
+              </div>
+            </td>
+          </tr>
+          <tr class="row-critical">
+            <td><input type="checkbox" class="cb"></td>
+            <td><span class="cell-mono cell-primary">AK-2401-C03</span></td>
+            <td><span class="cell-primary">Canine</span> <span class="cell-secondary">/ M / 5yr</span></td>
+            <td class="cell-mono">Visit 3 — Wk 8</td>
+            <td>
+              <div class="progress-bar">
+                <div class="progress-track"><div class="progress-fill" style="width:33%;background:var(--red-600)"></div></div>
+                <span class="progress-label">2/6</span>
+              </div>
+            </td>
+            <td class="cell-mono" style="color:var(--red-600);font-weight:500">8.1 kg</td>
+            <td><span class="badge badge-critical"><span class="dot" style="background:var(--red-600)"></span>SAE</span></td>
+            <td>
+              <div class="row-actions">
+                <button class="row-btn" title="View subject"><svg width="14" height="14" viewBox="0 0 16 16" fill="none"><path d="M1 8s2.5-5 7-5 7 5 7 5-2.5 5-7 5-7-5-7-5z" stroke="currentColor" stroke-width="1.5"/><circle cx="8" cy="8" r="2" stroke="currentColor" stroke-width="1.5"/></svg></button>
+                <button class="row-btn" title="Enter data"><svg width="14" height="14" viewBox="0 0 16 16" fill="none"><path d="M11 2l3 3-8 8H3v-3L11 2z" stroke="currentColor" stroke-width="1.5" stroke-linejoin="round"/></svg></button>
+              </div>
+            </td>
+          </tr>
+          <tr>
+            <td><input type="checkbox" class="cb"></td>
+            <td><span class="cell-mono cell-primary">AK-2401-C04</span></td>
+            <td><span class="cell-primary">Canine</span> <span class="cell-secondary">/ F / 4yr</span></td>
+            <td class="cell-mono">Visit 4 — Wk 12</td>
+            <td>
+              <div class="progress-bar">
+                <div class="progress-track"><div class="progress-fill" style="width:100%;background:var(--green-600)"></div></div>
+                <span class="progress-label">6/6</span>
+              </div>
+            </td>
+            <td class="cell-mono">22.8 kg</td>
+            <td><span class="badge badge-success"><span class="dot" style="background:var(--green-600)"></span>SDV complete</span></td>
+            <td>
+              <div class="row-actions">
+                <button class="row-btn" title="View subject"><svg width="14" height="14" viewBox="0 0 16 16" fill="none"><path d="M1 8s2.5-5 7-5 7 5 7 5-2.5 5-7 5-7-5-7-5z" stroke="currentColor" stroke-width="1.5"/><circle cx="8" cy="8" r="2" stroke="currentColor" stroke-width="1.5"/></svg></button>
+                <button class="row-btn" title="Enter data"><svg width="14" height="14" viewBox="0 0 16 16" fill="none"><path d="M11 2l3 3-8 8H3v-3L11 2z" stroke="currentColor" stroke-width="1.5" stroke-linejoin="round"/></svg></button>
+              </div>
+            </td>
+          </tr>
+          <tr>
+            <td><input type="checkbox" class="cb"></td>
+            <td><span class="cell-mono cell-primary">AK-2401-C05</span></td>
+            <td><span class="cell-primary">Canine</span> <span class="cell-secondary">/ M / 2yr</span></td>
+            <td class="cell-mono">Visit 4 — Wk 12</td>
+            <td>
+              <div class="progress-bar">
+                <div class="progress-track"><div class="progress-fill" style="width:50%;background:var(--orange-600)"></div></div>
+                <span class="progress-label">3/6</span>
+              </div>
+            </td>
+            <td class="cell-mono">31.1 kg</td>
+            <td><span class="badge badge-alert"><span class="dot" style="background:var(--orange-600)"></span>Overdue</span></td>
+            <td>
+              <div class="row-actions">
+                <button class="row-btn" title="View subject"><svg width="14" height="14" viewBox="0 0 16 16" fill="none"><path d="M1 8s2.5-5 7-5 7 5 7 5-2.5 5-7 5-7-5-7-5z" stroke="currentColor" stroke-width="1.5"/><circle cx="8" cy="8" r="2" stroke="currentColor" stroke-width="1.5"/></svg></button>
+                <button class="row-btn" title="Enter data"><svg width="14" height="14" viewBox="0 0 16 16" fill="none"><path d="M11 2l3 3-8 8H3v-3L11 2z" stroke="currentColor" stroke-width="1.5" stroke-linejoin="round"/></svg></button>
+              </div>
+            </td>
+          </tr>
+          <tr>
+            <td><input type="checkbox" class="cb"></td>
+            <td><span class="cell-mono cell-primary">AK-2401-C06</span></td>
+            <td><span class="cell-primary">Canine</span> <span class="cell-secondary">/ F / 6yr</span></td>
+            <td class="cell-mono">Visit 4 — Wk 12</td>
+            <td>
+              <div class="progress-bar">
+                <div class="progress-track"><div class="progress-fill" style="width:83%;background:var(--blue-600)"></div></div>
+                <span class="progress-label">5/6</span>
+              </div>
+            </td>
+            <td class="cell-mono">18.5 kg</td>
+            <td><span class="badge badge-pending"><span class="dot" style="background:var(--purple-600)"></span>Pending sign-off</span></td>
+            <td>
+              <div class="row-actions">
+                <button class="row-btn" title="View subject"><svg width="14" height="14" viewBox="0 0 16 16" fill="none"><path d="M1 8s2.5-5 7-5 7 5 7 5-2.5 5-7 5-7-5-7-5z" stroke="currentColor" stroke-width="1.5"/><circle cx="8" cy="8" r="2" stroke="currentColor" stroke-width="1.5"/></svg></button>
+                <button class="row-btn" title="Enter data"><svg width="14" height="14" viewBox="0 0 16 16" fill="none"><path d="M11 2l3 3-8 8H3v-3L11 2z" stroke="currentColor" stroke-width="1.5" stroke-linejoin="round"/></svg></button>
+              </div>
+            </td>
+          </tr>
+        </tbody>
+      </table>
+
+      <!-- Footer / pagination -->
+      <div class="table-footer">
+        <span class="footer-info">Showing 1–6 of 14 subjects</span>
+        <div class="pagination">
+          <button class="page-btn" disabled>
+            <svg width="12" height="12" viewBox="0 0 12 12" fill="none"><path d="M8 2L4 6l4 4" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>
+          </button>
+          <button class="page-btn active">1</button>
+          <button class="page-btn">2</button>
+          <button class="page-btn">3</button>
+          <button class="page-btn">
+            <svg width="12" height="12" viewBox="0 0 12 12" fill="none"><path d="M4 2l4 4-4 4" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>
+          </button>
+        </div>
+      </div>
+
+    </div>
+  </div>
+
+</div>
+</body>
+</html>

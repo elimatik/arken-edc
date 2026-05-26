@@ -1,0 +1,277 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Arken EDC — Badge & Status Pill</title>
+<link href="https://fonts.googleapis.com/css2?family=Roboto:wght@400;500;700&family=Roboto+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+:root {
+  --amber-50:#FFF8E7; --amber-200:#F5B830; --amber-600:#B87800; --amber-700: #8A5C00; --amber-800:#7A4F00;
+  --orange-50:#FFF0E8; --orange-200:#F48E50; --orange-600:#C94C0C;
+  --red-50:#FFF0F0; --red-200:#EC8585; --red-600:#B52626;
+  --blue-50:#E8F4FF; --blue-200:#7AB8EE; --blue-600:#1760A8;
+  --green-50:#EEFAF4; --green-200:#58BC88; --green-600:#1A6B47;
+  --purple-50:#F0EEFF; --purple-200:#A9A3EC; --purple-600:#534AB7;
+  --slate-50:#EEF1F6; --slate-200:#8AA0B8; --slate-600:#3D5A78;
+  --color-page-bg:#FBFBFB; --color-surface:#FFFFFF; --color-border:#E8E8E6;
+  --color-nav-bg:#1A1F2E;
+  --color-text-primary:#2C2D33; --color-text-secondary:#4F535B; --color-text-tertiary:#6D7480;
+  --color-text-inverse:#FFFFFF;
+  --font-sans:'Roboto',system-ui,sans-serif;
+  --font-mono:'Roboto Mono','Fira Code',monospace;
+  --text-xs:11px; --text-sm:12px; --text-base:14px; --text-lg:16px; --text-3xl:24px;
+  --weight-regular:400; --weight-medium:500; --weight-bold:700;
+  --leading-normal:1.5; --tracking-caps:0.07em;
+  --radius-sm:2px; --radius-md:4px; --radius-full:9999px;
+  --space-1:4px; --space-2:8px; --space-3:12px; --space-4:16px;
+  --space-5:20px; --space-6:24px; --space-8:32px; --space-10:40px;
+}
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+body{font-family:var(--font-sans);font-size:var(--text-base);line-height:var(--leading-normal);color:var(--color-text-primary);background:var(--color-page-bg);-webkit-font-smoothing:antialiased}
+.page{max-width:960px;margin:0 auto;padding:var(--space-8) var(--space-6)}
+.page-title{font-size:var(--text-3xl);font-weight:var(--weight-medium);margin-bottom:var(--space-2)}
+.page-meta{font-size:var(--text-sm);color:var(--color-text-tertiary);font-family:var(--font-mono);margin-bottom:var(--space-8)}
+.section{margin-bottom:var(--space-10)}
+.section-title{font-size:var(--text-lg);font-weight:var(--weight-medium);font-variant:small-caps;letter-spacing:var(--tracking-caps);color:var(--color-text-secondary);margin-bottom:var(--space-5);padding-bottom:var(--space-3);border-bottom:1px solid var(--color-border)}
+.row{display:flex;flex-wrap:wrap;align-items:center;gap:var(--space-2);margin-bottom:var(--space-3)}
+.row-label{font-size:var(--text-xs);font-weight:var(--weight-medium);color:var(--color-text-tertiary);min-width:100px;font-family:var(--font-mono)}
+
+/* ── Badge — pill shape, semantic colour ── */
+.badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 2px 8px;
+  border-radius: var(--radius-full);
+  font-size: var(--text-xs);
+  font-weight: var(--weight-medium);
+  border: 1px solid;
+  white-space: nowrap;
+  line-height: 1.6;
+}
+.badge .dot { width: 6px; height: 6px; border-radius: 50%; flex-shrink: 0; }
+
+/* Status variants */
+.badge-active    { background:var(--blue-50);   border-color:var(--blue-200);   color:var(--blue-600); }
+.badge-success   { background:var(--green-50);  border-color:var(--green-200);  color:var(--green-600); }
+.badge-pending   { background:var(--purple-50); border-color:var(--purple-200); color:var(--purple-600); }
+.badge-info      { background:var(--slate-50);  border-color:var(--slate-200);  color:var(--slate-600); }
+.badge-warning   { background:var(--amber-50);  border-color:var(--amber-200);  color:var(--amber-700); }
+.badge-alert     { background:var(--orange-50); border-color:var(--orange-200); color:var(--orange-600); }
+.badge-critical  { background:var(--red-50);    border-color:var(--red-200);    color:var(--red-600); }
+
+/* Dot colours */
+.dot-active   { background: var(--blue-600); }
+.dot-success  { background: var(--green-600); }
+.dot-pending  { background: var(--purple-600); }
+.dot-info     { background: var(--slate-600); }
+.dot-warning  { background: var(--amber-700); }
+.dot-alert    { background: var(--orange-600); }
+.dot-critical { background: var(--red-600); }
+
+/* ── Filled badge variant (for counts, strong emphasis) ── */
+.badge-filled {
+  display: inline-flex;
+  align-items: center;
+  padding: 2px 8px;
+  border-radius: var(--radius-full);
+  font-size: var(--text-xs);
+  font-weight: var(--weight-medium);
+  border: none;
+  white-space: nowrap;
+}
+.badge-filled-active   { background:var(--blue-600);   color:#fff; }
+.badge-filled-success  { background:var(--green-600);  color:#fff; }
+.badge-filled-pending  { background:var(--purple-600); color:#fff; }
+.badge-filled-warning  { background:var(--amber-700);  color:#fff; }
+.badge-filled-alert    { background:var(--orange-600); color:#fff; }
+.badge-filled-critical { background:var(--red-600);    color:#fff; }
+.badge-filled-nav      { background:var(--color-nav-bg); color:#fff; }
+
+/* ── Role badge ── */
+.role-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 3px 10px;
+  border-radius: var(--radius-full);
+  font-size: var(--text-xs);
+  font-weight: var(--weight-medium);
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  color: var(--color-text-primary);
+  white-space: nowrap;
+}
+.role-dot { width: 8px; height: 8px; border-radius: 50%; flex-shrink: 0; }
+
+/* ── Count badge (number in a circle — sidebar nav notifications) ── */
+.count-badge {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 18px;
+  height: 18px;
+  padding: 0 5px;
+  border-radius: var(--radius-full);
+  font-size: 10px;
+  font-weight: var(--weight-bold);
+  font-family: var(--font-mono);
+  line-height: 1;
+}
+.count-warning  { background: var(--amber-50);  color: var(--amber-700);  border: 1px solid var(--amber-200); }
+.count-alert    { background: var(--orange-50); color: var(--orange-600); border: 1px solid var(--orange-200); }
+.count-critical { background: var(--red-50);    color: var(--red-600);    border: 1px solid var(--red-200); }
+.count-nav      { background: var(--red-600);   color: #fff; }
+
+/* ── Usage context card ── */
+.context-card{background:var(--color-surface);border:1px solid var(--color-border);border-radius:6px;padding:var(--space-5)}
+.context-card table{width:100%;border-collapse:collapse;font-size:var(--text-sm)}
+.context-card th{text-align:left;font-size:var(--text-xs);font-weight:var(--weight-medium);font-variant:small-caps;letter-spacing:var(--tracking-caps);color:var(--color-text-tertiary);padding:var(--space-2) var(--space-3);border-bottom:1px solid var(--color-border);background:var(--color-page-bg)}
+.context-card td{padding:var(--space-2) var(--space-3);border-bottom:1px solid var(--color-border);vertical-align:middle;color:var(--color-text-primary)}
+.context-card tr:last-child td{border-bottom:none}
+.context-card tr:hover td{background:var(--color-page-bg)}
+</style>
+</head>
+<body>
+<div class="page">
+
+  <h1 class="page-title">Badge & status pill</h1>
+  <p class="page-meta">Component 02 · Layer 1 primitive · arken-edc/components/02-badge.html</p>
+
+  <!-- Outline badges -->
+  <div class="section">
+    <h2 class="section-title">Outline badges — all semantic states</h2>
+    <div class="row">
+      <span class="row-label">Active</span>
+      <span class="badge badge-active"><span class="dot dot-active"></span>Active</span>
+      <span class="badge badge-active"><span class="dot dot-active"></span>Enrolling</span>
+      <span class="badge badge-active"><span class="dot dot-active"></span>On track</span>
+    </div>
+    <div class="row">
+      <span class="row-label">Success</span>
+      <span class="badge badge-success"><span class="dot dot-success"></span>Complete</span>
+      <span class="badge badge-success"><span class="dot dot-success"></span>Form saved</span>
+      <span class="badge badge-success"><span class="dot dot-success"></span>Validated</span>
+      <span class="badge badge-success"><span class="dot dot-success"></span>SDV done</span>
+    </div>
+    <div class="row">
+      <span class="row-label">Pending</span>
+      <span class="badge badge-pending"><span class="dot dot-pending"></span>Awaiting review</span>
+      <span class="badge badge-pending"><span class="dot dot-pending"></span>Pending sign-off</span>
+      <span class="badge badge-pending"><span class="dot dot-pending"></span>In progress</span>
+    </div>
+    <div class="row">
+      <span class="row-label">Info</span>
+      <span class="badge badge-info"><span class="dot dot-info"></span>Screening</span>
+      <span class="badge badge-info"><span class="dot dot-info"></span>Visit scheduled</span>
+      <span class="badge badge-info"><span class="dot dot-info"></span>Draft</span>
+    </div>
+    <div class="row">
+      <span class="row-label">Warning</span>
+      <span class="badge badge-warning"><span class="dot dot-warning"></span>Incomplete</span>
+      <span class="badge badge-warning"><span class="dot dot-warning"></span>Query open</span>
+      <span class="badge badge-warning"><span class="dot dot-warning"></span>Acknowledge required</span>
+    </div>
+    <div class="row">
+      <span class="row-label">Alert</span>
+      <span class="badge badge-alert"><span class="dot dot-alert"></span>Overdue</span>
+      <span class="badge badge-alert"><span class="dot dot-alert"></span>Missing data</span>
+      <span class="badge badge-alert"><span class="dot dot-alert"></span>Visit window closing</span>
+    </div>
+    <div class="row">
+      <span class="row-label">Critical</span>
+      <span class="badge badge-critical"><span class="dot dot-critical"></span>SAE</span>
+      <span class="badge badge-critical"><span class="dot dot-critical"></span>Humane endpoint</span>
+      <span class="badge badge-critical"><span class="dot dot-critical"></span>Critical finding</span>
+      <span class="badge badge-critical"><span class="dot dot-critical"></span>Expired</span>
+    </div>
+  </div>
+
+  <!-- Filled badges -->
+  <div class="section">
+    <h2 class="section-title">Filled badges — strong emphasis</h2>
+    <div class="row">
+      <span class="badge-filled badge-filled-active">Active</span>
+      <span class="badge-filled badge-filled-success">Complete</span>
+      <span class="badge-filled badge-filled-pending">Pending</span>
+      <span class="badge-filled badge-filled-warning">Query</span>
+      <span class="badge-filled badge-filled-alert">Overdue</span>
+      <span class="badge-filled badge-filled-critical">SAE</span>
+      <span class="badge-filled badge-filled-nav">Locked</span>
+    </div>
+    <p style="font-size:var(--text-sm);color:var(--color-text-tertiary);margin-top:var(--space-3)">Use filled badges sparingly — for the single most important status in a row or card. Outline badges for secondary context.</p>
+  </div>
+
+  <!-- Role badges -->
+  <div class="section">
+    <h2 class="section-title">Role badges</h2>
+    <div class="row">
+      <span class="role-badge"><span class="role-dot" style="background:#1760A8"></span>PI</span>
+      <span class="role-badge"><span class="role-dot" style="background:#534AB7"></span>CRC</span>
+      <span class="role-badge"><span class="role-dot" style="background:#8A5C00"></span>CRA</span>
+      <span class="role-badge"><span class="role-dot" style="background:#B52626"></span>DM</span>
+      <span class="role-badge"><span class="role-dot" style="background:#3D5A78"></span>PM</span>
+      <span class="role-badge"><span class="role-dot" style="background:#1A1F2E"></span>Admin</span>
+      <span class="role-badge"><span class="role-dot" style="background:#1A6B47"></span>Field Tech</span>
+    </div>
+  </div>
+
+  <!-- Count badges -->
+  <div class="section">
+    <h2 class="section-title">Count badges — notification counts</h2>
+    <div class="row">
+      <span class="row-label">Warning</span>
+      <span class="count-badge count-warning">3</span>
+      <span class="count-badge count-warning">12</span>
+    </div>
+    <div class="row">
+      <span class="row-label">Alert</span>
+      <span class="count-badge count-alert">5</span>
+    </div>
+    <div class="row">
+      <span class="row-label">Critical</span>
+      <span class="count-badge count-critical">2</span>
+      <span class="count-badge count-nav">!</span>
+    </div>
+  </div>
+
+  <!-- Usage table -->
+  <div class="section">
+    <h2 class="section-title">When to use each variant</h2>
+    <div class="context-card">
+      <table>
+        <thead>
+          <tr>
+            <th>Variant</th><th>When to use</th><th>Never use for</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td><span class="badge badge-active"><span class="dot dot-active"></span>Outline</span></td>
+            <td>Secondary status info alongside other data in a table row or card</td>
+            <td>The only element on screen — too subtle alone</td>
+          </tr>
+          <tr>
+            <td><span class="badge-filled badge-filled-alert">Filled</span></td>
+            <td>Single most important status. Sidebar counts. Alerts requiring immediate attention.</td>
+            <td>More than one per row — creates visual noise</td>
+          </tr>
+          <tr>
+            <td><span class="role-badge"><span class="role-dot" style="background:#534AB7"></span>Role</span></td>
+            <td>Showing which role performed an action (audit trail, query thread)</td>
+            <td>Navigation or page headers — use the role chip block there</td>
+          </tr>
+          <tr>
+            <td><span class="count-badge count-critical">3</span></td>
+            <td>Sidebar nav item counts. Unread counts. Items requiring action.</td>
+            <td>Data values — use mono text for actual numbers in tables</td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+
+</div>
+</body>
+</html>

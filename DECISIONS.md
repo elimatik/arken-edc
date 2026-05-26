@@ -1,0 +1,114 @@
+# Arken EDC — Decisions Log
+All design and technical decisions with rationale. Update this every session.
+
+---
+
+## How to use this file
+Every time a decision is made — about tokens, components, UX patterns, tech choices — log it here with the date and the reasoning. This is your interview prep document. Every entry is a potential talking point.
+
+---
+
+## Session 1 — 2026-05-25
+
+### Product name: Arken
+**Options considered:** Arken, Verd, Kairo, Vela, Luma, Ørka
+**Decision:** Arken
+**Rationale:** Hard consonants signal precision and authority. No conflicting SaaS trademark. Works at platform and module level (Arken Canine, Arken Aquatic). Easy to pronounce in Italian, English, and across European languages. Short enough to become a verb.
+
+---
+
+### Primary mode: Light (with dark planned)
+**Options considered:** Light-first, Dark-first, Split 50/50
+**Decision:** Light mode is the primary build. Dark mode is planned but not built in Phase 1.
+**Rationale:** Two genuinely distinct user contexts — clinical monitors in offices (light) and field technicians on tablets (dark). Both need first-class treatment. Light built first because it covers the largest user group and is easier to screenshot for portfolio.
+
+---
+
+### Product scope: Platform + flagship module
+**Options considered:** Single EDC tool, Full platform, Platform + one flagship
+**Decision:** Platform architecture with Arken Canine as the v1 flagship module
+**Rationale:** Maximum portfolio impact without unrealistic scope. Platform architecture shows systems thinking; single built-out module shows execution depth. Canine oncology chosen as flagship because it's the largest preclinical segment, highest data complexity (body-weight dosing, tumour endpoints), most analogous to human trials.
+
+---
+
+### Color palette: BRD Cattle palette
+**Decision:** Use the BRD Cattle palette (amber/orange/red severity + blue/green/purple/slate semantic + navy neutrals)
+**Rationale:** Designer-defined palette from prior research. Three-level severity scale (amber → orange → red) is clinically precise and has no equivalent in any competitor EDC. Navy CTA (#1A1F2E) differentiates from all competitors (Veeva = blue, Medidata = orange, Castor = blue).
+
+---
+
+### Three-level severity scale
+**Decision:** Amber (warning) / Orange (alert) / Red (critical) — never collapsed
+**Rationale:** Clinical monitoring has genuinely distinct urgency levels. Amber = acknowledge and proceed. Orange = action required soon. Red = immediate action, study impact. Collapsing these would force users to read labels instead of acting on colour — a patient/animal safety issue in disguise.
+
+---
+
+### Typography: Roboto + Roboto Mono
+**Options considered:** DM Sans, Inter, Plus Jakarta Sans, Roboto
+**Decision:** Roboto (UI) + Roboto Mono (data values)
+**Rationale:** Designer preference. Roboto has excellent legibility at 12–14px density. Roboto Mono shares the same design DNA — they pair seamlessly without visual noise. Google Fonts — zero cost, reliable CDN.
+
+---
+
+### Base font size: 14px
+**Decision:** 14px for all body text, table cells, field values
+**Rationale:** Clinical software is data-dense. 14px is the minimum for comfortable extended reading in table-heavy interfaces. Competitors using 12px for table data get complaints from users doing SDV for 4+ hour sessions.
+
+---
+
+### Small caps: table headers, breadcrumbs, form section titles
+**Decision:** `font-variant: small-caps` + `letter-spacing: 0.07em` on those three elements
+**Rationale:** Differentiates structural chrome from data content. When headers look different from data, users scan faster. Small caps at 14px reads as precise and clinical without being decorative.
+
+---
+
+### Border radius: 4px base
+**Options considered:** 6px (rounder), 4px (clinical), 2px (very tight)
+**Decision:** 4px base radius for inputs, buttons, cards
+**Rationale:** 4px is the sweet spot for clinical software — structured and deliberate, not sterile (0px) or consumer-app-soft (8px+). Matches the personality brief: precise but not cold.
+
+---
+
+### Field shadow: none
+**Decision:** Form fields have no box-shadow. Border only.
+**Rationale:** Eliminates visual noise in form-heavy screens. With 20–30 fields per form, shadow on every input creates a muddy mid-level depth layer that competes with actual data. 1px border on --color-border is sufficient affordance.
+
+---
+
+### Stroke: 1px everywhere
+**Decision:** All borders are 1px — no 0.5px, no 2px (except focus ring which is 3px outline)
+**Rationale:** Sub-pixel borders (0.5px) render inconsistently across displays and OS zoom levels. Clinical software is often used on non-Retina monitors. 1px is the reliable minimum that renders crisply everywhere.
+
+---
+
+### Component library: shadcn/ui
+**Decision:** Use shadcn/ui as the component foundation
+**Rationale:** shadcn gives you accessible, keyboard-navigable components that read from CSS variables — so Arken tokens apply automatically. Not a dependency you install; you copy the components into your codebase and own them. Zero lock-in, full control. Free.
+
+---
+
+### shadcn CSS bridge
+**Decision:** Arken token file includes shadcn's expected CSS variable names (`--radius`, `--background`, `--primary`, etc.) mapped to Arken values
+**Rationale:** When shadcn components are added in Phase 4, they'll inherit Arken's visual language automatically with no manual overrides needed.
+
+
+---
+
+## Session 3 — 2026-05-26
+
+### Text colour scale softened
+**Previous:** primary `#111111` · secondary `#6B6B6B` · tertiary `#9B9B9B`
+**New:** primary `#2C2D33` · secondary `#4F535B` · tertiary `#6D7480`
+**Rationale:** Pure black on white creates harsh contrast that reads as aggressive rather than precise. The new scale is still WCAG AA compliant at all sizes while feeling more considered. Propagated to all component files and arken-tokens.css.
+
+### Sub-label accent colour removed from metric card
+**Decision:** `.metric-sub` always uses `--color-text-tertiary` — including when `.accent` class is applied.
+**Rationale:** Amber-600 (#B87800) on white fails WCAG AA at 12px. Amber-800 (#7A4F00) passes but reads as muddy brown rather than a warning signal. The accent colour already appears on the top border and the large value — the sub-label doesn't need to repeat it. Tertiary text is sufficient for supporting copy.
+
+### Metric card accent border → 3px, progress bar → 4px
+**Rationale:** 2px top border was too subtle at the card's 90px min-height. 3px reads as a deliberate design element, not an artifact. Progress bar increased to 4px for same reason — 3px disappeared visually at smaller viewport widths.
+
+### metric-target text → --color-text-primary
+**Previous:** `--color-text-tertiary`
+**Rationale:** The target value (e.g. "/ 40") is data, not supporting copy. Tertiary made it too easy to miss. Primary keeps it readable while the size difference (14px vs 24px) still creates the hierarchy.
+

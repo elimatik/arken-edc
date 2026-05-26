@@ -1,0 +1,487 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Arken EDC — Metric Card</title>
+<link href="https://fonts.googleapis.com/css2?family=Roboto:wght@400;500;700&family=Roboto+Mono:wght@400;500&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@tabler/icons-webfont@latest/tabler-icons.min.css">
+<style>
+
+/* ─── Tokens ─────────────────────────────────────────────────────────────── */
+:root {
+  --color-nav-bg:           #1A1F2E;
+  --color-nav-hover:        #2C3248;
+  --color-nav-active-bg:    #2C3248;
+  --color-nav-icon:         #8aafc8;
+  --color-nav-icon-active:  #FFFFFF;
+  --color-nav-label:        #8aafc8;
+  --color-nav-label-active: #FFFFFF;
+  --color-nav-separator:    rgba(255,255,255,0.08);
+  --color-nav-badge-bg:     #B52626;
+  --color-nav-badge-text:   #FFFFFF;
+
+  --color-page-bg:          #FBFBFB;
+  --color-surface:          #FFFFFF;
+  --color-border:           #E8E8E6;
+
+  --color-text-primary:     #2C2D33;
+  --color-text-secondary:   #4F535B;
+  --color-text-tertiary:    #6D7480;
+  --color-text-inverse:     #FFFFFF;
+
+  --color-link:             #3D4A5C;
+  --color-cta-bg:           #1A1F2E;
+  --color-cta-hover:        #2C3248;
+  --color-hover-bg:         #F0F0EE;
+  --color-focus-ring:       #3D8FE0;
+
+  /* Semantic status colours */
+  --status-active-text:   #1760A8; --status-active-bg:   #E8F4FF; --status-active-border:   #7AB8EE;
+  --status-success-text:  #1A6B47; --status-success-bg:  #EEFAF4; --status-success-border:  #58BC88;
+  --status-pending-text:  #534AB7; --status-pending-bg:  #F0EEFF; --status-pending-border:  #A9A3EC;
+  --status-info-text:     #3D5A78; --status-info-bg:     #EEF1F6; --status-info-border:     #8AA0B8;
+  --status-warning-text:  #8A5C00; --status-warning-bg:  #FFF8E7; --status-warning-border:  #F5B830;
+  --status-alert-text:    #C94C0C; --status-alert-bg:    #FFF0E8; --status-alert-border:    #F48E50;
+  --status-critical-text: #B52626; --status-critical-bg: #FFF0F0; --status-critical-border: #EC8585;
+
+  /* Primitive ramps (for accent bar colours) */
+  --blue-600:   #1760A8;
+  --green-600:  #1A6B47;
+  --amber-600:  #B87800; --amber-700: #8A5C00;
+  --orange-600: #C94C0C;
+  --red-600:    #B52626;
+  --slate-600:  #3D5A78;
+  --purple-600: #534AB7;
+
+  --font-sans:  'Roboto', system-ui, sans-serif;
+  --font-mono:  'Roboto Mono', monospace;
+
+  --text-xs:   11px; --text-sm: 12px; --text-base: 14px;
+  --text-lg:   16px; --text-xl: 18px; --text-2xl:  20px; --text-3xl:  24px;
+
+  --weight-regular: 400; --weight-medium: 500; --weight-bold: 700;
+
+  --radius-sm: 2px; --radius-md: 4px; --radius-lg: 6px; --radius-full: 9999px;
+
+  --space-1: 4px;  --space-2: 8px;  --space-3: 12px; --space-4: 16px;
+  --space-5: 20px; --space-6: 24px; --space-8: 32px; --space-10: 40px;
+
+  --duration-fast: 120ms; --duration-normal: 200ms;
+  --ease-default: cubic-bezier(0.16, 1, 0.3, 1);
+  --tracking-caps: 0.07em;
+}
+
+/* ─── Reset ──────────────────────────────────────────────────────────────── */
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+body {
+  font-family: var(--font-sans);
+  font-size: var(--text-base);
+  color: var(--color-text-primary);
+  background: var(--color-page-bg);
+  -webkit-font-smoothing: antialiased;
+}
+
+/* ─── Shell (from 04-app-shell — canonical) ──────────────────────────────── */
+.shell { display: flex; height: 100vh; min-height: 600px; overflow: hidden; }
+
+.sidenav {
+  width: 74px; background: var(--color-nav-bg);
+  display: flex; flex-direction: column; align-items: center;
+  padding: var(--space-3) 0; gap: 2px; flex-shrink: 0; overflow: hidden;
+}
+.nav-logo {
+  width: 30px; height: 30px; border-radius: var(--radius-md);
+  background: var(--color-nav-hover); display: flex; align-items: center;
+  justify-content: center; margin-bottom: var(--space-3); flex-shrink: 0;
+}
+.nav-logo span { font-size: var(--text-base); font-weight: var(--weight-bold); color: #fff; letter-spacing: -0.02em; }
+.nav-item {
+  width: 100%; min-height: 50px; display: flex; flex-direction: column;
+  align-items: center; justify-content: center; gap: 3px; border-radius: 0;
+  cursor: pointer; color: var(--color-nav-icon); position: relative;
+  border: none; background: transparent;
+  transition: background var(--duration-fast), color var(--duration-fast);
+  padding: 4px 0;
+}
+.nav-item:hover { background: var(--color-nav-hover); color: #fff; }
+.nav-item.active { background: var(--color-nav-active-bg); color: #fff; }
+.nav-item i { font-size: 20px; line-height: 1; }
+.nav-label { font-size: 11px; font-weight: var(--weight-medium); color: inherit; line-height: 1; text-align: center; white-space: nowrap; }
+.nav-badge {
+  position: absolute; top: 6px; right: 18px; min-width: 14px; height: 14px;
+  padding: 0 3px; border-radius: var(--radius-full); background: red;
+  color: #fff; font-size: 9px; font-weight: var(--weight-bold);
+  font-family: var(--font-mono); display: flex; align-items: center; justify-content: center;
+}
+.nav-spacer { flex: 1; }
+.nav-separator { width: 100%; height: 1px; background: var(--color-nav-separator); margin: var(--space-2) 0; flex-shrink: 0; }
+
+.main { flex: 1; display: flex; flex-direction: column; min-width: 0; overflow: hidden; }
+.topbar {
+  height: 56px; background: var(--color-nav-bg); display: flex; align-items: center;
+  padding: 0 var(--space-4); gap: var(--space-3); flex-shrink: 0;
+  border-bottom: 1px solid rgba(255,255,255,0.06);
+}
+.tb-study {
+  background: var(--color-nav-hover); color: #fff; font-size: var(--text-base);
+  font-weight: var(--weight-medium); padding: 8px var(--space-4); border-radius: var(--radius-md);
+  display: flex; align-items: center; gap: 4px; cursor: pointer; white-space: nowrap;
+  border: 1px solid #525D73; transition: background var(--duration-fast);
+}
+.tb-study:hover { background: #3a4158; }
+.tb-study i { font-size: 11px; opacity: 0.7; }
+.tb-sep { color: rgba(255,255,255,0.3); font-size: var(--text-sm); visibility: hidden; }
+.tb-site {
+  color: #fff; font-size: var(--text-base); display: flex; align-items: center;
+  gap: 3px; cursor: pointer; white-space: nowrap; border: none; background: none;
+}
+.tb-site:hover { color: rgba(255,255,255,0.7); }
+.tb-site i { font-size: 11px; }
+.tb-right { margin-left: auto; display: flex; align-items: center; gap: var(--space-3); }
+.tb-icon {
+  width: 28px; height: 28px; display: flex; align-items: center; justify-content: center;
+  border-radius: var(--radius-md); border: none; background: transparent; color: #fff;
+  cursor: pointer; transition: background var(--duration-fast); position: relative;
+}
+.tb-icon:hover { background: var(--color-nav-hover); }
+.tb-icon i { font-size: 20px; }
+.tb-icon .notif-dot {
+  position: absolute; top: 3px; right: 3px; width: 10px; height: 10px;
+  border-radius: 50%; background: red;
+}
+.tb-role {
+  background: var(--color-nav-hover); color: #fff; font-size: var(--text-sm);
+  font-weight: var(--weight-medium); padding: 3px var(--space-2); border-radius: var(--radius-md);
+  display: flex; align-items: center; gap: 4px; cursor: pointer;
+  border: 1px solid #525D73; transition: background var(--duration-fast); white-space: nowrap;
+}
+.tb-role:hover { background: #3a4158; }
+.tb-role i { font-size: 10px; opacity: 0.6; }
+.tb-avatar {
+  width: 30px; height: 30px; border-radius: 50%; background: #3D5A78; color: #EEF1F6;
+  font-size: 12px; font-weight: var(--weight-medium); display: flex; align-items: center;
+  justify-content: center; cursor: pointer; flex-shrink: 0;
+}
+
+.page-content {
+  flex: 1; overflow-y: auto; padding: var(--space-5);
+  display: flex; flex-direction: column; gap: var(--space-6);
+}
+
+/* ─── Page header ────────────────────────────────────────────────────────── */
+.page-header { margin-bottom: var(--space-2); }
+.page-title  { font-size: var(--text-3xl); font-weight: var(--weight-bold); color: var(--color-text-primary); }
+.page-sub    { font-size: var(--text-base); font-variant: all-small-caps; color: var(--color-text-tertiary); margin-top: 3px; font-family: var(--font-mono); }
+
+/* ─────────────────────────────────────────────────────────────────────────────
+   METRIC CARD — Component 05
+   ─────────────────────────────────────────────────────────────────────────────
+   Anatomy:
+   ┌─────────────────────────────────┐  ← 2px accent bar (top border)
+   │ LABEL              [trend icon] │  ← 11px / 500 / --color-text-tertiary
+   │ VALUE     /target               │  ← 24px / 500 primary + 14px secondary
+   │ ████████░░ progress bar         │  ← optional, 4px height
+   │ sub-label text                  │  ← 12px / --color-text-tertiary
+   └─────────────────────────────────┘
+
+   Variants driven by a single --accent-color CSS variable set inline.
+   No hardcoded colours inside the component class itself.
+   ───────────────────────────────────────────────────────────────────────────── */
+
+.metric-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(224px, 1fr));
+  gap: var(--space-3);
+}
+
+/* Base card */
+.metric-card {
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-top: 3px solid var(--accent-color, var(--color-border));
+  border-radius: var(--radius-lg);
+  padding: var(--space-3) var(--space-4);
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+  min-height: 90px;
+}
+
+/* Label row */
+.metric-label {
+  font-size: var(--text-xs);
+  font-weight: var(--weight-medium);
+  color: var(--color-text-tertiary);
+  text-transform: uppercase;
+  letter-spacing: var(--tracking-caps);
+  line-height: 1.3;
+}
+
+/* Value row */
+.metric-value-row {
+  display: flex;
+  align-items: baseline;
+  gap: 4px;
+  margin-top: 2px;
+}
+.metric-value {
+  font-size: var(--text-3xl);
+  font-weight: var(--weight-medium);
+  color: var(--color-text-primary);
+  line-height: 1;
+  font-family: var(--font-mono);
+}
+/* Alert/critical value — inherits accent colour */
+.metric-value.accent { color: var(--accent-color, var(--color-text-primary)); }
+.metric-sub.accent   { color: var(--accent-text, var(--accent-color)); }
+
+.metric-target {
+  font-size: var(--text-base);
+  font-weight: var(--weight-regular);
+  color: var(--color-text-primary);
+  font-family: var(--font-mono);
+}
+
+/* Progress bar (optional) */
+.metric-bar {
+  height: 4px;
+  background: var(--color-border);
+  border-radius: var(--radius-full);
+  margin-top: var(--space-1);
+  overflow: hidden;
+}
+.metric-bar-fill {
+  height: 100%;
+  border-radius: var(--radius-full);
+  background: var(--accent-color, var(--blue-600));
+  transition: width var(--duration-normal) var(--ease-default);
+}
+
+/* Sub-label */
+.metric-sub {
+  font-size: var(--text-sm);
+  color: var(--color-text-tertiary);
+  line-height: 1.4;
+  margin-top: 2px;
+}
+
+/* ─── Section wrapper ────────────────────────────────────────────────────── */
+.section {
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-lg);
+  padding: var(--space-5);
+}
+.section-label {
+  font-size: var(--text-sm);
+  font-weight: var(--weight-medium);
+  color: var(--color-text-secondary);
+  margin-bottom: var(--space-4);
+  padding-bottom: var(--space-3);
+  border-bottom: 1px solid var(--color-border);
+}
+.section-note {
+  font-size: var(--text-sm);
+  color: var(--color-text-tertiary);
+  margin-top: var(--space-4);
+  line-height: 1.6;
+}
+
+/* Spec table */
+.spec-table { width: 100%; border-collapse: collapse; font-size: var(--text-sm); margin-top: var(--space-4); }
+.spec-table td { padding: var(--space-2) var(--space-3); border-bottom: 1px solid var(--color-border); vertical-align: top; }
+.spec-table td:first-child { color: var(--color-text-tertiary); font-family: var(--font-mono); font-size: var(--text-xs); width: 160px; white-space: nowrap; }
+.spec-table tr:last-child td { border-bottom: none; }
+code { font-family: var(--font-mono); font-size: var(--text-xs); background: var(--color-page-bg); padding: 1px 5px; border-radius: var(--radius-sm); border: 1px solid var(--color-border); }
+</style>
+</head>
+<body>
+
+<div class="shell">
+
+  <!-- Side nav (from 04-app-shell) -->
+  <nav class="sidenav" aria-label="Main navigation">
+    <div class="nav-logo"><span>Ar</span></div>
+    <button class="nav-item active" title="Dashboard" aria-current="page">
+      <i class="ti ti-layout-dashboard" aria-hidden="true"></i>
+      <span class="nav-label">Dashboard</span>
+    </button>
+    <button class="nav-item" title="Visits"><i class="ti ti-calendar-event" aria-hidden="true"></i><span class="nav-label">Visits</span></button>
+    <button class="nav-item" title="Animals"><i class="ti ti-list" aria-hidden="true"></i><span class="nav-label">Animals</span></button>
+    <button class="nav-item" title="Batch entry"><i class="ti ti-stack-2" aria-hidden="true"></i><span class="nav-label">Batch</span></button>
+    <button class="nav-item" title="Calendar"><i class="ti ti-calendar" aria-hidden="true"></i><span class="nav-label">Calendar</span></button>
+    <button class="nav-item" title="Queries, 4 open" aria-label="Queries, 4 open">
+      <i class="ti ti-help-circle" aria-hidden="true"></i>
+      <span class="nav-label">Queries</span>
+      <span class="nav-badge">4</span>
+    </button>
+    <button class="nav-item" title="Reports"><i class="ti ti-chart-bar" aria-hidden="true"></i><span class="nav-label">Reports</span></button>
+    <div class="nav-spacer"></div>
+    <div class="nav-separator"></div>
+    <button class="nav-item" title="Audit trail"><i class="ti ti-clipboard-list" aria-hidden="true"></i><span class="nav-label">Audit</span></button>
+  </nav>
+
+  <div class="main">
+
+    <!-- Topbar (from 04-app-shell) -->
+    <header class="topbar">
+      <button class="tb-study">Arken Canine · AK-2401 <i class="ti ti-chevron-right"></i></button>
+      <span class="tb-sep">/</span>
+      <button class="tb-site">Austin <i class="ti ti-chevron-right"></i></button>
+      <div class="tb-right">
+        <button class="tb-icon" aria-label="Notifications, 2 unread">
+          <i class="ti ti-bell"></i>
+          <span class="notif-dot"></span>
+        </button>
+        <button class="tb-icon"><i class="ti ti-help-circle"></i></button>
+        <button class="tb-icon"><i class="ti ti-settings"></i></button>
+        <button class="tb-role">CRC <i class="ti ti-chevron-right"></i></button>
+        <div class="tb-avatar">ET</div>
+      </div>
+    </header>
+
+    <main class="page-content">
+
+      <!-- Page header -->
+      <div class="page-header">
+        <h1 class="page-title">Study health</h1>
+        <p class="page-sub">BRD Cattle · Austin · CRC view · Updated 2 min ago</p>
+      </div>
+
+      <!-- ── LIVE METRIC GRID — CRC dashboard ──────────────────────────── -->
+      <div class="metric-grid">
+
+        <!-- Animals enrolled — blue, with progress bar -->
+        <div class="metric-card" style="--accent-color: var(--blue-600)">
+          <div class="metric-label">Animals enrolled</div>
+          <div class="metric-value-row">
+            <span class="metric-value">30</span>
+            <span class="metric-target">/ 40</span>
+          </div>
+          <div class="metric-bar"><div class="metric-bar-fill" style="width: 75%"></div></div>
+          <div class="metric-sub">10 eligible animals pending</div>
+        </div>
+
+        <!-- Incomplete or overdue forms — orange, value accented -->
+        <div class="metric-card" style="--accent-color: var(--orange-600)">
+          <div class="metric-label">Incomplete or overdue forms</div>
+          <div class="metric-value-row">
+            <span class="metric-value accent">2</span>
+          </div>
+          <div class="metric-sub accent">across 2 animals</div>
+        </div>
+
+        <!-- Open queries — orange -->
+        <div class="metric-card" style="--accent-color: var(--orange-600)">
+          <div class="metric-label">Open queries</div>
+          <div class="metric-value-row">
+            <span class="metric-value accent">4</span>
+          </div>
+          <div class="metric-sub accent">1 aged &gt; 4 days</div>
+        </div>
+
+        <!-- Batch ready — blue, no progress bar -->
+        <div class="metric-card" style="--accent-color: var(--blue-600)">
+          <div class="metric-label">Batch ready</div>
+          <div class="metric-value-row">
+            <span class="metric-value" style="font-size: var(--text-2xl)">Day 14</span>
+          </div>
+          <div class="metric-sub">BRD scoring · 10 animals</div>
+        </div>
+
+        <!-- Forms due today — orange -->
+        <div class="metric-card" style="--accent-color: var(--orange-600)">
+          <div class="metric-label">Forms due today</div>
+          <div class="metric-value-row">
+            <span class="metric-value accent">14</span>
+          </div>
+          <div class="metric-sub">BRD Scoring D7 + Treatment Log D7</div>
+        </div>
+
+      </div>
+
+      <!-- ── ALL VARIANTS ───────────────────────────────────────────────── -->
+      <div class="section">
+        <h2 class="section-label">All accent colour variants</h2>
+        <div class="metric-grid">
+
+          <!-- Blue — on track, enrollment -->
+          <div class="metric-card" style="--accent-color: var(--blue-600)">
+            <div class="metric-label">Animals enrolled</div>
+            <div class="metric-value-row"><span class="metric-value">89</span><span class="metric-target">/ 120</span></div>
+            <div class="metric-bar"><div class="metric-bar-fill" style="width:74%"></div></div>
+            <div class="metric-sub">74% · on track</div>
+          </div>
+
+          <!-- Green — complete, no issues -->
+          <div class="metric-card" style="--accent-color: var(--green-600)">
+            <div class="metric-label">Clinical cure rate D14</div>
+            <div class="metric-value-row"><span class="metric-value">62%</span></div>
+            <div class="metric-sub">55 of 89 enrolled · on trend</div>
+          </div>
+
+          <!-- Amber — warning, acknowledge required -->
+          <div class="metric-card" style="--accent-color: var(--amber-600); --accent-text: var(--amber-700)">
+            <div class="metric-label">Protocol deviations</div>
+            <div class="metric-value-row"><span class="metric-value accent">3</span></div>
+            <div class="metric-sub accent">2 require PI acknowledgement</div>
+          </div>
+
+          <!-- Orange — alert, overdue -->
+          <div class="metric-card" style="--accent-color: var(--orange-600)">
+            <div class="metric-label">Open queries</div>
+            <div class="metric-value-row"><span class="metric-value accent">14</span></div>
+            <div class="metric-sub accent">7 aged &gt; 14 days</div>
+          </div>
+
+          <!-- Red — critical, SAE -->
+          <div class="metric-card" style="--accent-color: var(--red-600)">
+            <div class="metric-label">SAE / AEs</div>
+            <div class="metric-value-row"><span class="metric-value accent">1</span><span class="metric-target">SAE</span></div>
+            <div class="metric-sub accent">+ 2 AEs open · PI sign required</div>
+          </div>
+
+          <!-- Slate — neutral, informational -->
+          <div class="metric-card" style="--accent-color: var(--slate-600)">
+            <div class="metric-label">Active sites</div>
+            <div class="metric-value-row"><span class="metric-value">3</span><span class="metric-target">/ 4</span></div>
+            <div class="metric-sub">DAL enrolment paused</div>
+          </div>
+
+        </div>
+
+        <p class="section-note">
+          Accent colour is set via <code>--accent-color</code> on the card element inline. The component CSS never hardcodes a colour — only the inline style changes per context. Value and sub-label text use <code>.accent</code> class when the number itself signals urgency. Use accent text for orange/red only — blue and green values stay primary text colour.
+        </p>
+      </div>
+
+      <!-- Spec -->
+      <div class="section">
+        <h2 class="section-label">Component spec</h2>
+        <table class="spec-table">
+          <tr><td>Background</td><td><code>--color-surface</code> #FFFFFF</td></tr>
+          <tr><td>Border</td><td>1px <code>--color-border</code> on sides + bottom · 3px <code>--accent-color</code> on top</td></tr>
+          <tr><td>Border radius</td><td><code>--radius-lg</code> 6px</td></tr>
+          <tr><td>Padding</td><td>12px top/bottom · 16px left/right</td></tr>
+          <tr><td>Min height</td><td>90px</td></tr>
+          <tr><td>Label</td><td>11px / 500 / uppercase / letter-spacing 0.07em / <code>--color-text-tertiary</code></td></tr>
+          <tr><td>Value</td><td>24px / 500 / Roboto Mono / <code>--color-text-primary</code> or <code>--accent-color</code> when urgent</td></tr>
+          <tr><td>Target / unit</td><td>14px / 400 / Roboto Mono / <code>--color-text-tertiary</code></td></tr>
+          <tr><td>Progress bar</td><td>4px height · <code>--color-border</code> track · <code>--accent-color</code> fill · optional</td></tr>
+          <tr><td>Sub-label</td><td>12px / 400 / <code>--color-text-tertiary</code> default</td></tr>
+          <tr><td>Accent — blue</td><td>On track, enrollment progress, informational counts</td></tr>
+          <tr><td>Accent — green</td><td>Positive outcomes, cure rates, completion milestones</td></tr>
+          <tr><td>Accent — amber</td><td>Acknowledge required, protocol deviations, draft items</td></tr>
+          <tr><td>Accent — orange</td><td>Overdue, missing data, open queries — action required</td></tr>
+          <tr><td>Accent — red</td><td>SAE, critical findings, humane endpoint — immediate action</td></tr>
+          <tr><td>Accent — slate</td><td>Neutral informational, site counts, status summaries</td></tr>
+        </table>
+      </div>
+
+    </main>
+  </div>
+
+</div>
+</body>
+</html>
