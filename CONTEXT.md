@@ -1,12 +1,12 @@
 # Arken EDC — Project Context
-**Paste this at the start of every Claude Code session.**
-Last updated: 2026-05-25 | Phase: 1 — Design System (Session 1 complete)
+**Paste this at the start of every Claude session.**
+Last updated: 2026-05-27 | Phase: 1 — Design System (Sessions 1–4 complete)
 
 ---
 
 ## What this project is
 
-Arken is a web-based Electronic Data Capture (EDC) platform for animal clinical trials. It is a portfolio project built by a senior UX/Product Designer targeting staff-level roles in healthtech. The goal is to be the first purpose-built EDC for animal studies — no equivalent product exists on the market.
+Arken is a web-based Electronic Data Capture (EDC) platform for animal clinical trials. Portfolio project by a senior UX/Product Designer targeting staff-level roles in US healthtech. First purpose-built EDC for animal studies — no equivalent product exists.
 
 **Platform scope:** Core EDC engine + modular study types.
 **Flagship module (v1):** Arken Canine — canine oncology studies.
@@ -20,125 +20,15 @@ Arken is a web-based Electronic Data Capture (EDC) platform for animal clinical 
 |---|---|---|
 | Framework | Next.js (App Router) | Not set up yet — Phase 4 |
 | Component library | shadcn/ui | Components must use Arken tokens |
-| Styling | CSS variables (our token file) | Never hardcode hex values |
+| Styling | CSS variables (token file) | Never hardcode hex values |
 | Database | Supabase (Postgres) | Not set up yet — Phase 4 |
 | Auth | Supabase Auth | Not set up yet — Phase 4 |
 | Deployment | Vercel free tier | Not set up yet — Phase 4 |
 | Design | Figma + Tokens Studio | Tokens mirror the CSS file |
 | Fonts | Google Fonts — Roboto + Roboto Mono | Always loaded via link tag |
+| Icons | Tabler Icons (CDN) | `ti ti-*` class names |
 
-**Current phase: static HTML prototypes only. No framework, no backend, no npm yet.**
-All files right now are plain HTML + CSS. Each screen is a self-contained .html file.
-
----
-
-## Token file
-
-**Always import this at the top of every HTML file:**
-```html
-<link href="https://fonts.googleapis.com/css2?family=Roboto:wght@400;500;700&family=Roboto+Mono:wght@400;500&display=swap" rel="stylesheet">
-<link rel="stylesheet" href="../tokens/arken-tokens.css">
-```
-
-**Never hardcode a hex colour. Always use a token.**
-
-### Key token names to know
-
-```css
-/* Structural */
---color-nav-bg       /* #1A1F2E  sidebar + top nav */
---color-page-bg      /* #FBFBFB  outermost page background */
---color-surface      /* #FFFFFF  cards, panels, inputs */
---color-border       /* #E8E8E6  all 1px borders */
-
-/* Text */
---color-text-primary      /* #111111 */
---color-text-secondary    /* #6B6B6B */
---color-text-tertiary     /* #9B9B9B */
---color-text-placeholder  /* #C4C4C2 */
---color-text-inverse      /* #FFFFFF  — text on dark nav */
-
-/* Interaction */
---color-cta-bg        /* #1A1F2E  primary buttons */
---color-cta-hover     /* #2C3248 */
---color-hover-bg      /* #F0F0EE  row hover, subtle hover */
---color-focus-ring    /* #3D8FE0  blue focus outline */
-
-/* Status (always use the trio: -text, -bg, -border) */
---status-active-*     /* blue    — enrollment, on track */
---status-success-*    /* green   — form complete, done (administrative) */
---status-pending-*    /* purple  — awaiting action */
---status-info-*       /* slate   — neutral informational */
---status-warning-*    /* amber   — draft, incomplete, acknowledge required */
---status-alert-*      /* orange  — overdue, near-alert */
---status-critical-*   /* red     — SAE, critical, humane endpoint */
-
-/* Field data states (EDC-specific) */
---field-default-*     /* clean input */
---field-query-*       /* amber  — query raised on this field */
---field-disc-*        /* orange — discrepancy / edit check fail */
---field-critical-*    /* red    — SAE-related critical issue */
---field-clean-*       /* green  — SDV complete, validated */
---field-locked-*      /* grey   — record locked, immutable */
-
-/* Role colours */
---role-pi             /* blue   — Principal Investigator */
---role-crc            /* purple — Clinical Research Coordinator */
---role-cra            /* amber  — Clinical Research Associate / Monitor */
---role-dm             /* red    — Data Manager */
---role-pm             /* slate  — Project Manager */
---role-admin          /* navy   — System Admin */
---role-field          /* green  — Field Technician */
-```
-
----
-
-## Design spec
-
-| Property | Value |
-|---|---|
-| Font (UI) | Roboto 400 / 500 / 700 |
-| Font (data values, IDs, timestamps) | Roboto Mono 400 / 500 |
-| Base font size | 14px |
-| Page / screen titles | 24px Roboto 500, normal case |
-| Form section titles | 16px Roboto 500, `font-variant: small-caps`, letter-spacing 0.07em |
-| Table column headers | 14px Roboto 500, `font-variant: small-caps`, letter-spacing 0.07em |
-| Breadcrumbs | 14px Roboto 400, `font-variant: small-caps`, letter-spacing 0.07em |
-| Border radius | 4px base (`--radius-md`). Badges/inner: 2px. Panels: 6–8px. Pills: 9999px |
-| Stroke / border width | 1px always |
-| Field shadow | None — border only |
-| CTA / primary button | Background `--color-cta-bg` (#1A1F2E), white text |
-| Focus ring | `box-shadow: 0 0 0 3px rgba(61,143,224,0.35)` |
-| Mode | Light mode primary. Dark mode planned but not built yet |
-
-**Small caps utility class:** `class="small-caps"` → applies `font-variant: small-caps` + letter-spacing
-**Mono utility class:** `class="mono"` → applies Roboto Mono
-
----
-
-## Severity scale — critical rule
-
-The warning/alert/critical scale has THREE distinct levels. Never collapse them:
-
-| Level | Colour | When to use |
-|---|---|---|
-| Warning | Amber | Draft, incomplete, acknowledge required, medium priority |
-| Alert | Orange | Overdue, randomisation missing, near-alert |
-| Critical | Red | SAE, critical finding, humane endpoint, expired user |
-
----
-
-## Users / roles
-
-| Role | Abbrev | Colour token | What they do |
-|---|---|---|---|
-| Principal Investigator | PI | `--role-pi` (blue) | Study oversight, e-signature, data review |
-| Clinical Research Coordinator | CRC | `--role-crc` (purple) | Day-to-day data entry, query resolution |
-| Clinical Research Associate | CRA | `--role-cra` (amber) | Source data verification, raising queries |
-| Data Manager | DM | `--role-dm` (red) | Edit checks, discrepancy management, lock |
-| Project Manager | PM | `--role-pm` (slate) | Study progress, milestones, dashboards |
-| System Admin | Admin | `--role-admin` (navy) | User management, study configuration |
-| Field Technician | Field | `--role-field` (green) | Offline tablet data entry in field environments |
+**Current phase: static HTML prototypes only. No framework, no backend, no npm.**
 
 ---
 
@@ -146,48 +36,223 @@ The warning/alert/critical scale has THREE distinct levels. Never collapse them:
 
 ```
 arken-edc/
-├── CONTEXT.md              ← this file — paste at session start
-├── DECISIONS.md            ← all design decisions with rationale
+├── CONTEXT.md                   ← this file — paste at session start
+├── DECISIONS.md                 ← all design decisions with rationale
 ├── tokens/
-│   ├── arken-tokens.css    ← source of truth for all tokens
-│   └── tokens.json         ← Tokens Studio / Figma import
+│   ├── arken-tokens.css         ← SOURCE OF TRUTH for all tokens
+│   └── arken-tokens.json        ← Tokens Studio / Figma import (v2.1)
 ├── docs/
-│   └── brand-brief.md      ← Session 1 brand documentation
-└── screens/                ← HTML prototypes (one file per screen)
-    └── (none yet)
+│   └── brand-brief.md
+└── components/
+    ├── 01-form-field-group.html  ← all input types + composite fields ✓
+    ├── 02-badge.html             ← outline / filled / role / count badges ✓
+    ├── 03-data-table.html        ← sortable table, all states ✓
+    ├── 04-app-shell.html         ← nav + topbar, canonical shell ✓
+    ├── 05-metric-card.html       ← 6 accent variants ✓
+    ├── 06-alert-banner.html      ← 5 severity variants + dismissible + stacked ✓
+    ├── 07-panel-card.html        ← all content patterns from BRD screens ✓
+    ├── 08-form-field-flag.html   ← flag states + SDV badge overlay ✓
+    ├── 09-form-sidebar.html      ← visit navigator + 6 status icons ✓
+    └── 10-subject-header.html    ← all status variants + slide-in panel ✓
 ```
 
 ---
 
-## What has been built so far
+## Token imports — required in every HTML file
 
-### Session 1 — Brand + tokens (complete)
-- [x] Product name: Arken
-- [x] Color palette defined (BRD Cattle palette — amber/orange/red severity, blue/green/purple/slate semantic)
-- [x] Typography: Roboto + Roboto Mono
-- [x] Full token file: `arken-tokens.css`
-- [x] Tokens Studio JSON: `tokens.json`
-- [x] Brand brief: `docs/brand-brief.md`
-- [x] shadcn/ui CSS variable bridge included in token file
+```html
+<link href="https://fonts.googleapis.com/css2?family=Roboto:wght@400;500;700&family=Roboto+Mono:wght@400;500&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@tabler/icons-webfont@latest/tabler-icons.min.css">
+```
 
-### Session 2 — Component inventory (not started)
-### Session 3 — Component library HTML (not started)
-### Session 4 — Living style guide page (not started)
+Inline the token CSS block (copy from `arken-tokens.css`) — components are self-contained.
 
 ---
 
-## What to build next
+## Design spec — CURRENT (locked)
 
-Session 2: define the full component inventory (list every component needed across all screens before building any of them).
+| Property | Value |
+|---|---|
+| Font (UI) | Roboto 400 / 500 / 700 |
+| Font (data, IDs, timestamps) | Roboto Mono 400 / 500 |
+| Base font size | 14px |
+| Page / screen titles | 24px / 500 / normal case |
+| Form section titles | 12px / 500 / `text-transform: uppercase` / `letter-spacing: 0.07em` |
+| Table column headers | Same as form section titles |
+| Breadcrumbs | 12px / 400 — link text underlined, icon NOT underlined |
+| Field height | 32px (inputs and selects) |
+| Button height | 32px |
+| Border radius | 4px base (`--radius-md`). Panels: 6–8px. Pills: 9999px |
+| Stroke / border | 1px always. Never 0.5px, never 2px (except focus ring 3px) |
+| Field shadow | None — border only |
+| Focus ring | `box-shadow: 0 0 0 3px rgba(61,143,224,0.35)` |
+| Select arrow | Chevron-right SVG, not browser default |
+| Mode | Light primary. Dark planned, not built |
+
+**REMOVED: `font-variant: small-caps`** — replaced with `text-transform: uppercase` everywhere. Inconsistent on Windows Chrome.
 
 ---
 
-## Rules for every prompt in this project
+## Colour rules — CRITICAL
 
-1. Never hardcode hex values — always use token variables
-2. Never add a shadow to form fields — border only
-3. Three severity levels (amber / orange / red) — never merge them
-4. Small caps on: table column headers, breadcrumbs, form section titles
-5. Roboto Mono on: all data values, IDs, timestamps, anything that needs exact character reading
-6. 1px borders everywhere — never 0.5px, never 2px (except focus ring)
-7. 4px base radius — inputs, buttons, cards all use `--radius-md`
+### Accessibility split rule
+Every colour ramp has a decoration value (-600) and a text value (-700):
+- **-600**: decoration only — borders, top bars, progress bars, filled dots, badge backgrounds. No contrast requirement.
+- **-700**: all text uses — badge labels, hint text, status text, sub-labels. Must pass WCAG AA.
+
+| Colour | Decoration | Text | Contrast on tinted bg |
+|---|---|---|---|
+| Amber | `--amber-600` #B87800 | `--amber-700` #8A5C00 | 5.9:1 ✓ |
+| Orange | `--orange-600` #C94C0C | `--orange-700` #A33A08 | 5.96:1 ✓ |
+| Red | `--red-600` #B52626 | `--red-600` #B52626 | passes at all sizes ✓ |
+
+### Text colour scale (softened from original)
+```css
+--color-text-primary:   #2C2D33   /* body, table cells, field values */
+--color-text-secondary: #4F535B   /* labels, secondary content */
+--color-text-tertiary:  #6D7480   /* hints, placeholders, metadata */
+--color-text-placeholder: #C4C4C2
+```
+
+### Role colours — REMOVED
+All `--role-*` tokens resolve to `--slate-600` (#3D5A78). Platform supports user-created roles — fixed colour mapping breaks immediately. Role text label is the only signal needed.
+
+---
+
+## Key tokens
+
+```css
+/* Structural */
+--color-nav-bg:    #1A1F2E   /* sidebar + topbar */
+--color-page-bg:   #FBFBFB   /* outermost bg */
+--color-surface:   #FFFFFF   /* cards, panels, inputs */
+--color-border:    #E8E8E6   /* all 1px borders */
+--color-border-subtle: #F0F0EE  /* row separators inside panels */
+
+/* Interaction */
+--color-cta-bg:    #1A1F2E
+--color-cta-hover: #2C3248
+--color-hover-bg:  #F0F0EE
+--color-focus-ring: #3D8FE0
+
+/* Status trios — always use -text, -bg, -border together */
+--status-warning-*   /* amber  — query open, draft, acknowledge required */
+--status-alert-*     /* orange — overdue, discrepancy */
+--status-critical-*  /* red    — SAE, humane endpoint, critical finding */
+--status-active-*    /* blue   — enrolling, on track */
+--status-success-*   /* green  — complete, validated */
+--status-pending-*   /* purple — awaiting action */
+--status-info-*      /* slate  — neutral informational */
+
+/* Field data states */
+--field-default-*    /* clean input */
+--field-query-*      /* amber  — query raised */
+--field-disc-*       /* orange — edit check fail */
+--field-critical-*   /* red    — SAE-related */
+--field-clean-*      /* green  — SDV complete */
+--field-locked-*     /* grey   — record locked */
+```
+
+---
+
+## Severity scale — three levels, never collapse
+
+| Level | Colour | When |
+|---|---|---|
+| Warning | Amber | Draft, incomplete, acknowledge required |
+| Alert | Orange | Overdue, missing data, visit window closing |
+| Critical | Red | SAE, humane endpoint, critical finding, expired |
+
+---
+
+## Roles
+
+| Role | Abbrev | What they do |
+|---|---|---|
+| Principal Investigator | PI | Study oversight, e-signature, data review |
+| Clinical Research Coordinator | CRC | Day-to-day data entry, query resolution |
+| Clinical Research Associate | CRA | Source data verification, raising queries |
+| Data Manager | DM | Edit checks, discrepancy management, lock |
+| Project Manager | PM | Study progress, milestones, dashboards |
+| System Admin | Admin | User management, study configuration |
+| Field Technician | Field | Offline tablet data entry |
+
+All roles display in **slate** — no colour differentiation. Platform supports custom user-defined roles.
+
+---
+
+## App shell spec (canonical — 04-app-shell.html)
+
+- **Sidenav:** 74px wide · full-width items · 50px min-height · no border-radius
+- **Inactive icon/label:** #8aafc8 · Active: #FFFFFF
+- **Topbar:** 56px · all text #FFFFFF · study pill has 1px border #525D73
+- **Role chip:** plain white text + chevron-right, no colour dot
+- **Nav item active:** `--color-nav-active-bg` (#2C3248) background
+
+---
+
+## Form sidebar status states (09-form-sidebar.html)
+
+| State | Icon | Colour |
+|---|---|---|
+| Empty | 1.5px dashed circle | #C4C4C2 |
+| In-Work | ¼ filled SVG | #4492CB |
+| In-Review | ½ filled SVG | #CF811E |
+| Reviewed | ¾ filled SVG | #BF65D5 |
+| Finalized | Light green circle + check | `--green-600` |
+
+SVG icons: `width="16" height="16" viewBox="2 2 16 16"` (crops 20px artboard to fill 16px frame)
+
+**Issue badge on form group:** single badge, most severe colour, total count. Red = any critical, orange = discrepancy, amber = queries only.
+
+**Group border:** always `--slate-200` except all-finalized → `--green-400`.
+
+---
+
+## Flag icon states (08-form-field-flag.html)
+
+| State | Icon | Colour |
+|---|---|---|
+| Default | `ti-flag` outline | #C4C4C2 muted |
+| Flagged | `ti-flag-filled` | orange-700 #A33A08 |
+| SDV verified | `ti-flag-filled` + checkmark overlay (bottom-right, no circle) | blue-600 #1760A8 |
+| Locked | No flag button | — |
+
+Flagged hover → darkens to amber-800. Never lightens.
+
+---
+
+## Slide-in panel (10-subject-header.html)
+
+- **Width:** 480px, fixed right
+- **Shared shell** for audit trail + signature track (tabbed)
+- Overlay behind panel, closes on click or ✕
+- Audit trail: timeline with coloured dots (red=SAE, amber=query, slate=field, blue=status, green=lock)
+- Signature track: form sign-off chain with status icons
+
+---
+
+## Subject header action set
+
+| Action | Type | When |
+|---|---|---|
+| Audit trail | Secondary button | Always |
+| ⋮ overflow | Ghost icon button | Always |
+| SAE form | Red secondary button | Critical state only |
+
+**Overflow contents:** Signature track · [sep] · Copy link · Add unscheduled visit · Print subject summary · Export subject data · [sep] · Lock subject (danger, red, last)
+
+---
+
+## Rules for every prompt
+
+1. Never hardcode hex — always use token variables
+2. Never shadow on fields — border only
+3. Three severity levels (amber/orange/red) — never merge
+4. `text-transform: uppercase` + `letter-spacing: 0.07em` — never `font-variant: small-caps`
+5. Roboto Mono on all data values, IDs, timestamps
+6. 1px borders everywhere
+7. 4px base radius — `--radius-md`
+8. Fields and buttons: 32px height
+9. Links: text underlined, icon NOT underlined
+10. Role colours: slate only — no per-role colours
