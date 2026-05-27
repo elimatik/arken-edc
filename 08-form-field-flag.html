@@ -1,0 +1,685 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Arken EDC — Form Field + Flag</title>
+<link href="https://fonts.googleapis.com/css2?family=Roboto:wght@400;500;700&family=Roboto+Mono:wght@400;500&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@tabler/icons-webfont@latest/tabler-icons.min.css">
+<style>
+
+/* ─── Tokens ─────────────────────────────────────────────────────────────── */
+:root {
+  --color-nav-bg:           #1A1F2E;
+  --color-nav-hover:        #2C3248;
+  --color-nav-active-bg:    #2C3248;
+  --color-nav-icon:         #8aafc8;
+  --color-nav-separator:    rgba(255,255,255,0.08);
+
+  --color-page-bg:          #FBFBFB;
+  --color-surface:          #FFFFFF;
+  --color-border:           #E8E8E6;
+
+  --color-text-primary:     #2C2D33;
+  --color-text-secondary:   #4F535B;
+  --color-text-tertiary:    #6D7480;
+  --color-text-placeholder: #C4C4C2;
+  --color-text-inverse:     #FFFFFF;
+  --color-link:             #3D4A5C;
+  --color-hover-bg:         #F0F0EE;
+  --color-cta-bg:           #1A1F2E;
+  --color-focus-ring:       #3D8FE0;
+
+  /* Status ramps */
+  --amber-50:#FFF8E7;  --amber-200:#F5B830; --amber-600:#B87800; --amber-700:#8A5C00; --amber-800:#7A4F00;
+  --orange-50:#FFF0E8; --orange-200:#F48E50; --orange-600:#C94C0C; --orange-700:#A33A08;
+  --red-50:#FFF0F0;    --red-200:#EC8585;   --red-600:#B52626;   --red-800:#7A1414;
+  --green-50:#EEFAF4;  --green-200:#58BC88; --green-600:#1A6B47; --green-800:#0E4427;
+  --blue-400:#3D8FE0;  --blue-600:#1760A8;  --blue-50:#E8F4FF;   --blue-200:#7AB8EE;
+  --slate-50:#EEF1F6;  --slate-200:#8AA0B8; --slate-600:#3D5A78;
+
+  /* Field states */
+  --field-default-bg:    #FFFFFF; --field-default-border: #E8E8E6; --field-default-text: #2C2D33;
+  --field-query-bg:      #FFF8E7; --field-query-border:   #8A5C00; --field-query-text:   #7A4F00;
+  --field-disc-bg:       #FFF0E8; --field-disc-border:    #C94C0C; --field-disc-text:    #8A3006;
+  --field-critical-bg:   #FFF0F0; --field-critical-border:#B52626; --field-critical-text:#7A1414;
+  --field-clean-bg:      #EEFAF4; --field-clean-border:   #1A6B47; --field-clean-text:   #0E4427;
+  --field-locked-bg:     #F4F5F7; --field-locked-border:  #C8CBD4; --field-locked-text:  #6B6B6B;
+
+  /* Flag states */
+  --flag-default:  #C4C4C2;   /* idle — nearly invisible */
+  --flag-hover:    #6D7480;   /* hover — becomes visible */
+  --flag-active:   #A33A08;   /* flagged — orange-700 */
+  --flag-sdv:      #1760A8;   /* SDV mode — blue, different affordance */
+
+  --font-sans: 'Roboto', system-ui, sans-serif;
+  --font-mono: 'Roboto Mono', monospace;
+
+  --text-xs: 11px; --text-sm: 12px; --text-base: 14px;
+  --text-lg: 16px; --text-3xl: 24px;
+
+  --weight-regular: 400; --weight-medium: 500; --weight-bold: 700;
+
+  --radius-sm: 2px; --radius-md: 4px; --radius-lg: 6px; --radius-full: 9999px;
+
+  --space-1: 4px;  --space-2: 8px;  --space-3: 12px; --space-4: 16px;
+  --space-5: 20px; --space-6: 24px; --space-8: 32px; --space-10: 40px;
+
+  --duration-fast: 120ms; --duration-normal: 200ms;
+  --ease-default: cubic-bezier(0.16, 1, 0.3, 1);
+  --tracking-caps: 0.07em;
+}
+
+/* ─── Reset ──────────────────────────────────────────────────────────────── */
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+body { font-family: var(--font-sans); font-size: var(--text-base); color: var(--color-text-primary); background: var(--color-page-bg); -webkit-font-smoothing: antialiased; }
+
+/* ─── Shell (canonical) ──────────────────────────────────────────────────── */
+.shell { display: flex; height: 100vh; min-height: 600px; overflow: hidden; }
+.sidenav { width: 74px; background: var(--color-nav-bg); display: flex; flex-direction: column; align-items: center; padding: var(--space-3) 0; gap: 2px; flex-shrink: 0; overflow: hidden; }
+.nav-logo { width: 30px; height: 30px; border-radius: var(--radius-md); background: var(--color-nav-hover); display: flex; align-items: center; justify-content: center; margin-bottom: var(--space-3); }
+.nav-logo span { font-size: var(--text-base); font-weight: var(--weight-bold); color: #fff; letter-spacing: -0.02em; }
+.nav-item { width: 100%; min-height: 50px; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 3px; border-radius: 0; cursor: pointer; color: var(--color-nav-icon); position: relative; border: none; background: transparent; transition: background var(--duration-fast), color var(--duration-fast); padding: 4px 0; }
+.nav-item:hover { background: var(--color-nav-hover); color: #fff; }
+.nav-item.active { background: var(--color-nav-active-bg); color: #fff; }
+.nav-item i { font-size: 20px; line-height: 1; }
+.nav-label { font-size: 11px; font-weight: var(--weight-medium); color: inherit; line-height: 1; text-align: center; white-space: nowrap; }
+.nav-spacer { flex: 1; }
+.nav-separator { width: 100%; height: 1px; background: var(--color-nav-separator); margin: var(--space-2) 0; flex-shrink: 0; }
+.main { flex: 1; display: flex; flex-direction: column; min-width: 0; overflow: hidden; }
+.topbar { height: 56px; background: var(--color-nav-bg); display: flex; align-items: center; padding: 0 var(--space-4); gap: var(--space-3); flex-shrink: 0; border-bottom: 1px solid rgba(255,255,255,0.06); }
+.tb-study { background: var(--color-nav-hover); color: #fff; font-size: var(--text-base); font-weight: var(--weight-medium); padding: 8px var(--space-4); border-radius: var(--radius-md); display: flex; align-items: center; gap: 4px; cursor: pointer; white-space: nowrap; border: 1px solid #525D73; }
+.tb-sep { color: rgba(255,255,255,0.3); font-size: var(--text-sm); visibility: hidden; }
+.tb-site { color: #fff; font-size: var(--text-base); display: flex; align-items: center; gap: 3px; cursor: pointer; white-space: nowrap; border: none; background: none; }
+.tb-right { margin-left: auto; display: flex; align-items: center; gap: var(--space-3); }
+.tb-icon { width: 28px; height: 28px; display: flex; align-items: center; justify-content: center; border-radius: var(--radius-md); border: none; background: transparent; color: #fff; cursor: pointer; position: relative; }
+.tb-icon i { font-size: 20px; }
+.tb-icon .notif-dot { position: absolute; top: 3px; right: 3px; width: 10px; height: 10px; border-radius: 50%; background: red; }
+.tb-role { background: var(--color-nav-hover); color: #fff; font-size: var(--text-sm); font-weight: var(--weight-medium); padding: 3px var(--space-2); border-radius: var(--radius-md); display: flex; align-items: center; gap: 4px; cursor: pointer; border: 1px solid #525D73; white-space: nowrap; }
+.tb-role i { font-size: 10px; opacity: 0.6; }
+.tb-avatar { width: 30px; height: 30px; border-radius: 50%; background: #3D5A78; color: #EEF1F6; font-size: 12px; font-weight: var(--weight-medium); display: flex; align-items: center; justify-content: center; cursor: pointer; flex-shrink: 0; }
+.page-content { flex: 1; overflow-y: auto; padding: var(--space-5); display: flex; flex-direction: column; gap: var(--space-6); }
+
+/* ─── Page header ─────────────────────────────────────────────────────────── */
+.page-title { font-size: var(--text-3xl); font-weight: var(--weight-medium); }
+.page-sub   { font-size: var(--text-base); text-transform: uppercase; letter-spacing: var(--tracking-caps); color: var(--color-text-tertiary); margin-top: 3px; font-family: var(--font-mono); }
+
+/* ─────────────────────────────────────────────────────────────────────────────
+   FORM FIELD + FLAG — Component 08
+   ─────────────────────────────────────────────────────────────────────────────
+   Anatomy:
+   ┌─ .field ──────────────────────────────────┐
+   │  .field-label        12px label            │
+   │  .field-row                                │
+   │  ┌─ input/select ──────────────┐  [flag]  │
+   │  └─────────────────────────────┘          │
+   │  .field-hint / .field-state               │
+   └────────────────────────────────────────────┘
+
+   Flag states:
+   - Default:  muted grey (#C4C4C2) — present but not distracting
+   - Hover:    tertiary (#6D7480) — becomes visible on hover
+   - Flagged:  ti-flag-filled · orange-700 (#A33A08) — query raised
+   - SDV done: inline SVG flag+check · blue (#1760A8) — source data verified
+              Shape distinction (filled flag vs flag+checkmark) ensures
+              colour-blind users can distinguish states without relying on
+              orange vs blue alone.
+   - Hover on flagged: darkens to amber-800 — never lightens toward orange-600
+
+   Flag is always a button for accessibility (keyboard + screen reader).
+   aria-label changes per state.
+   ───────────────────────────────────────────────────────────────────────────── */
+
+/* ── Field wrapper ── */
+.field {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+}
+
+/* ── Label ── */
+.field-label {
+  font-size: var(--text-sm);
+  font-weight: var(--weight-regular);
+  color: var(--color-text-secondary);
+  display: flex;
+  align-items: center;
+  gap: var(--space-1);
+  line-height: 1.3;
+}
+.field-required { color: var(--red-600); font-size: var(--text-sm); line-height: 1; }
+
+/* ── Field row — input + flag side by side ── */
+.field-row {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+}
+
+/* ── Input ── */
+.field-input {
+  flex: 1;
+  height: 32px;
+  padding: 0 var(--space-3);
+  font-family: var(--font-mono);
+  font-size: var(--text-base);
+  border: 1px solid var(--field-default-border);
+  border-radius: var(--radius-md);
+  background: var(--field-default-bg);
+  color: var(--field-default-text);
+  outline: none;
+  transition: border-color var(--duration-fast), background var(--duration-fast), box-shadow var(--duration-fast);
+}
+.field-input::placeholder { color: var(--color-text-placeholder); font-family: var(--font-sans); }
+.field-input:focus { border-color: var(--color-focus-ring); box-shadow: 0 0 0 3px rgba(61,143,224,0.25); }
+
+/* Input data states */
+.field-input.query    { background:var(--field-query-bg);    border-color:var(--field-query-border);    color:var(--field-query-text); }
+.field-input.disc     { background:var(--field-disc-bg);     border-color:var(--field-disc-border);     color:var(--field-disc-text); }
+.field-input.critical { background:var(--field-critical-bg); border-color:var(--field-critical-border); color:var(--field-critical-text); }
+.field-input.clean    { background:var(--field-clean-bg);    border-color:var(--field-clean-border);    color:var(--field-clean-text); }
+.field-input.locked   { background:var(--field-locked-bg);   border-color:var(--field-locked-border);   color:var(--field-locked-text); cursor:not-allowed; }
+
+.field-input.query:focus    { box-shadow: 0 0 0 3px rgba(138,92,0,0.20); }
+.field-input.disc:focus     { box-shadow: 0 0 0 3px rgba(163,58,8,0.20); }
+.field-input.critical:focus { box-shadow: 0 0 0 3px rgba(181,38,38,0.20); }
+.field-input.clean:focus    { box-shadow: 0 0 0 3px rgba(26,107,71,0.20); }
+
+/* ── Select (same height as input) ── */
+.field-select {
+  flex: 1;
+  height: 32px;
+  padding: 0 28px 0 var(--space-3);
+  font-family: var(--font-sans);
+  font-size: var(--text-base);
+  border: 1px solid var(--field-default-border);
+  border-radius: var(--radius-md);
+  background: var(--field-default-bg);
+  color: var(--field-default-text);
+  outline: none;
+  cursor: pointer;
+  appearance: none;
+  background-image: url("data:image/svg+xml,%3Csvg width='8' height='12' viewBox='0 0 8 12' fill='none' xmlns='http://www.w3.org/2000/svg'%3E%3Cpath d='M1 1L6 6L1 11' stroke='%236D7480' stroke-width='1.5' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E");
+  background-repeat: no-repeat;
+  background-position: right 10px center;
+  transition: border-color var(--duration-fast), box-shadow var(--duration-fast);
+}
+.field-select:focus { border-color: var(--color-focus-ring); box-shadow: 0 0 0 3px rgba(61,143,224,0.25); }
+
+/* ── Flag button ── */
+.flag-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 24px;
+  height: 24px;
+  flex-shrink: 0;
+  border: none;
+  background: none;
+  cursor: pointer;
+  border-radius: var(--radius-md);
+  color: var(--flag-default);
+  position: relative;
+  transition: color var(--duration-fast), background var(--duration-fast);
+  padding: 0;
+}
+.flag-btn i { font-size: 16px; }
+.flag-btn:hover { color: var(--flag-hover); background: var(--color-hover-bg); }
+
+/* Flag states */
+.flag-btn.flagged { color: var(--flag-active); }
+/* Hover darkens — never goes lighter toward orange-600 */
+.flag-btn.flagged:hover { color: var(--amber-800); background: var(--amber-50); }
+.flag-btn.sdv { color: var(--flag-sdv); }
+.flag-btn.sdv:hover { color: var(--blue-600); background: var(--blue-50); }
+
+/* SDV icon — inline SVG flag with checkmark (Tabler has no ti-flag-check) */
+/* SDV icon — flag + check badge overlay */
+.flag-sdv-icon {
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 16px;
+  height: 16px;
+  flex-shrink: 0;
+}
+.flag-sdv-icon i { font-size: 16px; line-height: 1; }
+.flag-sdv-badge {
+  position: absolute;
+  bottom: -3px;
+  right: -2px;
+  width: 9px;
+  height: 9px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.flag-sdv-badge svg {
+  width: 9px;
+  height: 9px;
+  stroke: currentColor;
+  fill: none;
+  stroke-width: 1.5;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  display: block;
+}
+
+/* ── Field hint (normal range, helper text) ── */
+.field-hint {
+  font-size: var(--text-xs);
+  color: var(--color-text-tertiary);
+  line-height: 1.4;
+  margin-top: 1px;
+}
+
+/* ── Field state message (query/discrepancy inline text) ── */
+.field-state {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--space-1);
+  font-size: var(--text-xs);
+  font-weight: var(--weight-medium);
+  margin-top: 2px;
+  line-height: 1.4;
+}
+.field-state i { font-size: 12px; flex-shrink: 0; margin-top: 1px; }
+.state-query    { color: var(--amber-700); }
+.state-disc     { color: var(--orange-700); }
+.state-critical { color: var(--red-600); }
+.state-clean    { color: var(--green-600); }
+.state-locked   { color: var(--field-locked-text); }
+
+/* ── Form section ── */
+.form-section { margin-bottom: var(--space-6); }
+.section-title {
+  font-size: var(--text-xs);
+  font-weight: var(--weight-medium);
+  text-transform: uppercase;
+  letter-spacing: var(--tracking-caps);
+  color: var(--color-text-tertiary);
+  margin-bottom: var(--space-3);
+  padding-bottom: var(--space-2);
+  border-bottom: 1px solid var(--color-border);
+}
+
+/* ── Field grid layouts ── */
+.field-grid-1 { display: grid; grid-template-columns: 1fr; gap: var(--space-4); }
+.field-grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: var(--space-4); }
+.field-grid-3 { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: var(--space-4); }
+.field-grid-4 { display: grid; grid-template-columns: 1fr 1fr 1fr 1fr; gap: var(--space-4); }
+
+/* ── Demo wrappers ── */
+.demo-card {
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-lg);
+  padding: var(--space-5);
+}
+.demo-label {
+  font-size: var(--text-xs);
+  font-weight: var(--weight-medium);
+  color: var(--color-text-tertiary);
+  font-family: var(--font-mono);
+  margin-bottom: var(--space-4);
+}
+.section-gap { display: flex; flex-direction: column; gap: var(--space-5); }
+
+/* Spec table */
+.spec-table { width: 100%; border-collapse: collapse; font-size: var(--text-sm); }
+.spec-table td { padding: var(--space-2) var(--space-3); border-bottom: 1px solid var(--color-border); vertical-align: top; }
+.spec-table td:first-child { color: var(--color-text-tertiary); font-family: var(--font-mono); font-size: var(--text-xs); width: 160px; white-space: nowrap; }
+.spec-table tr:last-child td { border-bottom: none; }
+code { font-family: var(--font-mono); font-size: var(--text-xs); background: var(--color-page-bg); padding: 1px 5px; border-radius: var(--radius-sm); border: 1px solid var(--color-border); }
+</style>
+</head>
+<body>
+<div class="shell">
+
+  <!-- Side nav -->
+  <nav class="sidenav" aria-label="Main navigation">
+    <div class="nav-logo"><span>Ar</span></div>
+    <button class="nav-item"><i class="ti ti-layout-dashboard"></i><span class="nav-label">Dashboard</span></button>
+    <button class="nav-item active" aria-current="page"><i class="ti ti-list"></i><span class="nav-label">Animals</span></button>
+    <button class="nav-item"><i class="ti ti-help-circle"></i><span class="nav-label">Queries</span></button>
+    <button class="nav-item"><i class="ti ti-chart-bar"></i><span class="nav-label">Reports</span></button>
+    <div class="nav-spacer"></div>
+    <div class="nav-separator"></div>
+    <button class="nav-item"><i class="ti ti-clipboard-list"></i><span class="nav-label">Audit</span></button>
+  </nav>
+
+  <div class="main">
+    <header class="topbar">
+      <button class="tb-study">Arken Canine · AK-2401 <i class="ti ti-chevron-right"></i></button>
+      <span class="tb-sep">/</span>
+      <button class="tb-site">Austin <i class="ti ti-chevron-right"></i></button>
+      <div class="tb-right">
+        <button class="tb-icon"><i class="ti ti-bell"></i><span class="notif-dot"></span></button>
+        <button class="tb-icon"><i class="ti ti-help-circle"></i></button>
+        <button class="tb-icon"><i class="ti ti-settings"></i></button>
+        <button class="tb-role">CRC <i class="ti ti-chevron-right"></i></button>
+        <div class="tb-avatar">ET</div>
+      </div>
+    </header>
+
+    <main class="page-content">
+
+      <div>
+        <h1 class="page-title">Form field + flag</h1>
+        <p class="page-sub">Component 08 · EDC-specific · arken-edc/components/08-form-field-flag.html</p>
+      </div>
+
+      <!-- ── FLAG STATES ───────────────────────────────────────────────────── -->
+      <div class="demo-card">
+        <div class="demo-label">Flag button states — all four</div>
+        <div class="field-grid-4">
+
+          <!-- Default — flag idle -->
+          <div class="field">
+            <label class="field-label">Body weight <span class="field-required">*</span></label>
+            <div class="field-row">
+              <input class="field-input" type="text" value="24.6">
+              <button class="flag-btn" aria-label="Flag this field to raise a query" title="Raise query">
+                <i class="ti ti-flag"></i>
+              </button>
+            </div>
+            <span class="field-hint">Default — flag idle · hover to reveal</span>
+          </div>
+
+          <!-- Flagged — query raised -->
+          <div class="field">
+            <label class="field-label">Body weight <span class="field-required">*</span></label>
+            <div class="field-row">
+              <input class="field-input query" type="text" value="24.6">
+              <button class="flag-btn flagged" aria-label="Query raised on this field — click to view" title="Query open">
+                <i class="ti ti-flag-filled"></i>
+              </button>
+            </div>
+            <div class="field-state state-query">
+              <i class="ti ti-info-circle"></i>
+              Value queried by CRA — response required
+            </div>
+          </div>
+
+          <!-- Discrepancy -->
+          <div class="field">
+            <label class="field-label">Body weight <span class="field-required">*</span></label>
+            <div class="field-row">
+              <input class="field-input disc" type="text" value="124.6">
+              <button class="flag-btn flagged" aria-label="Discrepancy on this field" title="Discrepancy">
+                <i class="ti ti-flag-filled"></i>
+              </button>
+            </div>
+            <div class="field-state state-disc">
+              <i class="ti ti-alert-triangle"></i>
+              Edit check failed: exceeds plausible range (0–80 kg)
+            </div>
+          </div>
+
+          <!-- SDV mode — CRA verifying -->
+          <div class="field">
+            <label class="field-label">Body weight <span class="field-required">*</span></label>
+            <div class="field-row">
+              <input class="field-input clean" type="text" value="24.6" readonly>
+              <button class="flag-btn sdv" aria-label="Source data verified — click to un-verify" title="SDV complete">
+                <div class="flag-sdv-icon">
+                  <i class="ti ti-flag-filled"></i>
+                  <div class="flag-sdv-badge">
+                    <svg viewBox="0 0 6 6"><path d="M1 3l1.5 1.5L5 1.5"/></svg>
+                  </div>
+                </div>
+              </button>
+            </div>
+            <div class="field-state state-clean">
+              <i class="ti ti-circle-check"></i>
+              SDV complete · CRA verified 2026-05-24
+            </div>
+          </div>
+
+        </div>
+      </div>
+
+      <!-- ── CRITICAL STATE ─────────────────────────────────────────────────── -->
+      <div class="demo-card">
+        <div class="demo-label">Critical / SAE state — flag always visible, cannot be dismissed</div>
+        <div class="field-grid-2">
+
+          <div class="field">
+            <label class="field-label">Body weight <span class="field-required">*</span></label>
+            <div class="field-row">
+              <input class="field-input critical" type="text" value="8.1">
+              <button class="flag-btn flagged" aria-label="Critical finding — SAE review required" title="Critical">
+                <i class="ti ti-flag-filled"></i>
+              </button>
+            </div>
+            <div class="field-state state-critical">
+              <i class="ti ti-alert-triangle"></i>
+              Below humane endpoint threshold — SAE review required
+            </div>
+          </div>
+
+          <div class="field">
+            <label class="field-label">BRD score <span class="field-required">*</span></label>
+            <div class="field-row">
+              <select class="field-select" style="background-color:var(--field-critical-bg);border-color:var(--field-critical-border);color:var(--field-critical-text)">
+                <option>3 — Severe</option>
+                <option>0 — None</option>
+                <option>1 — Mild</option>
+                <option>2 — Moderate</option>
+              </select>
+              <button class="flag-btn flagged" aria-label="Critical BRD score — escalation required">
+                <i class="ti ti-flag-filled"></i>
+              </button>
+            </div>
+            <div class="field-state state-critical">
+              <i class="ti ti-alert-triangle"></i>
+              Score ≥3 triggers humane endpoint protocol
+            </div>
+          </div>
+
+        </div>
+      </div>
+
+      <!-- ── LOCKED STATE ───────────────────────────────────────────────────── -->
+      <div class="demo-card">
+        <div class="demo-label">Locked — no flag (record locked, no actions possible)</div>
+        <div class="field-grid-4">
+
+          <div class="field">
+            <label class="field-label" style="color:var(--color-text-tertiary)">Body weight</label>
+            <div class="field-row">
+              <input class="field-input locked" type="text" value="24.6" readonly tabindex="-1">
+              <!-- No flag button on locked fields -->
+            </div>
+            <div class="field-state state-locked">
+              <i class="ti ti-lock"></i>
+              Record locked
+            </div>
+          </div>
+
+          <div class="field">
+            <label class="field-label" style="color:var(--color-text-tertiary)">Temperature</label>
+            <div class="field-row">
+              <input class="field-input locked" type="text" value="38.4" readonly tabindex="-1">
+            </div>
+            <div class="field-state state-locked">
+              <i class="ti ti-lock"></i>
+              Record locked
+            </div>
+          </div>
+
+          <div class="field">
+            <label class="field-label" style="color:var(--color-text-tertiary)">Heart rate</label>
+            <div class="field-row">
+              <input class="field-input locked" type="text" value="64" readonly tabindex="-1">
+            </div>
+            <span class="field-hint">bpm</span>
+          </div>
+
+          <div class="field">
+            <label class="field-label" style="color:var(--color-text-tertiary)">Visit date</label>
+            <div class="field-row">
+              <input class="field-input locked" type="text" value="2026-05-05" readonly tabindex="-1">
+            </div>
+          </div>
+
+        </div>
+      </div>
+
+      <!-- ── IN CONTEXT — real visit form section ──────────────────────────── -->
+      <div class="demo-card">
+        <div class="demo-label">In context — Visit 1 · Vital signs (mixed states)</div>
+        <div class="section-gap">
+
+          <div class="form-section">
+            <div class="section-title">Vital signs</div>
+            <div class="field-grid-4">
+
+              <div class="field">
+                <label class="field-label">Rectal temperature <span class="field-required">*</span></label>
+                <div class="field-row">
+                  <input class="field-input query" type="text" value="28.5">
+                  <button class="flag-btn flagged" aria-label="Query on rectal temperature">
+                    <i class="ti ti-flag-filled"></i>
+                  </button>
+                </div>
+                <div class="field-state state-query">
+                  <i class="ti ti-info-circle"></i>
+                  Query Q001: value too low (normal 38–39°C). Verify and correct.
+                </div>
+              </div>
+
+              <div class="field">
+                <label class="field-label">Heart rate <span class="field-required">*</span></label>
+                <div class="field-row">
+                  <input class="field-input" type="text" value="64">
+                  <button class="flag-btn" aria-label="Flag heart rate field">
+                    <i class="ti ti-flag"></i>
+                  </button>
+                </div>
+                <span class="field-hint">Normal: 50–80 bpm</span>
+              </div>
+
+              <div class="field">
+                <label class="field-label">Respiratory rate <span class="field-required">*</span></label>
+                <div class="field-row">
+                  <input class="field-input clean" type="text" value="24" readonly>
+                  <button class="flag-btn sdv" aria-label="SDV complete on respiratory rate">
+                    <div class="flag-sdv-icon">
+                  <i class="ti ti-flag-filled"></i>
+                  <div class="flag-sdv-badge">
+                    <svg viewBox="0 0 6 6"><path d="M1 3l1.5 1.5L5 1.5"/></svg>
+                  </div>
+                </div>
+                  </button>
+                </div>
+                <div class="field-state state-clean">
+                  <i class="ti ti-circle-check"></i>
+                  SDV complete
+                </div>
+              </div>
+
+              <div class="field">
+                <label class="field-label">Rumen contractions</label>
+                <div class="field-row">
+                  <input class="field-input" type="text" placeholder="—">
+                  <button class="flag-btn" aria-label="Flag rumen contractions field">
+                    <i class="ti ti-flag"></i>
+                  </button>
+                </div>
+                <span class="field-hint">Normal: 2–3/min</span>
+              </div>
+
+            </div>
+          </div>
+
+          <div class="form-section">
+            <div class="section-title">Head &amp; sensory</div>
+            <div class="field-grid-4">
+
+              <div class="field">
+                <label class="field-label">Attitude / demeanor <span class="field-required">*</span></label>
+                <div class="field-row">
+                  <select class="field-select">
+                    <option>Alert</option>
+                    <option>Depressed</option>
+                    <option>Lethargic</option>
+                  </select>
+                  <button class="flag-btn" aria-label="Flag attitude field">
+                    <i class="ti ti-flag"></i>
+                  </button>
+                </div>
+              </div>
+
+              <div class="field">
+                <label class="field-label">Ears position</label>
+                <div class="field-row">
+                  <select class="field-select">
+                    <option>Forward / symmetrical</option>
+                    <option>Drooping</option>
+                    <option>Asymmetrical</option>
+                  </select>
+                  <button class="flag-btn" aria-label="Flag ears position field">
+                    <i class="ti ti-flag"></i>
+                  </button>
+                </div>
+              </div>
+
+              <div class="field">
+                <label class="field-label">Eyes</label>
+                <div class="field-row">
+                  <select class="field-select">
+                    <option>Clear</option>
+                    <option>Ocular discharge</option>
+                    <option>Sunken</option>
+                  </select>
+                  <button class="flag-btn" aria-label="Flag eyes field">
+                    <i class="ti ti-flag"></i>
+                  </button>
+                </div>
+              </div>
+
+              <div class="field">
+                <label class="field-label">Muzzle</label>
+                <div class="field-row">
+                  <select class="field-select">
+                    <option>Moist and cool</option>
+                    <option>Dry</option>
+                    <option>Nasal discharge</option>
+                  </select>
+                  <button class="flag-btn" aria-label="Flag muzzle field">
+                    <i class="ti ti-flag"></i>
+                  </button>
+                </div>
+              </div>
+
+            </div>
+          </div>
+
+        </div>
+      </div>
+
+      <!-- ── SPEC ───────────────────────────────────────────────────────────── -->
+      <div class="demo-card">
+        <div class="demo-label">Component spec</div>
+        <table class="spec-table">
+          <tr><td>Field height</td><td>32px — input and select</td></tr>
+          <tr><td>Flag button size</td><td>24×24px hit area · 16px icon · no border · transparent bg</td></tr>
+          <tr><td>Flag default colour</td><td><code>--flag-default</code> #C4C4C2 — nearly invisible, present but not distracting</td></tr>
+          <tr><td>Flag hover colour</td><td><code>--flag-hover</code> #6D7480 — becomes visible on hover, signals affordance</td></tr>
+          <tr><td>Flag active colour</td><td><code>--flag-active</code> #A33A08 (orange-700) — query raised on this field</td></tr>
+          <tr><td>Flag SDV colour</td><td><code>--flag-sdv</code> #1760A8 (blue-600) — CRA source data verification mode</td></tr>
+          <tr><td>Flag icon</td><td><code>ti-flag</code> when idle · <code>ti-flag-filled</code> when active or SDV</td></tr>
+          <tr><td>Locked fields</td><td>No flag button — locked records cannot be queried or verified</td></tr>
+          <tr><td>State message</td><td>12px / medium / severity colour · icon aligned to first line · appears below field row</td></tr>
+          <tr><td>Field state vs flag state</td><td>Field state (bg + border colour) = data quality status. Flag = action affordance. They're linked but separate — a field can have a query state without a visible flag (e.g. query raised by system edit check, not by manual flag).</td></tr>
+          <tr><td>aria-label</td><td>Changes per state: "Flag this field" / "Query raised — click to view" / "SDV complete — click to un-verify"</td></tr>
+        </table>
+      </div>
+
+    </main>
+  </div>
+</div>
+</body>
+</html>
