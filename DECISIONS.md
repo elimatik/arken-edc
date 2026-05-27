@@ -150,3 +150,84 @@ Every time a decision is made — about tokens, components, UX patterns, tech ch
 **Decision:** All `font-variant: small-caps` and `font-variant: all-small-caps` replaced with `text-transform: uppercase`.
 **Rationale:** `font-variant: small-caps` renders inconsistently across browsers and OS font rendering engines, particularly on Windows Chrome where it can render as full caps at the wrong size. `text-transform: uppercase` with `letter-spacing: 0.07em` produces the same visual result with fully predictable cross-platform rendering. Clinical software is commonly used on Windows workstations — this matters.
 **Files updated:** arken-tokens.css · all component files
+
+---
+
+## Session 4 — 2026-05-27
+
+### App shell — nav and topbar spec locked
+**Decisions:** Sidenav 74px wide · Nav items full width, 50px min height, no border-radius · Inactive icon/label colour #8aafc8 · Topbar 56px tall · All topbar text #FFFFFF · Role chip plain white text, no colour dot · Chevron-right (not down) on study pill
+
+### Role chip — no colour dot on dark background
+**Decision:** Role dot removed from topbar chip. Plain white text label + chevron only.
+**Rationale:** Colour dots become invisible on the dark nav background — the signal is lost. Role is already communicated by the text label. No information is lost by removing the dot.
+
+### Field height: 32px
+**Decision:** All inputs and selects are exactly 32px height via explicit `height: 32px`.
+**Rationale:** Consistent touch target size. More compact than the default browser 38px which was leaving visual gaps in dense form grids.
+
+### Select arrow: chevron-right
+**Decision:** Custom SVG chevron-right replaces browser default dropdown arrow.
+**Rationale:** Browser default arrow varies by OS and doesn't match the Arken visual language. Chevron-right is consistent with the direction used across other interactive elements (breadcrumbs, topbar, nav).
+
+### Composite field types added
+**Decision:** Added prefix/suffix adornments, split prefix+value, inline action button (copy), password toggle, country code prefix select, and tag/multi-value field.
+**Rationale:** EDC forms require more than plain inputs. Dosing fields need unit suffixes, subject IDs need prefix+number split, e-signature fields need masked input. All follow the same 32px height and 1px border rules.
+
+### Field shadow: confirmed none
+**Decision:** Reconfirmed — fields have no box-shadow. Border only.
+
+### Button height: 32px
+**Decision:** `.btn-secondary` and `.btn-primary` both use `height: 32px`.
+**Rationale:** Matches field height for visual alignment in form header rows.
+
+### Form sidebar — 6 status states
+**Decision:** Empty · In-Work · In-Review · Reviewed · Finalized (removed New state)
+**Icons:**
+- Empty → 1.5px dashed circle, placeholder grey
+- In-Work → compound path SVG, 1/4 fill, #4492CB
+- In-Review → compound path SVG, 1/2 fill, #CF811E
+- Reviewed → compound path SVG, 3/4 fill, #BF65D5
+- Finalized → light green circle + dark green check (not filled solid)
+**Rationale:** Progressive fill gives immediate visual hierarchy of completion. Finalized uses the lighter green (bg + border + check) not solid fill — more consistent with the overall approach of using semantic colour tints rather than solid fills.
+
+### Form sidebar — SVG icon sizing
+**Decision:** SVGs use `width="16" height="16" viewBox="2 2 16 16"` (cropped from 20×20 source).
+**Rationale:** The source SVGs were designed in a 20px artboard with 2px padding on each side. Using `viewBox="2 2 16 16"` crops to the path content and makes the icons fill the 16px frame completely, matching the size of div-based icons (empty, finalized).
+
+### Form sidebar — subform group border colour
+**Decision:** Group left border is always slate (#8AA0B8) except when ALL sub-forms are finalized, then it turns green (#28A062).
+**Rationale:** Originally considered blue for in-work groups, but the slate-only approach is cleaner — fewer colour states, less visual noise. The green signal on completion is the meaningful moment.
+
+### Form sidebar — issue count badge (Option C)
+**Decision:** Single badge showing total issue count, coloured by highest severity present.
+- Warning (amber) → queries only
+- Alert (orange) → discrepancies present
+- Critical (red) → any SAE/critical issue
+**Rationale:** Users need to know two things from the sidebar: how many issues (to plan time) and how urgent the worst one is. A single badge delivers both. Individual issue details are visible when the form is opened.
+**Applied at:** parent group level AND individual sub-form level.
+
+### Form sidebar — link underline text only
+**Decision:** `.btn-ghost` links underline only the text `<span>`, not the accompanying icon.
+**Rationale:** Underlines on icons render poorly — the line doesn't sit under the glyph cleanly. Text underline alone is sufficient affordance.
+
+### Flag icon — SDV verified state
+**Decision:** Filled flag (`ti-flag-filled`) + small checkmark SVG overlaid in bottom-right corner. No background circle — checkmark uses `currentColor` directly on transparent.
+**Rationale:** Keeps the flag shape family consistent (both query-raised and SDV-verified use a flag). The checkmark overlay creates shape distinction for colour-blind users who cannot rely on orange vs blue alone. No background circle avoids visual clutter at 16px.
+
+### Flag icon — hover on flagged state
+**Decision:** Flagged flag hover darkens to amber-800 (#7A4F00). Never lightens toward orange-600.
+**Rationale:** Lightening on hover created a confusing signal — the flag appeared to be de-escalating. Darkening on hover is consistent with standard interactive affordance (things get darker when you interact with them).
+
+### font-variant: small-caps → text-transform: uppercase
+**Decision:** All small caps replaced with `text-transform: uppercase` + `letter-spacing: 0.07em`.
+**Rationale:** `font-variant: small-caps` renders inconsistently on Windows Chrome. `text-transform: uppercase` is reliable cross-platform. Visual result is identical.
+
+### Role colour system removed
+**Decision:** All `--role-*` tokens → `var(--slate-600)`. Role dots removed from topbar.
+**Rationale:** Platform supports user-created roles — a fixed colour mapping breaks immediately. Role text label is sufficient signal. Slate is neutral, accessible, and scales to any number of roles.
+
+### Per-form issue display — deferred
+**Decision:** Sub-level issue counts shown as badge pills (same `.issue-badge` system as parent). Coloured left border approach explored and deferred for later iteration.
+**Rationale:** Badge pills chosen for now as they communicate count + severity explicitly. Left border approach is cleaner but loses the count — may revisit when form sidebar is implemented in production.
+
