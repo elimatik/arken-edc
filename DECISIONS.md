@@ -231,3 +231,39 @@ Every time a decision is made — about tokens, components, UX patterns, tech ch
 **Decision:** Sub-level issue counts shown as badge pills (same `.issue-badge` system as parent). Coloured left border approach explored and deferred for later iteration.
 **Rationale:** Badge pills chosen for now as they communicate count + severity explicitly. Left border approach is cleaner but loses the count — may revisit when form sidebar is implemented in production.
 
+
+### Subject header — action set defined
+**Decision:** Three always-present actions: Audit trail (secondary button) · Signature track (in ⋮ overflow) · ⋮ overflow menu. SAE form button added only on critical state.
+**Overflow menu items:** Signature track · [separator] · Copy link · Add unscheduled visit · Print subject summary · Export subject data · [separator] · Lock subject (danger)
+**Rationale:** Signature track is a secondary/power-user action — doesn't need permanent button real estate. Audit trail is the primary monitoring action and stays as a visible button. Overflow only appears when secondary actions are defined — not speculative.
+
+### Subject header — status badge dots removed
+**Decision:** Status chips use text label only, no coloured dot prefix.
+**Rationale:** At the subject header level the status label is always visible and readable — the dot adds visual noise without adding information. Dots are useful in dense tables where you need a colour signal before reading the label. Not needed here.
+
+### Subject header — species icon is optional
+**Decision:** Species icon/emoji slot is optional, configured per study in a settings page. Degrades gracefully to a neutral placeholder when not configured.
+**Rationale:** Not all study types benefit from species icons. Admin-level configuration keeps it flexible without cluttering the default experience.
+
+### Slide-in panel — 480px, shared shell for audit trail and signature track
+**Decision:** Audit trail and Signature track share the same 480px right-side slide-in panel shell, toggled via tabs inside the panel. Overlay behind panel, closes on overlay click or ✕ button.
+**Rationale:** Same pattern as Veeva Vault and Medidata — 480px allows enough detail without fully obscuring the form. Shared shell means less to build and a consistent interaction for both tracks.
+**Competitor reference:** Medidata and Veeva both use this exact pattern. Neither surfaces audit trail inline — always a panel or separate page. Arken matches the panel approach for form context preservation.
+
+### Audit trail — full session deferred
+**Decision:** Form-level audit trail and full-page audit trail design deferred to a dedicated session. Signature track will follow the same design as form-level audit trail once that pattern is established.
+**Rationale:** Audit trail is complex enough to deserve its own session — entry types, filter patterns, diff display (old value → new value), pagination, export. Getting it right matters for compliance positioning.
+
+### Annotated CRF and role permissions — form header level, not subject header
+**Decision:** "CRF mode" toggle lives in the form header, not the subject header. When active, it overlays variable names and role permission indicators on each field. Editing remains possible while CRF mode is active.
+**Competitor reference:**
+- Medidata Rave: annotated CRF is a separate PDF export, not in the live UI
+- Veeva Vault: "Review Mode" toggle in form header — overlays variable names + lock icons, but locks editing
+- Castor EDC: variable names always visible below field label (too noisy)
+- REDCap: separate data dictionary page
+**Arken differentiator:** Allow editing while CRF mode is active — no competitor does this. Monitors doing SDV against the annotated CRF currently have to switch modes or keep a PDF open. Arken removes that friction.
+
+### Overflow menu — destructive actions always last, separator-separated
+**Decision:** "Lock subject" and any other destructive/irreversible actions go at the bottom of the overflow menu, below a separator line, in red (danger colour).
+**Rationale:** Standard pattern (iOS, macOS, web) — destructive actions must require deliberate scrolling past safer options. The separator creates a visual pause before the dangerous zone.
+
