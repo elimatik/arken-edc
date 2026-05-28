@@ -267,3 +267,66 @@ Every time a decision is made — about tokens, components, UX patterns, tech ch
 **Decision:** "Lock subject" and any other destructive/irreversible actions go at the bottom of the overflow menu, below a separator line, in red (danger colour).
 **Rationale:** Standard pattern (iOS, macOS, web) — destructive actions must require deliberate scrolling past safer options. The separator creates a visual pause before the dangerous zone.
 
+
+---
+
+## Session 5 — 2026-05-27
+
+### Full-page audit trail — component 11
+**Decision:** Dedicated full-page audit trail (`11-audit-trail-full.html`) accessible from the sidebar nav Audit item. The slide-in panel (component 10) shows subject/form-scoped entries only; the full page shows everything across the study with filters.
+
+**Table columns:** Timestamp · Type · Subject · Form · Field · Change · User · Reason/Note
+**Layout:** Sticky header · `vertical-align: middle` · no fixed row height · content sizes row naturally · multi-line cells wrap and expand
+
+### Audit trail — Entry vs Edit distinction
+**Decision:** Two distinct type chips for data recording events:
+- **Entry** (green chip) — first time a value is recorded on a field. No reason for change required.
+- **Edit** (slate chip) — modification to an existing value. Reason for change required by FDA guidance.
+**Rationale:** Regulators specifically scrutinise Edit rows. Having them visually distinct from Entry rows lets a monitor or auditor filter to only edits immediately. No competitor makes this distinction at the chip level.
+
+### Audit trail — type chip set (full list)
+| Chip | Colour | When |
+|---|---|---|
+| Entry | Green | First data entry on a field |
+| Edit | Slate | Change to existing data — reason required |
+| Query | Amber | Query raised (manual or auto edit check) |
+| SDV | Blue | Source data verification complete |
+| Sign | Green | Electronic signature applied |
+| Lock | Purple | Form or record locked |
+| Status | Blue | Subject status change |
+| SAE | Red | Serious adverse event recorded |
+
+**Chip style:** outline pill · `padding: 2px var(--space-2)` · `border-radius: var(--radius-full)` · `font-size: var(--text-xs)` · `font-weight: var(--weight-medium)` · matches `02-badge.html` system exactly. Labels lowercase except SAE (acronym).
+
+### Audit trail — Change column display
+**Decision:** Plain coloured text, no chip wrappers around diff values.
+- Old value: red (`--red-600`)
+- New value: green (`--green-600`)
+- Arrow separator: placeholder grey, 11px
+- First entry: green `+ value`
+- SDV/Sign/Lock/Query: icon + coloured text inline
+
+**Rationale:** Diff chips (red box + green box) were visually heavy in a dense table. Coloured text alone carries the signal with less noise. Chips reserved for type classification where they have more semantic weight.
+
+### Audit trail — Query change icon
+**Decision:** `ti-flag-filled` in amber-700 for query events in the Change column. Not `ti-message-circle`.
+**Rationale:** Flag is the established Arken icon for query-related actions (component 08). Consistent iconography across the system.
+
+### Audit trail — no grouping
+**Decision:** Grouping removed. Flat table, sorted by timestamp descending.
+**Rationale:** Grouping can be done in too many dimensions (by form, by subject, by type, by user) — no single grouping serves all users. Filters + sort achieve the same result without imposing a hierarchy. Medidata's grouped view is one of the most complained-about UX patterns in the platform.
+
+### Audit trail — no compliance banner
+**Decision:** Compliance banner removed from the UI. Compliance metadata (UTC timestamps, immutable record marker, retention period) is in the summary bar at the bottom.
+**Rationale:** Banner was visual noise on every page load. The summary bar "Immutable · Last generated: timestamp" communicates the same guarantee without taking up persistent screen real estate.
+
+### Audit trail — subject header panel vs full page
+**Decision:** Two audit trail surfaces with different scopes:
+- **Slide-in panel** (component 10, 480px): subject + form scoped — only events for the current subject. Quick access during data entry.
+- **Full page** (component 11): study-wide — all subjects, all forms, all event types. Accessed via sidebar nav Audit item.
+**Signature track** follows the same pattern — panel tab for form-level, full page for study-level (deferred to next session).
+
+### Audit trail — anomaly flag
+**Decision:** Anomaly rows get amber ⚠ icon inline next to the type chip, and a subtle amber row tint (`#FFFDF5`). Anomalies toggle in filter bar shows only flagged rows.
+**Rationale:** Anomalies (edits after query raised, enrollment outside window, etc.) need to be surfaced without disrupting the reading flow of clean rows. Icon + tint is enough — no separate column needed.
+

@@ -1,0 +1,707 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Arken EDC — Audit Trail</title>
+<link href="https://fonts.googleapis.com/css2?family=Roboto:wght@400;500;700&family=Roboto+Mono:wght@400;500&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@tabler/icons-webfont@latest/tabler-icons.min.css">
+<style>
+
+/* ─── Tokens ─────────────────────────────────────────────────────────────── */
+:root {
+  --color-nav-bg:        #1A1F2E;
+  --color-nav-hover:     #2C3248;
+  --color-nav-icon:      #8aafc8;
+  --color-nav-separator: rgba(255,255,255,0.08);
+  --color-page-bg:       #FBFBFB;
+  --color-surface:       #FFFFFF;
+  --color-border:        #E8E8E6;
+  --color-border-subtle: #F0F0EE;
+  --color-text-primary:  #2C2D33;
+  --color-text-secondary:#4F535B;
+  --color-text-tertiary: #6D7480;
+  --color-text-placeholder: #C4C4C2;
+  --color-link:          #3D4A5C;
+  --color-hover-bg:      #F0F0EE;
+  --color-cta-bg:        #1A1F2E;
+  --color-focus-ring:    #3D8FE0;
+
+  --amber-50:#FFF8E7; --amber-200:#F5B830; --amber-700:#8A5C00;
+  --orange-50:#FFF0E8; --orange-200:#F48E50; --orange-700:#A33A08;
+  --red-50:#FFF0F0; --red-200:#EC8585; --red-600:#B52626;
+  --green-50:#EEFAF4; --green-200:#58BC88; --green-600:#1A6B47;
+  --blue-50:#E8F4FF; --blue-200:#7AB8EE; --blue-400:#3D8FE0; --blue-600:#1760A8;
+  --purple-50:#F0EEFF; --purple-200:#A9A3EC; --purple-600:#534AB7;
+  --slate-50:#EEF1F6; --slate-200:#8AA0B8; --slate-600:#3D5A78;
+
+  --font-sans: 'Roboto', system-ui, sans-serif;
+  --font-mono: 'Roboto Mono', monospace;
+  --text-xs:11px; --text-sm:12px; --text-base:14px; --text-lg:16px; --text-3xl:24px;
+  --weight-regular:400; --weight-medium:500; --weight-bold:700;
+  --radius-sm:2px; --radius-md:4px; --radius-lg:6px; --radius-full:9999px;
+  --space-1:4px; --space-2:8px; --space-3:12px; --space-4:16px;
+  --space-5:20px; --space-6:24px; --space-8:32px;
+  --duration-fast:120ms; --ease-default:cubic-bezier(0.16,1,0.3,1);
+  --tracking-caps:0.07em;
+}
+
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+body { font-family: var(--font-sans); font-size: var(--text-base); color: var(--color-text-primary); background: var(--color-page-bg); -webkit-font-smoothing: antialiased; }
+
+/* ─── Shell ──────────────────────────────────────────────────────────────── */
+.shell { display: flex; height: 100vh; overflow: hidden; }
+.sidenav { width: 74px; background: var(--color-nav-bg); display: flex; flex-direction: column; align-items: center; padding: var(--space-3) 0; gap: 2px; flex-shrink: 0; }
+.nav-logo { width: 30px; height: 30px; border-radius: var(--radius-md); background: var(--color-nav-hover); display: flex; align-items: center; justify-content: center; margin-bottom: var(--space-3); }
+.nav-logo span { font-size: var(--text-base); font-weight: var(--weight-bold); color: #fff; letter-spacing: -0.02em; }
+.nav-item { width: 100%; min-height: 50px; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 3px; cursor: pointer; color: var(--color-nav-icon); border: none; background: transparent; transition: background var(--duration-fast); padding: 4px 0; }
+.nav-item:hover { background: var(--color-nav-hover); color: #fff; }
+.nav-item.active { background: var(--color-nav-hover); color: #fff; }
+.nav-item i { font-size: 20px; }
+.nav-label { font-size: 11px; font-weight: var(--weight-medium); color: inherit; text-align: center; }
+.nav-spacer { flex: 1; }
+.nav-sep { width: 100%; height: 1px; background: var(--color-nav-separator); margin: var(--space-2) 0; }
+.main { flex: 1; display: flex; flex-direction: column; min-width: 0; overflow: hidden; }
+.topbar { height: 56px; background: var(--color-nav-bg); display: flex; align-items: center; padding: 0 var(--space-4); gap: var(--space-3); flex-shrink: 0; border-bottom: 1px solid rgba(255,255,255,0.06); }
+.tb-study { background: var(--color-nav-hover); color: #fff; font-size: var(--text-base); font-weight: var(--weight-medium); padding: 8px var(--space-4); border-radius: var(--radius-md); display: flex; align-items: center; gap: 4px; cursor: pointer; border: 1px solid #525D73; }
+.tb-right { margin-left: auto; display: flex; align-items: center; gap: var(--space-3); }
+.tb-icon { width: 28px; height: 28px; display: flex; align-items: center; justify-content: center; border-radius: var(--radius-md); border: none; background: transparent; color: #fff; cursor: pointer; }
+.tb-icon i { font-size: 20px; }
+.tb-role { background: var(--color-nav-hover); color: #fff; font-size: var(--text-sm); font-weight: var(--weight-medium); padding: 3px var(--space-2); border-radius: var(--radius-md); display: flex; align-items: center; gap: 4px; cursor: pointer; border: 1px solid #525D73; }
+.tb-avatar { width: 30px; height: 30px; border-radius: 50%; background: #3D5A78; color: #EEF1F6; font-size: 12px; font-weight: var(--weight-medium); display: flex; align-items: center; justify-content: center; cursor: pointer; }
+
+/* ─── Page layout ────────────────────────────────────────────────────────── */
+.page-wrap { flex: 1; display: flex; flex-direction: column; overflow: hidden; }
+
+/* ── Page header ── */
+.page-header {
+  padding: var(--space-4) var(--space-5);
+  border-bottom: 1px solid var(--color-border);
+  background: var(--color-surface);
+  flex-shrink: 0;
+}
+.page-header-top {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: var(--space-1);
+}
+.page-title { font-size: var(--text-3xl); font-weight: var(--weight-medium); }
+.page-actions { display: flex; align-items: center; gap: var(--space-2); }
+.breadcrumb { font-size: var(--text-sm); color: var(--color-text-tertiary); display: flex; align-items: center; gap: var(--space-1); }
+.bc-link { color: var(--color-link); background: none; border: none; font-size: var(--text-sm); cursor: pointer; padding: 0; }
+.bc-link span { text-decoration: underline; text-underline-offset: 2px; }
+
+/* ── Filter bar ── */
+.filter-bar {
+  padding: var(--space-3) var(--space-5);
+  background: var(--color-surface);
+  border-bottom: 1px solid var(--color-border);
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  flex-wrap: wrap;
+  flex-shrink: 0;
+}
+.filter-group { display: flex; align-items: center; gap: var(--space-2); }
+.filter-label {
+  font-size: var(--text-xs);
+  font-weight: var(--weight-medium);
+  text-transform: uppercase;
+  letter-spacing: var(--tracking-caps);
+  color: var(--color-text-tertiary);
+  white-space: nowrap;
+}
+.filter-select {
+  height: 32px;
+  padding: 0 24px 0 var(--space-2);
+  font-size: var(--text-sm);
+  font-family: var(--font-sans);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  background: var(--color-surface);
+  color: var(--color-text-primary);
+  cursor: pointer;
+  appearance: none;
+  background-image: url("data:image/svg+xml,%3Csvg width='8' height='12' viewBox='0 0 8 12' fill='none' xmlns='http://www.w3.org/2000/svg'%3E%3Cpath d='M1 1L6 6L1 11' stroke='%236D7480' stroke-width='1.5' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E");
+  background-repeat: no-repeat;
+  background-position: right 8px center;
+  outline: none;
+  min-width: 120px;
+}
+.filter-date {
+  height: 32px;
+  padding: 0 var(--space-2);
+  font-size: var(--text-sm);
+  font-family: var(--font-mono);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  background: var(--color-surface);
+  color: var(--color-text-primary);
+  outline: none;
+  width: 130px;
+}
+.filter-divider { width: 1px; height: 24px; background: var(--color-border); flex-shrink: 0; }
+.filter-toggle {
+  display: flex; align-items: center; gap: 5px;
+  height: 32px; padding: 0 var(--space-3);
+  font-size: var(--text-sm); font-weight: var(--weight-medium);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  background: var(--color-surface);
+  color: var(--color-text-secondary);
+  cursor: pointer;
+  transition: all var(--duration-fast);
+}
+.filter-toggle:hover { border-color: var(--color-text-tertiary); color: var(--color-text-primary); }
+.filter-toggle.active { background: var(--blue-50); border-color: var(--blue-200); color: var(--blue-600); }
+.filter-toggle.anomaly.active { background: var(--amber-50); border-color: var(--amber-200); color: var(--amber-700); }
+.filter-toggle i { font-size: 14px; }
+
+.filter-search {
+  margin-left: auto;
+  height: 32px;
+  padding: 0 var(--space-3) 0 32px;
+  font-size: var(--text-sm);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  background: var(--color-surface);
+  color: var(--color-text-primary);
+  outline: none;
+  width: 220px;
+  background-image: url("data:image/svg+xml,%3Csvg width='14' height='14' viewBox='0 0 14 14' fill='none' xmlns='http://www.w3.org/2000/svg'%3E%3Ccircle cx='6' cy='6' r='4.5' stroke='%236D7480' stroke-width='1.5'/%3E%3Cpath d='M9.5 9.5L12.5 12.5' stroke='%236D7480' stroke-width='1.5' stroke-linecap='round'/%3E%3C/svg%3E");
+  background-repeat: no-repeat;
+  background-position: 10px center;
+  font-family: var(--font-sans);
+}
+.filter-search::placeholder { color: var(--color-text-placeholder); }
+
+.btn-export {
+  display: flex; align-items: center; gap: 5px;
+  height: 32px; padding: 0 var(--space-3);
+  font-size: var(--text-sm); font-weight: var(--weight-medium);
+  border: none;
+  border-radius: var(--radius-md);
+  background: var(--color-cta-bg);
+  color: #fff;
+  cursor: pointer;
+  white-space: nowrap;
+  flex-shrink: 0;
+}
+.btn-export i { font-size: 14px; }
+
+
+/* ─────────────────────────────────────────────────────────────────────────────
+   AUDIT TABLE
+   ───────────────────────────────────────────────────────────────────────────── */
+.table-wrap { flex: 1; overflow-y: auto; }
+
+.audit-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: var(--text-sm);
+}
+
+/* Column headers */
+.audit-table thead th {
+  position: sticky;
+  top: 0;
+  z-index: 10;
+  background: var(--color-surface);
+  padding: var(--space-2) var(--space-3);
+  text-align: left;
+  font-size: var(--text-xs);
+  font-weight: var(--weight-medium);
+  text-transform: uppercase;
+  letter-spacing: var(--tracking-caps);
+  color: var(--color-text-tertiary);
+  border-bottom: 1px solid var(--color-border);
+  white-space: nowrap;
+  user-select: none;
+}
+.audit-table thead th.sortable { cursor: pointer; }
+.audit-table thead th.sortable:hover { color: var(--color-text-primary); }
+.sort-icon { margin-left: 3px; font-size: 10px; color: var(--blue-600); }
+
+/* Column widths */
+.col-ts     { width: 150px; }
+.col-type   { width: 90px; }
+.col-subject{ width: 110px; }
+.col-form   { width: 200px; }
+.col-change { width: 200px; }
+.col-user   { width: 160px; }
+.col-reason { min-width: 180px; }
+
+/* Data rows */
+.audit-table tbody tr {
+  border-bottom: 1px solid var(--color-border-subtle);
+  transition: background var(--duration-fast);
+}
+.audit-table tbody tr:hover { background: var(--color-hover-bg); }
+.audit-table tbody tr.anomaly-row { background: #FFFDF5; }
+.audit-table tbody tr.anomaly-row:hover { background: #FFF8E7; }
+
+.audit-table tbody td {
+  padding: var(--space-2) var(--space-3);
+  vertical-align: middle;
+  padding: var(--space-2) var(--space-3);
+  color: var(--color-text-primary);
+}
+
+
+
+/* ── Timestamp ── */
+.ts-cell { font-family: var(--font-mono); font-size: var(--text-xs); color: var(--color-text-secondary); white-space: nowrap; line-height: 1.5; }
+
+/* ── Type badges ── */
+/* Type badges — matches 02-badge.html outline system */
+.type-badge {
+  display: inline-flex; align-items: center; gap: 4px;
+  padding: 2px var(--space-2); border-radius: var(--radius-full);
+  font-size: var(--text-xs); font-weight: var(--weight-medium);
+  white-space: nowrap; border: 1px solid;
+}
+.type-edit   { background: var(--slate-50);  border-color: var(--slate-200);  color: var(--slate-600); }
+.type-query  { background: var(--amber-50);  border-color: var(--amber-200);  color: var(--amber-700); }
+.type-sdv    { background: var(--blue-50);   border-color: var(--blue-200);   color: var(--blue-600); }
+.type-sign   { background: var(--green-50);  border-color: var(--green-200);  color: var(--green-600); }
+.type-lock   { background: var(--purple-50); border-color: var(--purple-200); color: var(--purple-600); }
+.type-status { background: var(--blue-50);   border-color: var(--blue-200);   color: var(--blue-600); }
+.type-sae    { background: var(--red-50);    border-color: var(--red-200);    color: var(--red-600); }
+.type-entry  { background: var(--green-50);  border-color: var(--green-200);  color: var(--green-600); }
+
+/* Anomaly flag */
+.anomaly-flag { font-size: 12px; color: var(--amber-700); margin-left: 4px; flex-shrink: 0; }
+.type-cell-wrap { display: flex; align-items: center; flex-wrap: nowrap; white-space: nowrap; }
+
+/* ── Subject + form cells ── */
+.subject-id { font-family: var(--font-mono); font-weight: var(--weight-medium); color: var(--color-text-primary); font-size: var(--text-xs); }
+.form-cell { font-size: var(--text-xs); color: var(--color-text-secondary); white-space: normal; line-height: 1.5; }
+.form-name { color: var(--color-text-primary); font-weight: var(--weight-medium); }
+.field-name {
+  font-family: var(--font-mono); font-size: 10px;
+  background: var(--color-page-bg); border: 1px solid var(--color-border);
+  border-radius: var(--radius-sm); padding: 0 4px;
+  color: var(--color-text-tertiary); margin-left: 3px;
+}
+
+/* ── Change / diff cell ── */
+.change-cell { font-size: var(--text-xs); }
+.diff-wrap { display: flex; align-items: center; gap: 5px; flex-wrap: wrap; }
+.diff-old {
+  font-family: var(--font-mono);
+  color: var(--red-600); background: var(--red-50);
+  border: 1px solid var(--red-200); border-radius: var(--radius-sm);
+  padding: 1px 5px; text-decoration: line-through;
+  text-decoration-color: var(--red-200);
+}
+.diff-arrow { color: var(--color-text-placeholder); font-size: 10px; }
+.diff-new {
+  font-family: var(--font-mono);
+  color: var(--green-600); background: var(--green-50);
+  border: 1px solid var(--green-200); border-radius: var(--radius-sm);
+  padding: 1px 5px;
+}
+.diff-add {
+  font-family: var(--font-mono);
+  color: var(--green-600); background: var(--green-50);
+  border: 1px solid var(--green-200); border-radius: var(--radius-sm);
+  padding: 1px 5px;
+}
+.diff-special {
+  display: flex; align-items: center; gap: 4px;
+  color: var(--color-text-secondary); font-size: var(--text-xs);
+}
+.diff-special i { font-size: 12px; }
+.diff-special.green { color: var(--green-600); }
+.diff-special.blue  { color: var(--blue-600); }
+.diff-special.purple{ color: var(--purple-600); }
+
+/* ── User cell ── */
+.user-cell { display: flex; align-items: center; gap: var(--space-2); font-size: var(--text-xs); }
+.user-avatar {
+  width: 22px; height: 22px; border-radius: 50%;
+  background: var(--slate-50); border: 1px solid var(--slate-200);
+  display: flex; align-items: center; justify-content: center;
+  font-size: 9px; font-weight: var(--weight-bold); color: var(--slate-600);
+  flex-shrink: 0; font-family: var(--font-sans);
+}
+.user-name { font-weight: var(--weight-medium); color: var(--color-text-primary); }
+.user-role {
+  display: inline-flex; align-items: center;
+  padding: 1px 5px; border-radius: var(--radius-sm);
+  background: var(--color-page-bg); border: 1px solid var(--color-border);
+  font-size: 10px; font-weight: var(--weight-medium);
+  color: var(--color-text-secondary); font-family: var(--font-sans);
+}
+
+/* ── Reason cell ── */
+.reason-cell {
+  font-size: var(--text-xs);
+  color: var(--color-text-secondary);
+  max-width: 240px;
+  white-space: normal;
+  line-height: 1.5;
+}
+
+/* ── Immutable marker in last column ── */
+.immutable-mark {
+  display: flex; align-items: center; gap: 3px;
+  font-size: 10px; color: var(--color-text-placeholder);
+  white-space: nowrap;
+}
+.immutable-mark i { font-size: 10px; }
+
+/* ── Empty / hidden rows ── */
+.data-row.hidden { display: none; }
+
+/* ── Summary row ── */
+.summary-bar {
+  padding: var(--space-2) var(--space-5);
+  background: var(--color-surface);
+  border-top: 1px solid var(--color-border);
+  display: flex; align-items: center; gap: var(--space-4);
+  font-size: var(--text-xs); color: var(--color-text-tertiary);
+  flex-shrink: 0;
+}
+.summary-count { font-weight: var(--weight-medium); color: var(--color-text-primary); }
+
+/* Buttons */
+.btn-secondary {
+  display: flex; align-items: center; gap: 4px;
+  height: 32px; padding: 0 var(--space-3);
+  font-size: var(--text-sm); font-weight: var(--weight-medium);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  background: var(--color-surface);
+  color: var(--color-text-primary);
+  cursor: pointer;
+  transition: background var(--duration-fast);
+}
+.btn-secondary:hover { background: var(--color-hover-bg); }
+.btn-secondary i { font-size: 14px; }
+</style>
+</head>
+<body>
+<div class="shell">
+
+  <!-- Side nav -->
+  <nav class="sidenav">
+    <div class="nav-logo"><span>Ar</span></div>
+    <button class="nav-item"><i class="ti ti-layout-dashboard"></i><span class="nav-label">Dashboard</span></button>
+    <button class="nav-item"><i class="ti ti-list"></i><span class="nav-label">Animals</span></button>
+    <button class="nav-item"><i class="ti ti-help-circle"></i><span class="nav-label">Queries</span></button>
+    <button class="nav-item"><i class="ti ti-chart-bar"></i><span class="nav-label">Reports</span></button>
+    <div class="nav-spacer"></div>
+    <div class="nav-sep"></div>
+    <button class="nav-item active"><i class="ti ti-clipboard-list"></i><span class="nav-label">Audit</span></button>
+  </nav>
+
+  <div class="main">
+    <header class="topbar">
+      <button class="tb-study">Arken Canine · AK-2401 <i class="ti ti-chevron-right"></i></button>
+      <div class="tb-right">
+        <button class="tb-icon"><i class="ti ti-bell"></i></button>
+        <button class="tb-icon"><i class="ti ti-settings"></i></button>
+        <button class="tb-role">CRA <i class="ti ti-chevron-right"></i></button>
+        <div class="tb-avatar">JR</div>
+      </div>
+    </header>
+
+    <div class="page-wrap">
+
+      <!-- Page header -->
+      <div class="page-header">
+        <div class="page-header-top">
+          <div>
+            <nav class="breadcrumb" style="margin-bottom:4px">
+              <button class="bc-link"><span>AK-2401</span></button>
+              <span style="color:var(--color-text-placeholder);font-size:11px"><i class="ti ti-chevron-right"></i></span>
+              <span>Audit trail</span>
+            </nav>
+            <h1 class="page-title">Audit trail</h1>
+          </div>
+          <div class="page-actions"></div>
+        </div>
+      </div>
+
+      <!-- Filter bar -->
+      <div class="filter-bar">
+        <div class="filter-group">
+          <span class="filter-label">Role</span>
+          <select class="filter-select">
+            <option>All users</option>
+            <option>CRC only</option>
+            <option>CRA only</option>
+            <option>PI only</option>
+            <option>DM only</option>
+            <option>Auto / system</option>
+          </select>
+        </div>
+
+        <div class="filter-group">
+          <span class="filter-label">Subject</span>
+          <select class="filter-select" id="subject-filter" onchange="applyFilters()">
+            <option value="all">All subjects</option>
+            <option value="AUSB1P1-01" selected>AUSB1P1-01</option>
+            <option value="AUSB1P2-06">AUSB1P2-06</option>
+          </select>
+        </div>
+
+        <div class="filter-group">
+          <span class="filter-label">Type</span>
+          <select class="filter-select" id="type-filter" onchange="applyFilters()">
+            <option value="all">All types</option>
+            <option value="edit">Edit</option>
+            <option value="query">Query</option>
+            <option value="sdv">SDV</option>
+            <option value="sign">Sign</option>
+            <option value="lock">Lock</option>
+            <option value="sae">SAE</option>
+          </select>
+        </div>
+
+        <div class="filter-group">
+          <span class="filter-label">From</span>
+          <input type="date" class="filter-date" value="2026-04-28">
+        </div>
+        <div class="filter-group">
+          <span class="filter-label">To</span>
+          <input type="date" class="filter-date" value="2026-05-27">
+        </div>
+
+        <div class="filter-divider"></div>
+
+        <button class="filter-toggle anomaly" id="anomaly-toggle" onclick="toggleAnomalies()">
+          <i class="ti ti-alert-triangle"></i> Anomalies
+        </button>
+
+        <input type="search" class="filter-search" placeholder="Search fields, values, users…">
+        <button class="btn-export"><i class="ti ti-download"></i> Export CSV</button>
+      </div>
+
+      <!-- Table -->
+      <div class="table-wrap">
+        <table class="audit-table" id="audit-table">
+          <thead>
+            <tr>
+              <th class="col-ts sortable">Timestamp <i class="ti ti-arrow-down sort-icon"></i></th>
+              <th class="col-type">Type</th>
+              <th class="col-subject">Subject</th>
+              <th class="col-form">Form · Field</th>
+              <th class="col-change">Change</th>
+              <th class="col-user">User</th>
+              <th class="col-reason">Reason / Note</th>
+            </tr>
+          </thead>
+          <tbody id="audit-body">
+
+            <!-- SAE -->
+            <tr class="data-row grp-v1pe" data-type="sae" data-subject="AUSB1P1-01">
+              <td class="ts-cell">2026-05-09T14:32:07Z</td>
+              <td><span class="type-badge type-sae">SAE</span></td>
+              <td><span class="subject-id">AUSB1P1-01</span></td>
+              <td class="form-cell"><span class="form-name">Visit 1 — PE</span><span class="field-name">SAE_FORM_D9</span></td>
+              <td class="change-cell"><span style="color:var(--red-600)">Not submitted</span> <span style="color:var(--color-text-placeholder);font-size:11px">→</span> <span style="color:var(--green-600)">Submitted · D9</span></td>
+              <td>
+                <div class="user-cell">
+                  <div class="user-avatar">ET</div>
+                  <div><div class="user-name">E. Tron</div></div>
+                  <span class="user-role">CRC</span>
+                </div>
+              </td>
+              <td class="reason-cell">Humane endpoint — BRD score ≥3 on two consecutive observations per protocol §7.4</td>
+            </tr>
+
+            <!-- Field edit with anomaly -->
+            <tr class="data-row grp-v1pe anomaly-row" data-type="edit" data-subject="AUSB1P1-01" data-anomaly="true">
+              <td class="ts-cell">2026-05-06T11:14:22Z</td>
+              <td>
+                <div class="type-cell-wrap"><span class="type-badge type-edit">Edit</span>
+                <i class="ti ti-alert-triangle anomaly-flag" title="Anomaly: field modified after query raised"></i></div>
+              </td>
+              <td><span class="subject-id">AUSB1P1-01</span></td>
+              <td class="form-cell"><span class="form-name">Visit 1 — PE</span><span class="field-name">RECTAL_TEMP_V1</span></td>
+              <td class="change-cell"><span style="color:var(--red-600);font-family:var(--font-mono)">28.5 °C</span> <span style="color:var(--color-text-placeholder);font-size:11px">→</span> <span style="color:var(--green-600);font-family:var(--font-mono)">38.4 °C</span></td>
+              <td>
+                <div class="user-cell">
+                  <div class="user-avatar">ET</div>
+                  <div><div class="user-name">E. Tron</div></div>
+                  <span class="user-role">CRC</span>
+                </div>
+              </td>
+              <td class="reason-cell">Transcription error — verified against barn log 2026-05-05</td>
+            </tr>
+
+            <!-- Query raised -->
+            <tr class="data-row grp-v1pe" data-type="query" data-subject="AUSB1P1-01">
+              <td class="ts-cell">2026-05-05T09:14:32Z</td>
+              <td><span class="type-badge type-query">Query</span></td>
+              <td><span class="subject-id">AUSB1P1-01</span></td>
+              <td class="form-cell"><span class="form-name">Visit 1 — PE</span><span class="field-name">RECTAL_TEMP_V1</span></td>
+              <td class="change-cell"><span style="color:var(--amber-700);display:flex;align-items:center;gap:4px"><i class="ti ti-flag-filled" style="font-size:13px"></i> Query raised</span></td>
+              <td>
+                <div class="user-cell">
+                  <div class="user-avatar" style="background:var(--slate-50);color:var(--slate-600)">AU</div>
+                  <div><div class="user-name">Edit check</div></div>
+                  <span class="user-role">Auto</span>
+                </div>
+              </td>
+              <td class="reason-cell">Value 28.5°C outside normal range 38–39°C. Verify against source document.</td>
+            </tr>
+
+            <!-- First entry — body weight (Entry = initial recording) -->
+            <tr class="data-row grp-v1pe" data-type="edit" data-subject="AUSB1P1-01">
+              <td class="ts-cell">2026-05-05T09:12:18Z</td>
+              <td><span class="type-badge type-entry">Entry</span></td>
+              <td><span class="subject-id">AUSB1P1-01</span></td>
+              <td class="form-cell"><span class="form-name">Visit 1 — PE</span><span class="field-name">BODY_WEIGHT_V1</span></td>
+              <td class="change-cell"><span style="color:var(--green-600);font-family:var(--font-mono)">+ 400 kg</span></td>
+              <td>
+                <div class="user-cell">
+                  <div class="user-avatar">ET</div>
+                  <div><div class="user-name">E. Tron</div></div>
+                  <span class="user-role">CRC</span>
+                </div>
+              </td>
+              <td class="reason-cell">Initial entry</td>
+            </tr>
+
+            <!-- SDV -->
+            <tr class="data-row grp-v1pe" data-type="sdv" data-subject="AUSB1P1-01">
+              <td class="ts-cell">2026-05-08T16:02:11Z</td>
+              <td><span class="type-badge type-sdv">SDV</span></td>
+              <td><span class="subject-id">AUSB1P1-01</span></td>
+              <td class="form-cell"><span class="form-name">Visit 1 — PE</span></td>
+              <td class="change-cell"><span style="color:var(--blue-600);display:flex;align-items:center;gap:4px"><i class="ti ti-circle-check" style="font-size:13px"></i> SDV complete</span></td>
+              <td>
+                <div class="user-cell">
+                  <div class="user-avatar" style="background:var(--blue-50);color:var(--blue-600)">JR</div>
+                  <div><div class="user-name">J. Reyes</div></div>
+                  <span class="user-role">CRA</span>
+                </div>
+              </td>
+              <td class="reason-cell">All fields verified against source documents</td>
+            </tr>
+
+            <!-- Sign -->
+            <tr class="data-row grp-v1pe" data-type="sign" data-subject="AUSB1P1-01">
+              <td class="ts-cell">2026-05-08T17:30:44Z</td>
+              <td><span class="type-badge type-sign">Sign</span></td>
+              <td><span class="subject-id">AUSB1P1-01</span></td>
+              <td class="form-cell"><span class="form-name">Visit 1 — PE</span></td>
+              <td class="change-cell"><span style="color:var(--green-600);display:flex;align-items:center;gap:4px"><i class="ti ti-writing-sign" style="font-size:13px"></i> Signed</span></td>
+              <td>
+                <div class="user-cell">
+                  <div class="user-avatar" style="background:var(--green-50);color:var(--green-600)">SP</div>
+                  <div><div class="user-name">Dr. S. Patel</div></div>
+                  <span class="user-role">PI</span>
+                </div>
+              </td>
+              <td class="reason-cell">Electronically signed — data accurate and complete</td>
+            </tr>
+
+            <!-- Lock -->
+            <tr class="data-row grp-v1pe" data-type="lock" data-subject="AUSB1P1-01">
+              <td class="ts-cell">2026-05-09T09:00:00Z</td>
+              <td><span class="type-badge type-lock">Lock</span></td>
+              <td><span class="subject-id">AUSB1P1-01</span></td>
+              <td class="form-cell"><span class="form-name">Visit 1 — PE</span></td>
+              <td class="change-cell"><span style="color:var(--purple-600);display:flex;align-items:center;gap:4px"><i class="ti ti-lock" style="font-size:13px"></i> Locked</span></td>
+              <td>
+                <div class="user-cell">
+                  <div class="user-avatar" style="background:var(--blue-50);color:var(--blue-600)">JR</div>
+                  <div><div class="user-name">J. Reyes</div></div>
+                  <span class="user-role">CRA</span>
+                </div>
+              </td>
+              <td class="reason-cell">Form locked after SDV and PI signature</td>
+            </tr>
+
+            <!-- Status change -->
+            <tr class="data-row grp-status" data-type="edit" data-subject="AUSB1P1-01">
+              <td class="ts-cell">2026-05-01T10:45:00Z</td>
+              <td><span class="type-badge type-status">Status</span></td>
+              <td><span class="subject-id">AUSB1P1-01</span></td>
+              <td class="form-cell"><span class="form-name">Subject record</span></td>
+              <td class="change-cell"><span style="color:var(--red-600)">Screened</span> <span style="color:var(--color-text-placeholder);font-size:11px">→</span> <span style="color:var(--green-600)">Randomized · Grp A</span></td>
+              <td>
+                <div class="user-cell">
+                  <div class="user-avatar" style="background:var(--green-50);color:var(--green-600)">SP</div>
+                  <div><div class="user-name">Dr. S. Patel</div></div>
+                  <span class="user-role">PI</span>
+                </div>
+              </td>
+              <td class="reason-cell">Eligibility confirmed. Randomization code assigned.</td>
+            </tr>
+
+            <!-- Enrollment -->
+            <tr class="data-row grp-status anomaly-row" data-type="edit" data-subject="AUSB1P1-01" data-anomaly="true">
+              <td class="ts-cell">2026-04-28T08:30:00Z</td>
+              <td>
+                <div class="type-cell-wrap"><span class="type-badge type-entry">Entry</span>
+                <i class="ti ti-alert-triangle anomaly-flag" title="Anomaly: enrolled outside screening window"></i></div>
+              </td>
+              <td><span class="subject-id">AUSB1P1-01</span></td>
+              <td class="form-cell"><span class="form-name">Subject record</span></td>
+              <td class="change-cell"><span style="color:var(--green-600)">+ Screened</span></td>
+              <td>
+                <div class="user-cell">
+                  <div class="user-avatar">ET</div>
+                  <div><div class="user-name">E. Tron</div></div>
+                  <span class="user-role">CRC</span>
+                </div>
+              </td>
+              <td class="reason-cell">Subject enrolled — screening complete. All criteria met.</td>
+            </tr>
+
+          </tbody>
+        </table>
+      </div>
+
+      <!-- Summary bar -->
+      <div class="summary-bar">
+        <span><span class="summary-count">9</span> events shown</span>
+        <span>·</span>
+        <span><span class="summary-count" style="color:var(--amber-700)">2</span> anomalies</span>
+        <span>·</span>
+        <span>Subject: <span class="summary-count">AUSB1P1-01</span></span>
+        <span>·</span>
+        <span>Period: 2026-04-28 → 2026-05-27</span>
+        <span style="margin-left:auto;color:var(--color-text-placeholder)">
+          <i class="ti ti-lock" style="font-size:11px"></i> Immutable · Last generated: 2026-05-27T18:00:00Z
+        </span>
+      </div>
+
+    </div>
+  </div>
+</div>
+
+<script>
+// ── Anomalies filter ──────────────────────────────────────────────────────
+let anomalyOnly = false;
+function toggleAnomalies() {
+  anomalyOnly = !anomalyOnly;
+  document.getElementById('anomaly-toggle').classList.toggle('active', anomalyOnly);
+  document.querySelectorAll('.data-row').forEach(r => {
+    if (anomalyOnly) {
+      r.classList.toggle('hidden', r.dataset.anomaly !== 'true');
+    } else {
+      r.classList.remove('hidden');
+    }
+  });
+}
+
+// ── Type + subject filter ─────────────────────────────────────────────────
+function applyFilters() {
+  const typeVal = document.getElementById('type-filter').value;
+  const subjectVal = document.getElementById('subject-filter').value;
+  document.querySelectorAll('.data-row').forEach(r => {
+    const typeMatch = typeVal === 'all' || r.dataset.type === typeVal;
+    const subjectMatch = subjectVal === 'all' || r.dataset.subject === subjectVal;
+    r.classList.toggle('hidden', !(typeMatch && subjectMatch));
+  });
+}
+</script>
+</body>
+</html>
