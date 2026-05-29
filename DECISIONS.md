@@ -374,3 +374,58 @@ Every time a decision is made — about tokens, components, UX patterns, tech ch
 **Decision:** Every HTML component file must declare all CSS tokens it uses in its own `:root` block. Cannot rely on `arken-tokens.css` being linked.
 **Rationale:** Each component is a standalone file opened in a browser directly. If `--text-xl` is used but not declared in the component's `:root`, it silently falls back — font-size bug in component 12 was caused by this exact issue.
 
+
+---
+
+## Session 5 continued — 2026-05-29
+
+### Query thread — component 13
+**Decision:** Query thread lives in a 480px slide-in panel, triggered by clicking the flag icon or the query text below a flagged field. Same shell as the audit trail panel.
+
+**Lifecycle:** Raised → Responded → Resolved → Closed (optional, DM only)
+- Raise→respond→resolve is the standard flow. Close is a DM-only cleanup step.
+- In the Responded state the CRA can either Request clarification (back to CRC) or Resolve.
+- Clicking an already-selected mode in the Remarks dropdown deselects it.
+
+**Panel anatomy (top to bottom):**
+1. Panel header — "Query thread" title + query ID (Q-001)
+2. Status bar — current status badge + plain text description (e.g. "Awaiting CRC response")
+3. Field context bar — field name + code + value diff (strikethrough old → green new)
+4. Thread body — messages + event separators
+5. Compose area — textarea + action buttons
+
+### Query thread — field state display
+**Decision:** Query text shown inline below the field as a clickable underlined link in amber-700. Format: `Q-001: [query text]`. Wraps to 2 lines max then truncates with `…`. Clicking opens the panel directly — no separate "view thread" label.
+**Resolved state:** Field returns to default gray. Green text "Q-001: Corrected — query resolved" stays below it, still clickable, still opens the panel.
+**Rationale:** The query text itself is the affordance — users read it and click it in one action. No intermediate step.
+
+### Query thread — value diff display
+**Decision:** Old value in black with grey strikethrough → green new value. No chip wrappers. Monospace font. Used consistently in both the field context bar and the correction block inside message bubbles.
+**Rationale:** Strikethrough communicates "this is no longer the value" without needing a red background chip. Black strikethrough reads as a clean editorial correction, not an error state.
+
+### Query thread — competitor landscape
+**Medidata Rave:** Queries in a separate "Discrepancy Management" module — leave the form entirely. No visual connection to the field. Most complained-about UX pattern in the platform.
+**Veeva Vault:** Sidebar panel within the form, but field connection is a text label only. Resolution is a status dropdown.
+**Castor EDC:** Inline below the field — closest to Arken. Collapses after 2 messages, no role distinction.
+**REDCap:** Field notes only — no lifecycle, no roles, no resolution states.
+**Arken differentiator:** Field-anchored threading, role chips on every message, inline diff in the thread, lifecycle as a status indicator. No competitor shows the query and correction as one narrative.
+
+### Form header — Remarks button
+**Decision:** "Remarks" is a secondary button (same style as Submit for review) with a chevron-down. Clicking opens a single-choice dropdown with: Queries · SDV mode. Only one can be active at a time. Selecting an already-active mode deselects it. Button label updates to reflect active mode ("Remarks: queries", "Remarks: SDV mode").
+**Rationale:** A labelled button makes the affordance explicit vs an icon-only toggle. Single-choice dropdown enforces the constraint that only one mode can be active at a time. More modes can be added later without changing the pattern.
+
+### Form header — action set (final)
+**Decision:**
+- Remarks (secondary, dropdown) → activates Queries or SDV mode
+- Submit for review (secondary)
+- Run validations (primary)
+- ⋮ overflow → Audit trail (this form) · Annotated CRF toggle · Role permissions toggle · Print form · Export form data · Lock form (danger)
+
+### Subject header — final spec
+**Decision:** One-line flex row: species emoji (22px) → subject ID (24px / Roboto Mono) → ⇄ switch button → status badge → meta string → Manage button (margin-left: auto).
+- No card wrapper, no border, no padding box
+- Subject ID: `var(--text-3xl)` 24px
+- Species icon: optional, configured per study in settings
+- Switch button: opens a 320px popover with subject list + search
+- Manage button: secondary button, dropdown with Copy link · Add unscheduled visit · Print subject summary · Export subject data
+
