@@ -129,40 +129,27 @@ body { font-family: var(--font-sans); font-size: var(--text-base); color: var(--
 .bc-btn:hover { color: var(--color-text-primary); }
 .bc-sep { color: var(--color-text-placeholder); font-size: 11px; }
 
-/* ── Subject header wrapper ── */
+/* ── Subject header — one-line ── */
 .subject-header {
   display: flex;
-  align-items: flex-start;
-  gap: var(--space-4);
-  padding: var(--space-4);
-  background: var(--color-surface);
-  border: 1px solid var(--color-border);
-  border-radius: var(--radius-lg);
+  align-items: center;
+  gap: var(--space-3);
+  padding: var(--space-2) 0;
+  flex-wrap: wrap;
 }
-
-/* Critical state — red left accent */
 .subject-header.critical {
+  padding: var(--space-2) var(--space-3);
   border-left: 3px solid var(--red-600);
   background: var(--red-50);
+  border-radius: var(--radius-md);
+  margin: 0 calc(-1 * var(--space-3));
 }
-
-/* ── Species icon ── */
+/* ── Species icon — inline emoji ── */
 .species-icon {
-  width: 40px;
-  height: 40px;
-  border-radius: var(--radius-lg);
-  background: var(--color-page-bg);
-  border: 1px solid var(--color-border);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  flex-shrink: 0;
   font-size: 22px;
-  color: var(--color-text-secondary);
+  line-height: 1;
+  flex-shrink: 0;
 }
-
-/* ── Main content ── */
-.subject-body { flex: 1; min-width: 0; }
 
 /* ID row */
 .subject-id-row {
@@ -170,10 +157,9 @@ body { font-family: var(--font-sans); font-size: var(--text-base); color: var(--
   align-items: center;
   gap: var(--space-2);
   flex-wrap: wrap;
-  margin-bottom: var(--space-1);
 }
 .subject-id {
-  font-size: var(--text-xl);
+  font-size: var(--text-3xl);
   font-weight: var(--weight-medium);
   font-family: var(--font-mono);
   color: var(--color-text-primary);
@@ -242,6 +228,7 @@ body { font-family: var(--font-sans); font-size: var(--text-base); color: var(--
   font-size: var(--text-sm);
   color: var(--color-text-secondary);
 }
+.header-dot { color: var(--color-text-placeholder); font-size: 16px; line-height: 1; }
 .meta-sep {
   color: var(--color-text-placeholder);
   font-size: 11px;
@@ -296,10 +283,8 @@ body { font-family: var(--font-sans); font-size: var(--text-base); color: var(--
   color: var(--color-text-secondary);
 }
 .action-btn.ghost:hover { background: var(--color-hover-bg); color: var(--color-text-primary); }
-/* Icon-only variant */
-.action-btn.icon-only { padding: 0; width: 32px; justify-content: center; }
 
-/* ── Overflow dropdown menu ── */
+/* ── Overflow menu ── */
 .overflow-wrap { position: relative; }
 .overflow-menu {
   display: none;
@@ -310,7 +295,7 @@ body { font-family: var(--font-sans); font-size: var(--text-base); color: var(--
   background: var(--color-surface);
   border: 1px solid var(--color-border);
   border-radius: var(--radius-lg);
-  box-shadow: 0 8px 24px rgba(14,18,28,0.10), 0 0 0 1px rgba(14,18,28,0.04);
+  box-shadow: 0 8px 24px rgba(14,18,28,0.10);
   z-index: 100;
   overflow: hidden;
 }
@@ -331,181 +316,93 @@ body { font-family: var(--font-sans); font-size: var(--text-base); color: var(--
   transition: background var(--duration-fast);
 }
 .overflow-item:hover { background: var(--color-hover-bg); }
+.overflow-item .item-left { display: flex; align-items: center; gap: var(--space-2); }
 .overflow-item i { font-size: 15px; color: var(--color-text-tertiary); flex-shrink: 0; }
 .overflow-item.danger { color: var(--red-600); }
 .overflow-item.danger i { color: var(--red-600); }
 .overflow-sep { height: 1px; background: var(--color-border-subtle); margin: var(--space-1) 0; }
 
-/* ── Slide-in panel ── */
-.panel-overlay {
-  display: none;
-  position: fixed;
-  inset: 0;
-  background: rgba(14,18,28,0.32);
-  z-index: 200;
-  backdrop-filter: blur(1px);
-}
-.panel-overlay.open { display: block; }
-
-.slide-panel {
-  position: fixed;
-  top: 0;
-  right: 0;
-  bottom: 0;
-  width: 480px;
+/* ── Subject switcher popover ── */
+.subject-switcher {
+  position: absolute;
+  top: calc(100% + 6px);
+  left: 0;
+  width: 320px;
   background: var(--color-surface);
-  border-left: 1px solid var(--color-border);
-  display: flex;
-  flex-direction: column;
-  z-index: 201;
-  transform: translateX(100%);
-  transition: transform var(--duration-normal) var(--ease-default);
-  box-shadow: -8px 0 24px rgba(14,18,28,0.10);
-}
-.slide-panel.open { transform: translateX(0); }
-
-.panel-header {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  padding: var(--space-4);
-  border-bottom: 1px solid var(--color-border);
-  flex-shrink: 0;
-}
-.panel-title { font-size: var(--text-lg); font-weight: var(--weight-medium); }
-.panel-subject {
-  font-size: var(--text-sm);
-  color: var(--color-text-tertiary);
-  font-family: var(--font-mono);
-  margin-top: 2px;
-}
-.panel-close {
-  display: flex; align-items: center; justify-content: center;
-  width: 32px; height: 32px; border-radius: var(--radius-md);
-  border: none; background: none; cursor: pointer;
-  color: var(--color-text-tertiary);
-  transition: background var(--duration-fast), color var(--duration-fast);
-}
-.panel-close:hover { background: var(--color-hover-bg); color: var(--color-text-primary); }
-.panel-close i { font-size: 18px; }
-
-.panel-tabs {
-  display: flex;
-  border-bottom: 1px solid var(--color-border);
-  flex-shrink: 0;
-}
-.panel-tab {
-  flex: 1;
-  padding: var(--space-3) var(--space-4);
-  font-size: var(--text-sm);
-  font-weight: var(--weight-medium);
-  color: var(--color-text-tertiary);
-  background: none;
-  border: none;
-  border-bottom: 2px solid transparent;
-  cursor: pointer;
-  transition: color var(--duration-fast);
-  text-align: center;
-}
-.panel-tab:hover { color: var(--color-text-primary); }
-.panel-tab.active { color: var(--blue-600); border-bottom-color: var(--blue-600); }
-
-.panel-body { flex: 1; overflow-y: auto; padding: var(--space-4); }
-.panel-filter {
-  display: flex;
-  gap: var(--space-2);
-  margin-bottom: var(--space-4);
-}
-.filter-chip {
-  display: inline-flex; align-items: center; gap: 4px;
-  padding: 3px var(--space-2);
-  border-radius: var(--radius-full);
-  font-size: var(--text-xs);
-  font-weight: var(--weight-medium);
   border: 1px solid var(--color-border);
-  background: var(--color-surface);
-  color: var(--color-text-secondary);
-  cursor: pointer;
-  transition: all var(--duration-fast);
+  border-radius: var(--radius-lg);
+  box-shadow: 0 8px 24px rgba(14,18,28,0.12);
+  z-index: 200;
+  overflow: hidden;
 }
-.filter-chip.active { background: var(--blue-50); border-color: var(--blue-200); color: var(--blue-600); }
-
-/* Audit trail entries */
-.audit-entry {
-  display: flex;
-  gap: var(--space-3);
-  padding: var(--space-3) 0;
-  border-bottom: 1px solid var(--color-border-subtle);
-}
-.audit-entry:last-child { border-bottom: none; }
-.audit-timeline {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  flex-shrink: 0;
-  width: 20px;
-}
-.audit-dot {
-  width: 8px; height: 8px; border-radius: 50%;
-  background: var(--color-border); flex-shrink: 0; margin-top: 5px;
-}
-.audit-dot.status { background: var(--blue-600); }
-.audit-dot.field  { background: var(--slate-600); }
-.audit-dot.query  { background: var(--amber-700); }
-.audit-dot.sae    { background: var(--red-600); }
-.audit-dot.lock   { background: var(--green-600); }
-.audit-line { width: 1px; flex: 1; background: var(--color-border-subtle); margin-top: 2px; }
-
-.audit-content { flex: 1; min-width: 0; }
-.audit-action {
-  font-size: var(--text-sm);
-  font-weight: var(--weight-medium);
-  color: var(--color-text-primary);
-  margin-bottom: 2px;
-  line-height: 1.4;
-}
-.audit-detail {
-  font-size: var(--text-xs);
-  color: var(--color-text-secondary);
-  line-height: 1.5;
-}
-.audit-meta {
+.switcher-header {
   display: flex;
   align-items: center;
   gap: var(--space-2);
-  margin-top: 4px;
+  padding: var(--space-2) var(--space-3);
+  border-bottom: 1px solid var(--color-border);
+  background: var(--color-page-bg);
+}
+.switcher-label {
   font-size: var(--text-xs);
+  font-weight: var(--weight-medium);
+  text-transform: uppercase;
+  letter-spacing: var(--tracking-caps);
   color: var(--color-text-tertiary);
-  font-family: var(--font-mono);
+  white-space: nowrap;
 }
-.audit-role {
-  display: inline-flex; align-items: center;
-  padding: 1px 6px; border-radius: var(--radius-sm);
-  background: var(--color-page-bg); border: 1px solid var(--color-border);
-  font-size: 10px; font-weight: var(--weight-medium);
-  color: var(--color-text-secondary); font-family: var(--font-sans);
-}
-
-/* Signature track entries */
-.sig-entry {
-  display: flex;
-  align-items: flex-start;
-  gap: var(--space-3);
-  padding: var(--space-3);
+.switcher-search {
+  flex: 1;
+  height: 26px;
+  padding: 0 var(--space-2);
+  font-size: var(--text-sm);
+  font-family: var(--font-sans);
   border: 1px solid var(--color-border);
   border-radius: var(--radius-md);
-  margin-bottom: var(--space-2);
+  background: var(--color-surface);
+  color: var(--color-text-primary);
+  outline: none;
 }
-.sig-icon {
-  width: 32px; height: 32px; border-radius: var(--radius-md);
-  display: flex; align-items: center; justify-content: center;
-  flex-shrink: 0; font-size: 16px;
+.switcher-list { max-height: 220px; overflow-y: auto; }
+.switcher-item {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  width: 100%;
+  padding: var(--space-2) var(--space-3);
+  border: none;
+  background: none;
+  cursor: pointer;
+  text-align: left;
+  border-bottom: 1px solid var(--color-border-subtle);
+  transition: background var(--duration-fast);
 }
-.sig-icon.signed   { background: var(--green-50); color: var(--green-600); }
-.sig-icon.pending  { background: var(--amber-50);  color: var(--amber-700); }
-.sig-icon.rejected { background: var(--red-50);    color: var(--red-600); }
-.sig-label { font-size: var(--text-sm); font-weight: var(--weight-medium); color: var(--color-text-primary); margin-bottom: 2px; }
-.sig-meta  { font-size: var(--text-xs); color: var(--color-text-tertiary); font-family: var(--font-mono); }
+.switcher-item:last-child { border-bottom: none; }
+.switcher-item:hover { background: var(--color-hover-bg); }
+.switcher-item-active { background: var(--blue-50); }
+.switcher-item-active:hover { background: #dbeeff; }
+.switcher-id {
+  font-family: var(--font-mono);
+  font-size: var(--text-xs);
+  font-weight: var(--weight-medium);
+  color: var(--color-text-primary);
+  min-width: 90px;
+}
+.switcher-meta {
+  font-size: var(--text-xs);
+  color: var(--color-text-tertiary);
+  flex: 1;
+}
+.switcher-status {
+  display: inline-flex;
+  align-items: center;
+  padding: 1px 6px;
+  border-radius: var(--radius-full);
+  font-size: 10px;
+  font-weight: var(--weight-medium);
+  border: 1px solid;
+  white-space: nowrap;
+}
 
 /* ── Demo layout ── */
 .demo-section {
@@ -535,6 +432,32 @@ body { font-family: var(--font-sans); font-size: var(--text-base); color: var(--
 .spec-table tr:last-child td { border-bottom: none; }
 code { font-family: var(--font-mono); font-size: var(--text-xs); background: var(--color-page-bg); padding: 1px 5px; border-radius: var(--radius-sm); border: 1px solid var(--color-border); }
 </style>
+<script>
+function toggleOverflow(btn) {
+  const menu = btn.nextElementSibling;
+  const isOpen = menu.classList.contains('open');
+  // Close all open menus first
+  document.querySelectorAll('.overflow-menu.open').forEach(m => m.classList.remove('open'));
+  if (!isOpen) menu.classList.add('open');
+}
+function toggleSwitcher(btn) {
+  const pop = document.getElementById('switcher-popover');
+  const isOpen = pop.style.display !== 'none';
+  // Close any open overflow menus
+  document.querySelectorAll('.overflow-menu.open').forEach(m => m.classList.remove('open'));
+  pop.style.display = isOpen ? 'none' : '';
+  if (!isOpen) setTimeout(() => pop.querySelector('.switcher-search').focus(), 50);
+}
+document.addEventListener('click', e => {
+  if (!e.target.closest('.overflow-wrap')) {
+    document.querySelectorAll('.overflow-menu.open').forEach(m => m.classList.remove('open'));
+  }
+  if (!e.target.closest('.subject-id-row')) {
+    const pop = document.getElementById('switcher-popover');
+    if (pop) pop.style.display = 'none';
+  }
+});
+</script>
 </head>
 <body>
 <div class="shell">
@@ -571,318 +494,361 @@ code { font-family: var(--font-mono); font-size: var(--text-xs); background: var
         <p class="page-sub">Component 10 · EDC-specific · arken-edc/components/10-subject-header.html</p>
       </div>
 
-      <!-- ── ALL STATUS VARIANTS ────────────────────────────────────────── -->
+      <!-- ── STATUS VARIANTS ─────────────────────────────────────────────── -->
       <div class="demo-section">
-        <div class="demo-label">All status variants — Arken Canine</div>
-        <div class="demo-group">
+        <div class="demo-label">Status variants — Arken Canine · BRD cattle study</div>
 
-          <!-- Breadcrumb (shown once — shared across all variants) -->
-          <nav class="breadcrumb" aria-label="Breadcrumb">
-            <button class="bc-btn"><span>AK-2401</span></button>
-            <span class="bc-sep"><i class="ti ti-chevron-right" style="font-size:11px"></i></span>
-            <button class="bc-btn"><span>Austin</span></button>
-            <span class="bc-sep"><i class="ti ti-chevron-right" style="font-size:11px"></i></span>
-            <button class="bc-btn"><span>Barn 1</span></button>
-            <span class="bc-sep"><i class="ti ti-chevron-right" style="font-size:11px"></i></span>
-            <span>Pen 1</span>
-          </nav>
+        <!-- Breadcrumb shown once — applies to all variants below -->
+        <nav class="breadcrumb" aria-label="Breadcrumb">
+          <button class="bc-btn"><span>AK-2401</span></button>
+          <span class="bc-sep"><i class="ti ti-chevron-right" style="font-size:11px"></i></span>
+          <button class="bc-btn"><span>Austin</span></button>
+          <span class="bc-sep"><i class="ti ti-chevron-right" style="font-size:11px"></i></span>
+          <button class="bc-btn"><span>Barn 1</span></button>
+          <span class="bc-sep"><i class="ti ti-chevron-right" style="font-size:11px"></i></span>
+          <span>Pen 1</span>
+        </nav>
 
-          <!-- Screened -->
-          <div>
-            <div class="demo-sublabel">Screened</div>
-            <div class="subject-header">
-              <div class="species-icon" title="Canine">🐕</div>
-              <div class="subject-body">
-                <div class="subject-id-row">
-                  <span class="subject-id">AUSB1P1-01</span>
-                  <button class="subject-switch" title="Switch subject" aria-label="Switch subject">
-                    <i class="ti ti-arrows-exchange"></i>
-                  </button>
-                  <span class="subject-status status-screened">Screened
-                  </span>
-                </div>
-                <div class="subject-meta">
-                  <span class="meta-item">Female</span>
-                  <span class="meta-sep">·</span>
-                  <span class="meta-item">4yr</span>
-                  <span class="meta-sep">·</span>
-                  <span class="meta-item">Hereford</span>
-                  <span class="meta-sep">·</span>
-                  <span class="meta-item mono">400 kg</span>
-                </div>
-              </div>
-              <div class="subject-actions">
-                <button class="action-btn secondary" onclick="openPanel('audit')"><i class="ti ti-clipboard-list"></i> Audit trail</button>
-                <div class="overflow-wrap">
-                  <button class="action-btn ghost icon-only" onclick="toggleOverflow(this)" aria-label="More actions"><i class="ti ti-dots-vertical"></i></button>
-                  <div class="overflow-menu">
-                    <button class="overflow-item" onclick="openPanel('sig')"><i class="ti ti-writing-sign"></i> Signature track</button>
-                    <div class="overflow-sep"></div>
-                    <button class="overflow-item"><i class="ti ti-link"></i> Copy link</button>
-                    <button class="overflow-item"><i class="ti ti-calendar-plus"></i> Add unscheduled visit</button>
-                    <button class="overflow-item"><i class="ti ti-printer"></i> Print subject summary</button>
-                    <button class="overflow-item"><i class="ti ti-download"></i> Export subject data</button>
-                  </div>
-                </div>
+        <!-- Screened -->
+        <div>
+          <div class="demo-sublabel">Screened</div>
+          <div class="subject-header">
+            <div class="species-icon">🐕</div>
+            <div class="subject-id-row">
+              <span class="subject-id">AUSB1P1-01</span>
+              <button class="subject-switch" title="Switch subject" aria-label="Switch subject"><i class="ti ti-arrows-exchange"></i></button>
+              <span class="subject-status status-screened">Screened</span>
+            </div>
+            <span class="header-dot">·</span>
+            <div class="subject-meta">
+              <span class="meta-item">Female</span><span class="meta-sep">·</span>
+              <span class="meta-item">4yr</span><span class="meta-sep">·</span>
+              <span class="meta-item">Hereford</span><span class="meta-sep">·</span>
+              <span class="meta-item mono">400 kg</span>
+            </div>
+            <div class="subject-actions" style="margin-left:auto">
+              <div class="overflow-wrap">
+              <button class="action-btn secondary" onclick="toggleOverflow(this)">Manage <i class="ti ti-chevron-down" style="font-size:12px"></i></button>
+              <div class="overflow-menu">
+                <button class="overflow-item"><div class="item-left"><i class="ti ti-link"></i> Copy link</div></button>
+                <button class="overflow-item"><div class="item-left"><i class="ti ti-calendar-plus"></i> Add unscheduled visit</div></button>
+                <button class="overflow-item"><div class="item-left"><i class="ti ti-printer"></i> Print subject summary</div></button>
+                <button class="overflow-item"><div class="item-left"><i class="ti ti-download"></i> Export subject data</div></button>
               </div>
             </div>
-          </div>
-
-          <!-- Randomized — the most common active state -->
-          <div>
-            <div class="demo-sublabel">Randomized — on study</div>
-            <div class="subject-header">
-              <div class="species-icon" title="Canine">🐕</div>
-              <div class="subject-body">
-                <div class="subject-id-row">
-                  <span class="subject-id">AUSB1P1-01</span>
-                  <button class="subject-switch" title="Switch subject" aria-label="Switch subject">
-                    <i class="ti ti-arrows-exchange"></i>
-                  </button>
-                  <span class="subject-status status-randomized">Randomized
-                  </span>
-                </div>
-                <div class="subject-meta">
-                  <span class="meta-item">Female</span>
-                  <span class="meta-sep">·</span>
-                  <span class="meta-item">4yr</span>
-                  <span class="meta-sep">·</span>
-                  <span class="meta-item">Hereford</span>
-                  <span class="meta-sep">·</span>
-                  <span class="meta-item mono">400 kg</span>
-                  <span class="meta-sep">·</span>
-                  <span class="meta-item group">Group A — Dose</span>
-                </div>
-              </div>
-              <div class="subject-actions">
-                <button class="action-btn secondary"><i class="ti ti-clipboard-list"></i> Audit trail</button>
-              </div>
             </div>
           </div>
-
-          <!-- Completed -->
-          <div>
-            <div class="demo-sublabel">Completed</div>
-            <div class="subject-header">
-              <div class="species-icon" title="Canine">🐕</div>
-              <div class="subject-body">
-                <div class="subject-id-row">
-                  <span class="subject-id">AUSB1P1-04</span>
-                  <button class="subject-switch" title="Switch subject" aria-label="Switch subject">
-                    <i class="ti ti-arrows-exchange"></i>
-                  </button>
-                  <span class="subject-status status-completed">Completed
-                  </span>
-                </div>
-                <div class="subject-meta">
-                  <span class="meta-item">Male</span>
-                  <span class="meta-sep">·</span>
-                  <span class="meta-item">3yr</span>
-                  <span class="meta-sep">·</span>
-                  <span class="meta-item">Angus</span>
-                  <span class="meta-sep">·</span>
-                  <span class="meta-item mono">380 kg</span>
-                  <span class="meta-sep">·</span>
-                  <span class="meta-item group">Group B — Control</span>
-                </div>
-              </div>
-              <div class="subject-actions">
-                <button class="action-btn secondary"><i class="ti ti-clipboard-list"></i> Audit trail</button>
-              </div>
-            </div>
-          </div>
-
-          <!-- Withdrawn -->
-          <div>
-            <div class="demo-sublabel">Withdrawn</div>
-            <div class="subject-header">
-              <div class="species-icon" title="Canine" style="opacity:0.5">🐕</div>
-              <div class="subject-body">
-                <div class="subject-id-row">
-                  <span class="subject-id" style="color:var(--color-text-tertiary)">AUSB1P2-03</span>
-                  <button class="subject-switch" title="Switch subject" aria-label="Switch subject">
-                    <i class="ti ti-arrows-exchange"></i>
-                  </button>
-                  <span class="subject-status status-withdrawn">Withdrawn
-                  </span>
-                </div>
-                <div class="subject-meta">
-                  <span class="meta-item">Female</span>
-                  <span class="meta-sep">·</span>
-                  <span class="meta-item">5yr</span>
-                  <span class="meta-sep">·</span>
-                  <span class="meta-item">Hereford</span>
-                  <span class="meta-sep">·</span>
-                  <span class="meta-item mono">410 kg</span>
-                  <span class="meta-sep">·</span>
-                  <span class="meta-item group">Group A — Dose</span>
-                  <span class="meta-sep">·</span>
-                  <span class="meta-item" style="color:var(--color-text-tertiary)">Withdrawn Day 14 — owner decision</span>
-                </div>
-              </div>
-              <div class="subject-actions">
-                <button class="action-btn secondary"><i class="ti ti-clipboard-list"></i> Audit trail</button>
-              </div>
-            </div>
-          </div>
-
-          <!-- Critical — SAE / humane endpoint -->
-          <div>
-            <div class="demo-sublabel">Critical — SAE active</div>
-            <div class="subject-header critical">
-              <div class="species-icon" title="Canine">🐕</div>
-              <div class="subject-body">
-                <div class="subject-id-row">
-                  <span class="subject-id">AUSB1P1-01</span>
-                  <button class="subject-switch" title="Switch subject" aria-label="Switch subject">
-                    <i class="ti ti-arrows-exchange"></i>
-                  </button>
-                  <span class="subject-status status-randomized">Randomized
-                  </span>
-                  <span class="subject-alert">
-                    <i class="ti ti-alert-triangle"></i>SAE — PI sign required
-                  </span>
-                </div>
-                <div class="subject-meta">
-                  <span class="meta-item">Female</span>
-                  <span class="meta-sep">·</span>
-                  <span class="meta-item">4yr</span>
-                  <span class="meta-sep">·</span>
-                  <span class="meta-item">Hereford</span>
-                  <span class="meta-sep">·</span>
-                  <span class="meta-item mono">400 kg</span>
-                  <span class="meta-sep">·</span>
-                  <span class="meta-item group">Group A — Dose</span>
-                </div>
-              </div>
-              <div class="subject-actions">
-                <button class="action-btn secondary" style="border-color:var(--red-200);color:var(--red-600)">
-                  <i class="ti ti-file-alert"></i> Open SAE form
-                </button>
-                <button class="action-btn secondary"><i class="ti ti-clipboard-list"></i> Audit trail</button>
-              </div>
-            </div>
-          </div>
-
-          <!-- Humane endpoint / Deceased -->
-          <div>
-            <div class="demo-sublabel">Humane endpoint</div>
-            <div class="subject-header critical">
-              <div class="species-icon" title="Canine" style="opacity:0.5">🐕</div>
-              <div class="subject-body">
-                <div class="subject-id-row">
-                  <span class="subject-id" style="color:var(--color-text-tertiary)">AUSB2P1-02</span>
-                  <span class="subject-status status-humane">Humane endpoint
-                  </span>
-                </div>
-                <div class="subject-meta">
-                  <span class="meta-item">Male</span>
-                  <span class="meta-sep">·</span>
-                  <span class="meta-item">3yr</span>
-                  <span class="meta-sep">·</span>
-                  <span class="meta-item">Angus</span>
-                  <span class="meta-sep">·</span>
-                  <span class="meta-item mono">285 kg</span>
-                  <span class="meta-sep">·</span>
-                  <span class="meta-item group">Group A — Dose</span>
-                  <span class="meta-sep">·</span>
-                  <span class="meta-item" style="color:var(--red-600)">Day 9 — BRD score 3</span>
-                </div>
-              </div>
-              <div class="subject-actions">
-                <button class="action-btn secondary" onclick="openPanel('audit')"><i class="ti ti-clipboard-list"></i> Audit trail</button>
-              </div>
-            </div>
-          </div>
-
         </div>
+
+        <!-- Randomized -->
+        <div>
+          <div class="demo-sublabel">Randomized — on study</div>
+          <div class="subject-header">
+            <div class="species-icon">🐕</div>
+            <div class="subject-id-row">
+              <span class="subject-id">AUSB1P1-01</span>
+              <button class="subject-switch" title="Switch subject" aria-label="Switch subject"><i class="ti ti-arrows-exchange"></i></button>
+              <span class="subject-status status-randomized">Randomized</span>
+            </div>
+            <span class="header-dot">·</span>
+            <div class="subject-meta">
+              <span class="meta-item">Female</span><span class="meta-sep">·</span>
+              <span class="meta-item">4yr</span><span class="meta-sep">·</span>
+              <span class="meta-item">Hereford</span><span class="meta-sep">·</span>
+              <span class="meta-item mono">400 kg</span><span class="meta-sep">·</span>
+              <span class="meta-item group">Group A — Dose</span>
+            </div>
+            <div class="subject-actions" style="margin-left:auto">
+              <div class="overflow-wrap">
+              <button class="action-btn secondary" onclick="toggleOverflow(this)">Manage <i class="ti ti-chevron-down" style="font-size:12px"></i></button>
+              <div class="overflow-menu">
+                <button class="overflow-item"><div class="item-left"><i class="ti ti-link"></i> Copy link</div></button>
+                <button class="overflow-item"><div class="item-left"><i class="ti ti-calendar-plus"></i> Add unscheduled visit</div></button>
+                <button class="overflow-item"><div class="item-left"><i class="ti ti-printer"></i> Print subject summary</div></button>
+                <button class="overflow-item"><div class="item-left"><i class="ti ti-download"></i> Export subject data</div></button>
+              </div>
+            </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Completed -->
+        <div>
+          <div class="demo-sublabel">Completed</div>
+          <div class="subject-header">
+            <div class="species-icon">🐕</div>
+            <div class="subject-id-row">
+              <span class="subject-id">AUSB1P1-04</span>
+              <button class="subject-switch" title="Switch subject" aria-label="Switch subject"><i class="ti ti-arrows-exchange"></i></button>
+              <span class="subject-status status-completed">Completed</span>
+            </div>
+            <span class="header-dot">·</span>
+            <div class="subject-meta">
+              <span class="meta-item">Male</span><span class="meta-sep">·</span>
+              <span class="meta-item">3yr</span><span class="meta-sep">·</span>
+              <span class="meta-item">Angus</span><span class="meta-sep">·</span>
+              <span class="meta-item mono">380 kg</span><span class="meta-sep">·</span>
+              <span class="meta-item group">Group B — Control</span>
+            </div>
+            <div class="subject-actions" style="margin-left:auto">
+              <div class="overflow-wrap">
+              <button class="action-btn secondary" onclick="toggleOverflow(this)">Manage <i class="ti ti-chevron-down" style="font-size:12px"></i></button>
+              <div class="overflow-menu">
+                <button class="overflow-item"><div class="item-left"><i class="ti ti-link"></i> Copy link</div></button>
+                <button class="overflow-item"><div class="item-left"><i class="ti ti-calendar-plus"></i> Add unscheduled visit</div></button>
+                <button class="overflow-item"><div class="item-left"><i class="ti ti-printer"></i> Print subject summary</div></button>
+                <button class="overflow-item"><div class="item-left"><i class="ti ti-download"></i> Export subject data</div></button>
+              </div>
+            </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Withdrawn -->
+        <div>
+          <div class="demo-sublabel">Withdrawn</div>
+          <div class="subject-header">
+            <div class="species-icon" style="opacity:0.5">🐕</div>
+            <div class="subject-id-row">
+              <span class="subject-id" style="color:var(--color-text-tertiary)">AUSB1P2-03</span>
+              <button class="subject-switch" title="Switch subject" aria-label="Switch subject"><i class="ti ti-arrows-exchange"></i></button>
+              <span class="subject-status status-withdrawn">Withdrawn</span>
+            </div>
+            <span class="header-dot">·</span>
+            <div class="subject-meta">
+              <span class="meta-item">Female</span><span class="meta-sep">·</span>
+              <span class="meta-item">5yr</span><span class="meta-sep">·</span>
+              <span class="meta-item">Hereford</span><span class="meta-sep">·</span>
+              <span class="meta-item mono">410 kg</span><span class="meta-sep">·</span>
+              <span class="meta-item group">Group A — Dose</span><span class="meta-sep">·</span>
+              <span class="meta-item" style="color:var(--color-text-tertiary)">Withdrawn Day 14 — owner decision</span>
+            </div>
+            <div class="subject-actions" style="margin-left:auto">
+              <div class="overflow-wrap">
+              <button class="action-btn secondary" onclick="toggleOverflow(this)">Manage <i class="ti ti-chevron-down" style="font-size:12px"></i></button>
+              <div class="overflow-menu">
+                <button class="overflow-item"><div class="item-left"><i class="ti ti-link"></i> Copy link</div></button>
+                <button class="overflow-item"><div class="item-left"><i class="ti ti-calendar-plus"></i> Add unscheduled visit</div></button>
+                <button class="overflow-item"><div class="item-left"><i class="ti ti-printer"></i> Print subject summary</div></button>
+                <button class="overflow-item"><div class="item-left"><i class="ti ti-download"></i> Export subject data</div></button>
+              </div>
+            </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Critical — SAE active -->
+        <div>
+          <div class="demo-sublabel">Critical — SAE active</div>
+          <div class="subject-header critical">
+            <div class="species-icon">🐕</div>
+            <div class="subject-id-row">
+              <span class="subject-id">AUSB1P1-01</span>
+              <button class="subject-switch" title="Switch subject" aria-label="Switch subject"><i class="ti ti-arrows-exchange"></i></button>
+              <span class="subject-status status-randomized">Randomized</span>
+              <span class="subject-alert"><i class="ti ti-alert-triangle"></i>SAE — PI sign required</span>
+            </div>
+            <span class="header-dot">·</span>
+            <div class="subject-meta">
+              <span class="meta-item">Female</span><span class="meta-sep">·</span>
+              <span class="meta-item">4yr</span><span class="meta-sep">·</span>
+              <span class="meta-item">Hereford</span><span class="meta-sep">·</span>
+              <span class="meta-item mono">400 kg</span><span class="meta-sep">·</span>
+              <span class="meta-item group">Group A — Dose</span>
+            </div>
+            <div class="subject-actions" style="margin-left:auto">
+              <button class="action-btn secondary" style="border-color:var(--red-200);color:var(--red-600)"><i class="ti ti-file-alert"></i> Open SAE form</button>
+              <div class="overflow-wrap">
+              <button class="action-btn secondary" onclick="toggleOverflow(this)">Manage <i class="ti ti-chevron-down" style="font-size:12px"></i></button>
+              <div class="overflow-menu">
+                <button class="overflow-item"><div class="item-left"><i class="ti ti-link"></i> Copy link</div></button>
+                <button class="overflow-item"><div class="item-left"><i class="ti ti-calendar-plus"></i> Add unscheduled visit</div></button>
+                <button class="overflow-item"><div class="item-left"><i class="ti ti-printer"></i> Print subject summary</div></button>
+                <button class="overflow-item"><div class="item-left"><i class="ti ti-download"></i> Export subject data</div></button>
+              </div>
+            </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Humane endpoint — switcher popover shown -->
+        <div>
+          <div class="demo-sublabel">Humane endpoint — click ⇄ to see subject switcher</div>
+          <div class="subject-header critical">
+            <div class="species-icon" style="opacity:0.5">🐕</div>
+            <div class="subject-id-row" style="position:relative">
+              <span class="subject-id" style="color:var(--color-text-secondary)">AUSB2P1-02</span>
+              <button class="subject-switch" onclick="toggleSwitcher(this)" title="Switch subject" aria-label="Switch subject"><i class="ti ti-arrows-exchange"></i></button>
+              <span class="subject-status status-humane">Humane endpoint</span>
+              <!-- Switcher popover -->
+              <div class="subject-switcher" id="switcher-popover" style="display:none">
+                <div class="switcher-header">
+                  <span class="switcher-label">Switch subject</span>
+                  <input class="switcher-search" type="search" placeholder="Search ID…">
+                </div>
+                <div class="switcher-list">
+                  <button class="switcher-item"><span class="switcher-id">AUSB1P1-01</span><span class="switcher-meta">Female · 4yr · Group A</span><span class="switcher-status status-randomized">Randomized</span></button>
+                  <button class="switcher-item"><span class="switcher-id">AUSB1P1-02</span><span class="switcher-meta">Male · 3yr · Group B</span><span class="switcher-status status-on-study">On study</span></button>
+                  <button class="switcher-item switcher-item-active"><span class="switcher-id">AUSB2P1-02</span><span class="switcher-meta">Male · 3yr · Group A</span><span class="switcher-status status-humane">Humane endpoint</span><i class="ti ti-check" style="font-size:12px;color:var(--blue-600);margin-left:auto"></i></button>
+                  <button class="switcher-item"><span class="switcher-id">AUSB2P2-03</span><span class="switcher-meta">Female · 5yr · Group A</span><span class="switcher-status status-completed">Completed</span></button>
+                  <button class="switcher-item"><span class="switcher-id">AUSB3P1-04</span><span class="switcher-meta">Male · 2yr · Group B</span><span class="switcher-status status-on-study">On study</span></button>
+                </div>
+              </div>
+            </div>
+            <span class="header-dot">·</span>
+            <div class="subject-meta">
+              <span class="meta-item">Male</span><span class="meta-sep">·</span>
+              <span class="meta-item">3yr</span><span class="meta-sep">·</span>
+              <span class="meta-item">Angus</span><span class="meta-sep">·</span>
+              <span class="meta-item mono">285 kg</span><span class="meta-sep">·</span>
+              <span class="meta-item group">Group A — Dose</span><span class="meta-sep">·</span>
+              <span class="meta-item" style="color:var(--red-600)">Day 9 — BRD score 3</span>
+            </div>
+            <div class="subject-actions" style="margin-left:auto">
+              <div class="overflow-wrap">
+              <button class="action-btn secondary" onclick="toggleOverflow(this)">Manage <i class="ti ti-chevron-down" style="font-size:12px"></i></button>
+              <div class="overflow-menu">
+                <button class="overflow-item"><div class="item-left"><i class="ti ti-link"></i> Copy link</div></button>
+                <button class="overflow-item"><div class="item-left"><i class="ti ti-calendar-plus"></i> Add unscheduled visit</div></button>
+                <button class="overflow-item"><div class="item-left"><i class="ti ti-printer"></i> Print subject summary</div></button>
+                <button class="overflow-item"><div class="item-left"><i class="ti ti-download"></i> Export subject data</div></button>
+              </div>
+            </div>
+            </div>
+          </div>
+        </div>
+
       </div>
 
-      <!-- ── SPECIES VARIANTS ───────────────────────────────────────────── -->
+      <!-- ── SPECIES VARIANTS ────────────────────────────────────────────── -->
       <div class="demo-section">
         <div class="demo-label">Species variants — Arken platform modules</div>
-        <div class="demo-group">
 
-          <!-- Canine -->
+        <!-- Canine -->
+        <div>
+          <div class="demo-sublabel">Canine — Arken Canine</div>
           <div class="subject-header">
-            <div class="species-icon" title="Canine">🐕</div>
-            <div class="subject-body">
-              <div class="subject-id-row">
-                <span class="subject-id">AK-C-2401-001</span>
-                <span class="subject-status status-randomized">Randomized</span>
-              </div>
-              <div class="subject-meta">
-                <span class="meta-item">Canine · Labrador · Male · 3yr</span>
-                <span class="meta-sep">·</span>
-                <span class="meta-item mono">28.4 kg</span>
-                <span class="meta-sep">·</span>
-                <span class="meta-item group">Group A — Treatment</span>
+            <div class="species-icon">🐕</div>
+            <div class="subject-id-row">
+              <span class="subject-id">AK-C-2401-001</span>
+              <button class="subject-switch" title="Switch subject" aria-label="Switch subject"><i class="ti ti-arrows-exchange"></i></button>
+              <span class="subject-status status-randomized">Randomized</span>
+            </div>
+            <span class="header-dot">·</span>
+            <div class="subject-meta">
+              <span class="meta-item">Labrador · Male · 3yr</span><span class="meta-sep">·</span>
+              <span class="meta-item mono">28.4 kg</span><span class="meta-sep">·</span>
+              <span class="meta-item group">Group A — Treatment</span>
+            </div>
+            <div class="subject-actions" style="margin-left:auto">
+              <div class="overflow-wrap">
+              <button class="action-btn secondary" onclick="toggleOverflow(this)">Manage <i class="ti ti-chevron-down" style="font-size:12px"></i></button>
+              <div class="overflow-menu">
+                <button class="overflow-item"><div class="item-left"><i class="ti ti-link"></i> Copy link</div></button>
+                <button class="overflow-item"><div class="item-left"><i class="ti ti-calendar-plus"></i> Add unscheduled visit</div></button>
+                <button class="overflow-item"><div class="item-left"><i class="ti ti-printer"></i> Print subject summary</div></button>
+                <button class="overflow-item"><div class="item-left"><i class="ti ti-download"></i> Export subject data</div></button>
               </div>
             </div>
-          </div>
-
-          <!-- Bovine / cattle -->
-          <div class="subject-header">
-            <div class="species-icon" title="Bovine">🐄</div>
-            <div class="subject-body">
-              <div class="subject-id-row">
-                <span class="subject-id">AUSB1P1-01</span>
-                <span class="subject-status status-on-study">On study</span>
-              </div>
-              <div class="subject-meta">
-                <span class="meta-item">Bovine · Hereford · Female · 4yr</span>
-                <span class="meta-sep">·</span>
-                <span class="meta-item mono">400 kg</span>
-                <span class="meta-sep">·</span>
-                <span class="meta-item">Pen B1-P1</span>
-                <span class="meta-sep">·</span>
-                <span class="meta-item group">Group A — Dose</span>
-              </div>
             </div>
           </div>
-
-          <!-- Aquatic -->
-          <div class="subject-header">
-            <div class="species-icon" title="Aquatic">🐟</div>
-            <div class="subject-body">
-              <div class="subject-id-row">
-                <span class="subject-id">AQ-2401-T01-F042</span>
-                <span class="subject-status status-on-study">On study</span>
-              </div>
-              <div class="subject-meta">
-                <span class="meta-item">Atlantic salmon · Tank 01 · Female</span>
-                <span class="meta-sep">·</span>
-                <span class="meta-item mono">3.2 kg</span>
-                <span class="meta-sep">·</span>
-                <span class="meta-item">Fork length: 58 cm</span>
-                <span class="meta-sep">·</span>
-                <span class="meta-item group">Group B — Control</span>
-              </div>
-            </div>
-          </div>
-
-          <!-- Equine -->
-          <div class="subject-header">
-            <div class="species-icon" title="Equine">🐴</div>
-            <div class="subject-body">
-              <div class="subject-id-row">
-                <span class="subject-id">EQ-2401-H003</span>
-                <span class="subject-status status-screened">Screened</span>
-              </div>
-              <div class="subject-meta">
-                <span class="meta-item">Equine · Thoroughbred · Male · 6yr</span>
-                <span class="meta-sep">·</span>
-                <span class="meta-item mono">520 kg</span>
-                <span class="meta-sep">·</span>
-                <span class="meta-item">Microchip: 985121234567890</span>
-              </div>
-            </div>
-          </div>
-
         </div>
+
+        <!-- Bovine -->
+        <div>
+          <div class="demo-sublabel">Bovine — Arken Agri · BRD cattle</div>
+          <div class="subject-header">
+            <div class="species-icon">🐄</div>
+            <div class="subject-id-row">
+              <span class="subject-id">AUSB1P1-01</span>
+              <button class="subject-switch" title="Switch subject" aria-label="Switch subject"><i class="ti ti-arrows-exchange"></i></button>
+              <span class="subject-status status-on-study">On study</span>
+            </div>
+            <span class="header-dot">·</span>
+            <div class="subject-meta">
+              <span class="meta-item">Hereford · Female · 4yr</span><span class="meta-sep">·</span>
+              <span class="meta-item mono">400 kg</span><span class="meta-sep">·</span>
+              <span class="meta-item">Pen B1-P1</span><span class="meta-sep">·</span>
+              <span class="meta-item group">Group A — Dose</span>
+            </div>
+            <div class="subject-actions" style="margin-left:auto">
+              <div class="overflow-wrap">
+              <button class="action-btn secondary" onclick="toggleOverflow(this)">Manage <i class="ti ti-chevron-down" style="font-size:12px"></i></button>
+              <div class="overflow-menu">
+                <button class="overflow-item"><div class="item-left"><i class="ti ti-link"></i> Copy link</div></button>
+                <button class="overflow-item"><div class="item-left"><i class="ti ti-calendar-plus"></i> Add unscheduled visit</div></button>
+                <button class="overflow-item"><div class="item-left"><i class="ti ti-printer"></i> Print subject summary</div></button>
+                <button class="overflow-item"><div class="item-left"><i class="ti ti-download"></i> Export subject data</div></button>
+              </div>
+            </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Aquatic -->
+        <div>
+          <div class="demo-sublabel">Aquatic — Arken Aquatic · Atlantic salmon</div>
+          <div class="subject-header">
+            <div class="species-icon">🐟</div>
+            <div class="subject-id-row">
+              <span class="subject-id">AQ-2401-T01-F042</span>
+              <button class="subject-switch" title="Switch subject" aria-label="Switch subject"><i class="ti ti-arrows-exchange"></i></button>
+              <span class="subject-status status-on-study">On study</span>
+            </div>
+            <span class="header-dot">·</span>
+            <div class="subject-meta">
+              <span class="meta-item">Atlantic salmon · Tank 01 · Female</span><span class="meta-sep">·</span>
+              <span class="meta-item mono">3.2 kg</span><span class="meta-sep">·</span>
+              <span class="meta-item">Fork length: 58 cm</span><span class="meta-sep">·</span>
+              <span class="meta-item group">Group B — Control</span>
+            </div>
+            <div class="subject-actions" style="margin-left:auto">
+              <div class="overflow-wrap">
+              <button class="action-btn secondary" onclick="toggleOverflow(this)">Manage <i class="ti ti-chevron-down" style="font-size:12px"></i></button>
+              <div class="overflow-menu">
+                <button class="overflow-item"><div class="item-left"><i class="ti ti-link"></i> Copy link</div></button>
+                <button class="overflow-item"><div class="item-left"><i class="ti ti-calendar-plus"></i> Add unscheduled visit</div></button>
+                <button class="overflow-item"><div class="item-left"><i class="ti ti-printer"></i> Print subject summary</div></button>
+                <button class="overflow-item"><div class="item-left"><i class="ti ti-download"></i> Export subject data</div></button>
+              </div>
+            </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Equine -->
+        <div>
+          <div class="demo-sublabel">Equine — Arken Equine</div>
+          <div class="subject-header">
+            <div class="species-icon">🐴</div>
+            <div class="subject-id-row">
+              <span class="subject-id">EQ-2401-H003</span>
+              <button class="subject-switch" title="Switch subject" aria-label="Switch subject"><i class="ti ti-arrows-exchange"></i></button>
+              <span class="subject-status status-screened">Screened</span>
+            </div>
+            <span class="header-dot">·</span>
+            <div class="subject-meta">
+              <span class="meta-item">Thoroughbred · Male · 6yr</span><span class="meta-sep">·</span>
+              <span class="meta-item mono">520 kg</span><span class="meta-sep">·</span>
+              <span class="meta-item">Microchip: 985121234567890</span>
+            </div>
+            <div class="subject-actions" style="margin-left:auto">
+              <div class="overflow-wrap">
+              <button class="action-btn secondary" onclick="toggleOverflow(this)">Manage <i class="ti ti-chevron-down" style="font-size:12px"></i></button>
+              <div class="overflow-menu">
+                <button class="overflow-item"><div class="item-left"><i class="ti ti-link"></i> Copy link</div></button>
+                <button class="overflow-item"><div class="item-left"><i class="ti ti-calendar-plus"></i> Add unscheduled visit</div></button>
+                <button class="overflow-item"><div class="item-left"><i class="ti ti-printer"></i> Print subject summary</div></button>
+                <button class="overflow-item"><div class="item-left"><i class="ti ti-download"></i> Export subject data</div></button>
+              </div>
+            </div>
+            </div>
+          </div>
+        </div>
+
       </div>
 
-      <!-- ── SPEC ───────────────────────────────────────────────────────── -->
+            <!-- ── SPEC ───────────────────────────────────────────────────────── -->
       <div class="demo-section">
         <div class="demo-label">Component spec</div>
         <table class="spec-table">
@@ -907,182 +873,5 @@ code { font-family: var(--font-mono); font-size: var(--text-xs); background: var
     </main>
   </div>
 </div>
-
-<!-- ── Panel overlay ──────────────────────────────────────────────────── -->
-<div class="panel-overlay" id="panel-overlay" onclick="closePanel()"></div>
-
-<!-- ── Slide-in panel ─────────────────────────────────────────────────── -->
-<div class="slide-panel" id="slide-panel">
-  <div class="panel-header">
-    <div>
-      <div class="panel-title" id="panel-title">Audit trail</div>
-      <div class="panel-subject">AUSB1P1-01 · AK-2401 · Austin</div>
-    </div>
-    <button class="panel-close" onclick="closePanel()" aria-label="Close panel">
-      <i class="ti ti-x"></i>
-    </button>
-  </div>
-
-  <!-- Tabs — Audit trail | Signature track -->
-  <div class="panel-tabs">
-    <button class="panel-tab active" id="tab-audit" onclick="switchTab('audit')">Audit trail</button>
-    <button class="panel-tab" id="tab-sig" onclick="switchTab('sig')">Signature track</button>
-  </div>
-
-  <!-- Audit trail content -->
-  <div class="panel-body" id="panel-audit">
-    <div class="panel-filter">
-      <button class="filter-chip active">All</button>
-      <button class="filter-chip">Fields</button>
-      <button class="filter-chip">Status</button>
-      <button class="filter-chip">Queries</button>
-    </div>
-
-    <div class="audit-entry">
-      <div class="audit-timeline">
-        <div class="audit-dot sae"></div>
-        <div class="audit-line"></div>
-      </div>
-      <div class="audit-content">
-        <div class="audit-action">SAE form submitted — mortality Day 9</div>
-        <div class="audit-detail">BRD score recorded as 3. Humane endpoint protocol triggered automatically.</div>
-        <div class="audit-meta">
-          <span>2026-05-09 · 14:32:07</span>
-          <span class="audit-role">CRC</span>
-          <span>E. Tron</span>
-        </div>
-      </div>
-    </div>
-
-    <div class="audit-entry">
-      <div class="audit-timeline">
-        <div class="audit-dot query"></div>
-        <div class="audit-line"></div>
-      </div>
-      <div class="audit-content">
-        <div class="audit-action">Query raised — RECTAL_TEMP_V1</div>
-        <div class="audit-detail">Value 28.5°C flagged. Previous: —. Query: "Value appears too low. Normal range 38–39°C. Verify and correct."</div>
-        <div class="audit-meta">
-          <span>2026-05-05 · 09:14:32</span>
-          <span class="audit-role">Auto</span>
-          <span>Edit check</span>
-        </div>
-      </div>
-    </div>
-
-    <div class="audit-entry">
-      <div class="audit-timeline">
-        <div class="audit-dot field"></div>
-        <div class="audit-line"></div>
-      </div>
-      <div class="audit-content">
-        <div class="audit-action">Field updated — BODY_WEIGHT_V1</div>
-        <div class="audit-detail">Value changed from — to 400 kg.</div>
-        <div class="audit-meta">
-          <span>2026-05-05 · 09:12:18</span>
-          <span class="audit-role">CRC</span>
-          <span>E. Tron</span>
-        </div>
-      </div>
-    </div>
-
-    <div class="audit-entry">
-      <div class="audit-timeline">
-        <div class="audit-dot status"></div>
-        <div class="audit-line"></div>
-      </div>
-      <div class="audit-content">
-        <div class="audit-action">Status changed — Screened → Randomized</div>
-        <div class="audit-detail">Randomization code assigned: Group A — Dose.</div>
-        <div class="audit-meta">
-          <span>2026-05-01 · 10:45:00</span>
-          <span class="audit-role">PI</span>
-          <span>Dr. R. Silva</span>
-        </div>
-      </div>
-    </div>
-
-    <div class="audit-entry">
-      <div class="audit-timeline">
-        <div class="audit-dot status"></div>
-      </div>
-      <div class="audit-content">
-        <div class="audit-action">Subject enrolled — screening complete</div>
-        <div class="audit-detail">Subject AUSB1P1-01 created. Eligibility criteria confirmed.</div>
-        <div class="audit-meta">
-          <span>2026-04-28 · 08:30:00</span>
-          <span class="audit-role">CRC</span>
-          <span>E. Tron</span>
-        </div>
-      </div>
-    </div>
-  </div>
-
-  <!-- Signature track content -->
-  <div class="panel-body" id="panel-sig" style="display:none">
-    <p style="font-size:var(--text-sm);color:var(--color-text-tertiary);margin-bottom:var(--space-4);line-height:1.6">
-      Signature track records every form status change, who triggered it, and when. Required for 21 CFR Part 11 compliance.
-    </p>
-
-    <div class="sig-entry">
-      <div class="sig-icon pending"><i class="ti ti-clock"></i></div>
-      <div>
-        <div class="sig-label">PI e-signature required — SAE form</div>
-        <div class="sig-meta">Requested 2026-05-09 · 14:35:00 · by CRC E. Tron</div>
-      </div>
-    </div>
-
-    <div class="sig-entry">
-      <div class="sig-icon signed"><i class="ti ti-check"></i></div>
-      <div>
-        <div class="sig-label">Visit 1 — PE signed off by PI</div>
-        <div class="sig-meta">Signed 2026-05-05 · 16:22:44 · Dr. R. Silva (PI)</div>
-      </div>
-    </div>
-
-    <div class="sig-entry">
-      <div class="sig-icon signed"><i class="ti ti-check"></i></div>
-      <div>
-        <div class="sig-label">Screening form finalized</div>
-        <div class="sig-meta">Signed 2026-04-30 · 11:00:15 · E. Tron (CRC)</div>
-      </div>
-    </div>
-  </div>
-</div>
-
-<script>
-function openPanel(tab) {
-  document.getElementById('panel-overlay').classList.add('open');
-  document.getElementById('slide-panel').classList.add('open');
-  switchTab(tab);
-}
-function closePanel() {
-  document.getElementById('panel-overlay').classList.remove('open');
-  document.getElementById('slide-panel').classList.remove('open');
-  // Close any open overflow menus
-  document.querySelectorAll('.overflow-menu.open').forEach(m => m.classList.remove('open'));
-}
-function switchTab(tab) {
-  document.getElementById('panel-audit').style.display = tab === 'audit' ? '' : 'none';
-  document.getElementById('panel-sig').style.display  = tab === 'sig'   ? '' : 'none';
-  document.getElementById('tab-audit').classList.toggle('active', tab === 'audit');
-  document.getElementById('tab-sig').classList.toggle('active', tab === 'sig');
-  document.getElementById('panel-title').textContent = tab === 'audit' ? 'Audit trail' : 'Signature track';
-}
-function toggleOverflow(btn) {
-  const menu = btn.nextElementSibling;
-  const isOpen = menu.classList.contains('open');
-  // Close all others first
-  document.querySelectorAll('.overflow-menu.open').forEach(m => m.classList.remove('open'));
-  if (!isOpen) menu.classList.add('open');
-}
-// Close overflow on outside click
-document.addEventListener('click', e => {
-  if (!e.target.closest('.overflow-wrap')) {
-    document.querySelectorAll('.overflow-menu.open').forEach(m => m.classList.remove('open'));
-  }
-});
-</script>
-
 </body>
 </html>

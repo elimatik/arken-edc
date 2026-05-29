@@ -330,3 +330,47 @@ Every time a decision is made — about tokens, components, UX patterns, tech ch
 **Decision:** Anomaly rows get amber ⚠ icon inline next to the type chip, and a subtle amber row tint (`#FFFDF5`). Anomalies toggle in filter bar shows only flagged rows.
 **Rationale:** Anomalies (edits after query raised, enrollment outside window, etc.) need to be surfaced without disrupting the reading flow of clean rows. Icon + tint is enough — no separate column needed.
 
+
+### Subject header — one-line layout (final)
+**Decision:** Subject header uses a single flex row: species icon → subject ID → switch button → status badge → · separator → meta string → Manage button (margin-left: auto).
+**No card wrapper** — no border, no background, no padding box. Sits directly in the page flow above the form header.
+**Rationale:** The card treatment added visual weight that competed with the form header below it. The one-line version gives all the context without the hierarchy cost.
+
+### Subject header — subject ID size
+**Decision:** `font-size: var(--text-3xl)` (24px) for subject ID.
+**Rationale:** The subject ID is the primary identifier on every form screen. At 18px it read as secondary. At 24px it anchors the page identity without dominating — the same size as the page title, which is appropriate since this IS the page title for animal-level screens.
+
+### Subject header — Manage button
+**Decision:** All subject headers have a "Manage" secondary button (right-aligned, `margin-left: auto`) that opens a dropdown with: Copy link · Add unscheduled visit · Print subject summary · Export subject data.
+**Rationale:** Replaces the icon-only ⋮ overflow. "Manage" is a labelled button that makes the affordance explicit — users don't need to discover it. The dropdown items are the same four actions from the original spec; no lock subject here (that lives on the form header level).
+
+### Subject header — overflow menu implementation
+**Decision:** Each `.overflow-wrap` uses `toggleOverflow(this)` JS with a `.overflow-menu.open` CSS class toggle. Only one menu can be open at a time — clicking a second one closes the first. Outside click closes all.
+**Rationale:** Standard pattern. The bug (all menus rendering open) was caused by missing `.overflow-menu { display: none }` CSS — each component file must be self-contained with all CSS it uses.
+
+### Subject header — species icon
+**Decision:** Inline emoji at `font-size: 22px`, no wrapper div, no border, no background. Withdrawn/deceased subjects get `opacity: 0.5` on the icon.
+**Rationale:** Removed the 40×40px card wrapper from the previous version. Emoji inline is lighter and scales correctly. The opacity treatment on inactive subjects is a clear visual signal without adding a separate state indicator.
+
+### Subject header — subject switcher popover
+**Decision:** Clicking ⇄ opens a 320px popover anchored to the subject-id-row. Contains a search input and a list of subjects with ID, meta, status badge. Current subject highlighted in blue with a checkmark. Closes on outside click.
+**Rationale:** Allows monitors and CRCs to move between subjects without going back to the subject list. Particularly useful during SDV sessions where you're reviewing multiple subjects sequentially.
+
+### Form-level audit trail — timeline layout chosen
+**Decision:** Timeline (Option B) for the form-level slide-in panel. Table layout (Option A) for the full-page audit trail.
+**Rationale:** At 480px panel width, the timeline's extra vertical context per entry (field name + diff + reason + user all stacked) is more readable than trying to fit 6 columns in a narrow panel. The full page has the horizontal space to make table scanning worthwhile.
+
+### Form header — overflow menu actions
+**Decision:** Form header ⋮ overflow contains: Audit trail (this form) · [separator] · Annotated CRF toggle · Role permissions toggle · [separator] · Print form · Export form data · [separator] · Lock form (danger).
+**Rationale:** Audit trail scoped to this form is the primary "view" action. Annotated CRF and role permissions are power-user toggles that belong in CRF mode. Lock form is destructive — always last, always danger.
+
+### Audit trail — form-level vs subject-level scope
+**Decision:**
+- Subject header "Manage" → no audit trail (removed — lives on form level)
+- Form header ⋮ → "Audit trail (this form)" → 480px slide-in panel, form-scoped
+- Sidebar nav Audit item → full-page audit trail, study-wide
+
+### Self-contained component CSS rule
+**Decision:** Every HTML component file must declare all CSS tokens it uses in its own `:root` block. Cannot rely on `arken-tokens.css` being linked.
+**Rationale:** Each component is a standalone file opened in a browser directly. If `--text-xl` is used but not declared in the component's `:root`, it silently falls back — font-size bug in component 12 was caused by this exact issue.
+

@@ -1,0 +1,643 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Arken EDC — Form Audit Trail (comparison)</title>
+<link href="https://fonts.googleapis.com/css2?family=Roboto:wght@400;500;700&family=Roboto+Mono:wght@400;500&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@tabler/icons-webfont@latest/tabler-icons.min.css">
+<style>
+:root {
+  --color-nav-bg:#1A1F2E; --color-nav-hover:#2C3248; --color-nav-icon:#8aafc8;
+  --color-nav-separator:rgba(255,255,255,0.08);
+  --color-page-bg:#FBFBFB; --color-surface:#FFFFFF; --color-border:#E8E8E6;
+  --color-border-subtle:#F0F0EE;
+  --color-text-primary:#2C2D33; --color-text-secondary:#4F535B;
+  --color-text-tertiary:#6D7480; --color-text-placeholder:#C4C4C2;
+  --color-link:#3D4A5C; --color-hover-bg:#F0F0EE;
+  --color-cta-bg:#1A1F2E; --color-cta-hover:#2C3248;
+  --amber-50:#FFF8E7; --amber-200:#F5B830; --amber-700:#8A5C00;
+  --orange-700:#A33A08;
+  --red-50:#FFF0F0; --red-200:#EC8585; --red-600:#B52626;
+  --green-50:#EEFAF4; --green-200:#58BC88; --green-600:#1A6B47;
+  --blue-50:#E8F4FF; --blue-200:#7AB8EE; --blue-600:#1760A8;
+  --purple-50:#F0EEFF; --purple-200:#A9A3EC; --purple-600:#534AB7;
+  --slate-50:#EEF1F6; --slate-200:#8AA0B8; --slate-600:#3D5A78;
+  --font-sans:'Roboto',system-ui,sans-serif; --font-mono:'Roboto Mono',monospace;
+  --text-xs:11px; --text-sm:12px; --text-base:14px; --text-lg:16px; --text-xl:18px; --text-3xl:24px;
+  --weight-regular:400; --weight-medium:500; --weight-bold:700;
+  --radius-sm:2px; --radius-md:4px; --radius-lg:6px; --radius-full:9999px;
+  --space-1:4px; --space-2:8px; --space-3:12px; --space-4:16px;
+  --space-5:20px; --space-6:24px; --space-8:32px;
+  --duration-fast:120ms; --ease-default:cubic-bezier(0.16,1,0.3,1);
+  --tracking-caps:0.07em;
+}
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+body{font-family:var(--font-sans);font-size:var(--text-base);color:var(--color-text-primary);background:var(--color-page-bg);-webkit-font-smoothing:antialiased}
+
+/* ─── Shell ── */
+.shell{display:flex;height:100vh;overflow:hidden}
+.sidenav{width:74px;background:var(--color-nav-bg);display:flex;flex-direction:column;align-items:center;padding:var(--space-3) 0;gap:2px;flex-shrink:0}
+.nav-logo{width:30px;height:30px;border-radius:var(--radius-md);background:var(--color-nav-hover);display:flex;align-items:center;justify-content:center;margin-bottom:var(--space-3)}
+.nav-logo span{font-size:var(--text-base);font-weight:var(--weight-bold);color:#fff;letter-spacing:-0.02em}
+.nav-item{width:100%;min-height:50px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:3px;cursor:pointer;color:var(--color-nav-icon);border:none;background:transparent;transition:background var(--duration-fast);padding:4px 0}
+.nav-item:hover{background:var(--color-nav-hover);color:#fff}
+.nav-item.active{background:var(--color-nav-hover);color:#fff}
+.nav-item i{font-size:20px} .nav-label{font-size:11px;font-weight:var(--weight-medium);color:inherit;text-align:center}
+.nav-spacer{flex:1} .nav-sep{width:100%;height:1px;background:var(--color-nav-separator);margin:var(--space-2) 0}
+.main{flex:1;display:flex;flex-direction:column;min-width:0;overflow:hidden}
+.topbar{height:56px;background:var(--color-nav-bg);display:flex;align-items:center;padding:0 var(--space-4);gap:var(--space-3);flex-shrink:0;border-bottom:1px solid rgba(255,255,255,0.06)}
+.tb-study{background:var(--color-nav-hover);color:#fff;font-size:var(--text-base);font-weight:var(--weight-medium);padding:8px var(--space-4);border-radius:var(--radius-md);display:flex;align-items:center;gap:4px;cursor:pointer;border:1px solid #525D73}
+.tb-right{margin-left:auto;display:flex;align-items:center;gap:var(--space-3)}
+.tb-icon{width:28px;height:28px;display:flex;align-items:center;justify-content:center;border-radius:var(--radius-md);border:none;background:transparent;color:#fff;cursor:pointer}
+.tb-icon i{font-size:20px}
+.tb-role{background:var(--color-nav-hover);color:#fff;font-size:var(--text-sm);font-weight:var(--weight-medium);padding:3px var(--space-2);border-radius:var(--radius-md);display:flex;align-items:center;gap:4px;cursor:pointer;border:1px solid #525D73}
+.tb-avatar{width:30px;height:30px;border-radius:50%;background:#3D5A78;color:#EEF1F6;font-size:12px;font-weight:var(--weight-medium);display:flex;align-items:center;justify-content:center;cursor:pointer}
+
+/* ─── Body wrap ── */
+.body-wrap{flex:1;display:flex;min-height:0;overflow:hidden;position:relative}
+
+/* Panel tabs */
+.panel-tabs{display:flex;border-bottom:1px solid var(--color-border);flex-shrink:0}
+.panel-tab{flex:1;padding:var(--space-3) var(--space-4);font-size:var(--text-sm);font-weight:var(--weight-medium);color:var(--color-text-tertiary);background:none;border:none;border-bottom:2px solid transparent;cursor:pointer;transition:color var(--duration-fast);text-align:center}
+.panel-tab:hover{color:var(--color-text-primary)}
+.panel-tab.active{color:var(--blue-600);border-bottom-color:var(--blue-600)}
+
+/* Signature track */
+.sig-entry{display:flex;align-items:flex-start;gap:var(--space-3);padding:var(--space-3) var(--space-4);border-bottom:1px solid var(--color-border-subtle)}
+.sig-entry:last-child{border-bottom:none}
+.sig-entry:hover{background:var(--color-hover-bg)}
+.sig-icon{width:32px;height:32px;border-radius:var(--radius-md);display:flex;align-items:center;justify-content:center;flex-shrink:0;font-size:16px}
+.sig-icon.signed{background:var(--green-50);color:var(--green-600)}
+.sig-icon.pending{background:var(--amber-50);color:var(--amber-700)}
+.sig-label{font-size:var(--text-sm);font-weight:var(--weight-medium);color:var(--color-text-primary);margin-bottom:2px;line-height:1.4}
+.sig-meta{font-size:10px;font-family:var(--font-mono);color:var(--color-text-tertiary);line-height:1.5}
+.sig-status{display:flex;align-items:center;gap:4px;margin-top:3px;font-size:var(--text-xs);font-weight:var(--weight-medium)}
+.sig-status.pending{color:var(--amber-700)}
+.sig-status.signed{color:var(--green-600)}
+
+/* Subject header — one-line (from component 10) */
+.subject-header{display:flex;align-items:center;gap:var(--space-3);padding:var(--space-2) 0;flex-wrap:wrap}
+.species-icon{font-size:22px;line-height:1;flex-shrink:0}
+.subject-id-row{display:flex;align-items:center;gap:var(--space-2);flex-wrap:wrap}
+.subject-id{font-size:var(--text-3xl);font-weight:var(--weight-medium);font-family:var(--font-mono);color:var(--color-text-primary);line-height:1.2}
+.subject-switch{display:flex;align-items:center;justify-content:center;width:20px;height:20px;border:none;background:none;color:var(--color-text-tertiary);cursor:pointer;border-radius:var(--radius-sm);padding:0}
+.subject-switch i{font-size:14px}
+.subject-status{display:inline-flex;align-items:center;gap:5px;padding:2px var(--space-2);border-radius:var(--radius-full);font-size:var(--text-xs);font-weight:var(--weight-medium);border:1px solid;white-space:nowrap}
+.status-randomized{background:var(--blue-50);border-color:var(--blue-200);color:var(--blue-600)}
+.subject-meta{display:flex;align-items:center;gap:var(--space-1);flex-wrap:wrap;font-size:var(--text-sm);color:var(--color-text-secondary)}
+.meta-sep{color:var(--color-text-placeholder);font-size:11px}
+.meta-group{display:inline-flex;align-items:center;gap:4px;padding:1px var(--space-2);border-radius:var(--radius-sm);background:var(--color-page-bg);border:1px solid var(--color-border);font-size:var(--text-xs);font-weight:var(--weight-medium);color:var(--color-text-secondary)}
+.header-dot{color:var(--color-text-placeholder);font-size:16px;line-height:1}
+
+/* ─── Form sidebar (simplified) ── */
+.form-sidebar{width:220px;background:var(--color-surface);border-right:1px solid var(--color-border);display:flex;flex-direction:column;flex-shrink:0;overflow-y:auto;padding:var(--space-3)}
+.sidebar-label{font-size:var(--text-xs);font-weight:var(--weight-medium);text-transform:uppercase;letter-spacing:var(--tracking-caps);color:var(--color-text-tertiary);margin-bottom:var(--space-2);padding:0 var(--space-1)}
+.form-item{display:flex;align-items:center;justify-content:space-between;padding:var(--space-1) var(--space-2);border-radius:var(--radius-md);font-size:var(--text-sm);color:var(--color-text-primary);cursor:pointer;margin-bottom:1px;gap:var(--space-2);min-height:32px;border:none;background:transparent;width:100%;text-align:left;transition:background var(--duration-fast)}
+.form-item:hover{background:var(--color-hover-bg)}
+.form-item.active{background:var(--blue-50);color:var(--blue-600);font-weight:var(--weight-bold)}
+.form-item-label{flex:1;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.status-final{width:16px;height:16px;border-radius:50%;background:var(--green-50);border:1.5px solid var(--green-600);color:var(--green-600);display:flex;align-items:center;justify-content:center;flex-shrink:0}
+.status-final i{font-size:10px}
+.status-active{width:16px;height:16px;border-radius:50%;border:1.5px dashed var(--blue-600);flex-shrink:0}
+.status-empty{width:16px;height:16px;border-radius:50%;border:1.5px dashed var(--color-text-placeholder);flex-shrink:0}
+
+/* ─── Form content ── */
+.form-content{flex:1;padding:var(--space-5);overflow-y:auto;display:flex;flex-direction:column;gap:var(--space-5)}
+
+/* Breadcrumb */
+.breadcrumb{display:flex;align-items:center;gap:var(--space-1);font-size:var(--text-sm);color:var(--color-text-tertiary)}
+.bc-btn{color:var(--color-link);background:none;border:none;font-size:var(--text-sm);cursor:pointer;padding:0}
+.bc-btn span{text-decoration:underline;text-underline-offset:2px}
+
+/* Animal header */
+.animal-id{font-size:20px;font-weight:var(--weight-medium);font-family:var(--font-mono)}
+
+/* ─────────────────────────────────────────────────────────────────────────────
+   FORM HEADER + OVERFLOW MENU
+   ───────────────────────────────────────────────────────────────────────────── */
+.form-header{display:flex;align-items:center;justify-content:space-between;padding-bottom:var(--space-4);border-bottom:1px solid var(--color-border);gap:var(--space-4)}
+.form-title{font-size:var(--text-lg);font-weight:var(--weight-medium)}
+.form-actions{display:flex;align-items:center;gap:var(--space-2)}
+
+.btn-primary{display:flex;align-items:center;gap:4px;height:32px;padding:0 var(--space-3);font-size:var(--text-sm);font-weight:var(--weight-medium);font-family:var(--font-sans);border:none;border-radius:var(--radius-md);background:var(--color-cta-bg);color:#fff;cursor:pointer;transition:background var(--duration-fast)}
+.btn-primary:hover{background:var(--color-cta-hover)}
+.btn-secondary{display:flex;align-items:center;gap:4px;height:32px;padding:0 var(--space-3);font-size:var(--text-sm);font-weight:var(--weight-medium);font-family:var(--font-sans);border:1px solid var(--color-border);border-radius:var(--radius-md);background:var(--color-surface);color:var(--color-text-primary);cursor:pointer;transition:background var(--duration-fast)}
+.btn-secondary:hover{background:var(--color-hover-bg)}
+.btn-icon{display:flex;align-items:center;justify-content:center;width:32px;height:32px;border:1px solid var(--color-border);border-radius:var(--radius-md);background:var(--color-surface);color:var(--color-text-secondary);cursor:pointer;transition:background var(--duration-fast);font-size:16px}
+.btn-icon:hover{background:var(--color-hover-bg);color:var(--color-text-primary)}
+
+/* Overflow menu */
+.overflow-wrap{position:relative}
+.overflow-menu{display:none;position:absolute;top:calc(100% + 6px);right:0;min-width:240px;background:var(--color-surface);border:1px solid var(--color-border);border-radius:var(--radius-lg);box-shadow:0 8px 24px rgba(14,18,28,0.10);z-index:100;overflow:hidden}
+.overflow-menu.open{display:block}
+.overflow-item{display:flex;align-items:center;justify-content:space-between;gap:var(--space-2);width:100%;padding:var(--space-2) var(--space-3);font-size:var(--text-sm);font-family:var(--font-sans);color:var(--color-text-primary);background:none;border:none;cursor:pointer;text-align:left;transition:background var(--duration-fast)}
+.overflow-item:hover{background:var(--color-hover-bg)}
+.overflow-item i{font-size:15px;color:var(--color-text-tertiary);flex-shrink:0}
+.overflow-item .item-left{display:flex;align-items:center;gap:var(--space-2)}
+.overflow-item.danger{color:var(--red-600)}
+.overflow-item.danger i{color:var(--red-600)}
+.overflow-item.has-toggle{cursor:default}
+.overflow-sep{height:1px;background:var(--color-border-subtle);margin:var(--space-1) 0}
+.overflow-section-label{font-size:10px;font-weight:var(--weight-medium);text-transform:uppercase;letter-spacing:var(--tracking-caps);color:var(--color-text-placeholder);padding:var(--space-2) var(--space-3) var(--space-1)}
+
+/* Toggle switch inside overflow */
+.toggle-switch{position:relative;width:32px;height:18px;flex-shrink:0}
+.toggle-switch input{opacity:0;width:0;height:0;position:absolute}
+.toggle-track{position:absolute;inset:0;background:var(--color-border);border-radius:var(--radius-full);cursor:pointer;transition:background var(--duration-fast)}
+.toggle-track::before{content:'';position:absolute;width:12px;height:12px;left:3px;top:3px;background:#fff;border-radius:50%;transition:transform var(--duration-fast)}
+.toggle-switch input:checked + .toggle-track{background:var(--blue-600)}
+.toggle-switch input:checked + .toggle-track::before{transform:translateX(14px)}
+
+/* ─── Simple form section for context ── */
+.section-title{font-size:var(--text-xs);font-weight:var(--weight-medium);text-transform:uppercase;letter-spacing:var(--tracking-caps);color:var(--color-text-tertiary);padding-bottom:var(--space-2);border-bottom:1px solid var(--color-border-subtle);margin-bottom:var(--space-4)}
+.field-grid-4{display:grid;grid-template-columns:repeat(4,1fr);gap:var(--space-4)}
+.field{display:flex;flex-direction:column;gap:var(--space-1)}
+.field-label{font-size:var(--text-sm);color:var(--color-text-secondary)}
+.field-row{display:flex;align-items:center;gap:var(--space-2)}
+.field-input{flex:1;height:32px;padding:0 var(--space-3);font-family:var(--font-mono);font-size:var(--text-base);border:1px solid var(--color-border);border-radius:var(--radius-md);background:var(--color-surface);color:var(--color-text-primary);outline:none}
+.field-input.query{background:var(--amber-50);border-color:var(--amber-700);color:#7A4F00}
+.field-hint{font-size:var(--text-xs);color:var(--color-text-tertiary)}
+.flag-btn{width:24px;height:24px;flex-shrink:0;border:none;background:none;cursor:pointer;border-radius:var(--radius-md);color:var(--color-text-placeholder);display:flex;align-items:center;justify-content:center;transition:color var(--duration-fast),background var(--duration-fast)}
+.flag-btn i{font-size:16px}
+.flag-btn.flagged{color:var(--orange-700)}
+.flag-state{display:flex;align-items:flex-start;gap:var(--space-1);font-size:var(--text-xs);font-weight:var(--weight-medium);margin-top:2px;color:var(--amber-700)}
+.flag-state i{font-size:12px;flex-shrink:0;margin-top:1px}
+
+/* ─────────────────────────────────────────────────────────────────────────────
+   COMPARISON LABEL BAR
+   ───────────────────────────────────────────────────────────────────────────── */
+.comparison-bar{display:flex;gap:var(--space-4);padding:var(--space-3) var(--space-5);background:var(--color-nav-bg);border-top:1px solid rgba(255,255,255,0.08);flex-shrink:0}
+.comparison-label{flex:1;text-align:center;font-size:var(--text-sm);font-weight:var(--weight-medium);color:#fff;opacity:0.7}
+.comparison-label.active{opacity:1;color:#fff}
+
+/* ─────────────────────────────────────────────────────────────────────────────
+   SLIDE-IN PANELS (side by side for comparison)
+   ───────────────────────────────────────────────────────────────────────────── */
+.panels-compare{display:flex;gap:0;position:fixed;bottom:0;right:0;top:56px;width:480px;z-index:200;box-shadow:-8px 0 32px rgba(14,18,28,0.15)}
+
+.slide-panel{flex:1;background:var(--color-surface);border-left:1px solid var(--color-border);display:flex;flex-direction:column;overflow:hidden}
+.slide-panel + .slide-panel{border-left:2px solid var(--color-page-bg)}
+
+.panel-header{display:flex;align-items:center;justify-content:space-between;padding:var(--space-4);border-bottom:1px solid var(--color-border);flex-shrink:0;background:var(--color-surface)}
+.panel-header-left{flex:1;min-width:0}
+.panel-title{font-size:var(--text-lg);font-weight:var(--weight-medium)}
+.panel-subtitle{font-size:var(--text-xs);color:var(--color-text-tertiary);font-family:var(--font-mono);margin-top:2px}
+.panel-variant-label{display:inline-flex;align-items:center;gap:4px;padding:2px var(--space-2);border-radius:var(--radius-full);font-size:10px;font-weight:var(--weight-bold);background:var(--blue-50);border:1px solid var(--blue-200);color:var(--blue-600);margin-top:4px}
+.panel-close{display:flex;align-items:center;justify-content:center;width:32px;height:32px;border-radius:var(--radius-md);border:none;background:none;cursor:pointer;color:var(--color-text-tertiary);transition:background var(--duration-fast),color var(--duration-fast);flex-shrink:0}
+.panel-close:hover{background:var(--color-hover-bg);color:var(--color-text-primary)}
+.panel-close i{font-size:18px}
+
+/* Panel filter */
+.panel-filter-bar{padding:var(--space-2) var(--space-4);border-bottom:1px solid var(--color-border);display:flex;gap:var(--space-2);flex-wrap:wrap;flex-shrink:0;background:var(--color-surface)}
+.filter-chip{display:inline-flex;align-items:center;gap:4px;padding:3px var(--space-2);border-radius:var(--radius-full);font-size:var(--text-xs);font-weight:var(--weight-medium);border:1px solid var(--color-border);background:var(--color-surface);color:var(--color-text-secondary);cursor:pointer;transition:all var(--duration-fast)}
+.filter-chip.active{background:var(--blue-50);border-color:var(--blue-200);color:var(--blue-600)}
+.panel-body{flex:1;overflow-y:auto}
+
+/* ── Type badges (shared) ── */
+.type-badge{display:inline-flex;align-items:center;gap:4px;padding:2px var(--space-2);border-radius:var(--radius-full);font-size:var(--text-xs);font-weight:var(--weight-medium);white-space:nowrap;border:1px solid}
+.type-edit  {background:var(--slate-50);border-color:var(--slate-200);color:var(--slate-600)}
+.type-entry {background:var(--green-50);border-color:var(--green-200);color:var(--green-600)}
+.type-query {background:var(--amber-50);border-color:var(--amber-200);color:var(--amber-700)}
+.type-sdv   {background:var(--blue-50);border-color:var(--blue-200);color:var(--blue-600)}
+.type-sign  {background:var(--green-50);border-color:var(--green-200);color:var(--green-600)}
+.type-lock  {background:var(--purple-50);border-color:var(--purple-200);color:var(--purple-600)}
+
+/* User chip */
+.user-chip{display:inline-flex;align-items:center;gap:5px;font-size:var(--text-xs)}
+.user-avatar{width:20px;height:20px;border-radius:50%;background:var(--slate-50);border:1px solid var(--slate-200);display:flex;align-items:center;justify-content:center;font-size:8px;font-weight:var(--weight-bold);color:var(--slate-600);flex-shrink:0}
+.user-name{font-weight:var(--weight-medium);color:var(--color-text-primary)}
+.user-role{display:inline-flex;align-items:center;padding:1px 5px;border-radius:var(--radius-sm);background:var(--color-page-bg);border:1px solid var(--color-border);font-size:10px;font-weight:var(--weight-medium);color:var(--color-text-secondary)}
+
+/* ── OPTION A: Table layout ── */
+.audit-table{width:100%;border-collapse:collapse;font-size:var(--text-xs)}
+.audit-table th{position:sticky;top:0;z-index:5;background:var(--color-surface);padding:var(--space-2) var(--space-3);text-align:left;font-size:10px;font-weight:var(--weight-medium);text-transform:uppercase;letter-spacing:var(--tracking-caps);color:var(--color-text-tertiary);border-bottom:1px solid var(--color-border);white-space:nowrap}
+.audit-table td{padding:var(--space-2) var(--space-3);border-bottom:1px solid var(--color-border-subtle);vertical-align:middle;color:var(--color-text-primary)}
+.audit-table tr:hover td{background:var(--color-hover-bg)}
+.audit-table tr.anomaly td{background:#FFFDF5}
+.audit-table tr.anomaly:hover td{background:var(--amber-50)}
+.ts-cell{font-family:var(--font-mono);font-size:10px;color:var(--color-text-tertiary);white-space:nowrap}
+.field-code{font-family:var(--font-mono);font-size:10px;background:var(--color-page-bg);border:1px solid var(--color-border);border-radius:var(--radius-sm);padding:0 4px;color:var(--color-text-tertiary)}
+.reason-cell{font-size:var(--text-xs);color:var(--color-text-secondary);max-width:140px;white-space:normal;line-height:1.4}
+.anomaly-flag{font-size:11px;color:var(--amber-700);margin-left:3px}
+
+/* ── OPTION B: Timeline layout ── */
+.timeline-entry{display:flex;gap:var(--space-3);padding:var(--space-3) var(--space-4);border-bottom:1px solid var(--color-border-subtle)}
+.timeline-entry:last-child{border-bottom:none}
+.timeline-entry:hover{background:var(--color-hover-bg)}
+.timeline-entry.anomaly{background:#FFFDF5}
+.timeline-entry.anomaly:hover{background:var(--amber-50)}
+
+.tl-left{display:flex;flex-direction:column;align-items:center;flex-shrink:0;width:16px;padding-top:3px}
+.tl-dot{width:8px;height:8px;border-radius:50%;flex-shrink:0}
+.tl-dot.field {background:var(--slate-600)}
+.tl-dot.entry {background:var(--green-600)}
+.tl-dot.query {background:var(--amber-700)}
+.tl-dot.sdv   {background:var(--blue-600)}
+.tl-dot.sign  {background:var(--green-600)}
+.tl-dot.lock  {background:var(--purple-600)}
+.tl-line{width:1px;flex:1;background:var(--color-border-subtle);margin-top:3px}
+
+.tl-content{flex:1;min-width:0}
+.tl-top{display:flex;align-items:center;gap:var(--space-2);flex-wrap:wrap;margin-bottom:3px}
+.tl-field{font-size:var(--text-xs);font-weight:var(--weight-medium);color:var(--color-text-primary)}
+.tl-code{font-family:var(--font-mono);font-size:10px;background:var(--color-page-bg);border:1px solid var(--color-border);border-radius:var(--radius-sm);padding:0 4px;color:var(--color-text-tertiary)}
+.tl-change{font-size:var(--text-xs);color:var(--color-text-secondary);margin-bottom:4px;line-height:1.4}
+.tl-meta{display:flex;align-items:center;gap:var(--space-2);flex-wrap:wrap}
+.tl-ts{font-size:10px;font-family:var(--font-mono);color:var(--color-text-tertiary)}
+.tl-reason{font-size:var(--text-xs);color:var(--color-text-tertiary);font-style:italic;line-height:1.4;margin-top:3px}
+</style>
+</head>
+<body>
+<div class="shell">
+
+  <!-- Side nav -->
+  <nav class="sidenav">
+    <div class="nav-logo"><span>Ar</span></div>
+    <button class="nav-item"><i class="ti ti-layout-dashboard"></i><span class="nav-label">Dashboard</span></button>
+    <button class="nav-item active"><i class="ti ti-list"></i><span class="nav-label">Animals</span></button>
+    <button class="nav-item"><i class="ti ti-help-circle"></i><span class="nav-label">Queries</span></button>
+    <button class="nav-item"><i class="ti ti-chart-bar"></i><span class="nav-label">Reports</span></button>
+    <div class="nav-spacer"></div>
+    <div class="nav-sep"></div>
+    <button class="nav-item"><i class="ti ti-clipboard-list"></i><span class="nav-label">Audit</span></button>
+  </nav>
+
+  <div class="main">
+    <header class="topbar">
+      <button class="tb-study">Arken Canine · AK-2401 <i class="ti ti-chevron-right"></i></button>
+      <div class="tb-right">
+        <button class="tb-icon"><i class="ti ti-bell"></i></button>
+        <button class="tb-icon"><i class="ti ti-settings"></i></button>
+        <button class="tb-role">CRC <i class="ti ti-chevron-right"></i></button>
+        <div class="tb-avatar">ET</div>
+      </div>
+    </header>
+
+    <div class="body-wrap">
+
+      <!-- Form sidebar -->
+      <nav class="form-sidebar">
+        <div class="sidebar-label">Forms</div>
+        <button class="form-item"><span class="form-item-label">Animal info</span><div class="status-final"><i class="ti ti-check"></i></div></button>
+        <button class="form-item"><span class="form-item-label">Screening</span><div class="status-final"><i class="ti ti-check"></i></div></button>
+        <button class="form-item active"><span class="form-item-label">Visit 1 — Baseline</span><div class="status-active"></div></button>
+        <button class="form-item"><span class="form-item-label">Visit 2 — Day 7</span><div class="status-empty"></div></button>
+        <button class="form-item"><span class="form-item-label">Visit 3 — Day 14</span><div class="status-empty"></div></button>
+      </nav>
+
+      <!-- Form content -->
+      <div class="form-content">
+        <nav class="breadcrumb">
+          <button class="bc-btn"><span>AK-2401</span></button>
+          <span style="color:var(--color-text-placeholder);font-size:11px"><i class="ti ti-chevron-right"></i></span>
+          <button class="bc-btn"><span>Austin</span></button>
+          <span style="color:var(--color-text-placeholder);font-size:11px"><i class="ti ti-chevron-right"></i></span>
+          <button class="bc-btn"><span>Barn 1</span></button>
+          <span style="color:var(--color-text-placeholder);font-size:11px"><i class="ti ti-chevron-right"></i></span>
+          <span>Pen 1</span>
+        </nav>
+
+        <div class="subject-header">
+          <div class="species-icon">🐄</div>
+          <div class="subject-id-row">
+            <span class="subject-id">AUSB1P1-01</span>
+            <button class="subject-switch" title="Switch subject"><i class="ti ti-arrows-exchange"></i></button>
+            <span class="subject-status status-randomized">Randomized</span>
+          </div>
+          <span class="header-dot">·</span>
+          <div class="subject-meta">
+            <span>Female</span><span class="meta-sep">·</span>
+            <span>4yr</span><span class="meta-sep">·</span>
+            <span>Hereford</span><span class="meta-sep">·</span>
+            <span style="font-family:var(--font-mono)">400 kg</span><span class="meta-sep">·</span>
+            <span class="meta-group">Group A — Dose</span>
+          </div>
+          <div style="margin-left:auto">
+            <div class="overflow-wrap">
+              <button class="btn-secondary" onclick="toggleOverflow(this)">Manage <i class="ti ti-chevron-down" style="font-size:12px"></i></button>
+              <div class="overflow-menu">
+                <button class="overflow-item"><div class="item-left"><i class="ti ti-link"></i> Copy link</div></button>
+                <button class="overflow-item"><div class="item-left"><i class="ti ti-calendar-plus"></i> Add unscheduled visit</div></button>
+                <button class="overflow-item"><div class="item-left"><i class="ti ti-printer"></i> Print subject summary</div></button>
+                <button class="overflow-item"><div class="item-left"><i class="ti ti-download"></i> Export subject data</div></button>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- ── FORM HEADER WITH OVERFLOW ── -->
+        <div class="form-header">
+          <h1 class="form-title">Visit 1 — Physical exam</h1>
+          <div class="form-actions">
+            <button class="btn-secondary">Submit for review</button>
+            <button class="btn-primary">Run validations</button>
+            <div class="overflow-wrap">
+              <button class="btn-icon" onclick="toggleOverflow(this)" aria-label="More actions">
+                <i class="ti ti-dots-vertical"></i>
+              </button>
+              <div class="overflow-menu" id="form-overflow">
+
+                <div class="overflow-section-label">View</div>
+                <button class="overflow-item" onclick="openComparison(); closeOverflow()">
+                  <div class="item-left"><i class="ti ti-clipboard-list"></i> Audit trail</div>
+                  <span style="font-size:10px;color:var(--color-text-placeholder)">This form</span>
+                </button>
+
+                <div class="overflow-sep"></div>
+                <div class="overflow-section-label">CRF Mode</div>
+                <label class="overflow-item has-toggle">
+                  <div class="item-left"><i class="ti ti-code"></i> Annotated CRF</div>
+                  <div class="toggle-switch">
+                    <input type="checkbox" id="crf-toggle">
+                    <div class="toggle-track"></div>
+                  </div>
+                </label>
+                <label class="overflow-item has-toggle">
+                  <div class="item-left"><i class="ti ti-shield-lock"></i> Role permissions</div>
+                  <div class="toggle-switch">
+                    <input type="checkbox" id="role-toggle">
+                    <div class="toggle-track"></div>
+                  </div>
+                </label>
+
+                <div class="overflow-sep"></div>
+                <div class="overflow-section-label">Actions</div>
+                <button class="overflow-item"><div class="item-left"><i class="ti ti-printer"></i> Print form</div></button>
+                <button class="overflow-item"><div class="item-left"><i class="ti ti-download"></i> Export form data</div></button>
+                <div class="overflow-sep"></div>
+                <button class="overflow-item danger"><div class="item-left"><i class="ti ti-lock"></i> Lock form</div></button>
+
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Form fields (context only) -->
+        <div>
+          <div class="section-title">Vital signs</div>
+          <div class="field-grid-4">
+            <div class="field">
+              <label class="field-label">Rectal temperature <span style="color:var(--red-600)">*</span></label>
+              <div class="field-row">
+                <input class="field-input query" type="text" value="28.5">
+                <button class="flag-btn flagged"><i class="ti ti-flag-filled"></i></button>
+              </div>
+              <div class="flag-state"><i class="ti ti-info-circle"></i>Query Q001 — verify value</div>
+            </div>
+            <div class="field">
+              <label class="field-label">Heart rate <span style="color:var(--red-600)">*</span></label>
+              <div class="field-row">
+                <input class="field-input" type="text" value="64">
+                <button class="flag-btn"><i class="ti ti-flag"></i></button>
+              </div>
+              <span class="field-hint">Normal: 50–80 bpm</span>
+            </div>
+            <div class="field">
+              <label class="field-label">Respiratory rate <span style="color:var(--red-600)">*</span></label>
+              <div class="field-row">
+                <input class="field-input" type="text" value="24">
+                <button class="flag-btn"><i class="ti ti-flag"></i></button>
+              </div>
+              <span class="field-hint">Normal: 12–36 bpm</span>
+            </div>
+            <div class="field">
+              <label class="field-label">Body weight <span style="color:var(--red-600)">*</span></label>
+              <div class="field-row">
+                <input class="field-input" type="text" value="400">
+                <button class="flag-btn"><i class="ti ti-flag"></i></button>
+              </div>
+              <span class="field-hint">kg</span>
+            </div>
+          </div>
+        </div>
+
+        <p style="font-size:var(--text-sm);color:var(--color-text-tertiary);margin-top:var(--space-4)">
+          Click <strong>⋮</strong> in the form header → <strong>Audit trail</strong> to open the comparison panels →
+        </p>
+      </div>
+
+    </div>
+  </div>
+</div>
+
+<!-- ── COMPARISON PANELS (side by side, same data) ── -->
+<div class="panels-compare" id="panels-compare" style="display:none">
+
+  <!-- Option B — Timeline layout -->
+  <div class="slide-panel">
+    <div class="panel-header">
+      <div class="panel-header-left">
+        <div class="panel-title">Audit trail</div>
+        <div class="panel-subtitle">AUSB1P1-01 · Visit 1 — Physical exam</div>
+      </div>
+      <button class="panel-close" onclick="closeComparison()"><i class="ti ti-x"></i></button>
+    </div>
+    <div class="panel-tabs">
+      <button class="panel-tab active" id="tab-audit" onclick="switchTab('audit')">Audit trail</button>
+      <button class="panel-tab" id="tab-sig" onclick="switchTab('sig')">Signature track</button>
+    </div>
+    <div id="pane-audit" style="display:flex;flex-direction:column;flex:1;overflow:hidden;min-height:0">
+    <div class="panel-filter-bar">
+      <button class="filter-chip active" onclick="filterTimeline(this,'all')">All</button>
+      <button class="filter-chip" onclick="filterTimeline(this,'entry')">Entry</button>
+      <button class="filter-chip" onclick="filterTimeline(this,'edit')">Edit</button>
+      <button class="filter-chip" onclick="filterTimeline(this,'query')">Query</button>
+      <button class="filter-chip" onclick="filterTimeline(this,'sdv,sign')">SDV / Sign</button>
+      <button class="filter-chip" onclick="filterTimeline(this,'lock')">Lock</button>
+    </div>
+    <div class="panel-body">
+
+      <!-- Query raised -->
+      <div class="timeline-entry" data-type="query">
+        <div class="tl-left"><div class="tl-dot query"></div><div class="tl-line"></div></div>
+        <div class="tl-content">
+          <div class="tl-top">
+            <span class="type-badge type-query">Query</span>
+            <span class="tl-field">Rectal temperature</span>
+            <span class="tl-code">RECTAL_TEMP</span>
+          </div>
+          <div class="tl-change"><span style="color:var(--amber-700);display:flex;align-items:center;gap:4px"><i class="ti ti-flag-filled" style="font-size:12px"></i> Query raised — value 28.5°C outside normal range 38–39°C</span></div>
+          <div class="tl-meta">
+            <span class="tl-ts">2026-05-05T09:14:32Z</span>
+            <div class="user-chip"><div class="user-avatar" style="font-size:7px;width:18px;height:18px">AU</div><span class="user-role">Auto</span></div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Edit with anomaly -->
+      <div class="timeline-entry anomaly" data-type="edit">
+        <div class="tl-left"><div class="tl-dot field"></div><div class="tl-line"></div></div>
+        <div class="tl-content">
+          <div class="tl-top">
+            <span class="type-badge type-edit">Edit</span>
+            <i class="ti ti-alert-triangle" style="font-size:12px;color:var(--amber-700)"></i>
+            <span class="tl-field">Rectal temperature</span>
+            <span class="tl-code">RECTAL_TEMP</span>
+          </div>
+          <div class="tl-change">
+            <span style="color:var(--red-600);font-family:var(--font-mono)">28.5 °C</span>
+            <span style="color:var(--color-text-placeholder);font-size:11px"> → </span>
+            <span style="color:var(--green-600);font-family:var(--font-mono)">38.4 °C</span>
+          </div>
+          <div class="tl-reason">Transcription error — verified against barn log dated 2026-05-05</div>
+          <div class="tl-meta">
+            <span class="tl-ts">2026-05-06T11:14:22Z</span>
+            <div class="user-chip"><div class="user-avatar" style="width:18px;height:18px">ET</div><span class="user-name">E. Tron</span><span class="user-role">CRC</span></div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Entry — heart rate -->
+      <div class="timeline-entry" data-type="entry">
+        <div class="tl-left"><div class="tl-dot entry"></div><div class="tl-line"></div></div>
+        <div class="tl-content">
+          <div class="tl-top">
+            <span class="type-badge type-entry">Entry</span>
+            <span class="tl-field">Heart rate</span>
+            <span class="tl-code">HEART_RATE</span>
+          </div>
+          <div class="tl-change"><span style="color:var(--green-600);font-family:var(--font-mono)">+ 64 bpm</span></div>
+          <div class="tl-meta">
+            <span class="tl-ts">2026-05-05T09:12:18Z</span>
+            <div class="user-chip"><div class="user-avatar" style="width:18px;height:18px">ET</div><span class="user-name">E. Tron</span><span class="user-role">CRC</span></div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Entry — body weight -->
+      <div class="timeline-entry" data-type="entry">
+        <div class="tl-left"><div class="tl-dot entry"></div><div class="tl-line"></div></div>
+        <div class="tl-content">
+          <div class="tl-top">
+            <span class="type-badge type-entry">Entry</span>
+            <span class="tl-field">Body weight</span>
+            <span class="tl-code">BODY_WEIGHT</span>
+          </div>
+          <div class="tl-change"><span style="color:var(--green-600);font-family:var(--font-mono)">+ 400 kg</span></div>
+          <div class="tl-meta">
+            <span class="tl-ts">2026-05-05T09:11:04Z</span>
+            <div class="user-chip"><div class="user-avatar" style="width:18px;height:18px">ET</div><span class="user-name">E. Tron</span><span class="user-role">CRC</span></div>
+          </div>
+        </div>
+      </div>
+
+      <!-- SDV -->
+      <div class="timeline-entry" data-type="sdv">
+        <div class="tl-left"><div class="tl-dot sdv"></div><div class="tl-line"></div></div>
+        <div class="tl-content">
+          <div class="tl-top">
+            <span class="type-badge type-sdv">SDV</span>
+            <span class="tl-field" style="color:var(--color-text-tertiary)">All fields</span>
+          </div>
+          <div class="tl-change"><span style="color:var(--blue-600);display:flex;align-items:center;gap:4px"><i class="ti ti-circle-check" style="font-size:13px"></i> SDV complete — all fields verified against source documents</span></div>
+          <div class="tl-meta">
+            <span class="tl-ts">2026-05-08T16:02:11Z</span>
+            <div class="user-chip"><div class="user-avatar" style="width:18px;height:18px;background:var(--blue-50);color:var(--blue-600)">JR</div><span class="user-name">J. Reyes</span><span class="user-role">CRA</span></div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Sign -->
+      <div class="timeline-entry" data-type="sign">
+        <div class="tl-left"><div class="tl-dot sign"></div><div class="tl-line"></div></div>
+        <div class="tl-content">
+          <div class="tl-top">
+            <span class="type-badge type-sign">Sign</span>
+            <span class="tl-field" style="color:var(--color-text-tertiary)">Form</span>
+          </div>
+          <div class="tl-change"><span style="color:var(--green-600);display:flex;align-items:center;gap:4px"><i class="ti ti-writing-sign" style="font-size:13px"></i> Electronically signed — data accurate and complete</span></div>
+          <div class="tl-meta">
+            <span class="tl-ts">2026-05-08T17:30:44Z</span>
+            <div class="user-chip"><div class="user-avatar" style="width:18px;height:18px;background:var(--green-50);color:var(--green-600)">SP</div><span class="user-name">Dr. S. Patel</span><span class="user-role">PI</span></div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Lock -->
+      <div class="timeline-entry" data-type="lock">
+        <div class="tl-left"><div class="tl-dot lock"></div></div>
+        <div class="tl-content">
+          <div class="tl-top">
+            <span class="type-badge type-lock">Lock</span>
+            <span class="tl-field" style="color:var(--color-text-tertiary)">Form</span>
+          </div>
+          <div class="tl-change"><span style="color:var(--purple-600);display:flex;align-items:center;gap:4px"><i class="ti ti-lock" style="font-size:13px"></i> Form locked after SDV and PI signature</span></div>
+          <div class="tl-meta">
+            <span class="tl-ts">2026-05-09T09:00:00Z</span>
+            <div class="user-chip"><div class="user-avatar" style="width:18px;height:18px;background:var(--blue-50);color:var(--blue-600)">JR</div><span class="user-name">J. Reyes</span><span class="user-role">CRA</span></div>
+          </div>
+        </div>
+      </div>
+
+    </div>
+    </div><!-- /pane-audit -->
+
+    <!-- Signature track pane -->
+    <div id="pane-sig" style="display:none;flex-direction:column;flex:1;overflow:hidden;min-height:0">
+      <div class="panel-body">
+        <div class="sig-entry">
+          <div class="sig-icon signed"><i class="ti ti-check"></i></div>
+          <div>
+            <div class="sig-label">Submitted for review → Signed off by PI</div>
+            <div class="sig-meta">2026-05-08T17:30:44Z · PI Dr. S. Patel · UID:SP-0011</div>
+            <div class="sig-status signed"><i class="ti ti-circle-check" style="font-size:11px"></i> Electronically signed</div>
+          </div>
+        </div>
+        <div class="sig-entry">
+          <div class="sig-icon signed"><i class="ti ti-check"></i></div>
+          <div>
+            <div class="sig-label">SDV complete → Submitted for review</div>
+            <div class="sig-meta">2026-05-08T16:02:11Z · CRA J. Reyes · UID:JR-0028</div>
+            <div class="sig-status signed"><i class="ti ti-circle-check" style="font-size:11px"></i> Verified</div>
+          </div>
+        </div>
+        <div class="sig-entry">
+          <div class="sig-icon signed"><i class="ti ti-check"></i></div>
+          <div>
+            <div class="sig-label">Draft → Submitted for review</div>
+            <div class="sig-meta">2026-05-05T09:45:00Z · CRC E. Tron · UID:ET-0042</div>
+            <div class="sig-status signed"><i class="ti ti-circle-check" style="font-size:11px"></i> Submitted</div>
+          </div>
+        </div>
+      </div>
+    </div><!-- /pane-sig -->
+
+  </div><!-- /slide-panel -->
+</div><!-- /panels-compare -->
+
+<script>
+function filterTimeline(btn, types) {
+  document.querySelectorAll('.panel-filter-bar .filter-chip').forEach(b => b.classList.remove('active'));
+  btn.classList.add('active');
+  const typeList = types.split(',');
+  document.querySelectorAll('.timeline-entry').forEach(entry => {
+    const t = entry.dataset.type || '';
+    entry.style.display = (types === 'all' || typeList.includes(t)) ? '' : 'none';
+  });
+}
+function switchTab(tab) {
+  document.getElementById('pane-audit').style.display = tab === 'audit' ? 'flex' : 'none';
+  document.getElementById('pane-sig').style.display   = tab === 'sig'   ? 'flex' : 'none';
+  document.getElementById('tab-audit').classList.toggle('active', tab === 'audit');
+  document.getElementById('tab-sig').classList.toggle('active', tab === 'sig');
+}
+function toggleOverflow(btn) {
+  const menu = btn.nextElementSibling;
+  menu.classList.toggle('open');
+}
+function closeOverflow() {
+  document.querySelectorAll('.overflow-menu.open').forEach(m => m.classList.remove('open'));
+}
+function openComparison() {
+  document.getElementById('panels-compare').style.display = 'flex';
+}
+function closeComparison() {
+  document.getElementById('panels-compare').style.display = 'none';
+}
+document.addEventListener('click', e => {
+  if (!e.target.closest('.overflow-wrap')) closeOverflow();
+});
+</script>
+</body>
+</html>
