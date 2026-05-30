@@ -113,7 +113,95 @@ body {
   padding: var(--space-3) 0;
   gap: 2px;
   flex-shrink: 0;
-  overflow: hidden;
+  overflow: visible;
+  position: relative;
+  transition: width 240ms cubic-bezier(0.16, 1, 0.3, 1);
+}
+.sidenav.expanded {
+  width: 160px;
+  align-items: stretch;
+}
+
+/* Toggle button — floats over the nav edge, 15% from top */
+.nav-expand-btn {
+  position: absolute;
+  right: -13px;
+  top: 56px;
+  width: 26px;
+  height: 26px;
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  z-index: 50;
+  color: var(--color-text-secondary);
+  box-shadow: 0 1px 4px rgba(14,18,28,0.12);
+  transition: background var(--duration-fast), color var(--duration-fast);
+  user-select: none;
+  flex-shrink: 0;
+}
+.nav-expand-btn:hover {
+  background: var(--color-hover-bg);
+  color: var(--color-text-primary);
+}
+.nav-expand-btn i {
+  font-size: 14px;
+  line-height: 1;
+}
+
+/* Nav logo expanded state */
+
+
+.nav-logo-row {
+  display: flex;
+  align-items: center;
+  justify-content: flex-start;
+  padding-left: 22px;
+  gap: var(--space-2);
+  width: 100%;
+  margin-bottom: var(--space-3);
+  flex-shrink: 0;
+}
+
+/* Nav item expanded state */
+.sidenav.expanded .nav-item {
+  flex-direction: row;
+  align-items: center;
+  justify-content: flex-start;
+  min-height: 44px;
+  padding: 0 var(--space-3);
+  gap: var(--space-2);
+  border-radius: var(--radius-md);
+  margin: 0 var(--space-1);
+  width: calc(100% - 8px);
+}
+.sidenav.expanded .nav-item i {
+  font-size: 18px;
+  flex-shrink: 0;
+}
+.sidenav.expanded .nav-label {
+  font-size: var(--text-sm);
+  text-align: left;
+  white-space: nowrap;
+}
+
+/* Separator full-width in expanded state */
+.sidenav.expanded .nav-separator {
+  margin: var(--space-2) var(--space-1);
+  width: calc(100% - 8px);
+}
+
+/* Badge — expanded: inline after label, right-aligned */
+.sidenav.expanded .nav-badge {
+  position: relative;
+  top: auto;
+  right: auto;
+  min-width: 18px;
+  height: 18px;
+  font-size: 10px;
 }
 
 /* Logo mark — wordmark abbreviation */
@@ -155,6 +243,10 @@ body {
               color var(--duration-fast) var(--ease-default);
   text-decoration: none;
   padding: 4px 0;
+  overflow: hidden;
+}
+.sidenav.expanded .nav-item {
+  overflow: visible;
 }
 .nav-item:hover {
   background: var(--color-nav-hover);
@@ -416,11 +508,18 @@ body {
 <div class="shell">
 
   <!-- ── Side nav ─────────────────────────────────────────────────────── -->
-  <nav class="sidenav" aria-label="Main navigation">
+  <nav class="sidenav" id="sidenav" aria-label="Main navigation">
+
+    <!-- Toggle button — floats over nav edge -->
+    <button class="nav-expand-btn" id="nav-expand-btn" onclick="toggleNav()" title="Expand sidebar" aria-label="Expand sidebar">
+      <i class="ti ti-chevron-right" id="nav-expand-icon"></i>
+    </button>
 
     <!-- Logo -->
-    <div class="nav-logo" title="Arken EDC">
-      <span>Ar</span>
+    <div class="nav-logo-row">
+      <div class="nav-logo" title="Arken EDC">
+        <span>Ar</span>
+      </div>
     </div>
 
     <!-- Primary nav items — CRC set (most items) -->
@@ -487,16 +586,9 @@ body {
     <!-- Top bar -->
     <header class="topbar">
 
-      <!-- Left: study + site -->
+      <!-- Left: study pill only — path navigation lives in page breadcrumb -->
       <button class="tb-study" aria-label="Switch study — currently Arken Canine AK-2401">
         Arken Canine · AK-2401
-        <i class="ti ti-chevron-right" aria-hidden="true"></i>
-      </button>
-
-      <span class="tb-sep" aria-hidden="true">/</span>
-
-      <button class="tb-site" aria-label="Switch site — currently Austin">
-        Austin
         <i class="ti ti-chevron-right" aria-hidden="true"></i>
       </button>
 
@@ -628,6 +720,16 @@ body {
   </div>
 
 </div>
-
+<script>
+function toggleNav() {
+  const nav = document.getElementById('sidenav');
+  const icon = document.getElementById('nav-expand-icon');
+  const btn = document.getElementById('nav-expand-btn');
+  const expanded = nav.classList.toggle('expanded');
+  icon.className = expanded ? 'ti ti-chevron-left' : 'ti ti-chevron-right';
+  btn.title = expanded ? 'Collapse sidebar' : 'Expand sidebar';
+  btn.setAttribute('aria-label', expanded ? 'Collapse sidebar' : 'Expand sidebar');
+}
+</script>
 </body>
 </html>

@@ -1,0 +1,833 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Arken EDC — Animals</title>
+<link href="https://fonts.googleapis.com/css2?family=Roboto:wght@400;500;700&family=Roboto+Mono:wght@400;500&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@tabler/icons-webfont@latest/tabler-icons.min.css">
+<style>
+:root {
+  --color-nav-bg:#1A1F2E; --color-nav-hover:#2C3248; --color-nav-icon:#8aafc8;
+  --color-nav-separator:rgba(255,255,255,0.08);
+  --color-page-bg:#FBFBFB; --color-surface:#FFFFFF; --color-border:#E8E8E6;
+  --color-border-subtle:#F0F0EE;
+  --color-text-primary:#2C2D33; --color-text-secondary:#4F535B;
+  --color-text-tertiary:#6D7480; --color-text-placeholder:#C4C4C2;
+  --color-link:#3D4A5C; --color-hover-bg:#F0F0EE;
+  --color-cta-bg:#1A1F2E; --color-cta-hover:#2C3248; --color-focus-ring:#3D8FE0;
+
+  --amber-50:#FFF8E7; --amber-200:#F5B830; --amber-700:#8A5C00;
+  --orange-50:#FFF0E8; --orange-200:#F48E50; --orange-700:#A33A08;
+  --red-50:#FFF0F0; --red-200:#EC8585; --red-600:#B52626;
+  --green-50:#EEFAF4; --green-200:#58BC88; --green-600:#1A6B47;
+  --blue-50:#E8F4FF; --blue-200:#7AB8EE; --blue-600:#1760A8;
+  --purple-50:#F0EEFF; --purple-200:#A9A3EC; --purple-600:#534AB7;
+  --slate-50:#EEF1F6; --slate-200:#8AA0B8; --slate-600:#3D5A78;
+
+  --font-sans:'Roboto',system-ui,sans-serif;
+  --font-mono:'Roboto Mono',monospace;
+  --text-xs:11px; --text-sm:12px; --text-base:14px; --text-lg:16px;
+  --text-xl:18px; --text-3xl:24px;
+  --weight-regular:400; --weight-medium:500; --weight-bold:700;
+  --radius-sm:2px; --radius-md:4px; --radius-lg:6px; --radius-full:9999px;
+  --space-1:4px; --space-2:8px; --space-3:12px; --space-4:16px;
+  --space-5:20px; --space-6:24px; --space-8:32px;
+  --duration-fast:120ms; --ease-default:cubic-bezier(0.16,1,0.3,1);
+  --tracking-caps:0.07em;
+}
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+body{font-family:var(--font-sans);font-size:var(--text-base);color:var(--color-text-primary);background:var(--color-page-bg);-webkit-font-smoothing:antialiased}
+
+/* ─── Shell ── */
+.shell{display:flex;height:100vh;overflow:hidden}
+.sidenav{width:74px;background:var(--color-nav-bg);display:flex;flex-direction:column;align-items:center;padding:var(--space-3) 0;gap:2px;flex-shrink:0}
+.nav-logo{width:30px;height:30px;border-radius:var(--radius-md);background:var(--color-nav-hover);display:flex;align-items:center;justify-content:center;margin-bottom:var(--space-3)}
+.nav-logo span{font-size:var(--text-base);font-weight:var(--weight-bold);color:#fff;letter-spacing:-0.02em}
+.nav-item{width:100%;min-height:50px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:3px;cursor:pointer;color:var(--color-nav-icon);border:none;background:transparent;transition:background var(--duration-fast);padding:4px 0}
+.nav-item:hover{background:var(--color-nav-hover);color:#fff}
+.nav-item.active{background:var(--color-nav-hover);color:#fff}
+.nav-item i{font-size:20px} .nav-label{font-size:11px;font-weight:var(--weight-medium);color:inherit;text-align:center}
+.nav-spacer{flex:1} .nav-sep{width:100%;height:1px;background:var(--color-nav-separator);margin:var(--space-2) 0}
+.main{flex:1;display:flex;flex-direction:column;min-width:0;overflow:hidden}
+.topbar{height:56px;background:var(--color-nav-bg);display:flex;align-items:center;padding:0 var(--space-4);gap:var(--space-3);flex-shrink:0;border-bottom:1px solid rgba(255,255,255,0.06)}
+.tb-study{background:var(--color-nav-hover);color:#fff;font-size:var(--text-base);font-weight:var(--weight-medium);padding:8px var(--space-4);border-radius:var(--radius-md);display:flex;align-items:center;gap:4px;cursor:pointer;border:1px solid #525D73;white-space:nowrap}
+.tb-site{color:#fff;font-size:var(--text-base);display:flex;align-items:center;gap:3px;cursor:pointer;border:none;background:none;white-space:nowrap}
+.tb-right{margin-left:auto;display:flex;align-items:center;gap:var(--space-3)}
+.tb-icon{width:28px;height:28px;display:flex;align-items:center;justify-content:center;border-radius:var(--radius-md);border:none;background:transparent;color:#fff;cursor:pointer;position:relative}
+.tb-icon i{font-size:20px}
+.tb-role{background:var(--color-nav-hover);color:#fff;font-size:var(--text-sm);font-weight:var(--weight-medium);padding:3px var(--space-2);border-radius:var(--radius-md);display:flex;align-items:center;gap:4px;cursor:pointer;border:1px solid #525D73}
+.tb-avatar{width:30px;height:30px;border-radius:50%;background:#3D5A78;color:#EEF1F6;font-size:12px;font-weight:var(--weight-medium);display:flex;align-items:center;justify-content:center;cursor:pointer}
+.tb-sep{color:rgba(255,255,255,0.35);font-size:12px}
+
+
+/* Topbar study picker */
+.tb-study-wrap{position:relative}
+.tb-picker{display:none;position:absolute;top:calc(100% + 8px);left:0;min-width:280px;background:var(--color-surface);border:1px solid var(--color-border);border-radius:var(--radius-lg);box-shadow:0 8px 24px rgba(14,18,28,0.15);z-index:300;overflow:hidden}
+.tb-picker.open{display:block}
+.tb-picker-pinned{padding:var(--space-2) var(--space-3);border-bottom:1px solid var(--color-border)}
+.tb-picker-label{font-size:10px;font-weight:var(--weight-medium);text-transform:uppercase;letter-spacing:var(--tracking-caps);color:var(--color-text-placeholder);margin-bottom:var(--space-2)}
+.tb-picker-study{display:flex;align-items:center;gap:var(--space-2);padding:var(--space-2) var(--space-3);font-size:var(--text-sm);font-weight:var(--weight-medium);color:var(--color-text-primary);background:none;border:none;cursor:pointer;width:100%;text-align:left;transition:background var(--duration-fast);border-radius:var(--radius-md)}
+.tb-picker-study:hover{background:var(--color-hover-bg)}
+.tb-picker-study .study-id{font-family:var(--font-mono);font-size:var(--text-xs);color:var(--color-text-tertiary);margin-left:auto;white-space:nowrap}
+.tb-picker-footer{padding:var(--space-2) var(--space-3);border-top:1px solid var(--color-border)}
+.tb-picker-link{font-size:var(--text-sm);color:var(--color-link);background:none;border:none;cursor:pointer;padding:var(--space-1) 0;text-decoration:underline;text-underline-offset:2px}
+
+
+/* Pin icon */
+.pin-btn{display:flex;align-items:center;justify-content:center;width:24px;height:24px;border:1px solid transparent;background:none;cursor:pointer;border-radius:var(--radius-sm);color:var(--color-text-placeholder);transition:all var(--duration-fast);flex-shrink:0}
+.pin-btn:hover{color:var(--blue-600);background:var(--blue-50);border-color:var(--blue-200)}
+.pin-btn.pinned{color:var(--blue-600);background:none;border-color:transparent}
+.pin-btn.pinned:hover{background:var(--blue-50);border-color:var(--blue-200)}
+.pin-btn i{font-size:14px}
+
+/* ─── Page layout ── */
+.page-wrap{flex:1;display:flex;flex-direction:column;overflow:hidden}
+.page-header{padding:var(--space-4) var(--space-5);border-bottom:1px solid var(--color-border);background:var(--color-surface);flex-shrink:0}
+.breadcrumb{display:flex;align-items:center;gap:var(--space-1);font-size:var(--text-sm);color:var(--color-text-tertiary);margin-bottom:var(--space-2)}
+.bc-btn{color:var(--color-link);background:none;border:none;font-size:var(--text-sm);cursor:pointer;padding:0;display:flex;align-items:center;gap:3px}
+.bc-btn span{text-decoration:underline;text-underline-offset:2px}
+.bc-btn:hover{color:var(--color-text-primary)}
+.bc-sep{color:var(--color-text-placeholder);font-size:11px}
+.page-title-row{display:flex;align-items:center;justify-content:space-between;gap:var(--space-4)}
+.page-title{font-size:var(--text-3xl);font-weight:var(--weight-medium)}
+.page-title-meta{font-size:var(--text-sm);color:var(--color-text-tertiary);margin-top:2px;font-family:var(--font-mono)}
+.page-actions{display:flex;align-items:center;gap:var(--space-2)}
+
+/* ─── Toolbar ── */
+.list-toolbar{padding:var(--space-3) var(--space-5);background:var(--color-surface);border-bottom:1px solid var(--color-border);display:flex;align-items:center;gap:var(--space-3);flex-shrink:0}
+.search-box{display:flex;align-items:center;gap:var(--space-2);height:32px;padding:0 var(--space-3);border:1px solid var(--color-border);border-radius:var(--radius-md);background:var(--color-surface);min-width:220px}
+.search-box i{font-size:14px;color:var(--color-text-placeholder);flex-shrink:0}
+.search-box input{border:none;outline:none;font-size:var(--text-sm);font-family:var(--font-sans);color:var(--color-text-primary);background:transparent;flex:1}
+.search-box input::placeholder{color:var(--color-text-placeholder)}
+.filter-select{height:32px;padding:0 24px 0 var(--space-2);font-size:var(--text-sm);font-family:var(--font-sans);border:1px solid var(--color-border);border-radius:var(--radius-md);background:var(--color-surface);color:var(--color-text-primary);cursor:pointer;appearance:none;background-image:url("data:image/svg+xml,%3Csvg width='8' height='12' viewBox='0 0 8 12' fill='none' xmlns='http://www.w3.org/2000/svg'%3E%3Cpath d='M1 1L6 6L1 11' stroke='%236D7480' stroke-width='1.5' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E");background-repeat:no-repeat;background-position:right 8px center;outline:none}
+.toolbar-count{font-size:var(--text-xs);color:var(--color-text-tertiary);margin-left:auto;white-space:nowrap}
+
+/* ─── Buttons ── */
+.btn-primary{display:flex;align-items:center;gap:4px;height:32px;padding:0 var(--space-3);font-size:var(--text-sm);font-weight:var(--weight-medium);font-family:var(--font-sans);border:none;border-radius:var(--radius-md);background:var(--color-cta-bg);color:#fff;cursor:pointer;white-space:nowrap;transition:background var(--duration-fast)}
+.btn-primary:hover{background:var(--color-cta-hover)}
+.btn-primary i{font-size:14px}
+.btn-secondary{display:flex;align-items:center;gap:4px;height:32px;padding:0 var(--space-3);font-size:var(--text-sm);font-weight:var(--weight-medium);font-family:var(--font-sans);border:1px solid var(--color-border);border-radius:var(--radius-md);background:var(--color-surface);color:var(--color-text-primary);cursor:pointer;white-space:nowrap;transition:background var(--duration-fast)}
+.btn-secondary:hover{background:var(--color-hover-bg)}
+.btn-secondary i{font-size:14px}
+.btn-icon{display:flex;align-items:center;justify-content:center;width:28px;height:28px;border:none;background:none;border-radius:var(--radius-md);color:var(--color-text-tertiary);cursor:pointer;transition:background var(--duration-fast),color var(--duration-fast)}
+.btn-icon:hover{background:var(--color-hover-bg);color:var(--color-text-primary)}
+.btn-icon i{font-size:15px}
+
+/* ─────────────────────────────────────────────────────────────────────────────
+   LIST TABLE — shared across all levels
+   ───────────────────────────────────────────────────────────────────────────── */
+.table-wrap{flex:1;overflow-y:auto}
+.list-table{width:100%;border-collapse:collapse;font-size:var(--text-sm)}
+.list-table thead th{position:sticky;top:0;z-index:5;background:var(--color-surface);padding:var(--space-2) var(--space-3);text-align:left;font-size:var(--text-xs);font-weight:var(--weight-medium);text-transform:uppercase;letter-spacing:var(--tracking-caps);color:var(--color-text-tertiary);border-bottom:1px solid var(--color-border);white-space:nowrap;cursor:pointer;user-select:none}
+.list-table thead th:hover{color:var(--color-text-primary)}
+.list-table thead th .sort-icon{margin-left:3px;font-size:12px;color:transparent;transition:color var(--duration-fast)}
+.list-table thead th:hover .sort-icon{color:var(--color-text-placeholder)}
+.list-table thead th.sort-asc .sort-icon,.list-table thead th.sort-desc .sort-icon{color:var(--blue-600)}
+.list-table tbody tr{border-bottom:1px solid var(--color-border-subtle);transition:background var(--duration-fast)}
+.list-table tbody tr:hover{background:var(--color-hover-bg)}
+.list-table tbody tr.selected{background:var(--blue-50)}
+.list-table tbody td{padding:var(--space-2) var(--space-3);vertical-align:middle;color:var(--color-text-primary)}
+.list-table thead th:first-child,.list-table tbody td:first-child{padding-left:var(--space-5)}
+.list-table thead th:last-child,.list-table tbody td:last-child{padding-right:var(--space-5)}
+
+/* Cell types */
+.cell-id{font-family:var(--font-mono);font-weight:var(--weight-medium);font-size:var(--text-sm)}
+.cell-link{color:var(--color-link);cursor:pointer;font-weight:var(--weight-medium)}
+.cell-link:hover{color:var(--color-text-primary);text-decoration:underline;text-underline-offset:2px}
+.cell-mono{font-family:var(--font-mono);font-size:var(--text-sm);color:var(--color-text-secondary)}
+.cell-muted{color:var(--color-text-secondary)}
+.cell-num{font-family:var(--font-mono);font-size:var(--text-sm);text-align:left}
+.cell-num.warn{color:var(--amber-700);font-weight:var(--weight-medium)}
+.cell-num.alert{color:var(--orange-700);font-weight:var(--weight-medium)}
+.cell-num.critical{color:var(--red-600);font-weight:var(--weight-medium)}
+.cell-center{text-align:center}
+.th-right{text-align:left}
+.th-actions{text-align:right}
+.td-actions{text-align:right}
+
+/* Status badge */
+.badge{display:inline-flex;align-items:center;padding:2px var(--space-2);border-radius:var(--radius-full);font-size:var(--text-xs);font-weight:var(--weight-medium);border:1px solid;white-space:nowrap}
+.badge-active   {background:var(--blue-50);border-color:var(--blue-200);color:var(--blue-600)}
+.badge-pending  {background:var(--purple-50);border-color:var(--purple-200);color:var(--purple-600)}
+.badge-success  {background:var(--green-50);border-color:var(--green-200);color:var(--green-600)}
+.badge-warning  {background:var(--amber-50);border-color:var(--amber-200);color:var(--amber-700)}
+.badge-critical {background:var(--red-50);border-color:var(--red-200);color:var(--red-600)}
+.badge-slate    {background:var(--slate-50);border-color:var(--slate-200);color:var(--slate-600)}
+
+/* Progress bar (enrollment) */
+.progress-cell{display:flex;align-items:center;gap:var(--space-2)}
+.progress-track{flex:1;height:4px;background:var(--color-border);border-radius:var(--radius-full);min-width:60px}
+.progress-fill{height:100%;border-radius:var(--radius-full);background:var(--blue-600)}
+.progress-fill.warn{background:var(--orange-700)}
+.progress-label{font-family:var(--font-mono);font-size:var(--text-xs);color:var(--color-text-secondary);white-space:nowrap}
+
+/* Overdue indicator */
+.overdue-cell{display:flex;align-items:center;gap:4px}
+.overdue-dot{width:6px;height:6px;border-radius:50%;flex-shrink:0}
+
+/* Row actions */
+.row-actions{display:flex;align-items:center;gap:2px;opacity:0;transition:opacity var(--duration-fast);justify-content:flex-end}
+.list-table tbody tr:hover .row-actions{opacity:1}
+
+/* Checkbox */
+.row-check{width:16px;height:16px;cursor:pointer;accent-color:var(--blue-600)}
+
+/* Summary bar */
+.summary-bar{padding:var(--space-2) var(--space-5);background:var(--color-surface);border-top:1px solid var(--color-border);display:flex;align-items:center;gap:var(--space-4);font-size:var(--text-xs);color:var(--color-text-tertiary);flex-shrink:0}
+.summary-stat{display:flex;align-items:center;gap:var(--space-1)}
+.summary-val{font-weight:var(--weight-medium);color:var(--color-text-primary);font-family:var(--font-mono)}
+.summary-val.warn{color:var(--amber-700)}
+.summary-val.critical{color:var(--red-600)}
+</style>
+</head>
+<body>
+<div class="shell">
+
+  <!-- Side nav -->
+  <nav class="sidenav">
+    <div class="nav-logo"><span>Ar</span></div>
+    <button class="nav-item"><i class="ti ti-layout-dashboard"></i><span class="nav-label">Dashboard</span></button>
+    <button class="nav-item active" onclick="drillTo('study')"><i class="ti ti-list"></i><span class="nav-label">Animals</span></button>
+    <button class="nav-item"><i class="ti ti-help-circle"></i><span class="nav-label">Queries</span></button>
+    <button class="nav-item"><i class="ti ti-chart-bar"></i><span class="nav-label">Reports</span></button>
+    <button class="nav-item"><i class="ti ti-receipt"></i><span class="nav-label">Invoices</span></button>
+    <div class="nav-spacer"></div>
+    <div class="nav-sep"></div>
+    <button class="nav-item"><i class="ti ti-clipboard-list"></i><span class="nav-label">Audit</span></button>
+  </nav>
+
+  <div class="main">
+    <!-- Topbar -->
+    <header class="topbar" id="topbar">
+      <!-- populated by JS -->
+    </header>
+
+    <!-- Page content -->
+    <div class="page-wrap" id="page-wrap">
+      <!-- populated by JS -->
+    </div>
+  </div>
+
+</div>
+
+<script>
+// ── Data ──────────────────────────────────────────────────────────────────
+const data = {
+  studies: [
+    {
+      id:'AK-2401', name:'BRD Cattle Phase II', sponsor:'AgriVet Sciences',
+      status:'active', sites:3, forms:12, animals:89, target:120,
+      amendment:'v2.1', queries:14, overdue:3
+    },
+    {
+      id:'AK-2312', name:'Canine Lymphoma — CHOP Protocol', sponsor:'VetOncology Inc',
+      status:'active', sites:2, forms:18, animals:24, target:40,
+      amendment:'v1.0', queries:6, overdue:1
+    },
+    {
+      id:'AK-2298', name:'Equine Respiratory Tract', sponsor:'EquestrianHealth',
+      status:'pending', sites:1, forms:8, animals:0, target:20,
+      amendment:'v1.0', queries:0, overdue:0
+    },
+    {
+      id:'AK-2187', name:'Atlantic Salmon ISA Vaccine', sponsor:'AquaGen AS',
+      status:'completed', sites:2, forms:10, animals:480, target:480,
+      amendment:'v3.2', queries:0, overdue:0
+    }
+  ],
+
+  sites: {
+    'AK-2401': [
+      { id:'AUS', name:'Austin', barns:3, animals:30, target:40, forms:156, queries:4, overdue:2 },
+      { id:'DAL', name:'Dallas', barns:2, animals:29, target:40, forms:148, queries:7, overdue:1 },
+      { id:'HOU', name:'Houston', barns:3, animals:30, target:40, forms:152, queries:3, overdue:0 }
+    ]
+  },
+
+  barns: {
+    'AUS': [
+      { id:'B1', name:'Barn 1', pens:3, animals:12, forms:62, queries:2, overdue:1 },
+      { id:'B2', name:'Barn 2', pens:2, animals:10, forms:52, queries:1, overdue:1 },
+      { id:'B3', name:'Barn 3', pens:2, animals:8, forms:42, queries:1, overdue:0 }
+    ]
+  },
+
+  pens: {
+    'B1': [
+      { id:'P1', name:'Pen 1', animals:4, forms:22, queries:1, overdue:1 },
+      { id:'P2', name:'Pen 2', animals:4, forms:21, queries:1, overdue:0 },
+      { id:'P3', name:'Pen 3', animals:4, forms:19, queries:0, overdue:0 }
+    ]
+  },
+
+  animals: {
+    'P1': [
+      { id:'AUSB1P1-01', sex:'F', age:'4yr', breed:'Hereford', weight:'400kg', status:'randomized', groupArm:'Group A — Dose',    lastVisit:'May 09 2026', forms:8, queries:1, overdue:1, critical:true },
+      { id:'AUSB1P1-02', sex:'M', age:'3yr', breed:'Angus',    weight:'380kg', status:'randomized', groupArm:'Group B — Control', lastVisit:'May 08 2026', forms:7, queries:0, overdue:0, critical:false },
+      { id:'AUSB1P1-03', sex:'F', age:'5yr', breed:'Hereford', weight:'415kg', status:'randomized', groupArm:'Group A — Dose',    lastVisit:'May 08 2026', forms:7, queries:0, overdue:0, critical:false },
+      { id:'AUSB1P1-04', sex:'M', age:'2yr', breed:'Angus',    weight:'340kg', status:'completed',  groupArm:'Group B — Control', lastVisit:'May 05 2026', forms:8, queries:0, overdue:0, critical:false }
+    ]
+  }
+};
+
+// ── State ─────────────────────────────────────────────────────────────────
+let state = {
+  level: 'study',
+  study: null,
+  site: null,
+  barn: null,
+  pen: null
+};
+
+// ── Navigation ────────────────────────────────────────────────────────────
+function drillTo(level, id) {
+  if (level === 'study') { state = { level:'study', study:null, site:null, barn:null, pen:null }; }
+  if (level === 'site')  { state.level='site';  state.study=id; state.site=null; state.barn=null; state.pen=null; }
+  if (level === 'barn')  { state.level='barn';  state.site=id;  state.barn=null; state.pen=null; }
+  if (level === 'pen')   { state.level='pen';   state.barn=id;  state.pen=null; }
+  if (level === 'animal'){ state.level='animal'; state.pen=id; }
+  render();
+}
+
+// ── Topbar ────────────────────────────────────────────────────────────────
+function renderTopbar() {
+  const s = state;
+  const right = `
+    <div class="tb-right">
+      <button class="tb-icon"><i class="ti ti-bell"></i></button>
+      <button class="tb-icon"><i class="ti ti-settings"></i></button>
+      <button class="tb-role">CRC <i class="ti ti-chevron-right" style="font-size:10px"></i></button>
+      <div class="tb-avatar">ET</div>
+    </div>`;
+
+  // Topbar shows only the study pill — path navigation lives in the page breadcrumb
+  const pinned = [...pinnedStudies].map(id => {
+    const st = studyData.find(x => x.id === id);
+    return st ? `<button class="tb-picker-study" onclick="drillTo('site','${id}');closePicker()"><i class="ti ti-pin-filled" style="font-size:12px;color:var(--blue-600)"></i>${st.name}<span class="study-id">${st.id}</span></button>` : '';
+  }).join('');
+
+  const studyPill = s.study
+    ? `${studyData.find(x=>x.id===s.study)?.id||'Arken EDC'} — ${studyData.find(x=>x.id===s.study)?.name||''}`
+    : 'Arken EDC';
+
+  const picker = `<div class="tb-study-wrap">
+    <button class="tb-study" onclick="togglePicker()">
+      ${studyPill} <i class="ti ti-chevron-right" style="font-size:11px"></i>
+    </button>
+    <div class="tb-picker" id="tb-picker">
+      ${pinned ? `<div class="tb-picker-pinned"><div class="tb-picker-label">Pinned</div>${pinned}</div>` : ''}
+      <div class="tb-picker-footer">
+        <button class="tb-picker-link" onclick="drillTo('study');closePicker()">View all studies</button>
+      </div>
+    </div>
+  </div>`;
+
+  return picker + right;
+}
+
+// ── Top-level study data (shared with topbar) ────────────────────────────
+const pinnedStudies = new Set(['AK-2401']);
+
+const studyStatuses = {
+  live:        '<span class="badge badge-active">Live</span>',
+  build:       '<span class="badge badge-pending">Build</span>',
+  training:    '<span class="badge badge-warning">Training</span>',
+  locked:      '<span class="badge badge-slate">Locked</span>',
+  closed:      '<span class="badge badge-slate">Closed</span>',
+  deactivated: '<span class="badge" style="background:#f5f5f5;border-color:#ddd;color:#999">Deactivated</span>'
+};
+
+const studyData = [
+  { id:'AK-2401', name:'BRD Cattle Phase II',           status:'live',     phase:'Phase II',  client:'AgriVet Sciences',   species:'Bovine',  cro:'ClinTrials Co' },
+  { id:'AK-2312', name:'Canine Lymphoma — CHOP',        status:'live',     phase:'Phase I/II',client:'VetOncology Inc',    species:'Canine',  cro:'VetCRO Ltd' },
+  { id:'AK-2298', name:'Equine Respiratory Tract',      status:'build',    phase:'Phase I',   client:'EquestrianHealth',   species:'Equine',  cro:'—' },
+  { id:'AK-2187', name:'Atlantic Salmon ISA Vaccine',   status:'locked',   phase:'Phase III', client:'AquaGen AS',         species:'Aquatic', cro:'Nordic CRO' },
+  { id:'AK-2055', name:'Feline Hyperthyroidism Study',  status:'training', phase:'Phase II',  client:'FelinePharma',       species:'Feline',  cro:'ClinTrials Co' },
+  { id:'AK-1998', name:'Porcine PRRS Immunogenicity',   status:'closed',   phase:'Phase III', client:'SwineHealth AG',     species:'Porcine', cro:'EuroCRO GmbH' },
+];
+
+// ── Study list ────────────────────────────────────────────────────────────
+
+
+function togglePin(id, btn) {
+  if (pinnedStudies.has(id)) {
+    pinnedStudies.delete(id);
+    btn.classList.remove('pinned');
+    btn.querySelector('i').className = 'ti ti-pin';
+    btn.title = 'Pin study';
+  } else {
+    pinnedStudies.add(id);
+    btn.classList.add('pinned');
+    btn.querySelector('i').className = 'ti ti-pin-filled';
+    btn.title = 'Unpin study';
+  }
+}
+
+function renderStudyList() {
+  const sorted = [...studyData].sort((a,b) => {
+    const ap = pinnedStudies.has(a.id) ? 0 : 1;
+    const bp = pinnedStudies.has(b.id) ? 0 : 1;
+    return ap - bp;
+  });
+
+  const rows = sorted.map(s => {
+    const isPinned = pinnedStudies.has(s.id);
+    const pinBtn = `<button class="pin-btn${isPinned?' pinned':''}" onclick="togglePin('${s.id}',this)" title="${isPinned?'Unpin':'Pin'} study">
+      <i class="ti ti-pin${isPinned?'-filled':''}"></i>
+    </button>`;
+    return `<tr>
+      <td>${pinBtn}</td>
+      <td><span class="cell-id cell-link" onclick="drillTo('site','${s.id}')">${s.id}</span></td>
+      <td><span class="cell-link" onclick="drillTo('site','${s.id}')">${s.name}</span></td>
+      <td>${studyStatuses[s.status]||''}</td>
+      <td class="cell-muted">${s.phase}</td>
+      <td class="cell-muted">${s.client}</td>
+      <td class="cell-muted">${s.species}</td>
+      <td class="cell-muted">${s.cro}</td>
+      <td><div class="row-actions">
+        <button class="btn-icon" title="Edit study"><i class="ti ti-pencil"></i></button>
+        <button class="btn-icon" title="More actions"><i class="ti ti-dots-vertical"></i></button>
+      </div></td>
+    </tr>`;
+  }).join('');
+
+  return `
+    <div class="page-header">
+      <div class="page-title-row">
+        <h1 class="page-title">Studies</h1>
+        <div class="page-actions">
+          <button class="btn-secondary"><i class="ti ti-user-plus"></i> Add client</button>
+          <button class="btn-primary"><i class="ti ti-plus"></i> Add study</button>
+        </div>
+      </div>
+    </div>
+    <div class="list-toolbar">
+      <div class="search-box"><i class="ti ti-search"></i><input type="search" placeholder="Search studies…"></div>
+      <select class="filter-select"><option>All statuses</option><option>Live</option><option>Build</option><option>Training</option><option>Locked</option><option>Closed</option><option>Deactivated</option></select>
+      <select class="filter-select"><option>All species</option><option>Bovine</option><option>Canine</option><option>Equine</option><option>Aquatic</option><option>Feline</option><option>Porcine</option></select>
+      <span class="toolbar-count">${studyData.length} studies</span>
+    </div>
+    <div class="table-wrap">
+      <table class="list-table" id="study-table">
+        <thead><tr>
+          <th style="width:32px"></th>
+          <th onclick="sortTable('study-table',1)">Study ID <i class="ti ti-arrows-sort sort-icon"></i></th>
+          <th onclick="sortTable('study-table',2)">Study name <i class="ti ti-arrows-sort sort-icon"></i></th>
+          <th onclick="sortTable('study-table',3)">Status <i class="ti ti-arrows-sort sort-icon"></i></th>
+          <th onclick="sortTable('study-table',4)">Phase <i class="ti ti-arrows-sort sort-icon"></i></th>
+          <th onclick="sortTable('study-table',5)">Client <i class="ti ti-arrows-sort sort-icon"></i></th>
+          <th onclick="sortTable('study-table',6)">Species <i class="ti ti-arrows-sort sort-icon"></i></th>
+          <th onclick="sortTable('study-table',7)">CRO <i class="ti ti-arrows-sort sort-icon"></i></th>
+          <th></th>
+        </tr></thead>
+        <tbody>${rows}</tbody>
+      </table>
+    </div>
+    <div class="summary-bar">
+      <div class="summary-stat"><span>Studies:</span><span class="summary-val">${studyData.length}</span></div>
+      <div class="summary-stat"><span>Live:</span><span class="summary-val">${studyData.filter(s=>s.status==='live').length}</span></div>
+      <div class="summary-stat"><span>Pinned:</span><span class="summary-val">${pinnedStudies.size}</span></div>
+    </div>`;
+}
+
+// ── Site list ─────────────────────────────────────────────────────────────
+function renderSiteList() {
+  const study = data.studies.find(x => x.id === state.study);
+  const sites = data.sites[state.study] || [];
+  const rows = sites.map(s => {
+    const pct = Math.round((s.animals/s.target)*100);
+    return `<tr>
+      <td><span class="cell-id cell-link" onclick="drillTo('barn','${s.id}')">${s.id}</span></td>
+      <td><span class="cell-link" onclick="drillTo('barn','${s.id}')">${s.name}</span></td>
+      <td class="cell-num">${s.barns}</td>
+      <td>
+        <div class="progress-cell">
+          <div class="progress-track"><div class="progress-fill${pct<60?' warn':''}" style="width:${Math.min(pct,100)}%"></div></div>
+          <span class="progress-label">${s.animals}/${s.target}</span>
+        </div>
+      </td>
+      <td class="cell-num">${s.forms}</td>
+      <td class="cell-num${s.queries>0?' warn':''}">${s.queries||'—'}</td>
+      <td class="cell-num${s.overdue>0?' critical':''}">${s.overdue||'—'}</td>
+      <td>
+        <div class="row-actions">
+          <button class="btn-icon" title="Edit site"><i class="ti ti-pencil"></i></button>
+          <button class="btn-icon" title="More actions"><i class="ti ti-dots-vertical"></i></button>
+        </div>
+      </td>
+    </tr>`;
+  }).join('');
+
+  return `
+    <div class="page-header">
+      <nav class="breadcrumb">
+        <button class="bc-btn" onclick="drillTo('study')"><span>Studies</span></button>
+        <span class="bc-sep"><i class="ti ti-chevron-right" style="font-size:11px"></i></span>
+        <span>${study?.id} — ${study?.name}</span>
+      </nav>
+      <div class="page-title-row">
+        <div>
+          <h1 class="page-title">${study?.name}</h1>
+        </div>
+        <div class="page-actions">
+          <button class="btn-secondary"><i class="ti ti-download"></i> Export</button>
+          <button class="btn-primary"><i class="ti ti-plus"></i> Add site</button>
+        </div>
+      </div>
+    </div>
+    <div class="list-toolbar">
+      <div class="search-box"><i class="ti ti-search"></i><input type="search" placeholder="Search sites…"></div>
+      <span class="toolbar-count">${sites.length} sites</span>
+    </div>
+    <div class="table-wrap">
+      <table class="list-table" id="site-table">
+        <thead><tr>
+          <th onclick="sortTable('site-table',0)">Site ID <i class="ti ti-arrows-sort sort-icon"></i></th>
+          <th onclick="sortTable('site-table',1)">Site name <i class="ti ti-arrows-sort sort-icon"></i></th>
+          <th onclick="sortTable('site-table',2)">Barns <i class="ti ti-arrows-sort sort-icon"></i></th>
+          <th onclick="sortTable('site-table',3)">Enrollment <i class="ti ti-arrows-sort sort-icon"></i></th>
+          <th onclick="sortTable('site-table',4)">Forms <i class="ti ti-arrows-sort sort-icon"></i></th>
+          <th onclick="sortTable('site-table',5)">Open queries <i class="ti ti-arrows-sort sort-icon"></i></th>
+          <th onclick="sortTable('site-table',6)">Overdue <i class="ti ti-arrows-sort sort-icon"></i></th>
+          <th></th>
+        </tr></thead>
+        <tbody>${rows}</tbody>
+      </table>
+    </div>
+    <div class="summary-bar">
+      <div class="summary-stat"><span>Sites:</span><span class="summary-val">${sites.length}</span></div>
+      <div class="summary-stat"><span>Animals:</span><span class="summary-val">${sites.reduce((a,s)=>a+s.animals,0)}/${sites.reduce((a,s)=>a+s.target,0)}</span></div>
+      <div class="summary-stat"><span>Open queries:</span><span class="summary-val warn">${sites.reduce((a,s)=>a+s.queries,0)}</span></div>
+      <div class="summary-stat"><span>Overdue:</span><span class="summary-val critical">${sites.reduce((a,s)=>a+s.overdue,0)}</span></div>
+    </div>`;
+}
+
+// ── Barn list ─────────────────────────────────────────────────────────────
+function renderBarnList() {
+  const study = data.studies.find(x => x.id === state.study);
+  const allSites = data.sites[state.study] || [];
+  const site = allSites.find(x => x.id === state.site);
+  const barns = data.barns[state.site] || [];
+  const rows = barns.map(b => `<tr>
+    <td><span class="cell-id cell-link" onclick="drillTo('pen','${b.id}')">${b.id}</span></td>
+    <td><span class="cell-link" onclick="drillTo('pen','${b.id}')">${b.name}</span></td>
+    <td class="cell-num">${b.pens}</td>
+    <td class="cell-num">${b.animals}</td>
+    <td class="cell-num">${b.forms}</td>
+    <td class="cell-num${b.queries>0?' warn':''}">${b.queries||'—'}</td>
+    <td class="cell-num${b.overdue>0?' critical':''}">${b.overdue||'—'}</td>
+    <td>
+      <div class="row-actions">
+        <button class="btn-icon" title="Edit barn"><i class="ti ti-pencil"></i></button>
+        <button class="btn-icon" title="More actions"><i class="ti ti-dots-vertical"></i></button>
+      </div>
+    </td>
+  </tr>`).join('');
+
+  return `
+    <div class="page-header">
+      <nav class="breadcrumb">
+        <button class="bc-btn" onclick="drillTo('study')"><span>Studies</span></button>
+        <span class="bc-sep"><i class="ti ti-chevron-right" style="font-size:11px"></i></span>
+        <button class="bc-btn" onclick="drillTo('site','${state.study}')"><span>${study?.id}</span></button>
+        <span class="bc-sep"><i class="ti ti-chevron-right" style="font-size:11px"></i></span>
+        <span>${site?.name}</span>
+      </nav>
+      <div class="page-title-row">
+        <div>
+          <h1 class="page-title">${site?.name}</h1>
+        </div>
+        <div class="page-actions">
+          <button class="btn-secondary"><i class="ti ti-download"></i> Export</button>
+          <button class="btn-primary"><i class="ti ti-plus"></i> Add barn</button>
+        </div>
+      </div>
+    </div>
+    <div class="list-toolbar">
+      <div class="search-box"><i class="ti ti-search"></i><input type="search" placeholder="Search barns…"></div>
+      <span class="toolbar-count">${barns.length} barns</span>
+    </div>
+    <div class="table-wrap">
+      <table class="list-table" id="barn-table">
+        <thead><tr>
+          <th onclick="sortTable('barn-table',0)">Barn ID <i class="ti ti-arrows-sort sort-icon"></i></th>
+          <th onclick="sortTable('barn-table',1)">Barn name <i class="ti ti-arrows-sort sort-icon"></i></th>
+          <th onclick="sortTable('barn-table',2)">Pens <i class="ti ti-arrows-sort sort-icon"></i></th>
+          <th onclick="sortTable('barn-table',3)">Animals <i class="ti ti-arrows-sort sort-icon"></i></th>
+          <th onclick="sortTable('barn-table',4)">Forms <i class="ti ti-arrows-sort sort-icon"></i></th>
+          <th onclick="sortTable('barn-table',5)">Open queries <i class="ti ti-arrows-sort sort-icon"></i></th>
+          <th onclick="sortTable('barn-table',6)">Overdue <i class="ti ti-arrows-sort sort-icon"></i></th>
+          <th></th>
+        </tr></thead>
+        <tbody>${rows}</tbody>
+      </table>
+    </div>
+    <div class="summary-bar">
+      <div class="summary-stat"><span>Barns:</span><span class="summary-val">${barns.length}</span></div>
+      <div class="summary-stat"><span>Animals:</span><span class="summary-val">${barns.reduce((a,b)=>a+b.animals,0)}</span></div>
+      <div class="summary-stat"><span>Open queries:</span><span class="summary-val warn">${barns.reduce((a,b)=>a+b.queries,0)}</span></div>
+      <div class="summary-stat"><span>Overdue:</span><span class="summary-val critical">${barns.reduce((a,b)=>a+b.overdue,0)}</span></div>
+    </div>`;
+}
+
+// ── Pen list ──────────────────────────────────────────────────────────────
+function renderPenList() {
+  const study = data.studies.find(x => x.id === state.study);
+  const site = (data.sites[state.study]||[]).find(x => x.id === state.site);
+  const barn = (data.barns[state.site]||[]).find(x => x.id === state.barn);
+  const pens = data.pens[state.barn] || [];
+  const rows = pens.map(p => `<tr>
+    <td><span class="cell-id cell-link" onclick="drillTo('animal','${p.id}')">${p.id}</span></td>
+    <td><span class="cell-link" onclick="drillTo('animal','${p.id}')">${p.name}</span></td>
+    <td class="cell-num">${p.animals}</td>
+    <td class="cell-num">${p.forms}</td>
+    <td class="cell-num${p.queries>0?' warn':''}">${p.queries||'—'}</td>
+    <td class="cell-num${p.overdue>0?' critical':''}">${p.overdue||'—'}</td>
+    <td>
+      <div class="row-actions">
+        <button class="btn-icon" title="Edit pen"><i class="ti ti-pencil"></i></button>
+        <button class="btn-icon" title="More actions"><i class="ti ti-dots-vertical"></i></button>
+      </div>
+    </td>
+  </tr>`).join('');
+
+  return `
+    <div class="page-header">
+      <nav class="breadcrumb">
+        <button class="bc-btn" onclick="drillTo('study')"><span>Studies</span></button>
+        <span class="bc-sep"><i class="ti ti-chevron-right" style="font-size:11px"></i></span>
+        <button class="bc-btn" onclick="drillTo('site','${state.study}')"><span>${study?.id}</span></button>
+        <span class="bc-sep"><i class="ti ti-chevron-right" style="font-size:11px"></i></span>
+        <button class="bc-btn" onclick="drillTo('barn','${state.site}')"><span>${site?.name}</span></button>
+        <span class="bc-sep"><i class="ti ti-chevron-right" style="font-size:11px"></i></span>
+        <span>${barn?.name}</span>
+      </nav>
+      <div class="page-title-row">
+        <div>
+          <h1 class="page-title">${barn?.name}</h1>
+        </div>
+        <div class="page-actions">
+          <button class="btn-secondary"><i class="ti ti-download"></i> Export</button>
+          <button class="btn-primary"><i class="ti ti-plus"></i> Add pen</button>
+        </div>
+      </div>
+    </div>
+    <div class="list-toolbar">
+      <div class="search-box"><i class="ti ti-search"></i><input type="search" placeholder="Search pens…"></div>
+      <span class="toolbar-count">${pens.length} pens</span>
+    </div>
+    <div class="table-wrap">
+      <table class="list-table" id="pen-table">
+        <thead><tr>
+          <th onclick="sortTable('pen-table',0)">Pen ID <i class="ti ti-arrows-sort sort-icon"></i></th>
+          <th onclick="sortTable('pen-table',1)">Pen name <i class="ti ti-arrows-sort sort-icon"></i></th>
+          <th onclick="sortTable('pen-table',2)">Animals <i class="ti ti-arrows-sort sort-icon"></i></th>
+          <th onclick="sortTable('pen-table',3)">Forms <i class="ti ti-arrows-sort sort-icon"></i></th>
+          <th onclick="sortTable('pen-table',4)">Open queries <i class="ti ti-arrows-sort sort-icon"></i></th>
+          <th onclick="sortTable('pen-table',5)">Overdue <i class="ti ti-arrows-sort sort-icon"></i></th>
+          <th></th>
+        </tr></thead>
+        <tbody>${rows}</tbody>
+      </table>
+    </div>
+    <div class="summary-bar">
+      <div class="summary-stat"><span>Pens:</span><span class="summary-val">${pens.length}</span></div>
+      <div class="summary-stat"><span>Animals:</span><span class="summary-val">${pens.reduce((a,p)=>a+p.animals,0)}</span></div>
+      <div class="summary-stat"><span>Open queries:</span><span class="summary-val warn">${pens.reduce((a,p)=>a+p.queries,0)}</span></div>
+    </div>`;
+}
+
+// ── Animal list ───────────────────────────────────────────────────────────
+function renderAnimalList() {
+  const study = data.studies.find(x => x.id === state.study);
+  const site  = (data.sites[state.study]||[]).find(x => x.id === state.site);
+  const barn  = (data.barns[state.site]||[]).find(x => x.id === state.barn);
+  const pen   = (data.pens[state.barn]||[]).find(x => x.id === state.pen);
+  const animals = data.animals[state.pen] || [];
+
+  const statusBadge = {
+    randomized: 'badge-active', completed: 'badge-success',
+    withdrawn: 'badge-slate', screened: 'badge-slate'
+  };
+
+  const rows = animals.map(a => {
+    const critIcon = a.critical
+      ? `<i class="ti ti-alert-triangle" style="font-size:13px;color:var(--red-600)" title="Critical — SAE active"></i>`
+      : '';
+    const aid = a.id;
+    return `<tr${a.critical ? ' style="background:var(--red-50)"' : ''}>
+      <td><input type="checkbox" class="row-check"></td>
+      <td>
+        <div style="display:flex;align-items:center;gap:var(--space-2)">
+          ${critIcon}
+          <span class="cell-id cell-link" onclick="openSubjectRecord('${aid}')" title="Open subject record — forms view">${a.id}</span>
+        </div>
+      </td>
+      <td class="cell-muted">${a.sex} · ${a.age}</td>
+      <td class="cell-muted">${a.breed}</td>
+      <td class="cell-mono">${a.weight}</td>
+      <td><span class="badge ${statusBadge[a.status]||'badge-slate'}">${a.status.charAt(0).toUpperCase()+a.status.slice(1)}</span></td>
+      <td class="cell-muted" style="font-size:var(--text-xs);max-width:140px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${a.groupArm}</td>
+      <td class="cell-mono cell-muted">${a.lastVisit}</td>
+      <td class="cell-num">${a.forms}</td>
+      <td class="cell-num${a.queries>0?' warn':''}">${a.queries||'—'}</td>
+      <td class="cell-num${a.overdue>0?' critical':''}">${a.overdue||'—'}</td>
+      <td>
+        <div class="row-actions">
+          <button class="btn-icon" title="Open animal record"><i class="ti ti-arrow-right"></i></button>
+          <button class="btn-icon" title="More actions"><i class="ti ti-dots-vertical"></i></button>
+        </div>
+      </td>
+    </tr>`;
+  }).join('');
+
+  return `
+    <div class="page-header">
+      <nav class="breadcrumb">
+        <button class="bc-btn" onclick="drillTo('study')"><span>Studies</span></button>
+        <span class="bc-sep"><i class="ti ti-chevron-right" style="font-size:11px"></i></span>
+        <button class="bc-btn" onclick="drillTo('site','${state.study}')"><span>${study?.id}</span></button>
+        <span class="bc-sep"><i class="ti ti-chevron-right" style="font-size:11px"></i></span>
+        <button class="bc-btn" onclick="drillTo('barn','${state.site}')"><span>${site?.name}</span></button>
+        <span class="bc-sep"><i class="ti ti-chevron-right" style="font-size:11px"></i></span>
+        <button class="bc-btn" onclick="drillTo('pen','${state.barn}')"><span>${barn?.name}</span></button>
+        <span class="bc-sep"><i class="ti ti-chevron-right" style="font-size:11px"></i></span>
+        <span>${pen?.name}</span>
+      </nav>
+      <div class="page-title-row">
+        <div>
+          <h1 class="page-title">${pen?.name}</h1>
+        </div>
+        <div class="page-actions">
+          <button class="btn-secondary"><i class="ti ti-download"></i> Export</button>
+          <button class="btn-secondary"><i class="ti ti-stack-2"></i> Batch entry</button>
+          <button class="btn-primary"><i class="ti ti-plus"></i> Add animal</button>
+        </div>
+      </div>
+    </div>
+    <div class="list-toolbar">
+      <div class="search-box"><i class="ti ti-search"></i><input type="search" placeholder="Search animals…"></div>
+      <select class="filter-select"><option>All statuses</option><option>Randomized</option><option>Screened</option><option>Completed</option><option>Withdrawn</option></select>
+      <select class="filter-select"><option>All groups</option><option>Group A — Dose</option><option>Group B — Control</option></select>
+      <span class="toolbar-count">${animals.length} animals</span>
+    </div>
+    <div class="table-wrap">
+      <table class="list-table" id="animal-table">
+        <thead><tr>
+          <th style="width:32px"><input type="checkbox" class="row-check"></th>
+          <th onclick="sortTable('animal-table',1)">Animal ID <i class="ti ti-arrows-sort sort-icon"></i></th>
+          <th onclick="sortTable('animal-table',2)">Sex · Age <i class="ti ti-arrows-sort sort-icon"></i></th>
+          <th onclick="sortTable('animal-table',3)">Breed <i class="ti ti-arrows-sort sort-icon"></i></th>
+          <th onclick="sortTable('animal-table',4)">Weight <i class="ti ti-arrows-sort sort-icon"></i></th>
+          <th onclick="sortTable('animal-table',5)">Status <i class="ti ti-arrows-sort sort-icon"></i></th>
+          <th onclick="sortTable('animal-table',6)">Group / Arm <i class="ti ti-arrows-sort sort-icon"></i></th>
+          <th onclick="sortTable('animal-table',7)">Last visit <i class="ti ti-arrows-sort sort-icon"></i></th>
+          <th onclick="sortTable('animal-table',8)">Forms <i class="ti ti-arrows-sort sort-icon"></i></th>
+          <th onclick="sortTable('animal-table',9)">Queries <i class="ti ti-arrows-sort sort-icon"></i></th>
+          <th onclick="sortTable('animal-table',10)">Overdue <i class="ti ti-arrows-sort sort-icon"></i></th>
+          <th></th>
+        </tr></thead>
+        <tbody>${rows}</tbody>
+      </table>
+    </div>
+    <div class="summary-bar">
+      <div class="summary-stat"><span>Animals:</span><span class="summary-val">${animals.length}</span></div>
+      <div class="summary-stat"><span>Randomized:</span><span class="summary-val">${animals.filter(a=>a.status==='randomized').length}</span></div>
+      <div class="summary-stat"><span>Open queries:</span><span class="summary-val warn">${animals.reduce((a,x)=>a+x.queries,0)}</span></div>
+      <div class="summary-stat"><span>Overdue:</span><span class="summary-val critical">${animals.reduce((a,x)=>a+x.overdue,0)}</span></div>
+      <div class="summary-stat" style="margin-left:auto">
+        <span style="color:var(--red-600);display:flex;align-items:center;gap:4px">
+          <i class="ti ti-alert-triangle" style="font-size:12px"></i>
+          1 critical — SAE active
+        </span>
+      </div>
+    </div>`;
+}
+
+// ── Main render ───────────────────────────────────────────────────────────
+function render() {
+  document.getElementById('topbar').innerHTML = renderTopbar();
+  const content = {
+    study:  renderStudyList,
+    site:   renderSiteList,
+    barn:   renderBarnList,
+    pen:    renderPenList,
+    animal: renderAnimalList
+  }[state.level]();
+  document.getElementById('page-wrap').innerHTML = content;
+}
+
+// ── Sort ─────────────────────────────────────────────────────────────────
+const sortState = {}; // key: tableId_colIdx, value: asc|desc|none
+function sortTable(tableId, colIdx) {
+  const table = document.getElementById(tableId);
+  if (!table) return;
+  const tbody = table.querySelector('tbody');
+  const allRows = Array.from(tbody.querySelectorAll('tr'));
+  const ths = table.querySelectorAll('thead th');
+  const th = ths[colIdx];
+  const key = tableId + '_' + colIdx;
+  const prev = sortState[key] || 'none';
+
+  // Three-state cycle: none → desc → asc → none
+  let next;
+  if (prev === 'none') next = 'desc';
+  else if (prev === 'desc') next = 'asc';
+  else next = 'none';
+
+  sortState[key] = next;
+
+  // Reset all icons to double-arrow (invisible default state)
+  ths.forEach(h => {
+    h.classList.remove('sort-asc','sort-desc');
+    const icon = h.querySelector('.sort-icon');
+    if (icon) icon.className = 'ti ti-arrows-sort sort-icon';
+  });
+
+  if (next === 'none') {
+    // Back to default: sort by first data column asc, no icon shown
+    allRows.sort((a,b) => {
+      const av = a.cells[1]?.textContent.trim() || '';
+      const bv = b.cells[1]?.textContent.trim() || '';
+      return av.localeCompare(bv, undefined, {numeric:true});
+    });
+  } else {
+    // Show directional icon on active column
+    th.classList.add(next === 'asc' ? 'sort-asc' : 'sort-desc');
+    const activeIcon = th.querySelector('.sort-icon');
+    if (activeIcon) activeIcon.className = (next === 'asc' ? 'ti ti-arrow-up' : 'ti ti-arrow-down') + ' sort-icon';
+    allRows.sort((a,b) => {
+      const av = a.cells[colIdx]?.textContent.trim() || '';
+      const bv = b.cells[colIdx]?.textContent.trim() || '';
+      return next === 'asc'
+        ? av.localeCompare(bv, undefined, {numeric:true})
+        : bv.localeCompare(av, undefined, {numeric:true});
+    });
+  }
+  allRows.forEach(r => tbody.appendChild(r));
+}
+
+// ── Topbar picker ─────────────────────────────────────────────────────────
+function togglePicker() {
+  const p = document.getElementById('tb-picker');
+  if (p) p.classList.toggle('open');
+}
+function closePicker() {
+  const p = document.getElementById('tb-picker');
+  if (p) p.classList.remove('open');
+}
+document.addEventListener('click', e => {
+  if (!e.target.closest('.tb-study-wrap')) closePicker();
+});
+
+// ── Subject record ────────────────────────────────────────────────────────
+function openSubjectRecord(id) {
+  alert('Navigating to subject record: ' + id + '\nThis will open the forms view (component 12-13).');
+}
+
+// Boot
+render();
+</script>
+</body>
+</html>
