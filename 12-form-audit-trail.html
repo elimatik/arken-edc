@@ -77,7 +77,7 @@ body{font-family:var(--font-sans);font-size:var(--text-base);color:var(--color-t
 .sig-status.signed{color:var(--green-600)}
 
 /* Subject header — one-line (from component 10) */
-.subject-header{display:flex;align-items:center;gap:var(--space-3);padding:var(--space-2) 0;flex-wrap:wrap}
+.subject-header{display:flex;align-items:center;gap:var(--space-3); flex-wrap:wrap}
 .species-icon{font-size:22px;line-height:1;flex-shrink:0}
 .subject-id-row{display:flex;align-items:center;gap:var(--space-2);flex-wrap:wrap}
 .subject-id{font-size:var(--text-3xl);font-weight:var(--weight-medium);font-family:var(--font-mono);color:var(--color-text-primary);line-height:1.2}
@@ -88,7 +88,6 @@ body{font-family:var(--font-sans);font-size:var(--text-base);color:var(--color-t
 .subject-meta{display:flex;align-items:center;gap:var(--space-1);flex-wrap:wrap;font-size:var(--text-sm);color:var(--color-text-secondary)}
 .meta-sep{color:var(--color-text-placeholder);font-size:11px}
 .meta-group{display:inline-flex;align-items:center;gap:4px;padding:1px var(--space-2);border-radius:var(--radius-sm);background:var(--color-page-bg);border:1px solid var(--color-border);font-size:var(--text-xs);font-weight:var(--weight-medium);color:var(--color-text-secondary)}
-.header-dot{color:var(--color-text-placeholder);font-size:16px;line-height:1}
 
 /* ─── Form sidebar (simplified) ── */
 .form-sidebar{width:220px;background:var(--color-surface);border-right:1px solid var(--color-border);display:flex;flex-direction:column;flex-shrink:0;overflow-y:auto;padding:var(--space-3)}
@@ -305,7 +304,6 @@ body{font-family:var(--font-sans);font-size:var(--text-base);color:var(--color-t
             <button class="subject-switch" title="Switch subject"><i class="ti ti-arrows-exchange"></i></button>
             <span class="subject-status status-randomized">Randomized</span>
           </div>
-          <span class="header-dot">·</span>
           <div class="subject-meta">
             <span>Female</span><span class="meta-sep">·</span>
             <span>4yr</span><span class="meta-sep">·</span>

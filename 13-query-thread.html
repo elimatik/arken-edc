@@ -67,6 +67,14 @@ body{font-family:var(--font-sans);font-size:var(--text-base);color:var(--color-t
 .tb-role{background:var(--color-nav-hover);color:#fff;font-size:var(--text-sm);font-weight:var(--weight-medium);padding:3px var(--space-2);border-radius:var(--radius-md);display:flex;align-items:center;gap:4px;cursor:pointer;border:1px solid #525D73}
 .tb-avatar{width:30px;height:30px;border-radius:50%;background:#3D5A78;color:#EEF1F6;font-size:12px;font-weight:var(--weight-medium);display:flex;align-items:center;justify-content:center;cursor:pointer}
 
+.overflow-wrap{position:relative}
+.overflow-menu{display:none;position:absolute;top:calc(100% + 6px);right:0;min-width:220px;background:var(--color-surface);border:1px solid var(--color-border);border-radius:var(--radius-lg);box-shadow:0 8px 24px rgba(14,18,28,0.10);z-index:100;overflow:hidden}
+.overflow-menu.open{display:block}
+.overflow-item{display:flex;align-items:center;gap:var(--space-2);width:100%;padding:var(--space-2) var(--space-3);font-size:var(--text-sm);font-family:var(--font-sans);color:var(--color-text-primary);background:none;border:none;cursor:pointer;text-align:left;transition:background var(--duration-fast)}
+.overflow-item:hover{background:var(--color-hover-bg)}
+.overflow-item .item-left{display:flex;align-items:center;gap:var(--space-2)}
+.overflow-item i{font-size:15px;color:var(--color-text-tertiary);flex-shrink:0}
+
 /* ─── Body ───────────────────────────────────────────────────────────────── */
 .body-wrap{flex:1;display:flex;min-height:0;overflow:hidden;position:relative}
 
@@ -95,10 +103,17 @@ body{font-family:var(--font-sans);font-size:var(--text-base);color:var(--color-t
 .subject-header{display:flex;align-items:center;gap:var(--space-3);flex-wrap:wrap}
 .species-icon{font-size:22px;line-height:1;flex-shrink:0}
 .subject-id-row{display:flex;align-items:center;gap:var(--space-2)}
+.meta-item{white-space:nowrap}
+.meta-item.mono{font-family:var(--font-mono)}
+.meta-item.group{display:inline-flex;align-items:center;padding:1px var(--space-2);border-radius:var(--radius-sm);background:var(--color-page-bg);border:1px solid var(--color-border);font-size:var(--text-xs);font-weight:var(--weight-medium);color:var(--color-text-secondary)}
+.action-btn{display:flex;align-items:center;gap:4px;height:32px;padding:0 var(--space-3);font-size:var(--text-sm);font-weight:var(--weight-medium);font-family:var(--font-sans);border-radius:var(--radius-md);cursor:pointer;transition:background var(--duration-fast),border-color var(--duration-fast);white-space:nowrap}
+.action-btn.secondary{background:var(--color-surface);border:1px solid var(--color-border);color:var(--color-text-primary)}
+.action-btn.secondary:hover{background:var(--color-hover-bg)}
+.subject-switch{display:flex;align-items:center;justify-content:center;width:20px;height:20px;border:none;background:none;color:var(--color-text-tertiary);cursor:pointer;border-radius:var(--radius-sm);padding:0;flex-shrink:0}
+.subject-switch i{font-size:14px}
 .subject-id{font-size:var(--text-3xl);font-weight:var(--weight-medium);font-family:var(--font-mono);color:var(--color-text-primary)}
 .subject-status{display:inline-flex;align-items:center;padding:2px var(--space-2);border-radius:var(--radius-full);font-size:var(--text-xs);font-weight:var(--weight-medium);border:1px solid;white-space:nowrap}
 .status-randomized{background:var(--blue-50);border-color:var(--blue-200);color:var(--blue-600)}
-.subject-meta-text{font-size:var(--text-sm);color:var(--color-text-secondary)}
 
 /* Form header */
 .form-header{display:flex;align-items:center;justify-content:space-between;padding-bottom:var(--space-4);border-bottom:1px solid var(--color-border);gap:var(--space-4)}
@@ -322,10 +337,27 @@ body{font-family:var(--font-sans);font-size:var(--text-base);color:var(--color-t
           <div class="species-icon">🐄</div>
           <div class="subject-id-row">
             <span class="subject-id">AUSB1P1-01</span>
-            <button style="display:flex;align-items:center;justify-content:center;width:20px;height:20px;border:none;background:none;color:var(--color-text-tertiary);cursor:pointer;border-radius:var(--radius-sm);padding:0;flex-shrink:0" title="Switch subject"><i class="ti ti-arrows-exchange" style="font-size:14px"></i></button>
+            <button class="subject-switch" title="Switch subject" aria-label="Switch subject"><i class="ti ti-arrows-exchange"></i></button>
+            <span class="subject-status status-randomized">Randomized</span>
           </div>
-          <span class="subject-status status-randomized">Randomized</span>
-          <span class="subject-meta-text">Female · 4yr · Hereford · 400 kg · Group A — Dose</span>
+          <div class="subject-meta">
+            <span class="meta-item">Female</span><span class="meta-sep">·</span>
+            <span class="meta-item">4yr</span><span class="meta-sep">·</span>
+            <span class="meta-item">Hereford</span><span class="meta-sep">·</span>
+            <span class="meta-item mono">400 kg</span><span class="meta-sep">·</span>
+            <span class="meta-item group">Group A — Dose</span>
+          </div>
+          <div class="subject-actions" style="margin-left:auto">
+            <div class="overflow-wrap">
+              <button class="action-btn secondary" onclick="toggleOverflow(this)">Manage <i class="ti ti-chevron-down" style="font-size:12px"></i></button>
+              <div class="overflow-menu">
+                <button class="overflow-item"><div class="item-left"><i class="ti ti-link"></i> Copy link</div></button>
+                <button class="overflow-item"><div class="item-left"><i class="ti ti-calendar-plus"></i> Add unscheduled visit</div></button>
+                <button class="overflow-item"><div class="item-left"><i class="ti ti-printer"></i> Print subject summary</div></button>
+                <button class="overflow-item"><div class="item-left"><i class="ti ti-download"></i> Export subject data</div></button>
+              </div>
+            </div>
+          </div>
         </div>
 
         <!-- Form header -->
@@ -898,6 +930,16 @@ document.addEventListener('click', e => {
   if (!e.target.closest('.remarks-wrap')) {
     const menu = document.getElementById('remarks-menu');
     if (menu) menu.classList.remove('open');
+  }
+});
+
+function toggleOverflow(btn) {
+  const menu = btn.nextElementSibling;
+  menu.classList.toggle('open');
+}
+document.addEventListener('click', e => {
+  if (!e.target.closest('.overflow-wrap')) {
+    document.querySelectorAll('.overflow-menu.open').forEach(m => m.classList.remove('open'));
   }
 });
 </script>

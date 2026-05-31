@@ -244,13 +244,12 @@ body { font-family: var(--font-sans); font-size: var(--text-base); color: var(--
 .audit-table tbody td {
   padding: var(--space-2) var(--space-3);
   vertical-align: middle;
-  padding: var(--space-2) var(--space-3);
   color: var(--color-text-primary);
 }
-
-
-
-/* ── Timestamp ── */
+.audit-table thead th:first-child,
+.audit-table tbody td:first-child { padding-left: var(--space-5); }
+.audit-table thead th:last-child,
+.audit-table tbody td:last-child  { padding-right: var(--space-5); }/* ── Timestamp ── */
 .ts-cell { font-family: var(--font-mono); font-size: var(--text-xs); color: var(--color-text-secondary); white-space: nowrap; line-height: 1.5; }
 
 /* ── Type badges ── */
