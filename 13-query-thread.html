@@ -75,6 +75,90 @@ body{font-family:var(--font-sans);font-size:var(--text-base);color:var(--color-t
 .overflow-item .item-left{display:flex;align-items:center;gap:var(--space-2)}
 .overflow-item i{font-size:15px;color:var(--color-text-tertiary);flex-shrink:0}
 
+
+
+
+
+
+
+/* Field auto-save indicator */
+
+
+
+
+
+
+/* ── Delta (Δ) change reason ── */
+.delta-btn{width:22px;height:22px;flex-shrink:0;border:2px solid;background:none;cursor:pointer;border-radius:var(--radius-sm);display:flex;align-items:center;justify-content:center;font-size:16px;font-weight:700;font-family:var(--font-mono);line-height:1;transition:all var(--duration-fast)}
+.delta-btn:hover{filter:brightness(0.88)}
+/* dotted red — change required */
+.delta-btn.change-required{border-color:var(--red-600);color:var(--red-600);background:transparent;border-style:dashed}
+/* outlined blue — answered (reason provided) */
+.delta-btn.answered{border-color:var(--blue-600);color:var(--blue-600);background:transparent}
+/* filled green — reviewed/resolved */
+.delta-btn.reviewed{border-color:var(--green-600);color:#fff;background:var(--green-600);border-style:solid}
+.delta-btn.none{display:none}
+
+/* Delta panel (slide-in, same as query panel) */
+.delta-panel{position:fixed;top:0;right:0;width:420px;height:100%;background:var(--color-surface);border-left:1px solid var(--color-border);display:flex;flex-direction:column;z-index:150;transform:translateX(100%);transition:transform 300ms var(--ease-default);box-shadow:-8px 0 32px rgba(14,18,28,0.12)}
+.delta-panel.open{transform:translateX(0)}
+
+.delta-panel-header{padding:var(--space-4) var(--space-5);border-bottom:1px solid var(--color-border);display:flex;align-items:center;justify-content:space-between;flex-shrink:0}
+.delta-panel-title{display:flex;align-items:center;gap:var(--space-2)}
+.delta-panel-name{font-size:var(--text-base);font-weight:var(--weight-medium)}
+.delta-id{font-family:var(--font-mono);font-size:var(--text-xs);padding:2px var(--space-2);border-radius:var(--radius-sm);background:var(--color-page-bg);border:1px solid var(--color-border);color:var(--color-text-tertiary)}
+.panel-close-btn{width:28px;height:28px;border:none;background:none;cursor:pointer;border-radius:var(--radius-sm);color:var(--color-text-tertiary);display:flex;align-items:center;justify-content:center}
+.panel-close-btn i{font-size:16px}
+.panel-close-btn:hover{background:var(--color-hover-bg)}
+
+.delta-status-bar{padding:var(--space-2) var(--space-5);border-bottom:1px solid var(--color-border);display:flex;align-items:center;gap:var(--space-2);flex-shrink:0;background:var(--color-page-bg)}
+.delta-status-badge{display:inline-flex;align-items:center;gap:4px;padding:3px var(--space-2);border-radius:var(--radius-full);font-size:var(--text-xs);font-weight:var(--weight-medium);border:1px solid}
+.ds-change-required{background:var(--red-50);border-color:var(--red-200);color:var(--red-600)}
+.ds-answered{background:var(--amber-50);border-color:var(--amber-200);color:var(--amber-700)}
+.ds-reviewed{background:var(--green-50);border-color:var(--green-200);color:var(--green-600)}
+.delta-status-desc{font-size:var(--text-xs);color:var(--color-text-tertiary)}
+
+/* Field context — old → new value */
+.delta-context{padding:var(--space-3) var(--space-5);border-bottom:1px solid var(--color-border);flex-shrink:0}
+.delta-context-label{font-size:var(--text-xs);font-weight:var(--weight-medium);text-transform:uppercase;letter-spacing:var(--tracking-caps);color:var(--color-text-tertiary);margin-bottom:var(--space-2)}
+.delta-field-name{font-size:var(--text-sm);font-weight:var(--weight-medium);color:var(--color-text-primary)}
+.delta-field-code{font-family:var(--font-mono);font-size:var(--text-xs);color:var(--color-text-tertiary);background:var(--color-page-bg);border:1px solid var(--color-border);border-radius:var(--radius-sm);padding:0 4px}
+.delta-values{display:flex;align-items:center;gap:var(--space-2);margin-top:var(--space-2);font-family:var(--font-mono);font-size:var(--text-sm)}
+.delta-old{text-decoration:line-through;text-decoration-color:#B8BDC9;color:var(--color-text-secondary)}
+.delta-arrow{color:var(--color-text-placeholder)}
+.delta-new{color:var(--color-text-primary);font-weight:var(--weight-medium)}
+
+/* Delta thread */
+.delta-thread{flex:1;overflow-y:auto;padding:var(--space-4) var(--space-5);display:flex;flex-direction:column;gap:var(--space-3)}
+.delta-msg{display:flex;gap:var(--space-3)}
+.delta-avatar{width:28px;height:28px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:10px;font-weight:700;color:#fff;flex-shrink:0}
+.av-crc{background:#3D5A78}
+.av-cra{background:#534AB7}
+.av-dm{background:#1A6B47}
+.av-sys{background:#6D7480}
+.delta-msg-body{flex:1;min-width:0}
+.delta-msg-meta{display:flex;align-items:baseline;gap:var(--space-2);margin-bottom:3px}
+.delta-msg-author{font-size:var(--text-xs);font-weight:var(--weight-medium);color:var(--color-text-primary)}
+.delta-msg-role{font-size:var(--text-xs);color:var(--color-text-tertiary)}
+.delta-msg-ts{font-size:var(--text-xs);font-family:var(--font-mono);color:var(--color-text-placeholder)}
+.delta-bubble{background:var(--color-page-bg);border:1px solid var(--color-border);border-radius:var(--radius-md);padding:var(--space-2) var(--space-3);font-size:var(--text-sm);color:var(--color-text-primary);line-height:1.5}
+.delta-bubble.crc{background:var(--blue-50);border-color:var(--blue-200)}
+.delta-bubble.approved{background:var(--green-50);border-color:var(--green-200)}
+
+/* Delta compose */
+.delta-compose{padding:var(--space-4) var(--space-5);border-top:1px solid var(--color-border);flex-shrink:0}
+.delta-compose-hint{font-size:var(--text-xs);color:var(--color-text-tertiary);margin-bottom:var(--space-2)}
+.delta-textarea{width:100%;height:72px;padding:var(--space-2) var(--space-3);font-size:var(--text-sm);font-family:var(--font-sans);border:1px solid var(--color-border);border-radius:var(--radius-md);resize:none;outline:none;color:var(--color-text-primary);line-height:1.5}
+.delta-textarea:focus{border-color:var(--color-focus-ring)}
+.delta-compose-actions{display:flex;align-items:center;justify-content:space-between;margin-top:var(--space-2)}
+.delta-compose-sub{font-size:var(--text-xs);color:var(--color-text-placeholder)}
+.delta-btn-submit{height:30px;padding:0 var(--space-3);font-size:var(--text-xs);font-weight:var(--weight-medium);font-family:var(--font-sans);border:none;border-radius:var(--radius-md);background:var(--color-cta-bg);color:#fff;cursor:pointer}
+.delta-btn-approve{height:30px;padding:0 var(--space-3);font-size:var(--text-xs);font-weight:var(--weight-medium);font-family:var(--font-sans);border:none;border-radius:var(--radius-md);background:var(--green-600);color:#fff;cursor:pointer}
+.delta-btn-secondary{height:30px;padding:0 var(--space-3);font-size:var(--text-xs);font-weight:var(--weight-medium);font-family:var(--font-sans);border:1px solid var(--color-border);border-radius:var(--radius-md);background:var(--color-surface);color:var(--color-text-primary);cursor:pointer}
+
+/* Submit blocked state */
+#btn-submit-review.blocked{opacity:0.45;cursor:not-allowed}
+
 /* ─── Body ───────────────────────────────────────────────────────────────── */
 .body-wrap{flex:1;display:flex;min-height:0;overflow:hidden;position:relative}
 
@@ -138,11 +222,22 @@ body{font-family:var(--font-sans);font-size:var(--text-base);color:var(--color-t
 .field-input.clean{background:var(--field-clean-bg);border-color:var(--field-clean-border);color:var(--green-600)}
 .field-hint{font-size:var(--text-xs);color:var(--color-text-tertiary)}
 .flag-btn{width:24px;height:24px;flex-shrink:0;border:none;background:none;cursor:pointer;border-radius:var(--radius-md);color:var(--color-text-placeholder);display:flex;align-items:center;justify-content:center;transition:color var(--duration-fast),background var(--duration-fast)}
+/* flag always visible when queries active — hidden only when queries toggled off */
 .flag-btn i{font-size:16px}
 .flag-btn.flagged{color:var(--orange-700)}
+.flag-btn.flagged-resolved{color:var(--green-600)}
+
+/* Query-resolved flag — flag + checkmark badge overlay */
+.flag-query-resolved-icon{position:relative;display:flex;align-items:center;justify-content:center;width:16px;height:16px;flex-shrink:0}
+.flag-query-resolved-icon i{font-size:16px;line-height:1}
+.flag-query-resolved-badge{position:absolute;bottom:-3px;right:-2px;width:8px;height:8px;display:flex;align-items:center;justify-content:center}
+.flag-query-resolved-badge svg{width:8px;height:8px;stroke:currentColor;fill:none;stroke-width:1.8;stroke-linecap:round;stroke-linejoin:round;display:block}
+.flag-btn.query-resolved{color:var(--green-600)}
+.flag-btn.query-resolved:hover{color:var(--green-600);background:var(--green-50)}
+
 .flag-btn:hover{color:var(--color-text-tertiary);background:var(--color-hover-bg)}
-.field-state{display:flex;align-items:flex-start;gap:var(--space-1);font-size:var(--text-xs);font-weight:var(--weight-medium);margin-top:2px;line-height:1.4}
-.field-state .query-link{display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden;word-break:break-word}
+.field-state{display:flex;align-items:center;gap:var(--space-1);font-size:var(--text-xs);font-weight:var(--weight-medium);margin-top:2px;line-height:1.4;flex-wrap:nowrap;white-space:nowrap}
+.field-state span,.field-state .query-link{white-space:nowrap;text-decoration:underline;text-underline-offset:2px;cursor:pointer}
 .field-state i{font-size:12px;flex-shrink:0;margin-top:1px}
 .state-query{color:var(--amber-700)}
 .state-clean{color:var(--green-600)}
@@ -366,22 +461,23 @@ body{font-family:var(--font-sans);font-size:var(--text-base);color:var(--color-t
           <div class="form-actions">
             <div class="remarks-wrap" style="position:relative">
               <button class="btn-secondary" onclick="toggleRemarks(this)" id="remarks-btn" style="gap:var(--space-1)">
-                <span>Remarks</span>
+                <span id="remarks-label">Remarks: Queries</span>
                 <i class="ti ti-chevron-down" style="font-size:11px;color:var(--color-text-tertiary)"></i>
               </button>
               <div class="remarks-menu" id="remarks-menu">
                 <div class="remarks-section-label">Activate mode</div>
                 <button class="remarks-item active-mode" id="mode-queries" onclick="setRemarksMode('queries')">
                   <span>Queries</span>
-                  <div class="mode-indicator"></div>
+                  <i class="ti ti-check" style="font-size:13px;color:var(--blue-600)" id="check-queries"></i>
                 </button>
                 <button class="remarks-item" id="mode-sdv" onclick="setRemarksMode('sdv')">
                   <span>SDV mode</span>
+                  <i class="ti ti-check" style="font-size:13px;color:var(--blue-600);display:none" id="check-sdv"></i>
                 </button>
               </div>
             </div>
-            <button class="btn-secondary">Submit for review</button>
-            <button class="btn-primary">Run validations</button>
+            <button class="btn-secondary" id="btn-submit-review" onclick="trySubmit()">Submit for review</button>
+            <button class="btn-primary" id="btn-run-validations">Run validations</button>
             <button class="btn-icon" title="More actions"><i class="ti ti-dots-vertical"></i></button>
           </div>
         </div>
@@ -395,7 +491,8 @@ body{font-family:var(--font-sans);font-size:var(--text-base);color:var(--color-t
             <div class="field" id="field-temp">
               <label class="field-label">Rectal temperature <span style="color:var(--red-600)">*</span></label>
               <div class="field-row">
-                <input class="field-input query" id="input-temp" type="text" value="28.5" readonly>
+                <input class="field-input query" id="input-temp" type="text" value="28.5" oninput="onFieldChange('temp',this.value)">
+                <button class="delta-btn none" id="delta-btn-temp" onclick="openDeltaPanel('temp')" title="Change reason">Δ</button>
                 <button class="flag-btn flagged" onclick="openPanel('open')" title="Query open — click to view" aria-label="Query open">
                   <i class="ti ti-flag-filled"></i>
                 </button>
@@ -406,29 +503,32 @@ body{font-family:var(--font-sans);font-size:var(--text-base);color:var(--color-t
               </div>
             </div>
 
-            <div class="field">
+            <div class="field" id="field-heart">
               <label class="field-label">Heart rate <span style="color:var(--red-600)">*</span></label>
               <div class="field-row">
-                <input class="field-input" type="text" value="64">
-                <button class="flag-btn"><i class="ti ti-flag"></i></button>
+                <input class="field-input" id="input-heart" type="text" value="64" oninput="onFieldChange('heart',this.value)">
+                <button class="delta-btn none" id="delta-btn-heart" onclick="openDeltaPanel('heart')" title="Change reason required">Δ</button>
+                <button class="flag-btn" id="flag-heart" title="No open query"><i class="ti ti-flag"></i></button>
               </div>
               <span class="field-hint">Normal: 50–80 bpm</span>
             </div>
 
-            <div class="field">
+            <div class="field" id="field-resp">
               <label class="field-label">Respiratory rate <span style="color:var(--red-600)">*</span></label>
               <div class="field-row">
-                <input class="field-input" type="text" value="24">
-                <button class="flag-btn"><i class="ti ti-flag"></i></button>
+                <input class="field-input" id="input-resp" type="text" value="24" oninput="onFieldChange('resp',this.value)">
+                <button class="delta-btn none" id="delta-btn-resp" onclick="openDeltaPanel('resp')" title="Change reason required">Δ</button>
+                <button class="flag-btn" id="flag-resp" title="No open query"><i class="ti ti-flag"></i></button>
               </div>
               <span class="field-hint">Normal: 12–36 bpm</span>
             </div>
 
-            <div class="field">
+            <div class="field" id="field-weight">
               <label class="field-label">Body weight <span style="color:var(--red-600)">*</span></label>
               <div class="field-row">
-                <input class="field-input" type="text" value="400">
-                <button class="flag-btn"><i class="ti ti-flag"></i></button>
+                <input class="field-input" id="input-weight" type="text" value="400" oninput="onFieldChange('weight',this.value)">
+                <button class="delta-btn none" id="delta-btn-weight" onclick="openDeltaPanel('weight')" title="Change reason required">Δ</button>
+                <button class="flag-btn" id="flag-weight" title="No open query"><i class="ti ti-flag"></i></button>
               </div>
               <span class="field-hint">kg</span>
             </div>
@@ -467,13 +567,58 @@ body{font-family:var(--font-sans);font-size:var(--text-base);color:var(--color-t
 
     <!-- Scenario switcher bar -->
     <div class="scenario-bar">
-      <span class="scenario-label">Scenario</span>
+      <span class="scenario-label">Query</span>
       <button class="scenario-btn active" onclick="setScenario('open')">① Raised</button>
       <button class="scenario-btn" onclick="setScenario('responded')">② Responded</button>
       <button class="scenario-btn" onclick="setScenario('resolved')">③ Resolved</button>
-      <button class="scenario-btn" onclick="setScenario('closed')">④ Closed (DM)</button>
+      <span class="scenario-label" style="margin-left:var(--space-4)">Delta (Δ)</span>
+      <button class="scenario-btn" onclick="simulateDelta()">① Edit field → Δ appears</button>
     </div>
 
+  </div>
+</div>
+
+
+<!-- ── Delta overlay ── -->
+<div class="panel-overlay" id="delta-overlay" onclick="closeDeltaPanel()" style="display:none;position:fixed;inset:0;background:rgba(14,18,28,0.35);z-index:140"></div>
+
+<!-- ── Delta panel ── -->
+<div class="delta-panel" id="delta-panel">
+  <div class="delta-panel-header">
+    <div class="delta-panel-title">
+      <span class="delta-panel-name">Change reason</span>
+      <span class="delta-id" id="dp-id">Δ-001</span>
+    </div>
+    <button class="panel-close-btn" onclick="closeDeltaPanel()"><i class="ti ti-x"></i></button>
+  </div>
+
+  <div class="delta-status-bar">
+    <span class="delta-status-badge" id="dp-status-badge">Change required</span>
+    <span class="delta-status-desc" id="dp-status-desc">CRC must provide a reason for this change</span>
+  </div>
+
+  <div class="delta-context">
+    <div class="delta-context-label">Field</div>
+    <div style="display:flex;align-items:center;gap:var(--space-2);margin-bottom:var(--space-1)">
+      <span class="delta-field-name" id="dp-field-name">Heart rate</span>
+      <span class="delta-field-code" id="dp-field-code">HEART_RATE_V1</span>
+    </div>
+    <div class="delta-values">
+      <span class="delta-old" id="dp-old-val">64</span>
+      <span class="delta-arrow">→</span>
+      <span class="delta-new" id="dp-new-val">72</span>
+    </div>
+  </div>
+
+  <div class="delta-thread" id="dp-thread"></div>
+
+  <div class="delta-compose" id="dp-compose">
+    <div class="delta-compose-hint" id="dp-compose-hint">Responding as CRC · E. Tron — explain the reason for this change</div>
+    <textarea class="delta-textarea" id="dp-textarea" placeholder="Enter reason for change…"></textarea>
+    <div class="delta-compose-actions">
+      <span class="delta-compose-sub">Shift+Enter for new line</span>
+      <div style="display:flex;gap:var(--space-2)" id="dp-compose-btns"></div>
+    </div>
   </div>
 </div>
 
@@ -793,30 +938,51 @@ function setScenario(name) {
   document.querySelectorAll('.scenario-btn').forEach(b => b.classList.remove('active'));
   document.querySelector(`[onclick="setScenario('${name}')"]`).classList.add('active');
 
-  // Update field state
+  // Update field state — target flag-btn by class, not sibling index (delta btn is between)
   const s = scenarios[name];
-  const input = document.getElementById('input-temp');
-  const flagBtn = input.nextElementSibling;
+  const input     = document.getElementById('input-temp');
+  const flagBtn   = document.querySelector('#field-temp .flag-btn');
+  const fieldState = document.querySelector('#field-temp .field-state');
 
-  if (name === 'resolved' || name === 'closed') {
+  if (name === 'resolved') {
     input.value = '38.4';
     input.className = 'field-input';
-    flagBtn.className = 'flag-btn';
-    flagBtn.innerHTML = '<i class="ti ti-flag"></i>';
+    flagBtn.className = 'flag-btn query-resolved';
+    flagBtn.innerHTML = `<div class="flag-query-resolved-icon">
+      <i class="ti ti-flag-filled"></i>
+      <div class="flag-query-resolved-badge">
+        <svg viewBox="0 0 6 6"><path d="M1 3l1.5 1.5L5 1.5"></path></svg>
+      </div>
+    </div>`;
+    flagBtn.setAttribute('onclick', `openPanel('${name}')`);
     flagBtn.setAttribute('title', 'Query resolved — click to view');
-    document.querySelector('#field-temp .field-state').innerHTML =
-      '<i class="ti ti-circle-check" style="font-size:12px;flex-shrink:0;margin-top:1px"></i>' +
-      `<span style="color:var(--green-600)"><span class="query-link" style="color:var(--green-600)" onclick="openPanel('${name}')">Q-001: Corrected — query resolved</span></span>`;
-    document.querySelector('#field-temp .field-state').className = 'field-state state-clean';
+    fieldState.className = 'field-state state-clean';
+    fieldState.innerHTML =
+      `<i class="ti ti-circle-check" style="font-size:12px;flex-shrink:0;margin-top:1px;color:var(--green-600)"></i>` +
+      `<span class="query-link" style="color:var(--green-600)" onclick="openPanel('${name}')">Q-001: Corrected — query resolved</span>`;
+  } else if (name === 'responded') {
+    input.value = '28.5';
+    input.className = 'field-input';
+    flagBtn.className = 'flag-btn flagged';
+    flagBtn.innerHTML = '<i class="ti ti-flag-filled"></i>';
+    flagBtn.setAttribute('onclick', `openPanel('responded')`);
+    flagBtn.setAttribute('title', 'Query open — click to view');
+    fieldState.className = 'field-state state-query';
+    fieldState.innerHTML =
+      `<i class="ti ti-info-circle" style="flex-shrink:0;margin-top:1px"></i>` +
+      `<span style="white-space:nowrap"><span class="query-link" onclick="openPanel('responded')">Q-001</span> open — <span class="query-link" onclick="openPanel('responded')">view thread</span></span>`;
   } else {
+    // open / raised
     input.value = '28.5';
     input.className = 'field-input query';
     flagBtn.className = 'flag-btn flagged';
     flagBtn.innerHTML = '<i class="ti ti-flag-filled"></i>';
+    flagBtn.setAttribute('onclick', `openPanel('open')`);
     flagBtn.setAttribute('title', 'Query open — click to view');
-    document.querySelector('#field-temp .field-state').innerHTML =
-      '<i class="ti ti-info-circle"></i><span>Query Q-001 open — <span class="query-link" onclick="openPanel(\'' + name + '\')">view thread</span></span>';
-    document.querySelector('#field-temp .field-state').className = 'field-state state-query';
+    fieldState.className = 'field-state state-query';
+    fieldState.innerHTML =
+      `<i class="ti ti-info-circle" style="flex-shrink:0;margin-top:1px"></i>` +
+      `<span class="query-link" onclick="openPanel('open')">Q-001: Value appears too low (Normal: 38–39°C). Verify and correct.</span>`;
   }
 
   if (document.getElementById('slide-panel').classList.contains('open')) {
@@ -900,30 +1066,49 @@ function toggleRemarks(btn) {
   menu.classList.toggle('open', !isOpen);
 }
 
+// Single-select with deselect for file 13
+const activeMode13 = { queries: true, sdv: false };
+// Set initial label to reflect default state
+document.addEventListener('DOMContentLoaded', () => {
+  const lbl = document.getElementById('remarks-label');
+  if (lbl) lbl.textContent = 'Remarks: Queries';
+});
+
 function setRemarksMode(mode) {
   document.getElementById('remarks-menu').classList.remove('open');
-  const activeItem = document.getElementById('mode-' + mode);
-  const isAlreadyActive = activeItem.classList.contains('active-mode');
+  activeMode13[mode] = !activeMode13[mode];
 
-  // Clear all
-  document.querySelectorAll('.remarks-item').forEach(i => {
-    i.classList.remove('active-mode');
-    const dot = i.querySelector('.mode-indicator');
-    if (dot) dot.remove();
+  // Update check icon and active class for each mode
+  ['queries','sdv'].forEach(m => {
+    const item = document.getElementById('mode-' + m);
+    const chk  = document.getElementById('check-' + m);
+    if (activeMode13[m]) {
+      item.classList.add('active-mode');
+      if (chk) chk.style.display = '';
+    } else {
+      item.classList.remove('active-mode');
+      if (chk) chk.style.display = 'none';
+    }
   });
 
-  if (isAlreadyActive) {
-    // Deselect — reset button label
-    document.querySelector('#remarks-btn span').textContent = 'Remarks';
-  } else {
-    // Select new mode
-    activeItem.classList.add('active-mode');
-    const dot = document.createElement('div');
-    dot.className = 'mode-indicator';
-    activeItem.appendChild(dot);
-    const labels = { queries: 'Remarks: queries', sdv: 'Remarks: SDV mode' };
-    document.querySelector('#remarks-btn span').textContent = labels[mode] || 'Remarks';
-  }
+  // Update button label
+  const active = Object.entries(activeMode13).filter(([,v])=>v).map(([k])=>k==='queries'?'Queries':'SDV mode');
+  document.querySelector('#remarks-btn span').textContent = active.length ? 'Remarks: ' + active.join(', ') : 'Remarks';
+
+  const queriesActive = activeMode13.queries;
+
+  // Queries off: hide only inactive (no active query); keep flagged/resolved
+  document.querySelectorAll('.flag-btn').forEach(b => {
+    const isActive = b.classList.contains('flagged') || b.classList.contains('query-resolved');
+    if (!queriesActive && !isActive) b.style.display = 'none';
+    else b.style.display = 'flex';
+  });
+  // Hide field-state only when no active query and queries off
+  document.querySelectorAll('.field-state').forEach(el => {
+    const hasActive = el.classList.contains('state-query') || el.classList.contains('state-clean');
+    if (!queriesActive && !hasActive) el.style.display = 'none';
+    else el.style.display = '';
+  });
 }
 
 document.addEventListener('click', e => {
@@ -942,6 +1127,249 @@ document.addEventListener('click', e => {
     document.querySelectorAll('.overflow-menu.open').forEach(m => m.classList.remove('open'));
   }
 });
+
+
+// ══════════════════════════════════════════════════════════════════════════
+// DELTA SYSTEM
+// ══════════════════════════════════════════════════════════════════════════
+const FIELDS = {
+  temp:   { name:'Rectal temperature', code:'RECTAL_TEMP_V1',  savedVal:'28.5' },
+  heart:  { name:'Heart rate',         code:'HEART_RATE_V1',   savedVal:'64'   },
+  resp:   { name:'Respiratory rate',   code:'RESP_RATE_V1',    savedVal:'24'   },
+  weight: { name:'Body weight',        code:'BODY_WEIGHT_V1',  savedVal:'400'  },
+};
+
+// delta state per field: null | 'change-required' | 'answered' | 'reviewed'
+const deltaState = { temp:null, heart:null, resp:null, weight:null };
+const deltaCurrentVal = {};
+const deltaThreads = { temp:[], heart:[], resp:[], weight:[] };
+let activeDeltaField = null;
+let deltaCount = 0;
+
+// ── Field edit triggers delta ─────────────────────────────────────────────
+function onFieldChange(fieldId, newVal) {
+  const field = FIELDS[fieldId];
+  if (!field) return;
+  const isDiff = newVal.trim() !== field.savedVal;
+  deltaCurrentVal[fieldId] = newVal.trim();
+
+  if (isDiff && !deltaState[fieldId]) {
+    // First edit — create delta
+    deltaCount++;
+    deltaState[fieldId] = 'change-required';
+    deltaThreads[fieldId] = [{
+      type: 'system',
+      text: `Field value changed from <span class="delta-old">${field.savedVal}</span> <span class="delta-arrow">→</span> <span class="delta-new">${newVal.trim()}</span>. Change reason required before form can be submitted.`,
+      ts: new Date().toISOString(),
+    }];
+    updateDeltaBtn(fieldId);
+    updateSubmitState();
+  } else if (!isDiff && deltaState[fieldId] === 'change-required') {
+    // Value restored — remove delta
+    deltaState[fieldId] = null;
+    deltaThreads[fieldId] = [];
+    updateDeltaBtn(fieldId);
+    updateSubmitState();
+  } else if (isDiff && deltaState[fieldId]) {
+    // Value changed again — update new val in thread context
+    deltaCurrentVal[fieldId] = newVal.trim();
+    if (activeDeltaField === fieldId) renderDeltaPanel(fieldId);
+  }
+}
+
+function updateDeltaBtn(fieldId) {
+  const btn = document.getElementById('delta-btn-' + fieldId);
+  if (!btn) return;
+  const state = deltaState[fieldId];
+  btn.className = 'delta-btn ' + (state || 'none');
+  const titles = {
+    'change-required': 'Change required — click to enter reason',
+    'answered':        'Reason provided — awaiting CRA review',
+    'reviewed':        'Change reason reviewed and approved',
+  };
+  btn.title = titles[state] || '';
+}
+
+// ── Open delta panel ──────────────────────────────────────────────────────
+function openDeltaPanel(fieldId) {
+  activeDeltaField = fieldId;
+  renderDeltaPanel(fieldId);
+  document.getElementById('delta-overlay').style.display = 'block';
+  document.getElementById('delta-panel').classList.add('open');
+}
+
+function closeDeltaPanel() {
+  document.getElementById('delta-overlay').style.display = 'none';
+  document.getElementById('delta-panel').classList.remove('open');
+  activeDeltaField = null;
+}
+
+function renderDeltaPanel(fieldId) {
+  const field   = FIELDS[fieldId];
+  const state   = deltaState[fieldId];
+  const newVal  = deltaCurrentVal[fieldId] || '—';
+  const threads = deltaThreads[fieldId] || [];
+
+  // Header
+  document.getElementById('dp-id').textContent = 'Δ-' + String(deltaCount).padStart(3,'0');
+  document.getElementById('dp-field-name').textContent = field.name;
+  document.getElementById('dp-field-code').textContent = field.code;
+  document.getElementById('dp-old-val').textContent = field.savedVal;
+  document.getElementById('dp-new-val').textContent = newVal;
+
+  // Status badge
+  const badge = document.getElementById('dp-status-badge');
+  const desc  = document.getElementById('dp-status-desc');
+  const badgeCfg = {
+    'change-required': { cls:'ds-change-required', label:'Change required',   desc:'CRC must provide a reason for this change' },
+    'answered':        { cls:'ds-answered',         label:'Answered',          desc:'Awaiting CRA/DM review and approval' },
+    'reviewed':        { cls:'ds-reviewed',         label:'Reviewed',          desc:'Change reason approved by CRA/DM' },
+  };
+  const cfg = badgeCfg[state] || badgeCfg['change-required'];
+  badge.className = 'delta-status-badge ' + cfg.cls;
+  badge.textContent = cfg.label;
+  desc.textContent = cfg.desc;
+
+  // Thread
+  const avCls = { crc:'av-crc', cra:'av-cra', dm:'av-dm', system:'av-sys' };
+  const threadEl = document.getElementById('dp-thread');
+  threadEl.innerHTML = threads.map(m => {
+    if (m.type === 'system') {
+      return `<div style="font-size:var(--text-xs);color:var(--color-text-tertiary);padding:var(--space-2) var(--space-3);background:var(--color-page-bg);border-radius:var(--radius-md);border:1px solid var(--color-border-subtle)">${m.text}</div>`;
+    }
+    const initials = m.author.split(' ').map(w=>w[0]).join('').toUpperCase().slice(0,2);
+    const avClass = avCls[m.role.toLowerCase()] || 'av-sys';
+    const bubbleCls = m.bubbleClass || '';
+    return `<div class="delta-msg">
+      <div class="delta-avatar ${avClass}">${initials}</div>
+      <div class="delta-msg-body">
+        <div class="delta-msg-meta">
+          <span class="delta-msg-author">${m.author}</span>
+          <span class="delta-msg-role">${m.role}</span>
+          <span class="delta-msg-ts">${m.ts.replace('T',' ').replace('Z','')}</span>
+        </div>
+        <div class="delta-bubble ${bubbleCls}">${m.text}</div>
+      </div>
+    </div>`;
+  }).join('');
+  threadEl.scrollTop = threadEl.scrollHeight;
+
+  // Compose area
+  const composeHint = document.getElementById('dp-compose-hint');
+  const composeBtns = document.getElementById('dp-compose-btns');
+  const textarea    = document.getElementById('dp-textarea');
+  const composeEl   = document.getElementById('dp-compose');
+
+  if (state === 'change-required') {
+    composeEl.style.display = '';
+    composeHint.textContent = 'Responding as CRC · E. Tron — explain the reason for this change';
+    textarea.placeholder = 'Enter reason for change…';
+    textarea.disabled = false;
+    composeBtns.innerHTML = `<button class="delta-btn-secondary" onclick="closeDeltaPanel()">Cancel</button>
+      <button class="delta-btn-submit" onclick="submitDeltaReason('${fieldId}')">Submit reason</button>`;
+  } else if (state === 'answered') {
+    composeEl.style.display = '';
+    composeHint.textContent = 'Reviewing as CRA · J. Rodriguez — approve or request clarification';
+    textarea.placeholder = 'Add a comment (optional)…';
+    textarea.disabled = false;
+    composeBtns.innerHTML = `<button class="delta-btn-secondary" onclick="requestClarification('${fieldId}')">Request clarification</button>
+      <button class="delta-btn-approve" onclick="approveDelta('${fieldId}')"><i class="ti ti-check" style="font-size:12px"></i> Approve</button>`;
+  } else if (state === 'reviewed') {
+    composeEl.style.display = 'none';
+  }
+}
+
+function submitDeltaReason(fieldId) {
+  const text = document.getElementById('dp-textarea').value.trim();
+  if (!text) { document.getElementById('dp-textarea').style.borderColor = 'var(--red-200)'; return; }
+  document.getElementById('dp-textarea').style.borderColor = '';
+
+  deltaThreads[fieldId].push({
+    type:'message', author:'E. Tron', role:'CRC',
+    ts: new Date().toISOString(), bubbleClass:'crc',
+    text: text,
+  });
+  deltaState[fieldId] = 'answered';
+  document.getElementById('dp-textarea').value = '';
+  updateDeltaBtn(fieldId);
+  updateSubmitState();
+  renderDeltaPanel(fieldId);
+}
+
+function requestClarification(fieldId) {
+  const text = document.getElementById('dp-textarea').value.trim() || 'Please provide more detail about this change.';
+  deltaThreads[fieldId].push({
+    type:'message', author:'J. Rodriguez', role:'CRA',
+    ts: new Date().toISOString(), bubbleClass:'',
+    text: text,
+  });
+  deltaState[fieldId] = 'change-required';
+  document.getElementById('dp-textarea').value = '';
+  updateDeltaBtn(fieldId);
+  updateSubmitState();
+  renderDeltaPanel(fieldId);
+}
+
+function approveDelta(fieldId) {
+  const comment = document.getElementById('dp-textarea').value.trim();
+  if (comment) {
+    deltaThreads[fieldId].push({
+      type:'message', author:'J. Rodriguez', role:'CRA',
+      ts: new Date().toISOString(), bubbleClass:'approved',
+      text: comment,
+    });
+  }
+  deltaThreads[fieldId].push({
+    type:'system',
+    text:'<i class="ti ti-circle-check" style="color:var(--green-600);margin-right:4px"></i> Change reason reviewed and approved by CRA · J. Rodriguez',
+    ts: new Date().toISOString(),
+  });
+  deltaState[fieldId] = 'reviewed';
+  document.getElementById('dp-textarea').value = '';
+  updateDeltaBtn(fieldId);
+  updateSubmitState();
+  renderDeltaPanel(fieldId);
+}
+
+// ── Submit gate ────────────────────────────────────────────────────────────
+function updateSubmitState() {
+  const blocking = Object.entries(deltaState)
+    .filter(([,s]) => s === 'change-required' || s === 'answered').length;
+  const btn = document.getElementById('btn-submit-review');
+  if (blocking > 0) {
+    btn.classList.add('blocked');
+    btn.disabled = true;
+    btn.title = blocking + ' change reason' + (blocking > 1 ? 's' : '') + ' must be reviewed before submitting';
+  } else {
+    btn.classList.remove('blocked');
+    btn.disabled = false;
+    btn.title = '';
+  }
+}
+
+function trySubmit() {
+  updateSubmitState();
+  const btn = document.getElementById('btn-submit-review');
+  if (!btn.disabled) alert('Form submitted for review. Audit trail entry created.');
+}
+
+// Expose old onFieldEdit so it doesn't break
+function onFieldEdit(id) { /* replaced by onFieldChange */ }
+
+// Simulate delta for demo
+function simulateDelta() {
+  // Pre-fill a changed value on heart rate to trigger delta
+  const input = document.getElementById('input-heart');
+  if (input) {
+    input.value = '88';
+    onFieldChange('heart', '88');
+    // highlight
+    input.style.borderColor = 'var(--red-200)';
+    setTimeout(() => { input.style.borderColor = ''; }, 1500);
+  }
+}
+
+
 </script>
 </body>
 </html>

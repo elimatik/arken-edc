@@ -1,0 +1,608 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Arken EDC — SDV</title>
+<link href="https://fonts.googleapis.com/css2?family=Roboto:wght@400;500;700&family=Roboto+Mono:wght@400;500&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@tabler/icons-webfont@latest/tabler-icons.min.css">
+<style>
+:root {
+  --color-nav-bg:#1A1F2E;--color-nav-hover:#2C3248;--color-nav-icon:#8aafc8;
+  --color-page-bg:#FBFBFB;--color-surface:#FFFFFF;
+  --color-border:#E8E8E6;--color-border-subtle:#F0F0EE;
+  --color-text-primary:#2C2D33;--color-text-secondary:#4F535B;
+  --color-text-tertiary:#6D7480;--color-text-placeholder:#C4C4C2;
+  --color-hover-bg:#F0F0EE;--color-cta-bg:#1A1F2E;--color-cta-hover:#2C3248;
+  --color-focus-ring:#3D8FE0;
+  --amber-50:#FFF8E7;--amber-200:#F5B830;--amber-700:#8A5C00;
+  --red-50:#FFF0F0;--red-200:#EC8585;--red-600:#B52626;
+  --green-50:#EEFAF4;--green-200:#58BC88;--green-600:#1A6B47;
+  --blue-50:#E8F4FF;--blue-200:#7AB8EE;--blue-600:#1760A8;
+  --slate-50:#EEF1F6;--slate-200:#8AA0B8;--slate-600:#3D5A78;
+  --purple-50:#F0EEFF;--purple-200:#A9A3EC;--purple-600:#534AB7;
+  --font-sans:'Roboto',system-ui,sans-serif;--font-mono:'Roboto Mono',monospace;
+  --text-xs:11px;--text-sm:12px;--text-base:14px;--text-lg:16px;--text-3xl:24px;
+  --weight-regular:400;--weight-medium:500;--weight-bold:700;
+  --radius-sm:2px;--radius-md:4px;--radius-lg:6px;--radius-full:9999px;
+  --space-1:4px;--space-2:8px;--space-3:12px;--space-4:16px;--space-5:20px;--space-6:24px;
+  --duration-fast:120ms;--duration-normal:200ms;--ease-default:cubic-bezier(0.16,1,0.3,1);
+  --tracking-caps:0.07em;
+}
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+body{font-family:var(--font-sans);font-size:var(--text-base);color:var(--color-text-primary);background:var(--color-page-bg);-webkit-font-smoothing:antialiased}
+
+/* ─── Shell ── */
+.shell{display:flex;height:100vh;overflow:hidden}
+.sidenav{width:74px;background:var(--color-nav-bg);display:flex;flex-direction:column;align-items:center;padding:var(--space-3) 0;gap:2px;flex-shrink:0}
+.nav-logo{width:30px;height:30px;border-radius:var(--radius-md);background:var(--color-nav-hover);display:flex;align-items:center;justify-content:center;margin-bottom:var(--space-3)}
+.nav-logo span{font-size:var(--text-base);font-weight:700;color:#fff;letter-spacing:-0.02em}
+.nav-item{width:100%;min-height:50px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:3px;border:none;background:transparent;color:var(--color-nav-icon);cursor:pointer;transition:background var(--duration-fast);padding:4px 0}
+.nav-item:hover{background:var(--color-nav-hover);color:#fff}
+.nav-item.active{background:var(--color-nav-hover);color:#fff}
+.nav-item i{font-size:20px}.nav-label{font-size:11px;font-weight:500;color:inherit;text-align:center}
+.nav-spacer{flex:1}.nav-sep{width:100%;height:1px;background:rgba(255,255,255,0.08);margin:var(--space-2) 0}
+.main{flex:1;display:flex;flex-direction:column;min-width:0;overflow:hidden}
+.topbar{height:56px;background:var(--color-nav-bg);display:flex;align-items:center;padding:0 var(--space-5);gap:var(--space-3);flex-shrink:0;border-bottom:1px solid rgba(255,255,255,0.06)}
+.tb-study{background:var(--color-nav-hover);color:#fff;font-size:var(--text-base);font-weight:500;padding:7px var(--space-4);border-radius:var(--radius-md);border:1px solid #525D73;display:flex;align-items:center;gap:4px;cursor:pointer}
+.tb-right{margin-left:auto;display:flex;align-items:center;gap:var(--space-3)}
+.tb-icon{width:28px;height:28px;display:flex;align-items:center;justify-content:center;border-radius:var(--radius-md);border:none;background:transparent;color:#fff;cursor:pointer}
+.tb-icon i{font-size:20px}
+.tb-role{background:var(--color-nav-hover);color:#fff;font-size:var(--text-sm);font-weight:500;padding:3px var(--space-2);border-radius:var(--radius-md);border:1px solid #525D73;display:flex;align-items:center;gap:4px;cursor:pointer}
+.tb-avatar{width:30px;height:30px;border-radius:50%;background:#3D5A78;color:#EEF1F6;font-size:12px;font-weight:500;display:flex;align-items:center;justify-content:center}
+.page-wrap{flex:1;display:flex;flex-direction:column;overflow:hidden}
+
+/* ─── Buttons ── */
+.btn-primary{display:flex;align-items:center;gap:4px;height:32px;padding:0 var(--space-3);font-size:var(--text-sm);font-weight:500;font-family:var(--font-sans);border:none;border-radius:var(--radius-md);background:var(--color-cta-bg);color:#fff;cursor:pointer;white-space:nowrap;transition:background var(--duration-fast)}
+.btn-primary:hover{background:var(--color-cta-hover)}
+.btn-primary i{font-size:14px}
+.btn-secondary{display:flex;align-items:center;gap:4px;height:32px;padding:0 var(--space-3);font-size:var(--text-sm);font-weight:500;font-family:var(--font-sans);border:1px solid var(--color-border);border-radius:var(--radius-md);background:var(--color-surface);color:var(--color-text-primary);cursor:pointer;white-space:nowrap;transition:background var(--duration-fast)}
+.btn-secondary:hover{background:var(--color-hover-bg)}
+.btn-secondary i{font-size:14px}
+.btn-icon{display:flex;align-items:center;justify-content:center;width:28px;height:28px;border:none;background:none;border-radius:var(--radius-md);color:var(--color-text-tertiary);cursor:pointer;transition:background var(--duration-fast),color var(--duration-fast)}
+.btn-icon:hover{background:var(--color-hover-bg);color:var(--color-text-primary)}
+.btn-icon i{font-size:15px}
+
+/* ─── Badges ── */
+.badge{display:inline-flex;align-items:center;gap:3px;padding:2px var(--space-2);border-radius:var(--radius-full);font-size:var(--text-xs);font-weight:500;border:1px solid;white-space:nowrap}
+.badge-pending  {background:var(--slate-50);border-color:var(--slate-200);color:var(--slate-600)}
+.badge-partial  {background:var(--amber-50);border-color:var(--amber-200);color:var(--amber-700)}
+.badge-complete {background:var(--green-50);border-color:var(--green-200);color:var(--green-600)}
+.badge-queried  {background:var(--red-50);border-color:var(--red-200);color:var(--red-600)}
+
+/* ═══════════════════════════════════════════════════════════════════════
+   WORKLIST VIEW
+   ═══════════════════════════════════════════════════════════════════════ */
+#view-worklist{display:flex;flex-direction:column;overflow:hidden;flex:1}
+
+.page-header{padding:var(--space-4) var(--space-5);border-bottom:1px solid var(--color-border);background:var(--color-surface);flex-shrink:0;display:flex;align-items:center;justify-content:space-between;gap:var(--space-4)}
+.page-title{font-size:var(--text-3xl);font-weight:500}
+
+/* Status tabs */
+.status-tabs{display:flex;border-bottom:1px solid var(--color-border);background:var(--color-surface);flex-shrink:0;padding:0 var(--space-5)}
+.status-tab{display:flex;align-items:center;gap:var(--space-2);padding:var(--space-3) var(--space-4);font-size:var(--text-sm);font-weight:500;color:var(--color-text-tertiary);background:none;border:none;border-bottom:2px solid transparent;cursor:pointer;transition:color var(--duration-fast);white-space:nowrap}
+.status-tab:hover{color:var(--color-text-primary)}
+.status-tab.active{color:var(--color-text-primary);border-bottom-color:var(--color-text-primary)}
+.tab-count{display:inline-flex;align-items:center;justify-content:center;min-width:18px;height:18px;padding:0 5px;border-radius:var(--radius-full);font-size:10px;font-weight:700;font-family:var(--font-mono)}
+.tab-count.pending {background:var(--slate-50);color:var(--slate-600);border:1px solid var(--slate-200)}
+.tab-count.partial {background:var(--amber-50);color:var(--amber-700);border:1px solid var(--amber-200)}
+.tab-count.complete{background:var(--green-50);color:var(--green-600);border:1px solid var(--green-200)}
+.tab-count.all{background:var(--color-page-bg);color:var(--color-text-secondary);border:1px solid var(--color-border)}
+
+/* Filter bar */
+.filter-bar{padding:var(--space-3) var(--space-5);background:var(--color-surface);border-bottom:1px solid var(--color-border);display:flex;align-items:center;gap:var(--space-3);flex-shrink:0}
+.search-box{display:flex;align-items:center;gap:var(--space-2);height:32px;padding:0 var(--space-3);border:1px solid var(--color-border);border-radius:var(--radius-md);min-width:220px}
+.search-box i{font-size:14px;color:var(--color-text-placeholder);flex-shrink:0}
+.search-box input{border:none;outline:none;font-size:var(--text-sm);font-family:var(--font-sans);color:var(--color-text-primary);background:transparent;flex:1}
+.search-box input::placeholder{color:var(--color-text-placeholder)}
+.filter-select{height:32px;padding:0 24px 0 var(--space-2);font-size:var(--text-sm);font-family:var(--font-sans);border:1px solid var(--color-border);border-radius:var(--radius-md);background:var(--color-surface);color:var(--color-text-primary);cursor:pointer;appearance:none;background-image:url("data:image/svg+xml,%3Csvg width='8' height='12' viewBox='0 0 8 12' fill='none' xmlns='http://www.w3.org/2000/svg'%3E%3Cpath d='M1 1L6 6L1 11' stroke='%236D7480' stroke-width='1.5' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E");background-repeat:no-repeat;background-position:right 8px center;outline:none}
+.toolbar-count{font-size:var(--text-xs);color:var(--color-text-tertiary);margin-left:auto}
+
+/* List table */
+.table-wrap{flex:1;overflow-y:auto}
+.list-table{width:100%;border-collapse:collapse;font-size:var(--text-sm)}
+.list-table thead th{position:sticky;top:0;z-index:5;background:var(--color-surface);padding:var(--space-2) var(--space-3);text-align:left;font-size:var(--text-xs);font-weight:500;text-transform:uppercase;letter-spacing:var(--tracking-caps);color:var(--color-text-tertiary);border-bottom:1px solid var(--color-border);white-space:nowrap;cursor:pointer;user-select:none}
+.list-table thead th:first-child{padding-left:var(--space-5)}
+.list-table thead th:last-child{padding-right:var(--space-5)}
+.list-table thead th .sort-icon{margin-left:3px;font-size:12px;color:transparent;transition:color var(--duration-fast)}
+.list-table thead th:hover .sort-icon{color:var(--color-text-placeholder)}
+.list-table thead th.sort-asc .sort-icon,.list-table thead th.sort-desc .sort-icon{color:var(--blue-600)}
+.list-table tbody tr{border-bottom:1px solid var(--color-border-subtle);cursor:pointer;transition:background var(--duration-fast)}
+.list-table tbody tr:hover{background:var(--color-hover-bg)}
+.list-table tbody tr.active-row{background:var(--blue-50)}
+.list-table tbody td{padding:var(--space-2) var(--space-3);vertical-align:middle}
+.list-table tbody td:first-child{padding-left:var(--space-5)}
+.list-table tbody td:last-child{padding-right:var(--space-5)}
+.cell-id{font-family:var(--font-mono);font-weight:500;font-size:var(--text-sm);color:var(--color-text-primary)}
+.cell-muted{color:var(--color-text-secondary);font-size:var(--text-sm)}
+.cell-mono{font-family:var(--font-mono);font-size:var(--text-sm);color:var(--color-text-secondary)}
+
+/* Progress bar */
+.progress-cell{display:flex;align-items:center;gap:var(--space-2);min-width:120px}
+.progress-track{flex:1;height:4px;background:var(--color-border);border-radius:var(--radius-full);min-width:60px;overflow:hidden}
+.progress-fill{height:100%;border-radius:var(--radius-full);background:var(--blue-600)}
+.progress-fill.done{background:var(--green-600)}
+.progress-label{font-family:var(--font-mono);font-size:var(--text-xs);color:var(--color-text-secondary);white-space:nowrap;min-width:36px}
+
+/* Summary bar */
+.summary-bar{padding:var(--space-2) var(--space-5);background:var(--color-surface);border-top:1px solid var(--color-border);display:flex;align-items:center;gap:var(--space-4);font-size:var(--text-xs);color:var(--color-text-tertiary);flex-shrink:0}
+.sv{font-weight:500;color:var(--color-text-primary);font-family:var(--font-mono)}
+.sv.warn{color:var(--amber-700)}.sv.crit{color:var(--red-600)}.sv.ok{color:var(--green-600)}
+
+/* ═══════════════════════════════════════════════════════════════════════
+   FORM SDV VIEW
+   ═══════════════════════════════════════════════════════════════════════ */
+#view-form{display:none;flex:1;overflow:hidden;flex-direction:column}
+
+/* Form SDV header */
+.form-sdv-header{padding:var(--space-3) var(--space-5);border-bottom:1px solid var(--color-border);background:var(--color-surface);flex-shrink:0}
+.back-btn{display:flex;align-items:center;gap:var(--space-2);font-size:var(--text-sm);color:var(--color-text-tertiary);background:none;border:none;cursor:pointer;padding:0;margin-bottom:var(--space-3);transition:color var(--duration-fast)}
+.back-btn:hover{color:var(--color-text-primary)}
+.back-btn i{font-size:14px}
+.form-sdv-meta{display:flex;align-items:center;justify-content:space-between;gap:var(--space-4)}
+.form-sdv-title{display:flex;align-items:center;gap:var(--space-3)}
+.form-sdv-name{font-size:var(--text-lg);font-weight:500}
+.form-sdv-subject{font-family:var(--font-mono);font-size:var(--text-sm);color:var(--color-text-tertiary)}
+.form-sdv-actions{display:flex;align-items:center;gap:var(--space-2)}
+
+/* SDV progress bar in form header */
+.sdv-progress-wrap{display:flex;align-items:center;gap:var(--space-3);padding:var(--space-3) var(--space-5);background:var(--color-page-bg);border-bottom:1px solid var(--color-border);flex-shrink:0}
+.sdv-progress-label{font-size:var(--text-sm);color:var(--color-text-secondary);white-space:nowrap}
+.sdv-progress-bar{flex:1;height:6px;background:var(--color-border);border-radius:var(--radius-full);overflow:hidden;max-width:300px}
+.sdv-progress-fill{height:100%;border-radius:var(--radius-full);background:var(--blue-600);transition:width 400ms var(--ease-default)}
+.sdv-progress-count{font-family:var(--font-mono);font-size:var(--text-sm);font-weight:500;color:var(--color-text-primary);white-space:nowrap}
+.sdv-legend{display:flex;align-items:center;gap:var(--space-3);margin-left:auto;font-size:var(--text-xs);color:var(--color-text-tertiary)}
+.sdv-legend-item{display:flex;align-items:center;gap:var(--space-1)}
+.sdv-legend-dot{width:8px;height:8px;border-radius:50%;flex-shrink:0}
+
+/* Field list */
+.field-list{flex:1;overflow-y:auto;padding:var(--space-4) var(--space-5)}
+.field-section{margin-bottom:var(--space-5)}
+.field-section-title{font-size:var(--text-xs);font-weight:500;text-transform:uppercase;letter-spacing:var(--tracking-caps);color:var(--color-text-tertiary);margin-bottom:var(--space-2);padding-bottom:var(--space-2);border-bottom:1px solid var(--color-border-subtle)}
+
+/* SDV field row */
+.sdv-field{display:flex;align-items:center;gap:var(--space-4);padding:var(--space-3) var(--space-4);border:1px solid var(--color-border);border-radius:var(--radius-lg);margin-bottom:var(--space-2);background:var(--color-surface);transition:border-color var(--duration-fast),background var(--duration-fast)}
+.sdv-field:hover{border-color:#c8c8c6}
+.sdv-field.verified{background:var(--green-50);border-color:var(--green-200)}
+.sdv-field.queried {background:var(--red-50);border-color:var(--red-200)}
+.sdv-field.not-req  {background:var(--color-page-bg);border-color:var(--color-border-subtle)}
+
+/* Field label + value */
+.field-content{flex:1;min-width:0}
+.field-label-row{display:flex;align-items:center;gap:var(--space-2);margin-bottom:3px}
+.field-name{font-size:var(--text-sm);font-weight:500;color:var(--color-text-primary)}
+.field-code{font-family:var(--font-mono);font-size:var(--text-xs);color:var(--color-text-tertiary);background:var(--color-page-bg);border:1px solid var(--color-border);border-radius:var(--radius-sm);padding:0 4px}
+.field-value{font-family:var(--font-mono);font-size:var(--text-sm);color:var(--color-text-primary);display:inline-flex;align-items:center;gap:var(--space-1)}
+.field-value.flagged{color:var(--amber-700)}
+.field-updated{font-size:var(--text-xs);color:var(--color-text-tertiary);margin-top:2px}
+
+/* SDV status badge on field */
+.sdv-status{flex-shrink:0;width:100px;display:flex;justify-content:flex-end}
+.sdv-badge{display:inline-flex;align-items:center;gap:4px;padding:3px var(--space-2);border-radius:var(--radius-full);font-size:var(--text-xs);font-weight:500;border:1px solid;white-space:nowrap}
+.sdv-badge.unverified{background:var(--slate-50);border-color:var(--slate-200);color:var(--slate-600)}
+.sdv-badge.verified  {background:var(--green-50);border-color:var(--green-200);color:var(--green-600)}
+.sdv-badge.queried   {background:var(--red-50);border-color:var(--red-200);color:var(--red-600)}
+.sdv-badge.not-req   {background:var(--color-page-bg);border-color:var(--color-border);color:var(--color-text-placeholder)}
+
+/* SDV action buttons on field */
+.field-actions{display:flex;align-items:center;gap:var(--space-1);flex-shrink:0}
+.btn-verify{display:flex;align-items:center;gap:4px;height:28px;padding:0 var(--space-2);font-size:var(--text-xs);font-weight:500;font-family:var(--font-sans);border:1px solid var(--green-200);border-radius:var(--radius-md);background:var(--green-50);color:var(--green-600);cursor:pointer;white-space:nowrap;transition:all var(--duration-fast)}
+.btn-verify:hover{background:var(--green-600);color:#fff;border-color:var(--green-600)}
+.btn-verify i{font-size:12px}
+.btn-query-field{display:flex;align-items:center;gap:4px;height:28px;padding:0 var(--space-2);font-size:var(--text-xs);font-weight:500;font-family:var(--font-sans);border:1px solid var(--color-border);border-radius:var(--radius-md);background:var(--color-surface);color:var(--color-text-secondary);cursor:pointer;white-space:nowrap;transition:all var(--duration-fast)}
+.btn-query-field:hover{border-color:var(--amber-200);background:var(--amber-50);color:var(--amber-700)}
+.btn-query-field i{font-size:12px}
+.btn-unverify{display:flex;align-items:center;gap:4px;height:28px;padding:0 var(--space-2);font-size:var(--text-xs);font-weight:500;font-family:var(--font-sans);border:1px solid var(--green-200);border-radius:var(--radius-md);background:var(--green-50);color:var(--green-600);cursor:pointer;white-space:nowrap}
+.btn-unverify i{font-size:12px}
+
+/* Verified checkmark overlay (component 08 pattern) */
+.sdv-check-overlay{position:relative;display:inline-flex}
+.sdv-check-overlay .sdv-tick{position:absolute;bottom:-2px;right:-6px;width:12px;height:12px;border-radius:50%;background:var(--blue-600);display:flex;align-items:center;justify-content:center}
+.sdv-check-overlay .sdv-tick i{font-size:8px;color:#fff}
+</style>
+</head>
+<body>
+<div class="shell">
+  <nav class="sidenav">
+    <div class="nav-logo"><span>Ar</span></div>
+    <button class="nav-item"><i class="ti ti-layout-dashboard"></i><span class="nav-label">Dashboard</span></button>
+    <button class="nav-item"><i class="ti ti-list"></i><span class="nav-label">Animals</span></button>
+    <button class="nav-item"><i class="ti ti-calendar-event"></i><span class="nav-label">Visits</span></button>
+    <button class="nav-item"><i class="ti ti-help-circle"></i><span class="nav-label">Queries</span></button>
+    <button class="nav-item active"><i class="ti ti-circle-check"></i><span class="nav-label">SDV</span></button>
+    <button class="nav-item"><i class="ti ti-chart-bar"></i><span class="nav-label">Reports</span></button>
+    <div class="nav-spacer"></div>
+    <div class="nav-sep"></div>
+    <button class="nav-item"><i class="ti ti-clipboard-list"></i><span class="nav-label">Audit</span></button>
+  </nav>
+
+  <div class="main">
+    <header class="topbar">
+      <button class="tb-study">AK-2401 — BRD Cattle Phase II <i class="ti ti-chevron-right" style="font-size:11px"></i></button>
+      <div class="tb-right">
+        <button class="tb-icon"><i class="ti ti-bell"></i></button>
+        <button class="tb-icon"><i class="ti ti-settings"></i></button>
+        <button class="tb-role">CRA <i class="ti ti-chevron-right" style="font-size:10px"></i></button>
+        <div class="tb-avatar">JR</div>
+      </div>
+    </header>
+
+    <div class="page-wrap">
+
+      <!-- ═══ WORKLIST VIEW ═══ -->
+      <div id="view-worklist" style="display:flex;flex-direction:column;overflow:hidden;flex:1">
+        <div class="page-header">
+          <h1 class="page-title">SDV</h1>
+          <div style="display:flex;align-items:center;gap:var(--space-2)">
+            <button class="btn-secondary"><i class="ti ti-download"></i> Export</button>
+          </div>
+        </div>
+
+        <div class="status-tabs">
+          <button class="status-tab active" onclick="filterTab(this,'all')">All <span class="tab-count all" id="cnt-all">0</span></button>
+          <button class="status-tab" onclick="filterTab(this,'pending')">Pending <span class="tab-count pending" id="cnt-pending">0</span></button>
+          <button class="status-tab" onclick="filterTab(this,'partial')">In progress <span class="tab-count partial" id="cnt-partial">0</span></button>
+          <button class="status-tab" onclick="filterTab(this,'complete')">Complete <span class="tab-count complete" id="cnt-complete">0</span></button>
+        </div>
+
+        <div class="filter-bar">
+          <div class="search-box"><i class="ti ti-search"></i><input type="search" placeholder="Search subject, form, visit…" oninput="doSearch(this.value)"></div>
+          <select class="filter-select"><option>All sites</option><option>Austin</option><option>Dallas</option><option>Houston</option></select>
+          <select class="filter-select"><option>All visits</option><option>Visit 1</option><option>Visit 2</option><option>Visit 3</option></select>
+          <span class="toolbar-count" id="row-count"></span>
+        </div>
+
+        <div class="table-wrap">
+          <table class="list-table" id="sdv-table">
+            <thead><tr>
+              <th onclick="doSort(0)">Subject <i class="ti ti-arrows-sort sort-icon"></i></th>
+              <th onclick="doSort(1)">Visit <i class="ti ti-arrows-sort sort-icon"></i></th>
+              <th onclick="doSort(2)">Form <i class="ti ti-arrows-sort sort-icon"></i></th>
+              <th onclick="doSort(3)">Site <i class="ti ti-arrows-sort sort-icon"></i></th>
+              <th onclick="doSort(4)">SDV status <i class="ti ti-arrows-sort sort-icon"></i></th>
+              <th>Progress</th>
+              <th onclick="doSort(6)">Last updated <i class="ti ti-arrows-sort sort-icon"></i></th>
+              <th onclick="doSort(7)">Queries <i class="ti ti-arrows-sort sort-icon"></i></th>
+              <th></th>
+            </tr></thead>
+            <tbody id="sdv-tbody"></tbody>
+          </table>
+        </div>
+
+        <div class="summary-bar" id="summary-bar"></div>
+      </div>
+
+      <!-- ═══ FORM SDV VIEW ═══ -->
+      <div id="view-form" style="display:none;flex:1;flex-direction:column;overflow:hidden">
+
+        <div class="form-sdv-header">
+          <button class="back-btn" onclick="showWorklist()">
+            <i class="ti ti-arrow-left"></i> Back to SDV worklist
+          </button>
+          <div class="form-sdv-meta">
+            <div class="form-sdv-title">
+              <div>
+                <div class="form-sdv-name" id="fsdv-name"></div>
+                <div style="display:flex;align-items:center;gap:var(--space-3);margin-top:3px">
+                  <span class="form-sdv-subject" id="fsdv-subject"></span>
+                  <span class="form-sdv-subject" id="fsdv-visit"></span>
+                  <span class="form-sdv-subject" id="fsdv-site"></span>
+                </div>
+              </div>
+            </div>
+            <div class="form-sdv-actions">
+              <button class="btn-secondary" onclick="verifyAll()"><i class="ti ti-checks"></i> Verify all</button>
+              <button class="btn-primary" onclick="completeSDV()"><i class="ti ti-circle-check"></i> Mark SDV complete</button>
+            </div>
+          </div>
+        </div>
+
+        <div class="sdv-progress-wrap">
+          <span class="sdv-progress-label">SDV progress</span>
+          <div class="sdv-progress-bar"><div class="sdv-progress-fill" id="sdv-prog-fill" style="width:0%"></div></div>
+          <span class="sdv-progress-count" id="sdv-prog-count"></span>
+          <div class="sdv-legend">
+            <div class="sdv-legend-item"><div class="sdv-legend-dot" style="background:var(--green-600)"></div> Verified</div>
+            <div class="sdv-legend-item"><div class="sdv-legend-dot" style="background:var(--red-600)"></div> Queried</div>
+            <div class="sdv-legend-item"><div class="sdv-legend-dot" style="background:var(--slate-200)"></div> Unverified</div>
+            <div class="sdv-legend-item"><div class="sdv-legend-dot" style="background:var(--color-border)"></div> Not required</div>
+          </div>
+        </div>
+
+        <div class="field-list" id="field-list"></div>
+      </div>
+
+    </div>
+  </div>
+</div>
+
+<script>
+// ── Data ──────────────────────────────────────────────────────────────────
+const FORMS = [
+  { id:'F001', subject:'AUSB1P1-01', visit:'Visit 1 — PE', form:'Physical exam',    site:'Austin', updated:'2026-05-05', queries:1,
+    fields:[
+      { name:'Rectal temperature', code:'RECTAL_TEMP_V1',   value:'28.5 °C',  section:'Vital signs',      sdv:'queried',    updatedBy:'E. Tron', flag:true },
+      { name:'Heart rate',         code:'HEART_RATE_V1',    value:'72 bpm',   section:'Vital signs',      sdv:'verified',   updatedBy:'E. Tron' },
+      { name:'Respiratory rate',   code:'RESP_RATE_V1',     value:'24 bpm',   section:'Vital signs',      sdv:'verified',   updatedBy:'E. Tron' },
+      { name:'Body weight',        code:'BODY_WEIGHT_V1',   value:'400 kg',   section:'Vital signs',      sdv:'verified',   updatedBy:'E. Tron' },
+      { name:'BCS score',          code:'BCS_V1',           value:'3/5',      section:'Clinical exam',    sdv:'unverified', updatedBy:'E. Tron' },
+      { name:'Nasal discharge',    code:'NASAL_DISC_V1',    value:'Grade 2',  section:'Clinical exam',    sdv:'unverified', updatedBy:'E. Tron' },
+      { name:'Ocular discharge',   code:'OCULAR_DISC_V1',   value:'Grade 1',  section:'Clinical exam',    sdv:'unverified', updatedBy:'E. Tron' },
+      { name:'Lung sounds',        code:'LUNG_SOUNDS_V1',   value:'Abnormal', section:'Clinical exam',    sdv:'unverified', updatedBy:'E. Tron' },
+      { name:'Visit date',         code:'VISIT_DATE_V1',    value:'2026-05-05',section:'Admin',           sdv:'verified',   updatedBy:'E. Tron' },
+      { name:'Examiner initials',  code:'EXAMINER_V1',      value:'ET',       section:'Admin',            sdv:'not-req',    updatedBy:'E. Tron' },
+    ]
+  },
+  { id:'F002', subject:'AUSB1P1-01', visit:'Visit 2 — Day 7', form:'Physical exam', site:'Austin', updated:'2026-05-12', queries:0,
+    fields:[
+      { name:'Rectal temperature', code:'RECTAL_TEMP_V2',   value:'38.7 °C',  section:'Vital signs',      sdv:'unverified', updatedBy:'E. Tron' },
+      { name:'Heart rate',         code:'HEART_RATE_V2',    value:'68 bpm',   section:'Vital signs',      sdv:'unverified', updatedBy:'E. Tron' },
+      { name:'Respiratory rate',   code:'RESP_RATE_V2',     value:'20 bpm',   section:'Vital signs',      sdv:'unverified', updatedBy:'E. Tron' },
+      { name:'Body weight',        code:'BODY_WEIGHT_V2',   value:'408 kg',   section:'Vital signs',      sdv:'unverified', updatedBy:'E. Tron' },
+      { name:'BCS score',          code:'BCS_V2',           value:'3/5',      section:'Clinical exam',    sdv:'unverified', updatedBy:'E. Tron' },
+      { name:'Treatment success',  code:'TX_SUCCESS_V2',    value:'Yes',      section:'Endpoints',        sdv:'unverified', updatedBy:'E. Tron' },
+      { name:'BRD clinical score', code:'BRD_SCORE_V2',     value:'4',        section:'Endpoints',        sdv:'unverified', updatedBy:'E. Tron' },
+      { name:'Visit date',         code:'VISIT_DATE_V2',    value:'2026-05-12',section:'Admin',           sdv:'unverified', updatedBy:'E. Tron' },
+    ]
+  },
+  { id:'F003', subject:'AUSB1P1-02', visit:'Visit 1 — PE', form:'Physical exam',   site:'Austin', updated:'2026-05-05', queries:0,
+    fields:[
+      { name:'Rectal temperature', code:'RECTAL_TEMP_V1',   value:'38.4 °C',  section:'Vital signs',      sdv:'verified',   updatedBy:'E. Tron' },
+      { name:'Heart rate',         code:'HEART_RATE_V1',    value:'74 bpm',   section:'Vital signs',      sdv:'verified',   updatedBy:'E. Tron' },
+      { name:'Respiratory rate',   code:'RESP_RATE_V1',     value:'22 bpm',   section:'Vital signs',      sdv:'verified',   updatedBy:'E. Tron' },
+      { name:'Body weight',        code:'BODY_WEIGHT_V1',   value:'380 kg',   section:'Vital signs',      sdv:'verified',   updatedBy:'E. Tron' },
+      { name:'BCS score',          code:'BCS_V1',           value:'4/5',      section:'Clinical exam',    sdv:'verified',   updatedBy:'E. Tron' },
+      { name:'Nasal discharge',    code:'NASAL_DISC_V1',    value:'Grade 0',  section:'Clinical exam',    sdv:'verified',   updatedBy:'E. Tron' },
+      { name:'Visit date',         code:'VISIT_DATE_V1',    value:'2026-05-05',section:'Admin',           sdv:'verified',   updatedBy:'E. Tron' },
+      { name:'Examiner initials',  code:'EXAMINER_V1',      value:'ET',       section:'Admin',            sdv:'not-req',    updatedBy:'E. Tron' },
+    ]
+  },
+  { id:'F004', subject:'AUSB1P2-03', visit:'Visit 1 — PE', form:'Physical exam',   site:'Austin', updated:'2026-05-06', queries:2,
+    fields:[
+      { name:'Rectal temperature', code:'RECTAL_TEMP_V1',   value:'40.2 °C',  section:'Vital signs',      sdv:'queried',    updatedBy:'E. Tron', flag:true },
+      { name:'Heart rate',         code:'HEART_RATE_V1',    value:'12 bpm',   section:'Vital signs',      sdv:'queried',    updatedBy:'E. Tron', flag:true },
+      { name:'Respiratory rate',   code:'RESP_RATE_V1',     value:'18 bpm',   section:'Vital signs',      sdv:'unverified', updatedBy:'E. Tron' },
+      { name:'BCS score',          code:'BCS_V1',           value:'8',        section:'Clinical exam',    sdv:'unverified', updatedBy:'E. Tron' },
+      { name:'Visit date',         code:'VISIT_DATE_V1',    value:'2026-05-06',section:'Admin',           sdv:'unverified', updatedBy:'E. Tron' },
+    ]
+  },
+  { id:'F005', subject:'DALB1P1-01', visit:'Visit 1 — PE', form:'Physical exam',   site:'Dallas', updated:'2026-05-07', queries:0,
+    fields:[
+      { name:'Rectal temperature', code:'RECTAL_TEMP_V1',   value:'38.9 °C',  section:'Vital signs',      sdv:'unverified', updatedBy:'M. Lopez' },
+      { name:'Heart rate',         code:'HEART_RATE_V1',    value:'70 bpm',   section:'Vital signs',      sdv:'unverified', updatedBy:'M. Lopez' },
+      { name:'Body weight',        code:'BODY_WEIGHT_V1',   value:'390 kg',   section:'Vital signs',      sdv:'unverified', updatedBy:'M. Lopez' },
+      { name:'Visit date',         code:'VISIT_DATE_V1',    value:'2026-05-07',section:'Admin',           sdv:'unverified', updatedBy:'M. Lopez' },
+    ]
+  },
+  { id:'F006', subject:'HOUB1P1-01', visit:'Visit 1 — PE', form:'Physical exam',   site:'Houston', updated:'2026-05-08', queries:0,
+    fields:[
+      { name:'Rectal temperature', code:'RECTAL_TEMP_V1',   value:'38.6 °C',  section:'Vital signs',      sdv:'unverified', updatedBy:'E. Tron' },
+      { name:'Heart rate',         code:'HEART_RATE_V1',    value:'66 bpm',   section:'Vital signs',      sdv:'unverified', updatedBy:'E. Tron' },
+      { name:'Body weight',        code:'BODY_WEIGHT_V1',   value:'410 kg',   section:'Vital signs',      sdv:'unverified', updatedBy:'E. Tron' },
+      { name:'BCS score',          code:'BCS_V1',           value:'3/5',      section:'Clinical exam',    sdv:'unverified', updatedBy:'E. Tron' },
+      { name:'Visit date',         code:'VISIT_DATE_V1',    value:'2026-05-08',section:'Admin',           sdv:'unverified', updatedBy:'E. Tron' },
+    ]
+  },
+];
+
+// Compute status from fields
+function getFormStatus(form) {
+  const required = form.fields.filter(f => f.sdv !== 'not-req');
+  if (required.every(f => f.sdv === 'verified')) return 'complete';
+  if (required.some(f => f.sdv === 'verified' || f.sdv === 'queried')) return 'partial';
+  return 'pending';
+}
+
+function getFormProgress(form) {
+  const required = form.fields.filter(f => f.sdv !== 'not-req');
+  const done = required.filter(f => f.sdv === 'verified').length;
+  return { done, total:required.length };
+}
+
+// ── State ─────────────────────────────────────────────────────────────────
+let tab = 'all', search = '', activeFormId = null;
+const sortSt = {};
+
+// ── Worklist ──────────────────────────────────────────────────────────────
+function filtered() {
+  return FORMS.filter(f => {
+    const status = getFormStatus(f);
+    const tabOk = tab === 'all' || status === tab;
+    const srchOk = !search || [f.subject, f.visit, f.form, f.site].join(' ').toLowerCase().includes(search.toLowerCase());
+    return tabOk && srchOk;
+  });
+}
+
+function renderWorklist() {
+  const rows = filtered();
+  const tbody = document.getElementById('sdv-tbody');
+  const statusMap = { pending:'badge-pending', partial:'badge-partial', complete:'badge-complete', queried:'badge-queried' };
+  const statusLabel = { pending:'Pending', partial:'In progress', complete:'Complete' };
+
+  tbody.innerHTML = rows.map(f => {
+    const status = getFormStatus(f);
+    const { done, total } = getFormProgress(f);
+    const pct = total > 0 ? Math.round(done/total*100) : 0;
+    const qBadge = f.queries > 0
+      ? `<span style="display:inline-flex;align-items:center;gap:3px;color:var(--red-600);font-size:var(--text-xs);font-weight:500"><i class="ti ti-flag-filled" style="font-size:10px"></i>${f.queries}</span>`
+      : `<span style="color:var(--color-text-placeholder);font-size:var(--text-xs)">—</span>`;
+    return `<tr class="${activeFormId===f.id?'active-row':''}" onclick="openForm('${f.id}')">
+      <td><span class="cell-id">${f.subject}</span></td>
+      <td class="cell-muted">${f.visit}</td>
+      <td style="font-size:var(--text-sm);color:var(--color-text-primary)">${f.form}</td>
+      <td class="cell-muted">${f.site}</td>
+      <td><span class="badge ${statusMap[status]}">${statusLabel[status]}</span></td>
+      <td>
+        <div class="progress-cell">
+          <div class="progress-track"><div class="progress-fill${status==='complete'?' done':''}" style="width:${pct}%"></div></div>
+          <span class="progress-label">${done}/${total}</span>
+        </div>
+      </td>
+      <td><span class="cell-mono">${f.updated}</span></td>
+      <td>${qBadge}</td>
+      <td style="text-align:right">
+        <button class="btn-icon" title="Open form SDV" onclick="event.stopPropagation();openForm('${f.id}')"><i class="ti ti-arrow-right"></i></button>
+      </td>
+    </tr>`;
+  }).join('');
+
+  // Tab counts
+  const counts = { all:FORMS.length, pending:0, partial:0, complete:0 };
+  FORMS.forEach(f => { const s = getFormStatus(f); if(counts[s]!==undefined) counts[s]++; });
+  document.getElementById('cnt-all').textContent = counts.all;
+  document.getElementById('cnt-pending').textContent = counts.pending;
+  document.getElementById('cnt-partial').textContent = counts.partial;
+  document.getElementById('cnt-complete').textContent = counts.complete;
+  document.getElementById('row-count').textContent = rows.length + ' form' + (rows.length===1?'':'s');
+
+  // Summary bar
+  const totalFields = FORMS.flatMap(f=>f.fields).filter(f=>f.sdv!=='not-req').length;
+  const verifiedFields = FORMS.flatMap(f=>f.fields).filter(f=>f.sdv==='verified').length;
+  const queriedFields = FORMS.flatMap(f=>f.fields).filter(f=>f.sdv==='queried').length;
+  document.getElementById('summary-bar').innerHTML = `
+    <div style="display:flex;align-items:center;gap:var(--space-1)"><span>Forms:</span><span class="sv">${FORMS.length}</span></div>
+    <div style="display:flex;align-items:center;gap:var(--space-1)"><span>Complete:</span><span class="sv ok">${counts.complete}</span></div>
+    <div style="display:flex;align-items:center;gap:var(--space-1)"><span>In progress:</span><span class="sv warn">${counts.partial}</span></div>
+    <div style="display:flex;align-items:center;gap:var(--space-1)"><span>Pending:</span><span class="sv">${counts.pending}</span></div>
+    <div style="display:flex;align-items:center;gap:var(--space-1)"><span>Fields verified:</span><span class="sv ok">${verifiedFields}/${totalFields}</span></div>
+    <div style="display:flex;align-items:center;gap:var(--space-1)"><span>Open queries:</span><span class="sv crit">${queriedFields}</span></div>`;
+}
+
+// ── Form SDV view ─────────────────────────────────────────────────────────
+function openForm(id) {
+  activeFormId = id;
+  const form = FORMS.find(f => f.id === id);
+  document.getElementById('view-worklist').style.display = 'none';
+  document.getElementById('view-form').style.display = 'flex';
+  document.getElementById('fsdv-name').textContent = form.form;
+  document.getElementById('fsdv-subject').textContent = form.subject;
+  document.getElementById('fsdv-visit').textContent = '· ' + form.visit;
+  document.getElementById('fsdv-site').textContent = '· ' + form.site;
+  renderFormSDV(form);
+}
+
+function renderFormSDV(form) {
+  const required = form.fields.filter(f => f.sdv !== 'not-req');
+  const verified = required.filter(f => f.sdv === 'verified').length;
+  const pct = required.length > 0 ? Math.round(verified/required.length*100) : 0;
+  document.getElementById('sdv-prog-fill').style.width = pct + '%';
+  document.getElementById('sdv-prog-count').textContent = `${verified}/${required.length} fields verified`;
+
+  // Group by section
+  const sections = {};
+  form.fields.forEach(f => {
+    if (!sections[f.section]) sections[f.section] = [];
+    sections[f.section].push(f);
+  });
+
+  const sdvStatusLabel = { verified:'Verified', unverified:'Unverified', queried:'Queried', 'not-req':'Not required' };
+  const sdvStatusCls   = { verified:'verified',  unverified:'unverified', queried:'queried', 'not-req':'not-req' };
+
+  let html = '';
+  Object.entries(sections).forEach(([section, fields]) => {
+    html += `<div class="field-section"><div class="field-section-title">${section}</div>`;
+    fields.forEach((field, fi) => {
+      const rowCls = field.sdv === 'verified' ? 'verified' : field.sdv === 'queried' ? 'queried' : field.sdv === 'not-req' ? 'not-req' : '';
+      const valueFlag = field.flag ? `<i class="ti ti-flag-filled" style="font-size:11px;color:var(--amber-700)"></i>` : '';
+      let actions = '';
+      if (field.sdv === 'unverified') {
+        actions = `
+          <button class="btn-verify" onclick="verifyField('${form.id}','${field.code}')"><i class="ti ti-check"></i> Verify</button>
+          <button class="btn-query-field" onclick="alert('Opening query form for: ${field.name}')"><i class="ti ti-flag"></i> Query</button>`;
+      } else if (field.sdv === 'verified') {
+        actions = `<button class="btn-unverify" onclick="unverifyField('${form.id}','${field.code}')"><i class="ti ti-check"></i> Verified</button>`;
+      } else if (field.sdv === 'queried') {
+        actions = `<button class="btn-query-field" style="border-color:var(--red-200);background:var(--red-50);color:var(--red-600)" onclick="alert('Opening query thread for: ${field.name}')"><i class="ti ti-flag-filled"></i> Queried — view thread</button>`;
+      } else {
+        actions = `<span style="font-size:var(--text-xs);color:var(--color-text-placeholder)">Not required</span>`;
+      }
+
+      html += `<div class="sdv-field ${rowCls}">
+        <div class="field-content">
+          <div class="field-label-row">
+            <span class="field-name">${field.name}</span>
+            <span class="field-code">${field.code}</span>
+          </div>
+          <div style="display:flex;align-items:center;gap:var(--space-2)">
+            <span class="field-value${field.flag?' flagged':''}">${field.flag?'<i class="ti ti-flag-filled" style="font-size:11px;margin-right:3px"></i>':''}${field.value}</span>
+          </div>
+          <div class="field-updated">Entered by ${field.updatedBy}</div>
+        </div>
+        <span class="sdv-badge ${sdvStatusCls[field.sdv]}">${
+          field.sdv==='verified' ? '<i class="ti ti-circle-check" style="font-size:11px"></i>' :
+          field.sdv==='queried'  ? '<i class="ti ti-flag-filled" style="font-size:11px"></i>' :
+          field.sdv==='not-req'  ? '<i class="ti ti-minus" style="font-size:11px"></i>' :
+          '<i class="ti ti-clock" style="font-size:11px"></i>'
+        } ${sdvStatusLabel[field.sdv]}</span>
+        <div class="field-actions">${actions}</div>
+      </div>`;
+    });
+    html += '</div>';
+  });
+  document.getElementById('field-list').innerHTML = html;
+}
+
+function verifyField(formId, code) {
+  const form = FORMS.find(f => f.id === formId);
+  const field = form.fields.find(f => f.code === code);
+  if (field) { field.sdv = 'verified'; renderFormSDV(form); renderWorklist(); }
+}
+
+function unverifyField(formId, code) {
+  const form = FORMS.find(f => f.id === formId);
+  const field = form.fields.find(f => f.code === code);
+  if (field) { field.sdv = 'unverified'; renderFormSDV(form); renderWorklist(); }
+}
+
+function verifyAll() {
+  const form = FORMS.find(f => f.id === activeFormId);
+  form.fields.forEach(f => { if (f.sdv === 'unverified') f.sdv = 'verified'; });
+  renderFormSDV(form); renderWorklist();
+}
+
+function completeSDV() {
+  verifyAll();
+  alert('SDV marked complete for ' + FORMS.find(f=>f.id===activeFormId)?.form + '. Audit trail entry created.');
+}
+
+function showWorklist() {
+  document.getElementById('view-form').style.display = 'none';
+  document.getElementById('view-worklist').style.display = 'flex';
+  renderWorklist();
+}
+
+function filterTab(btn, t) {
+  document.querySelectorAll('.status-tab').forEach(b => b.classList.remove('active'));
+  btn.classList.add('active');
+  tab = t; renderWorklist();
+}
+
+function doSearch(v) { search = v; renderWorklist(); }
+
+function doSort(ci) {
+  const tbl = document.getElementById('sdv-table');
+  const ths  = tbl.querySelectorAll('thead th');
+  const tbody = tbl.querySelector('tbody');
+  const rows  = Array.from(tbody.querySelectorAll('tr'));
+  const key   = 's' + ci;
+  const prev  = sortSt[key] || 'none';
+  const next  = prev==='none'?'desc':prev==='desc'?'asc':'none';
+  sortSt[key] = next;
+  ths.forEach(h => { h.classList.remove('sort-asc','sort-desc'); const ic=h.querySelector('.sort-icon'); if(ic) ic.className='ti ti-arrows-sort sort-icon'; });
+  if (next !== 'none') {
+    ths[ci].classList.add(next==='asc'?'sort-asc':'sort-desc');
+    const ic = ths[ci].querySelector('.sort-icon');
+    if (ic) ic.className = (next==='asc'?'ti ti-arrow-up':'ti ti-arrow-down') + ' sort-icon';
+    rows.sort((a,b) => {
+      const av = a.cells[ci]?.textContent.trim()||'';
+      const bv = b.cells[ci]?.textContent.trim()||'';
+      return next==='asc' ? av.localeCompare(bv,undefined,{numeric:true}) : bv.localeCompare(av,undefined,{numeric:true});
+    });
+    rows.forEach(r => tbody.appendChild(r));
+  }
+}
+
+renderWorklist();
+</script>
+</body>
+</html>

@@ -54,7 +54,7 @@ body{font-family:var(--font-sans);font-size:var(--text-base);line-height:var(--l
 .section-title {
   font-size: var(--text-lg);
   font-weight: var(--weight-medium);
-  font-variant: small-caps;
+  text-transform: uppercase;
   letter-spacing: var(--tracking-caps);
   color: var(--color-text-secondary);
   margin-bottom: var(--space-6);
@@ -132,6 +132,7 @@ body{font-family:var(--font-sans);font-size:var(--text-base);line-height:var(--l
 .field-state svg { flex-shrink: 0; margin-top: 2px; }
 .state-default  { color: var(--color-text-tertiary); }
 .state-query    { color: var(--amber-700); }
+.field-state span{text-decoration:underline;text-underline-offset:2px;cursor:pointer}
 .state-disc     { color: var(--orange-700); }
 .state-critical { color: var(--red-600); }
 .state-clean    { color: var(--green-600); }
@@ -334,7 +335,7 @@ body{font-family:var(--font-sans);font-size:var(--text-base);line-height:var(--l
 .form-section-title {
   font-size: var(--text-lg);
   font-weight: var(--weight-medium);
-  font-variant: small-caps;
+  text-transform: uppercase;
   letter-spacing: var(--tracking-caps);
   color: var(--color-text-primary);
   margin-bottom: var(--space-5);
@@ -363,8 +364,8 @@ body{font-family:var(--font-sans);font-size:var(--text-base);line-height:var(--l
         <label class="field-label">Body weight <span class="field-required">*</span></label>
         <input class="field-input" type="text" placeholder="0.0" value="">
         <span class="field-state state-default">
-          <svg width="12" height="12" viewBox="0 0 16 16" fill="none"><circle cx="8" cy="8" r="6" stroke="currentColor" stroke-width="1.5"/></svg>
-          Empty — awaiting entry
+          <i class="ti ti-circle" style="font-size:12px;flex-shrink:0"></i>
+          <span>Empty — awaiting entry</span>
         </span>
       </div>
 
@@ -382,8 +383,8 @@ body{font-family:var(--font-sans);font-size:var(--text-base);line-height:var(--l
         <label class="field-label">Body weight <span class="field-required">*</span></label>
         <input class="field-input query" type="text" value="24.6">
         <span class="field-state state-query">
-          <svg width="12" height="12" viewBox="0 0 16 16" fill="none"><circle cx="8" cy="8" r="6" stroke="currentColor" stroke-width="1.5"/><line x1="8" y1="5" x2="8" y2="8.5" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/><circle cx="8" cy="11" r="0.75" fill="currentColor"/></svg>
-          Value queried by CRA — response required
+          <i class="ti ti-info-circle" style="font-size:12px;flex-shrink:0"></i>
+          <span>Value queried by CRA — response required</span>
         </span>
       </div>
 
@@ -393,8 +394,8 @@ body{font-family:var(--font-sans);font-size:var(--text-base);line-height:var(--l
         <label class="field-label">Body weight <span class="field-required">*</span></label>
         <input class="field-disc field-input disc" type="text" value="124.6">
         <span class="field-state state-disc">
-          <svg width="12" height="12" viewBox="0 0 16 16" fill="none"><path d="M8 2L14 13H2L8 2Z" stroke="currentColor" stroke-width="1.5" stroke-linejoin="round"/><line x1="8" y1="7" x2="8" y2="9.5" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/><circle cx="8" cy="11.5" r="0.75" fill="currentColor"/></svg>
-          Edit check failed: exceeds plausible range (0–80 kg)
+          <i class="ti ti-alert-triangle" style="font-size:12px;flex-shrink:0"></i>
+          <span>Edit check failed: exceeds plausible range (0–80 kg)</span>
         </span>
       </div>
 
@@ -404,8 +405,8 @@ body{font-family:var(--font-sans);font-size:var(--text-base);line-height:var(--l
         <label class="field-label">Body weight <span class="field-required">*</span></label>
         <input class="field-input critical" type="text" value="8.1">
         <span class="field-state state-critical">
-          <svg width="12" height="12" viewBox="0 0 16 16" fill="none"><circle cx="8" cy="8" r="6" stroke="currentColor" stroke-width="1.5"/><line x1="8" y1="5" x2="8" y2="8.5" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/><circle cx="8" cy="11" r="0.75" fill="currentColor"/></svg>
-          Below humane endpoint threshold — SAE review required
+          <i class="ti ti-alert-triangle" style="font-size:12px;flex-shrink:0"></i>
+          <span>Below humane endpoint threshold — SAE review required</span>
         </span>
       </div>
 
@@ -413,10 +414,10 @@ body{font-family:var(--font-sans);font-size:var(--text-base);line-height:var(--l
       <div class="field-group">
         <span class="state-badge badge-clean">SDV complete</span>
         <label class="field-label">Body weight <span class="field-required">*</span></label>
-        <input class="field-input clean" type="text" value="24.6" readonly>
-        <span class="field-state state-clean">
-          <svg width="12" height="12" viewBox="0 0 16 16" fill="none"><circle cx="8" cy="8" r="6" stroke="currentColor" stroke-width="1.5"/><path d="M5.5 8L7.5 10L10.5 6.5" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>
-          Verified by CRA · 2026-05-24 · source doc confirmed
+        <input class="field-input" type="text" value="24.6" readonly>
+        <span class="field-state" style="color:var(--blue-600);display:flex;align-items:center;gap:4px;margin-top:2px;font-size:11px">
+          <i class="ti ti-circle-check-filled" style="font-size:12px;flex-shrink:0"></i>
+          <span>SDV complete · CRA verified 2026-05-24</span>
         </span>
       </div>
 
@@ -426,8 +427,8 @@ body{font-family:var(--font-sans);font-size:var(--text-base);line-height:var(--l
         <label class="field-label" style="color:var(--color-text-tertiary)">Body weight</label>
         <input class="field-input locked" type="text" value="24.6" readonly tabindex="-1">
         <span class="field-state state-locked">
-          <svg width="12" height="12" viewBox="0 0 16 16" fill="none"><rect x="3" y="7" width="10" height="7" rx="1.5" stroke="currentColor" stroke-width="1.5"/><path d="M5 7V5a3 3 0 016 0v2" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg>
-          Record locked · database freeze 2026-05-20
+          <i class="ti ti-lock" style="font-size:12px;flex-shrink:0"></i>
+          <span>Record locked · database freeze 2026-05-20</span>
         </span>
       </div>
 

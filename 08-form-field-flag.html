@@ -153,7 +153,7 @@ body { font-family: var(--font-sans); font-size: var(--text-base); color: var(--
 .field-row {
   display: flex;
   align-items: center;
-  gap: var(--space-1);
+  gap: var(--space-2);
 }
 
 /* ── Input ── */
@@ -232,9 +232,14 @@ body { font-family: var(--font-sans); font-size: var(--text-base); color: var(--
 .flag-btn.flagged:hover { color: var(--amber-800); background: var(--amber-50); }
 .flag-btn.sdv { color: var(--flag-sdv); }
 .flag-btn.sdv:hover { color: var(--blue-600); background: var(--blue-50); }
+/* Query resolved flag — green, distinct from SDV */
+.flag-btn.query-resolved { color: var(--green-600); }
+.flag-btn.query-resolved:hover { color: var(--green-600); background: var(--green-50); }
+.sdv-btn{display:flex;align-items:center;justify-content:center;width:28px;height:28px;border:none;background:none;cursor:pointer;flex-shrink:0;border-radius:2px;color:var(--color-text-placeholder);transition:color 120ms,background 120ms}
+.sdv-btn:hover{background:var(--blue-50);color:var(--blue-600)}
+.sdv-btn.verified{color:var(--blue-600)}
 
-/* SDV icon — inline SVG flag with checkmark (Tabler has no ti-flag-check) */
-/* SDV icon — flag + check badge overlay */
+/* SDV icon — flag + check badge overlay (blue, for SDV) */
 .flag-sdv-icon {
   position: relative;
   display: flex;
@@ -266,6 +271,12 @@ body { font-family: var(--font-sans); font-size: var(--text-base); color: var(--
   display: block;
 }
 
+/* Query-resolved flag icon — same structure as SDV but green, query-specific */
+.flag-query-resolved-icon{position:relative;display:flex;align-items:center;justify-content:center;width:16px;height:16px;flex-shrink:0}
+.flag-query-resolved-icon i{font-size:16px;line-height:1}
+.flag-query-resolved-badge{position:absolute;bottom:-3px;right:-2px;width:8px;height:8px;display:flex;align-items:center;justify-content:center}
+.flag-query-resolved-badge svg{width:8px;height:8px;stroke:currentColor;fill:none;stroke-width:1.8;stroke-linecap:round;stroke-linejoin:round;display:block}
+
 /* ── Field hint (normal range, helper text) ── */
 .field-hint {
   font-size: var(--text-xs);
@@ -285,6 +296,7 @@ body { font-family: var(--font-sans); font-size: var(--text-base); color: var(--
   line-height: 1.4;
 }
 .field-state i { font-size: 12px; flex-shrink: 0; margin-top: 1px; }
+.field-state span{text-decoration:underline;text-underline-offset:2px;cursor:pointer}
 .state-query    { color: var(--amber-700); }
 .state-disc     { color: var(--orange-700); }
 .state-critical { color: var(--red-600); }
@@ -370,92 +382,210 @@ code { font-family: var(--font-mono); font-size: var(--text-xs); background: var
         <p class="page-sub">Component 08 · EDC-specific · arken-edc/components/08-form-field-flag.html</p>
       </div>
 
-      <!-- ── FLAG STATES ───────────────────────────────────────────────────── -->
+      <!-- ══════════════════════════════════════════════════════
+           SECTION 1 — QUERY STATES
+           ══════════════════════════════════════════════════════ -->
       <div class="demo-card">
-        <div class="demo-label">Flag button states — all four</div>
+        <div class="demo-label">Section 1 — Query states</div>
         <div class="field-grid-4">
 
-          <!-- Default — flag idle -->
+          <!-- 1a. Default — no query -->
           <div class="field">
             <label class="field-label">Body weight <span class="field-required">*</span></label>
             <div class="field-row">
               <input class="field-input" type="text" value="24.6">
-              <button class="flag-btn" aria-label="Flag this field to raise a query" title="Raise query">
-                <i class="ti ti-flag"></i>
-              </button>
+              <button class="flag-btn" aria-label="Raise query" title="Raise query"><i class="ti ti-flag"></i></button>
             </div>
-            <span class="field-hint">Default — flag idle · hover to reveal</span>
+            <span class="field-hint">No query · flag idle</span>
           </div>
 
-          <!-- Flagged — query raised -->
+          <!-- 1b. Query raised -->
           <div class="field">
             <label class="field-label">Body weight <span class="field-required">*</span></label>
             <div class="field-row">
               <input class="field-input query" type="text" value="24.6">
-              <button class="flag-btn flagged" aria-label="Query raised on this field — click to view" title="Query open">
-                <i class="ti ti-flag-filled"></i>
-              </button>
+              <button class="flag-btn flagged" aria-label="Query open — click to view" title="Query open"><i class="ti ti-flag-filled"></i></button>
             </div>
             <div class="field-state state-query">
               <i class="ti ti-info-circle"></i>
-              Value queried by CRA — response required
+              <span>Q-001: Value queried by CRA — response required</span>
             </div>
           </div>
 
-          <!-- Discrepancy -->
+          <!-- 1c. Query responded -->
           <div class="field">
             <label class="field-label">Body weight <span class="field-required">*</span></label>
             <div class="field-row">
-              <input class="field-input disc" type="text" value="124.6">
-              <button class="flag-btn flagged" aria-label="Discrepancy on this field" title="Discrepancy">
-                <i class="ti ti-flag-filled"></i>
-              </button>
+              <input class="field-input" type="text" value="24.6">
+              <button class="flag-btn flagged" aria-label="Query open — click to view" title="Query open"><i class="ti ti-flag-filled"></i></button>
             </div>
-            <div class="field-state state-disc">
-              <i class="ti ti-alert-triangle"></i>
-              Edit check failed: exceeds plausible range (0–80 kg)
+            <div class="field-state state-query">
+              <i class="ti ti-info-circle"></i>
+              <span>Q-001 open — view thread</span>
             </div>
           </div>
 
-          <!-- SDV mode — CRA verifying -->
+          <!-- 1d. Query resolved -->
           <div class="field">
             <label class="field-label">Body weight <span class="field-required">*</span></label>
             <div class="field-row">
-              <input class="field-input clean" type="text" value="24.6" readonly>
-              <button class="flag-btn sdv" aria-label="Source data verified — click to un-verify" title="SDV complete">
-                <div class="flag-sdv-icon">
+              <input class="field-input" type="text" value="24.6" readonly>
+              <button class="flag-btn query-resolved" aria-label="Query resolved — click to view" title="Query resolved">
+                <div class="flag-query-resolved-icon">
                   <i class="ti ti-flag-filled"></i>
-                  <div class="flag-sdv-badge">
-                    <svg viewBox="0 0 6 6"><path d="M1 3l1.5 1.5L5 1.5"/></svg>
+                  <div class="flag-query-resolved-badge">
+                    <svg viewBox="0 0 6 6"><path d="M1 3l1.5 1.5L5 1.5"></path></svg>
                   </div>
                 </div>
               </button>
             </div>
             <div class="field-state state-clean">
               <i class="ti ti-circle-check"></i>
-              SDV complete · CRA verified 2026-05-24
+              <span>Q-001: Corrected — query resolved</span>
             </div>
           </div>
 
         </div>
       </div>
 
-      <!-- ── CRITICAL STATE ─────────────────────────────────────────────────── -->
+      <!-- ══════════════════════════════════════════════════════
+           SECTION 2 — EDIT CHECK STATES
+           ══════════════════════════════════════════════════════ -->
       <div class="demo-card">
-        <div class="demo-label">Critical / SAE state — flag always visible, cannot be dismissed</div>
+        <div class="demo-label">Section 2 — Edit check states</div>
+        <div class="field-grid-4">
+
+          <!-- 2a. No edit check -->
+          <div class="field">
+            <label class="field-label">Rectal temp <span class="field-required">*</span></label>
+            <div class="field-row">
+              <input class="field-input" type="text" value="38.5">
+              <button class="flag-btn" aria-label="Raise query" title="Raise query"><i class="ti ti-flag"></i></button>
+            </div>
+            <span class="field-hint">°C · No edit check triggered</span>
+          </div>
+
+          <!-- 2b. Edit check raised (orange) -->
+          <div class="field">
+            <label class="field-label">Rectal temp <span class="field-required">*</span></label>
+            <div class="field-row">
+              <input class="field-input disc" type="text" value="124.6">
+              <button class="flag-btn flagged" style="color:var(--orange-600)" aria-label="Edit check failed" title="Edit check failed"><i class="ti ti-flag-filled"></i></button>
+            </div>
+            <div class="field-state state-disc">
+              <i class="ti ti-alert-triangle"></i>
+              <span>Edit check failed: exceeds plausible range (0–80 kg)</span>
+            </div>
+          </div>
+
+          <!-- 2c. Edit check responded -->
+          <div class="field">
+            <label class="field-label">Rectal temp <span class="field-required">*</span></label>
+            <div class="field-row">
+              <input class="field-input" type="text" value="124.6">
+              <button class="flag-btn flagged" style="color:var(--orange-600)" aria-label="Edit check open" title="Edit check open"><i class="ti ti-flag-filled"></i></button>
+            </div>
+            <div class="field-state state-disc">
+              <i class="ti ti-alert-triangle"></i>
+              <span>EC-001 open — view thread</span>
+            </div>
+          </div>
+
+          <!-- 2d. Edit check resolved -->
+          <div class="field">
+            <label class="field-label">Rectal temp <span class="field-required">*</span></label>
+            <div class="field-row">
+              <input class="field-input" type="text" value="38.5" readonly>
+              <button class="flag-btn query-resolved" aria-label="Edit check resolved" title="Edit check resolved">
+                <div class="flag-query-resolved-icon">
+                  <i class="ti ti-flag-filled"></i>
+                  <div class="flag-query-resolved-badge">
+                    <svg viewBox="0 0 6 6"><path d="M1 3l1.5 1.5L5 1.5"></path></svg>
+                  </div>
+                </div>
+              </button>
+            </div>
+            <div class="field-state state-clean">
+              <i class="ti ti-circle-check"></i>
+              <span>EC-001: Corrected — edit check resolved</span>
+            </div>
+          </div>
+
+        </div>
+      </div>
+
+      <!-- ══════════════════════════════════════════════════════
+           SECTION 3 — SDV STATES
+           ══════════════════════════════════════════════════════ -->
+      <div class="demo-card">
+        <div class="demo-label">Section 3 — SDV states</div>
+        <div class="field-grid-4">
+
+          <!-- 3a. SDV not required -->
+          <div class="field">
+            <label class="field-label">Visit notes</label>
+            <div class="field-row">
+              <input class="field-input" type="text" value="No abnormalities" readonly>
+            </div>
+            <span class="field-hint">SDV not required for this field</span>
+          </div>
+
+          <!-- 3b. SDV pending -->
+          <div class="field">
+            <label class="field-label">Heart rate <span class="field-required">*</span></label>
+            <div class="field-row">
+              <input class="field-input" type="text" value="72" readonly>
+              <button class="sdv-btn" title="SDV: click to verify"><i class="ti ti-circle-check" style="font-size:17px"></i></button>
+            </div>
+            <span class="field-hint">bpm · Awaiting source data verification</span>
+          </div>
+
+          <!-- 3c. SDV verified -->
+          <div class="field">
+            <label class="field-label">Respiratory rate <span class="field-required">*</span></label>
+            <div class="field-row">
+              <input class="field-input" type="text" value="24" readonly>
+              <button class="sdv-btn verified" title="SDV verified — click to undo"><i class="ti ti-circle-check-filled" style="font-size:17px;color:var(--blue-600)"></i></button>
+            </div>
+            <div class="field-state" style="color:var(--blue-600)">
+              <i class="ti ti-circle-check-filled" style="font-size:12px"></i>
+              <span>SDV complete · CRA verified 2026-05-24</span>
+            </div>
+          </div>
+
+          <!-- 3d. SDV queried (CRA raised query during verification) -->
+          <div class="field">
+            <label class="field-label">Body weight <span class="field-required">*</span></label>
+            <div class="field-row">
+              <input class="field-input query" type="text" value="24.6" readonly>
+              <button class="sdv-btn" title="SDV pending — query open"><i class="ti ti-circle-check" style="font-size:17px"></i></button>
+              <button class="flag-btn flagged" title="Query open during SDV"><i class="ti ti-flag-filled"></i></button>
+            </div>
+            <div class="field-state state-query">
+              <i class="ti ti-info-circle"></i>
+              <span>Q-002: Source document mismatch — CRC response required</span>
+            </div>
+          </div>
+
+        </div>
+      </div>
+
+      <!-- ══════════════════════════════════════════════════════
+           SECTION 4 — CRITICAL / SAE STATE
+           ══════════════════════════════════════════════════════ -->
+      <div class="demo-card">
+        <div class="demo-label">Section 4 — Critical / SAE state — flag always visible, cannot be dismissed</div>
         <div class="field-grid-2">
 
           <div class="field">
             <label class="field-label">Body weight <span class="field-required">*</span></label>
             <div class="field-row">
               <input class="field-input critical" type="text" value="8.1">
-              <button class="flag-btn flagged" aria-label="Critical finding — SAE review required" title="Critical">
-                <i class="ti ti-flag-filled"></i>
-              </button>
+              <button class="flag-btn flagged" aria-label="Critical finding — SAE review required" title="Critical"><i class="ti ti-flag-filled"></i></button>
             </div>
             <div class="field-state state-critical">
               <i class="ti ti-alert-triangle"></i>
-              Below humane endpoint threshold — SAE review required
+              <span>Below humane endpoint threshold — SAE review required</span>
             </div>
           </div>
 
@@ -468,34 +598,30 @@ code { font-family: var(--font-mono); font-size: var(--text-xs); background: var
                 <option>1 — Mild</option>
                 <option>2 — Moderate</option>
               </select>
-              <button class="flag-btn flagged" aria-label="Critical BRD score — escalation required">
-                <i class="ti ti-flag-filled"></i>
-              </button>
+              <button class="flag-btn flagged" aria-label="Critical BRD score — escalation required"><i class="ti ti-flag-filled"></i></button>
             </div>
             <div class="field-state state-critical">
               <i class="ti ti-alert-triangle"></i>
-              Score ≥3 triggers humane endpoint protocol
+              <span>Score ≥3 triggers humane endpoint protocol</span>
             </div>
           </div>
 
         </div>
       </div>
 
-      <!-- ── LOCKED STATE ───────────────────────────────────────────────────── -->
+      <!-- ══════════════════════════════════════════════════════
+           SECTION 5 — LOCKED FIELDS
+           ══════════════════════════════════════════════════════ -->
       <div class="demo-card">
-        <div class="demo-label">Locked — no flag (record locked, no actions possible)</div>
+        <div class="demo-label">Section 5 — Locked — no flag (record locked, no actions possible)</div>
         <div class="field-grid-4">
 
           <div class="field">
             <label class="field-label" style="color:var(--color-text-tertiary)">Body weight</label>
             <div class="field-row">
               <input class="field-input locked" type="text" value="24.6" readonly tabindex="-1">
-              <!-- No flag button on locked fields -->
             </div>
-            <div class="field-state state-locked">
-              <i class="ti ti-lock"></i>
-              Record locked
-            </div>
+            <div class="field-state state-locked"><i class="ti ti-lock"></i><span>Record locked</span></div>
           </div>
 
           <div class="field">
@@ -503,181 +629,27 @@ code { font-family: var(--font-mono); font-size: var(--text-xs); background: var
             <div class="field-row">
               <input class="field-input locked" type="text" value="38.4" readonly tabindex="-1">
             </div>
-            <div class="field-state state-locked">
-              <i class="ti ti-lock"></i>
-              Record locked
-            </div>
+            <div class="field-state state-locked"><i class="ti ti-lock"></i><span>Record locked</span></div>
           </div>
 
           <div class="field">
             <label class="field-label" style="color:var(--color-text-tertiary)">Heart rate</label>
             <div class="field-row">
-              <input class="field-input locked" type="text" value="64" readonly tabindex="-1">
+              <input class="field-input locked" type="text" value="68" readonly tabindex="-1">
             </div>
-            <span class="field-hint">bpm</span>
+            <div class="field-state state-locked"><i class="ti ti-lock"></i><span>Signed · locked by PI</span></div>
           </div>
 
           <div class="field">
-            <label class="field-label" style="color:var(--color-text-tertiary)">Visit date</label>
+            <label class="field-label" style="color:var(--color-text-tertiary)">BCS score</label>
             <div class="field-row">
-              <input class="field-input locked" type="text" value="2026-05-05" readonly tabindex="-1">
+              <input class="field-input locked" type="text" value="3/5" readonly tabindex="-1">
             </div>
+            <div class="field-state state-locked"><i class="ti ti-lock"></i><span>Signed · locked by PI</span></div>
           </div>
 
         </div>
       </div>
-
-      <!-- ── IN CONTEXT — real visit form section ──────────────────────────── -->
-      <div class="demo-card">
-        <div class="demo-label">In context — Visit 1 · Vital signs (mixed states)</div>
-        <div class="section-gap">
-
-          <div class="form-section">
-            <div class="section-title">Vital signs</div>
-            <div class="field-grid-4">
-
-              <div class="field">
-                <label class="field-label">Rectal temperature <span class="field-required">*</span></label>
-                <div class="field-row">
-                  <input class="field-input query" type="text" value="28.5">
-                  <button class="flag-btn flagged" aria-label="Query on rectal temperature">
-                    <i class="ti ti-flag-filled"></i>
-                  </button>
-                </div>
-                <div class="field-state state-query">
-                  <i class="ti ti-info-circle"></i>
-                  Query Q001: value too low (normal 38–39°C). Verify and correct.
-                </div>
-              </div>
-
-              <div class="field">
-                <label class="field-label">Heart rate <span class="field-required">*</span></label>
-                <div class="field-row">
-                  <input class="field-input" type="text" value="64">
-                  <button class="flag-btn" aria-label="Flag heart rate field">
-                    <i class="ti ti-flag"></i>
-                  </button>
-                </div>
-                <span class="field-hint">Normal: 50–80 bpm</span>
-              </div>
-
-              <div class="field">
-                <label class="field-label">Respiratory rate <span class="field-required">*</span></label>
-                <div class="field-row">
-                  <input class="field-input clean" type="text" value="24" readonly>
-                  <button class="flag-btn sdv" aria-label="SDV complete on respiratory rate">
-                    <div class="flag-sdv-icon">
-                  <i class="ti ti-flag-filled"></i>
-                  <div class="flag-sdv-badge">
-                    <svg viewBox="0 0 6 6"><path d="M1 3l1.5 1.5L5 1.5"/></svg>
-                  </div>
-                </div>
-                  </button>
-                </div>
-                <div class="field-state state-clean">
-                  <i class="ti ti-circle-check"></i>
-                  SDV complete
-                </div>
-              </div>
-
-              <div class="field">
-                <label class="field-label">Rumen contractions</label>
-                <div class="field-row">
-                  <input class="field-input" type="text" placeholder="—">
-                  <button class="flag-btn" aria-label="Flag rumen contractions field">
-                    <i class="ti ti-flag"></i>
-                  </button>
-                </div>
-                <span class="field-hint">Normal: 2–3/min</span>
-              </div>
-
-            </div>
-          </div>
-
-          <div class="form-section">
-            <div class="section-title">Head &amp; sensory</div>
-            <div class="field-grid-4">
-
-              <div class="field">
-                <label class="field-label">Attitude / demeanor <span class="field-required">*</span></label>
-                <div class="field-row">
-                  <select class="field-select">
-                    <option>Alert</option>
-                    <option>Depressed</option>
-                    <option>Lethargic</option>
-                  </select>
-                  <button class="flag-btn" aria-label="Flag attitude field">
-                    <i class="ti ti-flag"></i>
-                  </button>
-                </div>
-              </div>
-
-              <div class="field">
-                <label class="field-label">Ears position</label>
-                <div class="field-row">
-                  <select class="field-select">
-                    <option>Forward / symmetrical</option>
-                    <option>Drooping</option>
-                    <option>Asymmetrical</option>
-                  </select>
-                  <button class="flag-btn" aria-label="Flag ears position field">
-                    <i class="ti ti-flag"></i>
-                  </button>
-                </div>
-              </div>
-
-              <div class="field">
-                <label class="field-label">Eyes</label>
-                <div class="field-row">
-                  <select class="field-select">
-                    <option>Clear</option>
-                    <option>Ocular discharge</option>
-                    <option>Sunken</option>
-                  </select>
-                  <button class="flag-btn" aria-label="Flag eyes field">
-                    <i class="ti ti-flag"></i>
-                  </button>
-                </div>
-              </div>
-
-              <div class="field">
-                <label class="field-label">Muzzle</label>
-                <div class="field-row">
-                  <select class="field-select">
-                    <option>Moist and cool</option>
-                    <option>Dry</option>
-                    <option>Nasal discharge</option>
-                  </select>
-                  <button class="flag-btn" aria-label="Flag muzzle field">
-                    <i class="ti ti-flag"></i>
-                  </button>
-                </div>
-              </div>
-
-            </div>
-          </div>
-
-        </div>
-      </div>
-
-      <!-- ── SPEC ───────────────────────────────────────────────────────────── -->
-      <div class="demo-card">
-        <div class="demo-label">Component spec</div>
-        <table class="spec-table">
-          <tr><td>Field height</td><td>32px — input and select</td></tr>
-          <tr><td>Flag button size</td><td>24×24px hit area · 16px icon · no border · transparent bg</td></tr>
-          <tr><td>Flag default colour</td><td><code>--flag-default</code> #C4C4C2 — nearly invisible, present but not distracting</td></tr>
-          <tr><td>Flag hover colour</td><td><code>--flag-hover</code> #6D7480 — becomes visible on hover, signals affordance</td></tr>
-          <tr><td>Flag active colour</td><td><code>--flag-active</code> #A33A08 (orange-700) — query raised on this field</td></tr>
-          <tr><td>Flag SDV colour</td><td><code>--flag-sdv</code> #1760A8 (blue-600) — CRA source data verification mode</td></tr>
-          <tr><td>Flag icon</td><td><code>ti-flag</code> when idle · <code>ti-flag-filled</code> when active or SDV</td></tr>
-          <tr><td>Locked fields</td><td>No flag button — locked records cannot be queried or verified</td></tr>
-          <tr><td>State message</td><td>12px / medium / severity colour · icon aligned to first line · appears below field row</td></tr>
-          <tr><td>Field state vs flag state</td><td>Field state (bg + border colour) = data quality status. Flag = action affordance. They're linked but separate — a field can have a query state without a visible flag (e.g. query raised by system edit check, not by manual flag).</td></tr>
-          <tr><td>aria-label</td><td>Changes per state: "Flag this field" / "Query raised — click to view" / "SDV complete — click to un-verify"</td></tr>
-        </table>
-      </div>
-
     </main>
   </div>
 </div>
