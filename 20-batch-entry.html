@@ -1,0 +1,773 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Arken EDC — Batch Entry</title>
+<link href="https://fonts.googleapis.com/css2?family=Roboto:wght@400;500;700&family=Roboto+Mono:wght@400;500&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@tabler/icons-webfont@latest/tabler-icons.min.css">
+<style>
+:root {
+  --color-nav-bg:#1A1F2E;--color-nav-hover:#2C3248;--color-nav-icon:#8aafc8;
+  --color-page-bg:#FBFBFB;--color-surface:#FFFFFF;
+  --color-border:#E8E8E6;--color-border-subtle:#F0F0EE;
+  --color-text-primary:#2C2D33;--color-text-secondary:#4F535B;
+  --color-text-tertiary:#6D7480;--color-text-placeholder:#C4C4C2;
+  --color-hover-bg:#F0F0EE;--color-cta-bg:#1A1F2E;--color-cta-hover:#2C3248;
+  --color-link:#3D4A5C;--color-focus-ring:#3D8FE0;
+  --amber-50:#FFF8E7;--amber-200:#F5B830;--amber-700:#8A5C00;
+  --red-50:#FFF0F0;--red-200:#EC8585;--red-600:#B52626;
+  --green-50:#EEFAF4;--green-200:#58BC88;--green-600:#1A6B47;
+  --blue-50:#E8F4FF;--blue-100:#D4ECFF;--blue-200:#7AB8EE;--blue-600:#1760A8;
+  --slate-50:#EEF1F6;--slate-200:#8AA0B8;--slate-600:#3D5A78;
+  --font-sans:'Roboto',system-ui,sans-serif;--font-mono:'Roboto Mono',monospace;
+  --text-xs:11px;--text-sm:12px;--text-base:14px;--text-lg:16px;--text-3xl:24px;
+  --weight-regular:400;--weight-medium:500;--weight-bold:700;
+  --radius-sm:2px;--radius-md:4px;--radius-lg:6px;--radius-full:9999px;
+  --space-1:4px;--space-2:8px;--space-3:12px;--space-4:16px;--space-5:20px;--space-6:24px;
+  --duration-fast:120ms;--ease-default:cubic-bezier(0.16,1,0.3,1);
+  --tracking-caps:0.07em;
+}
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+body{font-family:var(--font-sans);font-size:var(--text-base);color:var(--color-text-primary);background:var(--color-page-bg);-webkit-font-smoothing:antialiased}
+
+/* ─── Shell ── */
+.shell{display:flex;height:100vh;overflow:hidden}
+.sidenav{width:74px;background:var(--color-nav-bg);display:flex;flex-direction:column;align-items:center;padding:var(--space-3) 0;gap:2px;flex-shrink:0}
+.nav-logo{width:30px;height:30px;border-radius:var(--radius-md);background:var(--color-nav-hover);display:flex;align-items:center;justify-content:center;margin-bottom:var(--space-3)}
+.nav-logo span{font-size:var(--text-base);font-weight:700;color:#fff;letter-spacing:-0.02em}
+.nav-item{width:100%;min-height:50px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:3px;border:none;background:transparent;color:var(--color-nav-icon);cursor:pointer;transition:background var(--duration-fast);padding:4px 0}
+.nav-item:hover{background:var(--color-nav-hover);color:#fff}
+.nav-item.active{background:var(--color-nav-hover);color:#fff}
+.nav-item i{font-size:20px}.nav-label{font-size:11px;font-weight:500;color:inherit;text-align:center}
+.nav-spacer{flex:1}.nav-sep{width:100%;height:1px;background:rgba(255,255,255,0.08);margin:var(--space-2) 0}
+.main{flex:1;display:flex;flex-direction:column;min-width:0;overflow:hidden}
+.topbar{height:56px;background:var(--color-nav-bg);display:flex;align-items:center;padding:0 var(--space-5);gap:var(--space-3);flex-shrink:0;border-bottom:1px solid rgba(255,255,255,0.06)}
+.tb-study{background:var(--color-nav-hover);color:#fff;font-size:var(--text-base);font-weight:500;padding:7px var(--space-4);border-radius:var(--radius-md);border:1px solid #525D73;display:flex;align-items:center;gap:4px;cursor:pointer}
+.tb-right{margin-left:auto;display:flex;align-items:center;gap:var(--space-3)}
+.tb-icon{width:28px;height:28px;display:flex;align-items:center;justify-content:center;border-radius:var(--radius-md);border:none;background:transparent;color:#fff;cursor:pointer}
+.tb-icon i{font-size:20px}
+.tb-role{background:var(--color-nav-hover);color:#fff;font-size:var(--text-sm);font-weight:500;padding:3px var(--space-2);border-radius:var(--radius-md);border:1px solid #525D73;display:flex;align-items:center;gap:4px;cursor:pointer}
+.tb-avatar{width:30px;height:30px;border-radius:50%;background:#3D5A78;color:#EEF1F6;font-size:12px;font-weight:500;display:flex;align-items:center;justify-content:center}
+.page-wrap{flex:1;display:flex;flex-direction:column;overflow:hidden}
+
+/* ─── Buttons ── */
+.btn-primary{display:flex;align-items:center;gap:4px;height:32px;padding:0 var(--space-3);font-size:var(--text-sm);font-weight:500;font-family:var(--font-sans);border:none;border-radius:var(--radius-md);background:var(--color-cta-bg);color:#fff;cursor:pointer;white-space:nowrap;transition:background var(--duration-fast)}
+.btn-primary:hover{background:var(--color-cta-hover)}
+.btn-primary:disabled{opacity:0.4;cursor:not-allowed}
+.btn-primary i{font-size:14px}
+.btn-secondary{display:flex;align-items:center;gap:4px;height:32px;padding:0 var(--space-3);font-size:var(--text-sm);font-weight:500;font-family:var(--font-sans);border:1px solid var(--color-border);border-radius:var(--radius-md);background:var(--color-surface);color:var(--color-text-primary);cursor:pointer;white-space:nowrap;transition:background var(--duration-fast)}
+.btn-secondary:hover{background:var(--color-hover-bg)}
+.btn-secondary i{font-size:14px}
+
+/* ═══════════════════════════════════════════
+   VIEW 1 — FORM PICKER
+   ═══════════════════════════════════════════ */
+#view-pick{display:flex;flex-direction:column;flex:1;overflow-y:auto}
+.pick-header{padding:var(--space-5) var(--space-5) var(--space-4);border-bottom:1px solid var(--color-border);background:var(--color-surface)}
+.pick-title{font-size:var(--text-3xl);font-weight:500;margin-bottom:var(--space-1)}
+.pick-sub{font-size:var(--text-sm);color:var(--color-text-tertiary)}
+.pick-body{padding:var(--space-5);display:flex;flex-direction:column;gap:var(--space-4);max-width:640px}
+.pick-section-label{font-size:var(--text-xs);font-weight:500;text-transform:uppercase;letter-spacing:var(--tracking-caps);color:var(--color-text-tertiary);margin-bottom:var(--space-2)}
+.form-cards{display:flex;flex-direction:column;gap:var(--space-2)}
+.form-card{display:flex;align-items:center;gap:var(--space-3);padding:var(--space-3) var(--space-4);border:1px solid var(--color-border);border-radius:var(--radius-lg);background:var(--color-surface);cursor:pointer;transition:border-color var(--duration-fast),background var(--duration-fast)}
+.form-card:hover{border-color:var(--blue-200);background:var(--blue-50)}
+.form-card.selected{border-color:var(--blue-600);background:var(--blue-50)}
+.fc-icon{width:36px;height:36px;border-radius:var(--radius-md);background:var(--color-page-bg);border:1px solid var(--color-border);display:flex;align-items:center;justify-content:center;flex-shrink:0}
+.fc-icon i{font-size:18px;color:var(--color-text-tertiary)}
+.form-card.selected .fc-icon{background:var(--blue-50);border-color:var(--blue-200)}
+.form-card.selected .fc-icon i{color:var(--blue-600)}
+.fc-body{flex:1;min-width:0}
+.fc-name{font-size:var(--text-sm);font-weight:500;color:var(--color-text-primary)}
+.fc-meta{font-size:var(--text-xs);color:var(--color-text-tertiary);margin-top:2px}
+.fc-badge{font-size:var(--text-xs);font-weight:500;padding:2px var(--space-2);border-radius:var(--radius-full);border:1px solid;background:var(--blue-50);border-color:var(--blue-200);color:var(--blue-600)}
+.fc-radio{width:18px;height:18px;border-radius:50%;border:2px solid var(--color-border);flex-shrink:0;transition:all var(--duration-fast)}
+.form-card.selected .fc-radio{border-color:var(--blue-600);background:var(--blue-600);box-shadow:inset 0 0 0 3px #fff}
+.pick-proceed{padding-top:var(--space-2)}
+
+/* ═══════════════════════════════════════════
+   VIEW 2 — ENTRY GRID
+   ═══════════════════════════════════════════ */
+#view-grid{display:none;flex-direction:column;flex:1;overflow:hidden}
+
+/* Header */
+.grid-header{padding:var(--space-4) var(--space-5);border-bottom:1px solid var(--color-border);background:var(--color-surface);flex-shrink:0;display:flex;align-items:flex-start;justify-content:space-between;gap:var(--space-4)}
+.grid-header-left{gap:var(--space-1)}
+.bc-link{background:none;border:none;font-size:var(--text-sm);color:var(--color-link);cursor:pointer;padding:0;text-decoration:underline;text-underline-offset:2px}
+.bc-link:hover{color:var(--color-text-primary)}
+.grid-title{font-size:var(--text-3xl);font-weight:500;margin-top:2px}
+.grid-header-right{display:flex;align-items:center;gap:var(--space-2);flex-shrink:0;margin-top:var(--space-1)}
+
+/* Toolbar — filters + search */
+.grid-toolbar{padding:var(--space-3) var(--space-5);background:var(--color-surface);border-bottom:1px solid var(--color-border);display:flex;align-items:center;gap:var(--space-3);flex-shrink:0;flex-wrap:wrap}
+.search-box{display:flex;align-items:center;gap:var(--space-2);height:32px;padding:0 var(--space-3);border:1px solid var(--color-border);border-radius:var(--radius-md);min-width:200px}
+.search-box i{font-size:14px;color:var(--color-text-placeholder);flex-shrink:0}
+.search-box input{border:none;outline:none;font-size:var(--text-sm);font-family:var(--font-sans);color:var(--color-text-primary);background:transparent;flex:1}
+.search-box input::placeholder{color:var(--color-text-placeholder)}
+.filter-select{height:32px;padding:0 24px 0 var(--space-2);font-size:var(--text-sm);font-family:var(--font-sans);border:1px solid var(--color-border);border-radius:var(--radius-md);background:var(--color-surface);color:var(--color-text-primary);cursor:pointer;appearance:none;background-image:url("data:image/svg+xml,%3Csvg width='8' height='12' viewBox='0 0 8 12' fill='none' xmlns='http://www.w3.org/2000/svg'%3E%3Cpath d='M1 1L6 6L1 11' stroke='%236D7480' stroke-width='1.5' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E");background-repeat:no-repeat;background-position:right 8px center;outline:none}
+.tb-count{font-size:var(--text-xs);color:var(--color-text-tertiary);margin-left:auto}
+
+/* ─── TABLE ── */
+.grid-wrap{flex:1;overflow:auto}
+.batch-table{width:100%;border-collapse:collapse;font-size:var(--text-sm)}
+
+/* Sticky subject col */
+.batch-table th{position:sticky;top:0;z-index:10;background:var(--color-surface);border-bottom:2px solid var(--color-border);vertical-align:bottom;white-space:nowrap}
+.batch-table td{border-bottom:1px solid var(--color-border-subtle);vertical-align:top}
+.batch-table tr:hover td{background:rgba(0,0,0,0.01)}
+
+.th-subject,.td-subject{position:sticky;left:0;background:var(--color-surface);border-right:1px solid var(--color-border);min-width:170px;width:170px;z-index:11}
+.batch-table th.th-subject{z-index:20}
+.batch-table tr:hover .td-subject{background:var(--color-hover-bg)}
+
+.th-subject-inner{padding:var(--space-2) var(--space-3) var(--space-3) var(--space-5)}
+.td-subject-inner{padding:var(--space-2) var(--space-3) var(--space-2) var(--space-5)}
+.subj-id{font-family:var(--font-mono);font-weight:500;font-size:var(--text-sm)}
+.subj-meta{font-size:10px;color:var(--color-text-tertiary);margin-top:1px}
+
+.th-hdr-label{font-size:var(--text-xs);font-weight:500;text-transform:uppercase;letter-spacing:var(--tracking-caps);color:var(--color-text-tertiary)}
+
+/* ── Pen-level field section ── */
+.pen-section{background:var(--color-page-bg);border-bottom:2px solid var(--color-border)}
+.pen-section-label{padding:var(--space-2) var(--space-3) var(--space-1) var(--space-5);font-size:var(--text-xs);font-weight:500;text-transform:uppercase;letter-spacing:var(--tracking-caps);color:var(--color-text-tertiary);display:flex;align-items:center;gap:var(--space-2)}
+.pen-section-label i{font-size:12px;color:var(--purple-600)}
+.pen-fields-row{display:flex;align-items:flex-start;gap:var(--space-3);padding:var(--space-2) var(--space-3) var(--space-3) var(--space-5);flex-wrap:wrap}
+.pen-field-group{display:flex;flex-direction:column;gap:4px;min-width:160px}
+.pen-field-label{font-size:var(--text-xs);color:var(--color-text-tertiary)}
+.pen-input{height:32px;padding:0 var(--space-2);font-family:var(--font-mono);font-size:var(--text-sm);border:1px solid var(--color-border);border-radius:var(--radius-md);background:var(--color-surface);color:var(--color-text-primary);outline:none;min-width:150px;transition:border-color var(--duration-fast)}
+.pen-input:focus{border-color:var(--color-focus-ring);box-shadow:0 0 0 3px rgba(61,143,224,0.2)}
+.pen-input.filled{border-color:var(--purple-200);background:var(--purple-50)}
+.pen-applied-note{font-size:10px;color:var(--purple-600);display:flex;align-items:center;gap:3px;margin-top:2px}
+.pen-applied-note i{font-size:10px}
+
+/* Field column headers */
+.th-field{min-width:150px;width:150px}
+.field-col-header{padding:var(--space-2) var(--space-2) 0;text-align:center}
+.field-col-name{font-size:var(--text-xs);font-weight:var(--weight-medium);text-transform:uppercase;letter-spacing:var(--tracking-caps);color:var(--color-text-tertiary)}
+.field-col-unit{font-size:10px;color:var(--color-text-tertiary);font-family:var(--font-mono);margin-top:1px}
+/* Apply-to-all toggle */
+.apply-all-wrap{padding:var(--space-1) var(--space-2) var(--space-2);display:flex;align-items:center;justify-content:center;gap:var(--space-1)}
+.toggle-label{display:flex;align-items:center;gap:5px;cursor:pointer;user-select:none}
+.toggle-label input{display:none}
+.toggle-track{width:28px;height:16px;background:var(--color-text-placeholder);border-radius:var(--radius-full);transition:background var(--duration-fast);flex-shrink:0;position:relative}
+.toggle-track::after{content:'';position:absolute;left:2px;top:2px;width:12px;height:12px;background:#fff;border-radius:50%;transition:transform var(--duration-fast);box-shadow:0 1px 2px rgba(0,0,0,0.2)}
+.toggle-label input:checked+.toggle-track{background:var(--blue-600)}
+.toggle-label input:checked+.toggle-track::after{transform:translateX(12px)}
+.toggle-text{font-size:10px;color:var(--color-text-tertiary)}
+.toggle-label input:checked~.toggle-text{color:var(--blue-600);font-weight:500}
+
+/* th-status */
+.th-status{min-width:88px;width:88px;text-align:center}
+.td-status{text-align:center;padding:var(--space-2)}
+
+/* Cell */
+.batch-cell{padding:var(--space-1) var(--space-2) var(--space-1)}
+.batch-input{width:100%;height:32px;padding:0 var(--space-2);font-family:var(--font-mono);font-size:var(--text-sm);border:1px solid var(--color-border);border-radius:var(--radius-md);background:var(--color-surface);color:var(--color-text-primary);outline:none;transition:border-color var(--duration-fast),background var(--duration-fast)}
+.batch-input:focus{border-color:var(--color-focus-ring);box-shadow:0 0 0 3px rgba(61,143,224,0.2);position:relative;z-index:2}
+.batch-input.warn{border-color:var(--amber-200);background:var(--amber-50);color:var(--amber-700)}
+.batch-input.error{border-color:var(--red-200);background:var(--red-50);color:var(--red-600)}
+.batch-input.filled{border-color:var(--green-200);background:var(--green-50)}
+.batch-input.apply-filled{border-color:var(--blue-200);background:var(--blue-50);color:var(--blue-600)}
+.batch-input:disabled{background:var(--color-page-bg);color:var(--color-text-placeholder);border-color:var(--color-border-subtle);cursor:not-allowed}
+/* Validation hint — fixed height so row doesn't jump */
+.val-hint{height:16px;font-size:10px;padding:1px var(--space-2) 0;display:block;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;color:transparent}
+.val-hint.warn{color:var(--amber-700)}
+.val-hint.error{color:var(--red-600)}
+
+/* Row status badge */
+.row-badge{display:inline-flex;align-items:center;gap:3px;padding:2px var(--space-2);border-radius:var(--radius-full);font-size:10px;font-weight:500;border:1px solid;white-space:nowrap}
+
+/* ── Reason for change bar ── */
+.rfc-bar{padding:var(--space-3) var(--space-5);background:var(--amber-50);border-top:2px solid var(--amber-200);display:none;align-items:center;gap:var(--space-3);flex-shrink:0;flex-wrap:wrap}
+.rfc-bar.visible{display:flex}
+.rfc-bar-label{font-size:var(--text-xs);font-weight:var(--weight-medium);color:var(--amber-700);display:flex;align-items:center;gap:4px;white-space:nowrap;flex-shrink:0}
+.rfc-bar-label i{font-size:13px}
+.rfc-bar-select{height:30px;padding:0 24px 0 var(--space-2);font-size:var(--text-sm);font-family:var(--font-sans);border:1px solid var(--amber-200);border-radius:var(--radius-md);background:var(--color-surface);color:var(--color-text-primary);cursor:pointer;appearance:none;background-image:url("data:image/svg+xml,%3Csvg width='8' height='12' viewBox='0 0 8 12' fill='none' xmlns='http://www.w3.org/2000/svg'%3E%3Cpath d='M1 1L6 6L1 11' stroke='%236D7480' stroke-width='1.5' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E");background-repeat:no-repeat;background-position:right 8px center;outline:none;min-width:200px}
+.rfc-bar-text{height:30px;padding:0 var(--space-2);font-size:var(--text-sm);font-family:var(--font-sans);border:1px solid var(--amber-200);border-radius:var(--radius-md);background:var(--color-surface);color:var(--color-text-primary);outline:none;min-width:220px;display:none}
+.rfc-bar-text::placeholder{color:var(--color-text-placeholder)}
+.rfc-bar-note{font-size:var(--text-xs);color:var(--amber-700);flex:1;min-width:0}
+.rfc-bar-note span{text-decoration:underline;text-underline-offset:2px;cursor:pointer}
+
+.rb-empty  {background:var(--slate-50);border-color:var(--slate-200);color:var(--slate-600)}
+.rb-partial{background:var(--amber-50);border-color:var(--amber-200);color:var(--amber-700)}
+.rb-ready  {background:var(--green-50);border-color:var(--green-200);color:var(--green-600)}
+.rb-error  {background:var(--red-50);border-color:var(--red-200);color:var(--red-600)}
+
+/* Summary bar */
+.grid-summary{padding:var(--space-2) var(--space-5);background:var(--color-surface);border-top:1px solid var(--color-border);display:flex;align-items:center;gap:var(--space-4);font-size:var(--text-xs);color:var(--color-text-tertiary);flex-shrink:0}
+.sv{font-weight:500;color:var(--color-text-primary);font-family:var(--font-mono)}
+.sv.ok{color:var(--green-600)}.sv.warn{color:var(--amber-700)}.sv.err{color:var(--red-600)}
+</style>
+</head>
+<body>
+<div class="shell">
+  <nav class="sidenav">
+    <div class="nav-logo"><span>Ar</span></div>
+    <button class="nav-item"><i class="ti ti-layout-dashboard"></i><span class="nav-label">Dashboard</span></button>
+    <button class="nav-item"><i class="ti ti-list"></i><span class="nav-label">Animals</span></button>
+    <button class="nav-item"><i class="ti ti-calendar-event"></i><span class="nav-label">Visits</span></button>
+    <button class="nav-item active"><i class="ti ti-stack-2"></i><span class="nav-label">Batch</span></button>
+    <button class="nav-item"><i class="ti ti-help-circle"></i><span class="nav-label">Queries</span></button>
+    <div class="nav-spacer"></div>
+    <div class="nav-sep"></div>
+    <button class="nav-item"><i class="ti ti-clipboard-list"></i><span class="nav-label">Audit</span></button>
+  </nav>
+
+  <div class="main">
+    <header class="topbar">
+      <button class="tb-study">AK-2401 — BRD Cattle Phase II <i class="ti ti-chevron-right" style="font-size:11px"></i></button>
+      <div class="tb-right">
+        <button class="tb-icon"><i class="ti ti-bell"></i></button>
+        <button class="tb-icon"><i class="ti ti-settings"></i></button>
+        <button class="tb-role">CRC <i class="ti ti-chevron-right" style="font-size:10px"></i></button>
+        <div class="tb-avatar">ET</div>
+      </div>
+    </header>
+
+    <div class="page-wrap">
+
+      <!-- ═══ VIEW 1: FORM PICKER ═══ -->
+      <div id="view-pick">
+        <div class="pick-header">
+          <div class="pick-title">Batch entry</div>
+          <div class="pick-sub">Select a group entry form to begin. Filters (site, barn, pen) are available on the entry grid.</div>
+        </div>
+        <div class="pick-body">
+          <div>
+            <div class="pick-section-label">Group entry forms — Visit 3 · Day 21</div>
+            <div class="form-cards" id="form-cards">
+              <div class="form-card selected" onclick="selectForm(this,'Visit 3 · Day 21 — Daily welfare assessment','welfare')" data-key="welfare">
+                <div class="fc-icon"><i class="ti ti-clipboard-check"></i></div>
+                <div class="fc-body">
+                  <div class="fc-name">Daily welfare assessment</div>
+                  <div class="fc-meta">6 fields · Pen-level defaults: capture date, scale ID · Last entry 2 days ago</div>
+                </div>
+                <span class="fc-badge">Group entry</span>
+                <div class="fc-radio"></div>
+              </div>
+              <div class="form-card" onclick="selectForm(this,'Visit 3 · Day 21 — Body weight log','weight')" data-key="weight">
+                <div class="fc-icon"><i class="ti ti-scale"></i></div>
+                <div class="fc-body">
+                  <div class="fc-name">Body weight log</div>
+                  <div class="fc-meta">3 fields · Pen-level defaults: weigh date, scale ID · Not yet entered</div>
+                </div>
+                <span class="fc-badge">Group entry</span>
+                <div class="fc-radio"></div>
+              </div>
+              <div class="form-card" onclick="selectForm(this,'Visit 1 · Baseline — Dosing record','dosing')" data-key="dosing">
+                <div class="fc-icon"><i class="ti ti-pill"></i></div>
+                <div class="fc-body">
+                  <div class="fc-name">Dosing record</div>
+                  <div class="fc-meta">4 fields · Pen-level defaults: dose date, route · Not yet entered</div>
+                </div>
+                <span class="fc-badge">Group entry</span>
+                <div class="fc-radio"></div>
+              </div>
+            </div>
+          </div>
+          <div class="pick-proceed">
+            <button class="btn-primary" onclick="openGrid()"><i class="ti ti-table"></i> Open entry grid</button>
+          </div>
+        </div>
+      </div>
+
+      <!-- ═══ VIEW 2: ENTRY GRID ═══ -->
+      <div id="view-grid">
+
+        <div class="grid-header">
+          <div class="grid-header-left">
+            <button class="bc-link" onclick="showPick()">Batch entry</button>
+            <div class="grid-title" id="grid-title">Visit 3 · Day 21 — Daily welfare assessment</div>
+          </div>
+          <div class="grid-header-right">
+            <button class="btn-secondary" onclick="clearAll()"><i class="ti ti-eraser"></i> Clear all</button>
+            <button class="btn-primary" id="submit-btn" disabled onclick="submitBatch()"><i class="ti ti-check"></i> Submit all</button>
+          </div>
+        </div>
+
+        <!-- Save mode bar -->
+        <div style="padding:var(--space-2) var(--space-5);background:var(--color-page-bg);border-bottom:1px solid var(--color-border);display:flex;align-items:center;gap:var(--space-3);flex-shrink:0;font-size:var(--text-xs);color:var(--color-text-tertiary)">
+          <span>Save mode:</span>
+          <div style="display:flex;background:var(--color-surface);border:1px solid var(--color-border);border-radius:var(--radius-full);padding:2px;gap:2px">
+            <button class="save-mode-btn active" id="bmode-form" onclick="setBatchSaveMode('form')" style="height:22px;padding:0 var(--space-2);font-size:var(--text-xs);font-weight:500;font-family:var(--font-sans);border:none;border-radius:var(--radius-full);cursor:pointer;background:var(--color-cta-bg);color:#fff">Form-level</button>
+            <button class="save-mode-btn" id="bmode-field" onclick="setBatchSaveMode('field')" style="height:22px;padding:0 var(--space-2);font-size:var(--text-xs);font-weight:500;font-family:var(--font-sans);border:none;border-radius:var(--radius-full);cursor:pointer;background:transparent;color:var(--color-text-tertiary)">Field-level</button>
+          </div>
+          <span id="bmode-hint">Submit all saves the batch · Reason for change shown when re-editing saved data</span>
+        </div>
+
+        <!-- Toolbar: search + filters -->
+        <div class="grid-toolbar">
+          <div class="search-box">
+            <i class="ti ti-search"></i>
+            <input type="search" placeholder="Search subject ID…" oninput="filterAnimals(this.value)">
+          </div>
+          <select class="filter-select" onchange="filterAnimals()">
+            <option value="">All sites</option>
+            <option value="Austin" selected>Austin</option>
+            <option value="Dallas">Dallas</option>
+            <option value="Houston">Houston</option>
+          </select>
+          <select class="filter-select" onchange="filterAnimals()">
+            <option value="">All barns</option>
+            <option value="Barn 1" selected>Barn 1</option>
+            <option value="Barn 2">Barn 2</option>
+            <option value="Barn 3">Barn 3</option>
+          </select>
+          <select class="filter-select" onchange="filterAnimals()">
+            <option value="">All pens</option>
+            <option value="Pen 1" selected>Pen 1</option>
+            <option value="Pen 2">Pen 2</option>
+            <option value="Pen 3">Pen 3</option>
+          </select>
+          <select class="filter-select">
+            <option>All groups</option>
+            <option>Group A — Dose</option>
+            <option>Group B — Control</option>
+          </select>
+          <span class="tb-count" id="tb-count">4 animals</span>
+        </div>
+
+        <!-- Pen-level defaults — above the table -->
+        <div id="pen-defaults-wrap" style="border-bottom:1px solid var(--color-border);background:var(--color-page-bg);flex-shrink:0"></div>
+
+        <div class="grid-wrap">
+          <table class="batch-table" id="batch-table">
+            <thead id="batch-thead"></thead>
+            <tbody id="batch-tbody"></tbody>
+          </table>
+        </div>
+
+        <!-- Reason for change bar — appears when editing previously saved data -->
+        <div class="rfc-bar" id="rfc-bar">
+          <div class="rfc-bar-label"><i class="ti ti-pencil"></i> Reason for change</div>
+          <select class="rfc-bar-select" id="rfc-bar-select" onchange="rfcBarChange()">
+            <option value="">Select reason for all changes…</option>
+            <option>Transcription error</option>
+            <option>Incorrect value entered</option>
+            <option>Updated source document</option>
+            <option>Protocol deviation</option>
+            <option>Other</option>
+          </select>
+          <input class="rfc-bar-text" id="rfc-bar-text" placeholder="Specify reason (required for Other)…">
+          <span class="rfc-bar-note">Applies to all modified cells · <span onclick="showPerRowRfc()">Override per row</span></span>
+        </div>
+        <div class="grid-summary" id="grid-summary"></div>
+      </div>
+
+    </div>
+  </div>
+</div>
+
+<script>
+// ── Data ──────────────────────────────────────────────────────────────────
+const ALL_ANIMALS = [
+  { id:'AUSB1P1-01', meta:'F · 4yr · Hereford', group:'Group A — Dose',    site:'Austin', barn:'Barn 1', pen:'Pen 1' },
+  { id:'AUSB1P1-02', meta:'M · 3yr · Angus',    group:'Group B — Control', site:'Austin', barn:'Barn 1', pen:'Pen 1' },
+  { id:'AUSB1P1-03', meta:'F · 5yr · Hereford', group:'Group A — Dose',    site:'Austin', barn:'Barn 1', pen:'Pen 1' },
+  { id:'AUSB1P1-04', meta:'M · 2yr · Angus',    group:'Group B — Control', site:'Austin', barn:'Barn 1', pen:'Pen 1' },
+  { id:'AUSB1P2-01', meta:'F · 3yr · Hereford', group:'Group A — Dose',    site:'Austin', barn:'Barn 1', pen:'Pen 2' },
+  { id:'AUSB1P2-02', meta:'M · 4yr · Angus',    group:'Group B — Control', site:'Austin', barn:'Barn 1', pen:'Pen 2' },
+];
+
+const FORM_DEFS = {
+  welfare: {
+    title: 'Visit 3 · Day 21 — Daily welfare assessment',
+    penFields: [
+      { code:'CAPTURE_DATE', label:'Date of capture', type:'text', placeholder:'2026-05-30' },
+      { code:'SCALE_ID',     label:'Scale ID used',   type:'text', placeholder:'SC-AUS-01' },
+    ],
+    fields: [
+      { code:'RECTAL_TEMP', label:'Rectal temp',  unit:'°C',  type:'number', min:37.5, max:40.5, placeholder:'38.5' },
+      { code:'HEART_RATE',  label:'Heart rate',   unit:'bpm', type:'number', min:40,   max:100,  placeholder:'70' },
+      { code:'RESP_RATE',   label:'Resp. rate',   unit:'bpm', type:'number', min:12,   max:36,   placeholder:'24' },
+      { code:'BCS',         label:'BCS',          unit:'/5',  type:'number', min:1,    max:5,    placeholder:'3' },
+      { code:'NASAL_DISC',  label:'Nasal disc.',  unit:'0–3', type:'number', min:0,    max:3,    placeholder:'0' },
+      { code:'NOTES',       label:'Notes',        unit:'',    type:'text',   min:null, max:null, placeholder:'Optional', optional:true },
+    ],
+  },
+  weight: {
+    title: 'Visit 3 · Day 21 — Body weight log',
+    penFields: [
+      { code:'WEIGH_DATE', label:'Weigh date',  type:'text', placeholder:'2026-05-30' },
+      { code:'SCALE_ID',   label:'Scale ID',    type:'text', placeholder:'SC-AUS-01' },
+    ],
+    fields: [
+      { code:'WEIGHT',     label:'Body weight', unit:'kg',  type:'number', min:200, max:700, placeholder:'400' },
+      { code:'BCS',        label:'BCS',         unit:'/5',  type:'number', min:1,   max:5,   placeholder:'3' },
+      { code:'NOTES',      label:'Notes',       unit:'',    type:'text',   min:null,max:null,placeholder:'Optional', optional:true },
+    ],
+  },
+  dosing: {
+    title: 'Visit 1 · Baseline — Dosing record',
+    penFields: [
+      { code:'DOSE_DATE',  label:'Dose date',   type:'text',   placeholder:'2026-05-30' },
+      { code:'DOSE_ROUTE', label:'Route',        type:'select', placeholder:'IM', options:['IM','IV','SC','PO'] },
+    ],
+    fields: [
+      { code:'DOSE_AMT',   label:'Dose (mg/kg)',unit:'mg/kg',type:'number', min:1, max:5,   placeholder:'2.5' },
+      { code:'DOSE_SITE',  label:'Inj. site',   unit:'',     type:'select', options:['Neck L','Neck R','Hindquarter'], placeholder:'Neck L' },
+      { code:'DOSE_LOT',   label:'Lot number',  unit:'',     type:'text',   min:null,max:null,placeholder:'LOT-2026-001' },
+      { code:'DOSE_NOTE',  label:'Notes',       unit:'',     type:'text',   min:null,max:null,placeholder:'Optional', optional:true },
+    ],
+  },
+};
+
+let selectedFormKey = 'welfare';
+let cellValues = {};
+let penFieldValues = {};
+let applyAll = {};
+let visibleAnimals = [...ALL_ANIMALS];
+
+// ── Form picker ───────────────────────────────────────────────────────────
+function selectForm(card, title, key) {
+  document.querySelectorAll('.form-card').forEach(c => c.classList.remove('selected'));
+  card.classList.add('selected');
+  selectedFormKey = key;
+}
+
+function openGrid() {
+  const def = FORM_DEFS[selectedFormKey];
+  document.getElementById('grid-title').textContent = def.title;
+  cellValues = {}; penFieldValues = {}; applyAll = {};
+  def.fields.forEach(f => applyAll[f.code] = false);
+  renderGrid();
+  document.getElementById('view-pick').style.display = 'none';
+  document.getElementById('view-grid').style.display = 'flex';
+}
+
+function showPick() {
+  document.getElementById('view-grid').style.display = 'none';
+  document.getElementById('view-pick').style.display = 'flex';
+}
+
+// ── Filter ────────────────────────────────────────────────────────────────
+function filterAnimals(searchVal) {
+  const q = (typeof searchVal === 'string' ? searchVal : document.querySelector('.search-box input')?.value || '').toLowerCase();
+  visibleAnimals = ALL_ANIMALS.filter(a => !q || a.id.toLowerCase().includes(q));
+  document.getElementById('tb-count').textContent = visibleAnimals.length + ' animals';
+  rerenderRows();
+}
+
+// ── Render grid ───────────────────────────────────────────────────────────
+function renderGrid() {
+  const def    = FORM_DEFS[selectedFormKey];
+  const fields = def.fields;
+  const thead  = document.getElementById('batch-thead');
+  const tbody  = document.getElementById('batch-tbody');
+  visibleAnimals = [...ALL_ANIMALS];
+  document.getElementById('tb-count').textContent = visibleAnimals.length + ' animals';
+
+  // ── Pen-level defaults above the table ──
+  renderPenDefaults(def);
+
+  // ── Header ──
+  let hHTML = '<tr>';
+  hHTML += `<th class="th-subject"><div class="th-subject-inner"><span class="th-hdr-label">Subject</span></div></th>`;
+  fields.forEach(f => {
+    const optLabel = f.optional ? `<span style="color:var(--color-text-placeholder);font-weight:400;text-transform:none;letter-spacing:0;font-size:10px"> · optional</span>` : '';
+    hHTML += `<th class="th-field">
+      <div class="field-col-header">
+        <div class="field-col-name">${f.label}${optLabel}</div>
+        <div class="field-col-unit">${f.unit || f.code}</div>
+      </div>
+      <div class="apply-all-wrap">
+        <label class="toggle-label">
+          <input type="checkbox" id="apl-${f.code}" onchange="toggleApplyAll('${f.code}')">
+          <div class="toggle-track"></div>
+          <span class="toggle-text" id="apl-lbl-${f.code}">Apply to all</span>
+        </label>
+      </div>
+    </th>`;
+  });
+  hHTML += `<th class="th-status"><div style="padding:var(--space-2) var(--space-2) var(--space-3);font-size:var(--text-xs);font-weight:500;text-transform:uppercase;letter-spacing:var(--tracking-caps);color:var(--color-text-tertiary)">Status</div></th>`;
+  hHTML += '</tr>';
+  thead.innerHTML = hHTML;
+
+  tbody.innerHTML = '';
+  rerenderRows();
+}
+
+function rerenderRows() {
+  const def    = FORM_DEFS[selectedFormKey];
+  const fields = def.fields;
+  const tbody  = document.getElementById('batch-tbody');
+
+  tbody.innerHTML = '';
+
+  visibleAnimals.forEach(a => {
+    const tr = document.createElement('tr');
+    tr.id = `row-${a.id}`;
+
+    // Subject cell
+    tr.innerHTML = `<td class="td-subject"><div class="td-subject-inner">
+      <div class="subj-id">${a.id}</div>
+      <div class="subj-meta">${a.meta} · ${a.group}</div>
+    </div></td>`;
+
+    // Field cells
+    fields.forEach(f => {
+      const cid = `${a.id}_${f.code}`;
+      const val = cellValues[cid] || '';
+      const td = document.createElement('td');
+      td.innerHTML = `<div class="batch-cell">
+        ${f.type === 'select'
+          ? `<select class="batch-input${val?' filled':''}" id="cell-${cid}" onchange="onCellChange('${a.id}','${f.code}',this.value)">
+              <option value="">—</option>
+              ${f.options.map(o=>`<option value="${o}"${val===o?' selected':''}>${o}</option>`).join('')}
+             </select>`
+          : `<input class="batch-input${val?' filled':''}" id="cell-${cid}" type="text" value="${val}" placeholder="${f.placeholder}" autocomplete="off" oninput="onCellChange('${a.id}','${f.code}',this.value)">`
+        }
+        <span class="val-hint" id="hint-${cid}"></span>
+      </div>`;
+      tr.appendChild(td);
+    });
+
+    // Status cell
+    const statusTd = document.createElement('td');
+    statusTd.className = 'td-status';
+    statusTd.id = `status-${a.id}`;
+    statusTd.innerHTML = '<span class="row-badge rb-empty">Empty</span>';
+    tr.appendChild(statusTd);
+
+    tbody.appendChild(tr);
+    updateRowStatus(a.id);
+  });
+
+  updateSummary();
+}
+
+// ── Pen defaults section ─────────────────────────────────────────────────────
+function renderPenDefaults(def) {
+  const wrap = document.getElementById('pen-defaults-wrap');
+  if (!def.penFields || !def.penFields.length) { wrap.style.display = 'none'; return; }
+  wrap.style.display = '';
+  let html = `<div class="pen-section-label" style="padding:var(--space-2) var(--space-3) var(--space-1) var(--space-5)">
+    <i class="ti ti-circles-relation"></i> Pen-level defaults — applied to all animals in this pen
+  </div>
+  <div class="pen-fields-row" id="pen-fields-row" style="padding:var(--space-2) var(--space-3) var(--space-3) var(--space-5)">`;
+  def.penFields.forEach(pf => {
+    const val = penFieldValues[pf.code] || '';
+    if (pf.type === 'select') {
+      html += `<div class="pen-field-group">
+        <div class="pen-field-label">${pf.label}</div>
+        <select class="pen-input${val?' filled':''}" id="pen-${pf.code}" onchange="onPenFieldChange('${pf.code}',this.value)">
+          <option value="">—</option>
+          ${pf.options.map(o=>`<option value="${o}"${val===o?' selected':''}>${o}</option>`).join('')}
+        </select>
+        <div id="pen-note-${pf.code}" class="pen-applied-note" style="${val?'':`display:none`}"><i class="ti ti-circles-relation"></i> Applied to all animals</div>
+      </div>`;
+    } else {
+      html += `<div class="pen-field-group">
+        <div class="pen-field-label">${pf.label}</div>
+        <input class="pen-input${val?' filled':''}" id="pen-${pf.code}" type="text" value="${val}" placeholder="${pf.placeholder}" oninput="onPenFieldChange('${pf.code}',this.value)">
+        <div id="pen-note-${pf.code}" class="pen-applied-note" style="${val?'':`display:none`}"><i class="ti ti-circles-relation"></i> Applied to all animals</div>
+      </div>`;
+    }
+  });
+  html += '</div>';
+  wrap.innerHTML = html;
+}
+
+// ── Pen field ─────────────────────────────────────────────────────────────
+function onPenFieldChange(code, value) {
+  penFieldValues[code] = value;
+  // Update the "applied" note without re-rendering (avoids focus loss)
+  const noteId = `pen-note-${code}`;
+  let noteEl = document.getElementById(noteId);
+  const input = document.getElementById(`pen-${code}`);
+  if (value) {
+    input.classList.add('filled');
+    if (!noteEl) {
+      noteEl = document.createElement('div');
+      noteEl.id = noteId;
+      noteEl.className = 'pen-applied-note';
+      noteEl.innerHTML = '<i class="ti ti-circles-relation"></i> Applied to all animals';
+      input.parentNode.appendChild(noteEl);
+    }
+  } else {
+    input.classList.remove('filled');
+    if (noteEl) noteEl.remove();
+  }
+}
+
+// ── Cell ──────────────────────────────────────────────────────────────────
+function onCellChange(animalId, code, value) {
+  const fields = FORM_DEFS[selectedFormKey].fields;
+  const field  = fields.find(f => f.code === code);
+  cellValues[`${animalId}_${code}`] = value;
+
+  if (applyAll[code] && value !== '') {
+    visibleAnimals.forEach(a => {
+      cellValues[`${a.id}_${code}`] = value;
+      const el = document.getElementById(`cell-${a.id}_${code}`);
+      if (el && a.id !== animalId) { el.value = value; validateCell(a.id, code, value, field); updateRowStatus(a.id); }
+    });
+  }
+  validateCell(animalId, code, value, field);
+  updateRowStatus(animalId);
+  updateSummary();
+
+  // Show RFC bar if editing a previously saved cell
+  const key = `${animalId}_${code}`;
+  if (batchHasSavedData && prevSavedCells[key] !== undefined && prevSavedCells[key] !== value) {
+    const bar = document.getElementById('rfc-bar');
+    if (bar) bar.classList.add('visible');
+  }
+}
+
+function validateCell(animalId, code, value, field) {
+  const cid   = `${animalId}_${code}`;
+  const input = document.getElementById(`cell-${cid}`);
+  const hint  = document.getElementById(`hint-${cid}`);
+  if (!input || !hint) return;
+
+  input.classList.remove('warn','error','filled','apply-filled');
+  hint.textContent = '';
+  hint.className = 'val-hint';
+
+  if (value === '') return;
+
+  if (field.type === 'number' && field.min !== null) {
+    const num = parseFloat(value);
+    if (isNaN(num)) {
+      input.classList.add('error');
+      hint.textContent = 'Must be a number';
+      hint.className = 'val-hint error';
+    } else if (num < field.min || num > field.max) {
+      input.classList.add('warn');
+      hint.textContent = `Normal: ${field.min}–${field.max}`;
+      hint.className = 'val-hint warn';
+    } else {
+      input.classList.add(applyAll[code] ? 'apply-filled' : 'filled');
+    }
+  } else {
+    input.classList.add(applyAll[code] ? 'apply-filled' : 'filled');
+  }
+}
+
+function toggleApplyAll(code) {
+  const cb    = document.getElementById(`apl-${code}`);
+  applyAll[code] = cb.checked;
+  if (applyAll[code]) {
+    const firstVal = cellValues[`${visibleAnimals[0]?.id}_${code}`] || '';
+    if (firstVal !== '') {
+      const field = FORM_DEFS[selectedFormKey].fields.find(f=>f.code===code);
+      visibleAnimals.forEach(a => {
+        cellValues[`${a.id}_${code}`] = firstVal;
+        const el = document.getElementById(`cell-${a.id}_${code}`);
+        if (el) { el.value = firstVal; }
+        if (field) validateCell(a.id, code, firstVal, field);
+        updateRowStatus(a.id);
+      });
+    }
+  } else {
+    visibleAnimals.forEach(a => {
+      const el = document.getElementById(`cell-${a.id}_${code}`);
+      if (el) el.classList.remove('apply-filled');
+    });
+  }
+  updateSummary();
+}
+
+function updateRowStatus(animalId) {
+  const fields    = FORM_DEFS[selectedFormKey].fields;
+  const required  = fields.filter(f => !f.optional);
+  const allFields = fields;
+  const reqFilled = required.filter(f => (cellValues[`${animalId}_${f.code}`]||'')!=='').length;
+  const anyFilled = allFields.some(f => (cellValues[`${animalId}_${f.code}`]||'')!=='');
+  const hasErr    = fields.some(f => {
+    const v = cellValues[`${animalId}_${f.code}`]||'';
+    return f.type==='number'&&f.min!==null&&v!==''&&isNaN(parseFloat(v));
+  });
+  const el = document.getElementById(`status-${animalId}`);
+  if (!el) return;
+  if (hasErr)                     el.innerHTML = '<span class="row-badge rb-error"><i class="ti ti-alert-circle" style="font-size:10px"></i> Error</span>';
+  else if (!anyFilled)            el.innerHTML = '<span class="row-badge rb-empty">Empty</span>';
+  else if (reqFilled < required.length) el.innerHTML = `<span class="row-badge rb-partial">${reqFilled}/${required.length}</span>`;
+  else                            el.innerHTML = '<span class="row-badge rb-ready"><i class="ti ti-check" style="font-size:10px"></i> Ready</span>';
+}
+
+function updateSummary() {
+  const fields = FORM_DEFS[selectedFormKey].fields;
+  let ready=0,partial=0,empty=0,errors=0;
+  const required = fields.filter(f=>!f.optional);
+  visibleAnimals.forEach(a => {
+    const reqFilled = required.filter(f=>(cellValues[`${a.id}_${f.code}`]||'')!=='').length;
+    const anyFilled = fields.some(f=>(cellValues[`${a.id}_${f.code}`]||'')!=='');
+    const hasErr    = fields.some(f=>{const v=cellValues[`${a.id}_${f.code}`]||'';return f.type==='number'&&f.min!==null&&v!==''&&isNaN(parseFloat(v));});
+    if (hasErr) errors++;
+    else if (reqFilled===required.length) ready++;
+    else if (anyFilled) partial++;
+    else empty++;
+  });
+  document.getElementById('submit-btn').disabled = ready === 0;
+  document.getElementById('grid-summary').innerHTML = `
+    <div style="display:flex;align-items:center;gap:var(--space-1)"><span>Showing:</span><span class="sv">${visibleAnimals.length} animals</span></div>
+    <div style="display:flex;align-items:center;gap:var(--space-1)"><span>Ready:</span><span class="sv ok">${ready}</span></div>
+    <div style="display:flex;align-items:center;gap:var(--space-1)"><span>Partial:</span><span class="sv warn">${partial}</span></div>
+    <div style="display:flex;align-items:center;gap:var(--space-1)"><span>Empty:</span><span class="sv">${empty}</span></div>
+    ${errors?`<div style="display:flex;align-items:center;gap:var(--space-1)"><span>Errors:</span><span class="sv err">${errors}</span></div>`:''}
+    <div style="margin-left:auto;font-size:var(--text-xs);color:var(--color-text-tertiary)">${FORM_DEFS[selectedFormKey].title}</div>`;
+}
+
+function clearAll() {
+  cellValues = {};
+  document.querySelectorAll('.batch-input').forEach(el=>{el.value='';el.className='batch-input';});
+  document.querySelectorAll('.val-hint').forEach(el=>{el.textContent='';el.className='val-hint';});
+  visibleAnimals.forEach(a=>updateRowStatus(a.id));
+  updateSummary();
+}
+
+function submitBatch() {
+  const required = FORM_DEFS[selectedFormKey].fields.filter(f=>!f.optional);
+  const ready = visibleAnimals.filter(a=>
+    required.every(f=>(cellValues[`${a.id}_${f.code}`]||'')!=='')
+  ).length;
+  alert(`Submitting ${ready} complete record${ready===1?'':'s'}.\n\nData saved. Audit trail entries created.`);
+}
+
+// ── Batch save mode & RFC ─────────────────────────────────────────────────
+let batchSaveMode = 'form';
+let batchHasSavedData = false; // simulate: some cells were previously saved
+
+function setBatchSaveMode(mode) {
+  batchSaveMode = mode;
+  document.getElementById('bmode-form').style.background = mode==='form' ? 'var(--color-cta-bg)' : 'transparent';
+  document.getElementById('bmode-form').style.color = mode==='form' ? '#fff' : 'var(--color-text-tertiary)';
+  document.getElementById('bmode-field').style.background = mode==='field' ? 'var(--color-cta-bg)' : 'transparent';
+  document.getElementById('bmode-field').style.color = mode==='field' ? '#fff' : 'var(--color-text-tertiary)';
+  const hint = document.getElementById('bmode-hint');
+  if (mode === 'form') {
+    hint.textContent = 'Submit all saves the batch · Reason for change shown when re-editing saved data';
+    document.getElementById('submit-btn').style.display = '';
+  } else {
+    hint.textContent = 'Each cell saves on blur · Reason for change required on re-edit';
+    document.getElementById('submit-btn').style.display = '';
+  }
+}
+
+function rfcBarChange() {
+  const sel = document.getElementById('rfc-bar-select');
+  const txt = document.getElementById('rfc-bar-text');
+  txt.style.display = sel.value === 'Other' ? '' : 'none';
+}
+
+function showPerRowRfc() {
+  alert('Per-row reason override: each row\'s status cell would expand to show an individual RFC input. To be built in the app phase.');
+}
+
+// Simulate: show RFC bar when editing a cell that "was previously saved"
+// In the prototype, we mark some cells as having previous data
+const prevSavedCells = {}; // populated on first submit
+
+// Override submitBatch to mark cells as saved
+const _origSubmit = submitBatch;
+function submitBatch() {
+  Object.keys(cellValues).forEach(k => { if(cellValues[k]) prevSavedCells[k] = cellValues[k]; });
+  batchHasSavedData = true;
+  _origSubmit();
+}
+
+</script>
+</body>
+</html>

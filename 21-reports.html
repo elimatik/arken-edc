@@ -1,0 +1,1381 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Arken EDC — Reports</title>
+<link href="https://fonts.googleapis.com/css2?family=Roboto:wght@400;500;700&family=Roboto+Mono:wght@400;500&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@tabler/icons-webfont@latest/tabler-icons.min.css">
+<style>
+:root {
+  --color-nav-bg:#1A1F2E;--color-nav-hover:#2C3248;--color-nav-icon:#8aafc8;
+  --color-page-bg:#FBFBFB;--color-surface:#FFFFFF;
+  --color-border:#E8E8E6;--color-border-subtle:#F0F0EE;
+  --color-text-primary:#2C2D33;--color-text-secondary:#4F535B;
+  --color-text-tertiary:#6D7480;--color-text-placeholder:#C4C4C2;
+  --color-hover-bg:#F0F0EE;--color-cta-bg:#1A1F2E;--color-cta-hover:#2C3248;
+  --color-link:#3D4A5C;
+  --amber-50:#FFF8E7;--amber-200:#F5B830;--amber-700:#8A5C00;
+  --red-50:#FFF0F0;--red-200:#EC8585;--red-600:#B52626;
+  --green-50:#EEFAF4;--green-200:#58BC88;--green-600:#1A6B47;
+  --blue-50:#E8F4FF;--blue-200:#7AB8EE;--blue-600:#1760A8;
+  --slate-50:#EEF1F6;--slate-200:#8AA0B8;--slate-600:#3D5A78;
+  --purple-50:#F0EEFF;--purple-200:#A9A3EC;--purple-600:#534AB7;
+  --orange-50:#FFF0E8;--orange-200:#F48E50;--orange-600:#C94C0C;
+  --font-sans:'Roboto',system-ui,sans-serif;--font-mono:'Roboto Mono',monospace;
+  --text-xs:11px;--text-sm:12px;--text-base:14px;--text-lg:16px;--text-xl:20px;--text-3xl:24px;
+  --weight-regular:400;--weight-medium:500;--weight-bold:700;
+  --radius-sm:2px;--radius-md:4px;--radius-lg:6px;--radius-full:9999px;
+  --space-1:4px;--space-2:8px;--space-3:12px;--space-4:16px;--space-5:20px;--space-6:24px;
+  --duration-fast:120ms;--ease-default:cubic-bezier(0.16,1,0.3,1);
+  --tracking-caps:0.07em;
+}
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+body{font-family:var(--font-sans);font-size:var(--text-base);color:var(--color-text-primary);background:var(--color-page-bg);-webkit-font-smoothing:antialiased}
+
+/* ─── Shell ── */
+.shell{display:flex;height:100vh;overflow:hidden}
+.sidenav{width:74px;background:var(--color-nav-bg);display:flex;flex-direction:column;align-items:center;padding:var(--space-3) 0;gap:2px;flex-shrink:0}
+.nav-logo{width:30px;height:30px;border-radius:var(--radius-md);background:var(--color-nav-hover);display:flex;align-items:center;justify-content:center;margin-bottom:var(--space-3)}
+.nav-logo span{font-size:var(--text-base);font-weight:700;color:#fff}
+.nav-item{width:100%;min-height:50px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:3px;border:none;background:transparent;color:var(--color-nav-icon);cursor:pointer;transition:background var(--duration-fast);padding:4px 0}
+.nav-item:hover{background:var(--color-nav-hover);color:#fff}
+.nav-item.active{background:var(--color-nav-hover);color:#fff}
+.nav-item i{font-size:20px}.nav-label{font-size:11px;font-weight:500;color:inherit;text-align:center}
+.nav-spacer{flex:1}.nav-sep{width:100%;height:1px;background:rgba(255,255,255,0.08);margin:var(--space-2) 0}
+.main{flex:1;display:flex;flex-direction:column;min-width:0;overflow:hidden}
+.topbar{height:56px;background:var(--color-nav-bg);display:flex;align-items:center;padding:0 var(--space-5);gap:var(--space-3);flex-shrink:0;border-bottom:1px solid rgba(255,255,255,0.06)}
+.tb-study{background:var(--color-nav-hover);color:#fff;font-size:var(--text-base);font-weight:500;padding:7px var(--space-4);border-radius:var(--radius-md);border:1px solid #525D73;display:flex;align-items:center;gap:4px;cursor:pointer}
+.tb-right{margin-left:auto;display:flex;align-items:center;gap:var(--space-3)}
+.tb-icon{width:28px;height:28px;display:flex;align-items:center;justify-content:center;border-radius:var(--radius-md);border:none;background:transparent;color:#fff;cursor:pointer}
+.tb-icon i{font-size:20px}
+.tb-role{background:var(--color-nav-hover);color:#fff;font-size:var(--text-sm);font-weight:500;padding:3px var(--space-2);border-radius:var(--radius-md);border:1px solid #525D73;display:flex;align-items:center;gap:4px;cursor:pointer}
+.tb-avatar{width:30px;height:30px;border-radius:50%;background:#3D5A78;color:#EEF1F6;font-size:12px;font-weight:500;display:flex;align-items:center;justify-content:center}
+.page-wrap{flex:1;display:flex;flex-direction:column;overflow:hidden}
+
+/* ─── Buttons ── */
+.btn-primary{display:flex;align-items:center;gap:4px;height:32px;padding:0 var(--space-3);font-size:var(--text-sm);font-weight:500;font-family:var(--font-sans);border:none;border-radius:var(--radius-md);background:var(--color-cta-bg);color:#fff;cursor:pointer;white-space:nowrap;transition:background var(--duration-fast)}
+.btn-primary:hover{background:var(--color-cta-hover)}
+.btn-primary i{font-size:14px}
+.btn-secondary{display:flex;align-items:center;gap:4px;height:32px;padding:0 var(--space-3);font-size:var(--text-sm);font-weight:500;font-family:var(--font-sans);border:1px solid var(--color-border);border-radius:var(--radius-md);background:var(--color-surface);color:var(--color-text-primary);cursor:pointer;white-space:nowrap;transition:background var(--duration-fast)}
+.btn-secondary:hover{background:var(--color-hover-bg)}
+.btn-secondary i{font-size:14px}
+.btn-icon{display:flex;align-items:center;justify-content:center;width:28px;height:28px;border:none;background:none;border-radius:var(--radius-md);color:var(--color-text-tertiary);cursor:pointer;transition:background var(--duration-fast)}
+.btn-icon:hover{background:var(--color-hover-bg);color:var(--color-text-primary)}
+.btn-icon i{font-size:15px}
+
+/* ═══════════════════════════════════════
+   VIEW 1 — REPORT LIBRARY
+   ═══════════════════════════════════════ */
+#view-library{display:none;flex-direction:column;flex:1;overflow:hidden}
+
+.page-header{padding:var(--space-4) var(--space-5);border-bottom:1px solid var(--color-border);background:var(--color-surface);flex-shrink:0;display:flex;align-items:center;justify-content:space-between}
+.page-title{font-size:var(--text-3xl);font-weight:500}
+
+.library-body{flex:1;overflow-y:auto;padding:var(--space-5)}
+.lib-section{margin-bottom:var(--space-6)}
+.lib-section-title{font-size:var(--text-xs);font-weight:500;text-transform:uppercase;letter-spacing:var(--tracking-caps);color:var(--color-text-tertiary);margin-bottom:var(--space-3);padding-bottom:var(--space-2);border-bottom:1px solid var(--color-border-subtle)}
+.report-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(300px,1fr));gap:var(--space-3)}
+
+/* Report card */
+.report-card{background:var(--color-surface);border:1px solid var(--color-border);border-radius:var(--radius-lg);padding:var(--space-4);cursor:pointer;transition:border-color var(--duration-fast),box-shadow var(--duration-fast);display:flex;flex-direction:column;gap:var(--space-3)}
+.report-card:hover{border-color:#c8c8c6;box-shadow:0 2px 8px rgba(0,0,0,0.06)}
+.rc-header{display:flex;align-items:flex-start;justify-content:space-between;gap:var(--space-3)}
+.rc-icon{width:36px;height:36px;border-radius:var(--radius-md);display:flex;align-items:center;justify-content:center;flex-shrink:0}
+.rc-icon i{font-size:18px}
+.rc-actions{display:flex;align-items:center;gap:4px;opacity:0;transition:opacity var(--duration-fast)}
+.report-card:hover .rc-actions{opacity:1}
+.rc-name{font-size:var(--text-base);font-weight:500;color:var(--color-text-primary);margin-top:var(--space-1)}
+.rc-desc{font-size:var(--text-sm);color:var(--color-text-secondary);line-height:1.5}
+.rc-meta{display:flex;align-items:center;gap:var(--space-3);font-size:var(--text-xs);color:var(--color-text-tertiary)}
+.rc-tag{display:inline-flex;align-items:center;padding:2px var(--space-2);border-radius:var(--radius-full);font-size:var(--text-xs);font-weight:500;border:1px solid}
+.rc-last{display:flex;align-items:center;gap:4px;font-family:var(--font-mono)}
+
+/* Category colours */
+.cat-progress{background:var(--blue-50);border-color:var(--blue-200);color:var(--blue-600)}
+.cat-quality  {background:var(--amber-50);border-color:var(--amber-200);color:var(--amber-700)}
+.cat-sdv      {background:var(--purple-50);border-color:var(--purple-200);color:var(--purple-600)}
+.cat-safety   {background:var(--red-50);border-color:var(--red-200);color:var(--red-600)}
+.cat-deviation{background:var(--orange-50);border-color:var(--orange-200);color:var(--orange-600)}
+.cat-audit    {background:var(--slate-50);border-color:var(--slate-200);color:var(--slate-600)}
+
+.icon-progress{background:var(--blue-50)}
+.icon-progress i{color:var(--blue-600)}
+.icon-quality {background:var(--amber-50)}
+.icon-quality i{color:var(--amber-700)}
+.icon-sdv     {background:var(--purple-50)}
+.icon-sdv i   {color:var(--purple-600)}
+.icon-safety  {background:var(--red-50)}
+.icon-safety i{color:var(--red-600)}
+.icon-deviation{background:var(--orange-50)}
+.icon-deviation i{color:var(--orange-600)}
+.icon-audit   {background:var(--slate-50)}
+.icon-audit i {color:var(--slate-600)}
+
+/* ═══════════════════════════════════════
+   VIEW 2 — REPORT OUTPUT
+   ═══════════════════════════════════════ */
+#view-report{display:none;flex-direction:column;flex:1;overflow:hidden}
+
+.report-header{padding:var(--space-3) var(--space-5);border-bottom:1px solid var(--color-border);background:var(--color-surface);flex-shrink:0}
+.rh-top{display:flex;align-items:center;justify-content:space-between;gap:var(--space-4);margin-bottom:var(--space-3)}
+.bc-link{background:none;border:none;font-size:var(--text-sm);color:var(--color-link);cursor:pointer;padding:0;text-decoration:underline;text-underline-offset:2px}
+.report-title-row{display:flex;align-items:center;gap:var(--space-3)}
+.report-title{font-size:var(--text-xl);font-weight:500}
+.rh-meta{display:flex;align-items:center;gap:var(--space-4);font-size:var(--text-xs);color:var(--color-text-tertiary)}
+.rh-meta-item{display:flex;align-items:center;gap:4px}
+.rh-meta-item i{font-size:12px}
+
+/* Report filters bar */
+.report-filters{padding:var(--space-3) var(--space-5);background:var(--color-surface);border-bottom:1px solid var(--color-border);display:flex;align-items:center;gap:var(--space-3);flex-shrink:0;flex-wrap:wrap}
+.filter-select{height:30px;padding:0 24px 0 var(--space-2);font-size:var(--text-sm);font-family:var(--font-sans);border:1px solid var(--color-border);border-radius:var(--radius-md);background:var(--color-surface);color:var(--color-text-primary);cursor:pointer;appearance:none;background-image:url("data:image/svg+xml,%3Csvg width='8' height='12' viewBox='0 0 8 12' fill='none' xmlns='http://www.w3.org/2000/svg'%3E%3Cpath d='M1 1L6 6L1 11' stroke='%236D7480' stroke-width='1.5' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E");background-repeat:no-repeat;background-position:right 8px center;outline:none}
+.filter-date{height:30px;padding:0 var(--space-2);font-size:var(--text-sm);font-family:var(--font-mono);border:1px solid var(--color-border);border-radius:var(--radius-md);background:var(--color-surface);color:var(--color-text-primary);outline:none}
+.filter-sep{color:var(--color-text-tertiary);font-size:var(--text-xs)}
+
+/* Report body — scrollable */
+.report-body{flex:1;overflow-y:auto;padding:var(--space-5)}
+
+/* KPI strip */
+.kpi-row{display:grid;grid-template-columns:repeat(auto-fill,minmax(160px,1fr));gap:var(--space-3);margin-bottom:var(--space-5)}
+.kpi-card{background:var(--color-surface);border:1px solid var(--color-border);border-radius:var(--radius-lg);padding:var(--space-4)}
+.kpi-label{font-size:var(--text-xs);color:var(--color-text-tertiary);text-transform:uppercase;letter-spacing:var(--tracking-caps);margin-bottom:var(--space-2)}
+.kpi-value{font-size:22px;font-weight:700;font-family:var(--font-mono);color:var(--color-text-primary);line-height:1}
+.kpi-sub{font-size:var(--text-xs);color:var(--color-text-tertiary);margin-top:4px}
+.kpi-trend{display:flex;align-items:center;gap:3px;font-size:var(--text-xs);font-weight:500;margin-top:4px}
+.trend-up{color:var(--green-600)}.trend-down{color:var(--red-600)}.trend-flat{color:var(--color-text-tertiary)}
+
+/* Chart placeholder */
+.chart-row{display:grid;grid-template-columns:2fr 1fr;gap:var(--space-4);margin-bottom:var(--space-5)}
+.chart-card{background:var(--color-surface);border:1px solid var(--color-border);border-radius:var(--radius-lg);padding:var(--space-4)}
+.chart-title{font-size:var(--text-sm);font-weight:500;color:var(--color-text-primary);margin-bottom:var(--space-3)}
+.chart-area{height:160px;position:relative;display:flex;align-items:flex-end;gap:6px;padding-top:var(--space-3);border-bottom:1px solid var(--color-border-subtle)}
+.bar{border-radius:var(--radius-sm) var(--radius-sm) 0 0;flex:1;min-width:0;transition:opacity var(--duration-fast)}
+.bar:hover{opacity:0.8;cursor:pointer}
+.bar-label{font-size:9px;font-family:var(--font-mono);color:var(--color-text-tertiary);text-align:center;margin-top:4px}
+.chart-x{display:flex;gap:6px;margin-top:4px}
+.chart-x-item{flex:1;font-size:9px;font-family:var(--font-mono);color:var(--color-text-tertiary);text-align:center}
+
+/* Donut */
+.donut-wrap{display:flex;flex-direction:column;align-items:center;height:160px}
+.donut-svg-wrap{position:relative;width:120px;height:120px;flex-shrink:0}
+.donut-svg{width:120px;height:120px;display:block}
+.donut-center{position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center}
+.donut-pct{font-size:20px;font-weight:700;font-family:var(--font-mono);color:var(--color-text-primary)}
+.donut-sub{font-size:10px;color:var(--color-text-tertiary)}
+.donut-legend{display:flex;flex-direction:column;gap:6px;margin-top:var(--space-3);width:100%}
+.dl-item{display:flex;align-items:center;justify-content:space-between;font-size:var(--text-xs)}
+.dl-dot{width:8px;height:8px;border-radius:50%;flex-shrink:0;margin-right:6px}
+.dl-left{display:flex;align-items:center;color:var(--color-text-secondary)}
+.dl-val{font-family:var(--font-mono);font-weight:500;color:var(--color-text-primary)}
+
+/* Report table */
+.report-table-wrap{background:var(--color-surface);border:1px solid var(--color-border);border-radius:var(--radius-lg);overflow:hidden}
+.report-table-header{padding:var(--space-3) var(--space-5);border-bottom:1px solid var(--color-border);display:flex;align-items:center;justify-content:space-between}
+.report-table-title{font-size:var(--text-sm);font-weight:500}
+.rt{width:100%;border-collapse:collapse;font-size:var(--text-sm)}
+.rt thead th{background:var(--color-surface);padding:var(--space-2) var(--space-3);text-align:left;font-size:var(--text-xs);font-weight:500;text-transform:uppercase;letter-spacing:var(--tracking-caps);color:var(--color-text-tertiary);border-bottom:1px solid var(--color-border);white-space:nowrap}
+.rt thead th:first-child{padding-left:var(--space-5)}
+.rt thead th:last-child{padding-right:var(--space-5)}
+.rt tbody tr{border-bottom:1px solid var(--color-border-subtle);transition:background var(--duration-fast)}
+.rt tbody tr:hover{background:var(--color-hover-bg)}
+.rt tbody td{padding:var(--space-2) var(--space-3);vertical-align:middle}
+.rt tbody td:first-child{padding-left:var(--space-5)}
+.rt tbody td:last-child{padding-right:var(--space-5)}
+.cell-mono{font-family:var(--font-mono);font-size:var(--text-sm)}
+.cell-muted{color:var(--color-text-secondary);font-size:var(--text-sm)}
+.pct-bar-wrap{display:flex;align-items:center;gap:var(--space-2);min-width:100px}
+.pct-track{flex:1;height:4px;background:var(--color-border);border-radius:var(--radius-full);overflow:hidden}
+.pct-fill{height:100%;border-radius:var(--radius-full)}
+.pct-label{font-family:var(--font-mono);font-size:var(--text-xs);color:var(--color-text-secondary);white-space:nowrap;min-width:36px}
+.badge{display:inline-flex;align-items:center;gap:3px;padding:2px var(--space-2);border-radius:var(--radius-full);font-size:var(--text-xs);font-weight:500;border:1px solid;white-space:nowrap}
+.badge-ok   {background:var(--green-50);border-color:var(--green-200);color:var(--green-600)}
+.badge-warn {background:var(--amber-50);border-color:var(--amber-200);color:var(--amber-700)}
+.badge-crit {background:var(--red-50);border-color:var(--red-200);color:var(--red-600)}
+.badge-info {background:var(--blue-50);border-color:var(--blue-200);color:var(--blue-600)}
+
+/* AI modal */
+.modal{background:var(--color-surface);border-radius:var(--radius-lg);border:1px solid var(--color-border);width:520px;max-width:calc(100vw - var(--space-6));box-shadow:0 16px 48px rgba(14,18,28,0.18);display:flex;flex-direction:column;max-height:80vh}
+.ai-suggestion{height:28px;padding:0 var(--space-3);font-size:var(--text-xs);font-weight:500;font-family:var(--font-sans);border:1px solid var(--color-border);border-radius:var(--radius-full);background:var(--color-surface);color:var(--color-text-secondary);cursor:pointer;white-space:nowrap;transition:all var(--duration-fast)}
+.ai-suggestion:hover{border-color:var(--blue-200);background:var(--blue-50);color:var(--blue-600)}
+.ai-thinking{display:flex;gap:var(--space-1);align-items:center;padding:var(--space-2) var(--space-3)}
+.ai-thinking span{width:6px;height:6px;border-radius:50%;background:var(--color-text-placeholder);animation:thinking 1.2s infinite}
+.ai-thinking span:nth-child(2){animation-delay:0.2s}
+.ai-thinking span:nth-child(3){animation-delay:0.4s}
+@keyframes thinking{0%,60%,100%{transform:translateY(0);opacity:0.4}30%{transform:translateY(-4px);opacity:1}}
+.modal-overlay{display:none;position:fixed;inset:0;background:rgba(14,18,28,0.45);z-index:300;align-items:center;justify-content:center}
+.modal-overlay.open{display:flex}
+.modal{background:var(--color-surface);border-radius:var(--radius-lg);border:1px solid var(--color-border);width:520px;max-width:calc(100vw - var(--space-6));box-shadow:0 16px 48px rgba(14,18,28,0.18);display:flex;flex-direction:column;max-height:80vh}
+.modal-header{padding:var(--space-4) var(--space-5);border-bottom:1px solid var(--color-border);display:flex;align-items:center;justify-content:space-between;flex-shrink:0}
+.modal-title{font-size:var(--text-lg);font-weight:500}
+.modal-close{width:28px;height:28px;border:none;background:none;cursor:pointer;border-radius:var(--radius-md);color:var(--color-text-tertiary);display:flex;align-items:center;justify-content:center}
+.modal-close:hover{background:var(--color-hover-bg)}
+.modal-close i{font-size:16px}
+.modal-body{padding:var(--space-5);overflow-y:auto;display:flex;flex-direction:column;gap:var(--space-4)}
+.modal-footer{padding:var(--space-4) var(--space-5);border-top:1px solid var(--color-border);display:flex;align-items:center;justify-content:flex-end;gap:var(--space-2);flex-shrink:0}
+.form-row{display:flex;flex-direction:column;gap:var(--space-1)}
+.form-label{font-size:var(--text-sm);font-weight:500;color:var(--color-text-primary)}
+.form-hint{font-size:var(--text-xs);color:var(--color-text-tertiary)}
+.form-input{height:36px;padding:0 var(--space-3);font-size:var(--text-sm);font-family:var(--font-sans);border:1px solid var(--color-border);border-radius:var(--radius-md);background:var(--color-surface);color:var(--color-text-primary);outline:none;width:100%}
+.form-input:focus{border-color:var(--color-link)}
+.form-select{height:36px;padding:0 28px 0 var(--space-3);font-size:var(--text-sm);font-family:var(--font-sans);border:1px solid var(--color-border);border-radius:var(--radius-md);background:var(--color-surface);color:var(--color-text-primary);cursor:pointer;appearance:none;background-image:url("data:image/svg+xml,%3Csvg width='8' height='12' viewBox='0 0 8 12' fill='none' xmlns='http://www.w3.org/2000/svg'%3E%3Cpath d='M1 1L6 6L1 11' stroke='%236D7480' stroke-width='1.5' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E");background-repeat:no-repeat;background-position:right 10px center;outline:none;width:100%}
+.form-select:focus{border-color:var(--color-link)}
+.form-textarea{padding:var(--space-2) var(--space-3);font-size:var(--text-sm);font-family:var(--font-sans);border:1px solid var(--color-border);border-radius:var(--radius-md);background:var(--color-surface);color:var(--color-text-primary);outline:none;width:100%;resize:vertical;min-height:80px;line-height:1.5}
+.form-textarea:focus{border-color:var(--color-link)}
+.checkbox-group{display:flex;flex-direction:column;gap:var(--space-2)}
+.checkbox-item{display:flex;align-items:center;gap:var(--space-2);font-size:var(--text-sm);cursor:pointer}
+.checkbox-item input{accent-color:var(--color-link);cursor:pointer}
+.form-row-2{display:grid;grid-template-columns:1fr 1fr;gap:var(--space-3)}
+.section-divider{font-size:var(--text-xs);font-weight:500;text-transform:uppercase;letter-spacing:var(--tracking-caps);color:var(--color-text-tertiary);padding-bottom:var(--space-2);border-bottom:1px solid var(--color-border-subtle)}
+</style>
+</head>
+<body>
+<div class="shell">
+  <nav class="sidenav">
+    <div class="nav-logo"><span>Ar</span></div>
+    <button class="nav-item"><i class="ti ti-layout-dashboard"></i><span class="nav-label">Dashboard</span></button>
+    <button class="nav-item"><i class="ti ti-list"></i><span class="nav-label">Animals</span></button>
+    <button class="nav-item"><i class="ti ti-calendar-event"></i><span class="nav-label">Visits</span></button>
+    <button class="nav-item"><i class="ti ti-help-circle"></i><span class="nav-label">Queries</span></button>
+    <button class="nav-item active"><i class="ti ti-chart-bar"></i><span class="nav-label">Reports</span></button>
+    <div class="nav-spacer"></div>
+    <div class="nav-sep"></div>
+    <button class="nav-item"><i class="ti ti-clipboard-list"></i><span class="nav-label">Audit</span></button>
+  </nav>
+
+  <div class="main">
+    <header class="topbar">
+      <button class="tb-study">AK-2401 — BRD Cattle Phase II <i class="ti ti-chevron-right" style="font-size:11px"></i></button>
+      <div class="tb-right">
+        <button class="tb-icon"><i class="ti ti-bell"></i></button>
+        <button class="tb-icon"><i class="ti ti-settings"></i></button>
+        <button class="tb-role">CRA <i class="ti ti-chevron-right" style="font-size:10px"></i></button>
+        <div class="tb-avatar">JR</div>
+      </div>
+    </header>
+
+    <div class="page-wrap">
+
+      <!-- ═══ VIEW 1: REPORT LIBRARY ═══ -->
+      <div id="view-library" style="display:flex">
+        <div class="page-header">
+          <h1 class="page-title">Reports</h1>
+          <div style="display:flex;gap:var(--space-2)">
+            <button class="btn-secondary" onclick="openModal('modal-schedule')"><i class="ti ti-calendar"></i> Schedule</button>
+            <button class="btn-primary" onclick="openAI()"><i class="ti ti-plus"></i> Custom report</button>
+          </div>
+        </div>
+
+        <div class="library-body">
+
+          <!-- Study progress -->
+          <div class="lib-section">
+            <div class="lib-section-title">Study progress</div>
+            <div class="report-grid">
+              <div class="report-card" onclick="openReport('enrollment')">
+                <div class="rc-header">
+                  <div class="rc-icon icon-progress"><i class="ti ti-users"></i></div>
+                  <div class="rc-actions">
+                    <button class="btn-icon" title="Export" onclick="event.stopPropagation()"><i class="ti ti-download"></i></button>
+                    <button class="btn-icon" title="Schedule" onclick="event.stopPropagation()"><i class="ti ti-clock"></i></button>
+                  </div>
+                </div>
+                <div>
+                  <div class="rc-name">Enrollment &amp; retention</div>
+                  <div class="rc-desc">Subject enrollment over time, screen failure rate, and dropout tracking by site.</div>
+                </div>
+                <div class="rc-meta">
+                  <span class="rc-tag cat-progress">Progress</span>
+                  <span class="rc-last"><i class="ti ti-refresh" style="font-size:10px"></i> 2026-05-29</span>
+                </div>
+              </div>
+
+              <div class="report-card" onclick="openReport('visits')">
+                <div class="rc-header">
+                  <div class="rc-icon icon-progress"><i class="ti ti-calendar-check"></i></div>
+                  <div class="rc-actions">
+                    <button class="btn-icon" title="Export" onclick="event.stopPropagation()"><i class="ti ti-download"></i></button>
+                    <button class="btn-icon" title="Schedule" onclick="event.stopPropagation()"><i class="ti ti-clock"></i></button>
+                  </div>
+                </div>
+                <div>
+                  <div class="rc-name">Visit completion</div>
+                  <div class="rc-desc">Scheduled vs completed visits by site and visit window compliance.</div>
+                </div>
+                <div class="rc-meta">
+                  <span class="rc-tag cat-progress">Progress</span>
+                  <span class="rc-last"><i class="ti ti-refresh" style="font-size:10px"></i> 2026-05-29</span>
+                </div>
+              </div>
+
+              <div class="report-card" onclick="openReport('forms')">
+                <div class="rc-header">
+                  <div class="rc-icon icon-progress"><i class="ti ti-clipboard"></i></div>
+                  <div class="rc-actions">
+                    <button class="btn-icon" title="Export" onclick="event.stopPropagation()"><i class="ti ti-download"></i></button>
+                  </div>
+                </div>
+                <div>
+                  <div class="rc-name">Form completion</div>
+                  <div class="rc-desc">CRF completion rate by form, site, and investigator. Highlights missing and outstanding data.</div>
+                </div>
+                <div class="rc-meta">
+                  <span class="rc-tag cat-progress">Progress</span>
+                  <span class="rc-last"><i class="ti ti-refresh" style="font-size:10px"></i> 2026-05-28</span>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- Data quality -->
+          <div class="lib-section">
+            <div class="lib-section-title">Data quality</div>
+            <div class="report-grid">
+              <div class="report-card" onclick="openReport('queries')">
+                <div class="rc-header">
+                  <div class="rc-icon icon-quality"><i class="ti ti-help-circle"></i></div>
+                  <div class="rc-actions">
+                    <button class="btn-icon" title="Export" onclick="event.stopPropagation()"><i class="ti ti-download"></i></button>
+                    <button class="btn-icon" title="Schedule" onclick="event.stopPropagation()"><i class="ti ti-clock"></i></button>
+                  </div>
+                </div>
+                <div>
+                  <div class="rc-name">Query summary</div>
+                  <div class="rc-desc">Open, responded, and resolved queries by site, form, and CRC. Query aging and resolution time.</div>
+                </div>
+                <div class="rc-meta">
+                  <span class="rc-tag cat-quality">Quality</span>
+                  <span class="rc-last"><i class="ti ti-refresh" style="font-size:10px"></i> 2026-05-30</span>
+                </div>
+              </div>
+
+              <div class="report-card" onclick="openReport('missing')">
+                <div class="rc-header">
+                  <div class="rc-icon icon-quality"><i class="ti ti-file-x"></i></div>
+                  <div class="rc-actions">
+                    <button class="btn-icon" title="Export" onclick="event.stopPropagation()"><i class="ti ti-download"></i></button>
+                  </div>
+                </div>
+                <div>
+                  <div class="rc-name">Missing data</div>
+                  <div class="rc-desc">Fields with missing or incomplete data by visit, form and subject. LOCF-eligible gaps flagged.</div>
+                </div>
+                <div class="rc-meta">
+                  <span class="rc-tag cat-quality">Quality</span>
+                  <span class="rc-last"><i class="ti ti-refresh" style="font-size:10px"></i> 2026-05-28</span>
+                </div>
+              </div>
+
+              <div class="report-card" onclick="openReport('editchecks')">
+                <div class="rc-header">
+                  <div class="rc-icon icon-quality"><i class="ti ti-alert-triangle"></i></div>
+                  <div class="rc-actions">
+                    <button class="btn-icon" title="Export" onclick="event.stopPropagation()"><i class="ti ti-download"></i></button>
+                  </div>
+                </div>
+                <div>
+                  <div class="rc-name">Edit check failures</div>
+                  <div class="rc-desc">All triggered edit checks by type, site, and resolution status. Tracks repeat failures.</div>
+                </div>
+                <div class="rc-meta">
+                  <span class="rc-tag cat-quality">Quality</span>
+                  <span class="rc-last"><i class="ti ti-refresh" style="font-size:10px"></i> 2026-05-30</span>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- SDV -->
+          <div class="lib-section">
+            <div class="lib-section-title">Source data verification</div>
+            <div class="report-grid">
+              <div class="report-card" onclick="openReport('sdv')">
+                <div class="rc-header">
+                  <div class="rc-icon icon-sdv"><i class="ti ti-circle-check"></i></div>
+                  <div class="rc-actions">
+                    <button class="btn-icon" title="Export" onclick="event.stopPropagation()"><i class="ti ti-download"></i></button>
+                    <button class="btn-icon" title="Schedule" onclick="event.stopPropagation()"><i class="ti ti-clock"></i></button>
+                  </div>
+                </div>
+                <div>
+                  <div class="rc-name">SDV status</div>
+                  <div class="rc-desc">SDV completion rate by site, CRA, and form. Tracks verified, pending, and queried fields.</div>
+                </div>
+                <div class="rc-meta">
+                  <span class="rc-tag cat-sdv">SDV</span>
+                  <span class="rc-last"><i class="ti ti-refresh" style="font-size:10px"></i> 2026-05-29</span>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- Safety -->
+          <div class="lib-section">
+            <div class="lib-section-title">Safety</div>
+            <div class="report-grid">
+              <div class="report-card" onclick="openReport('ae')">
+                <div class="rc-header">
+                  <div class="rc-icon icon-safety"><i class="ti ti-heart-rate-monitor"></i></div>
+                  <div class="rc-actions">
+                    <button class="btn-icon" title="Export" onclick="event.stopPropagation()"><i class="ti ti-download"></i></button>
+                    <button class="btn-icon" title="Schedule" onclick="event.stopPropagation()"><i class="ti ti-clock"></i></button>
+                  </div>
+                </div>
+                <div>
+                  <div class="rc-name">Adverse events</div>
+                  <div class="rc-desc">All AEs and SAEs by severity, causality, and resolution status. CIOMS-ready export.</div>
+                </div>
+                <div class="rc-meta">
+                  <span class="rc-tag cat-safety">Safety</span>
+                  <span class="rc-last"><i class="ti ti-refresh" style="font-size:10px"></i> 2026-05-30</span>
+                </div>
+              </div>
+
+              <div class="report-card" onclick="openReport('deviations')">
+                <div class="rc-header">
+                  <div class="rc-icon icon-deviation"><i class="ti ti-git-branch"></i></div>
+                  <div class="rc-actions">
+                    <button class="btn-icon" title="Export" onclick="event.stopPropagation()"><i class="ti ti-download"></i></button>
+                  </div>
+                </div>
+                <div>
+                  <div class="rc-name">Protocol deviations</div>
+                  <div class="rc-desc">Major and minor protocol deviations by type and investigator. Repeat patterns highlighted.</div>
+                </div>
+                <div class="rc-meta">
+                  <span class="rc-tag cat-deviation">Deviation</span>
+                  <span class="rc-last"><i class="ti ti-refresh" style="font-size:10px"></i> 2026-05-27</span>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- Audit -->
+          <div class="lib-section">
+            <div class="lib-section-title">Audit &amp; compliance</div>
+            <div class="report-grid">
+              <div class="report-card" onclick="openReport('audit')">
+                <div class="rc-header">
+                  <div class="rc-icon icon-audit"><i class="ti ti-history"></i></div>
+                  <div class="rc-actions">
+                    <button class="btn-icon" title="Export" onclick="event.stopPropagation()"><i class="ti ti-download"></i></button>
+                  </div>
+                </div>
+                <div>
+                  <div class="rc-name">Audit trail summary</div>
+                  <div class="rc-desc">Changes, corrections, and reason-for-change entries by user, role, and date range.</div>
+                </div>
+                <div class="rc-meta">
+                  <span class="rc-tag cat-audit">Audit</span>
+                  <span class="rc-last"><i class="ti ti-refresh" style="font-size:10px"></i> On demand</span>
+                </div>
+              </div>
+            </div>
+          </div>
+
+
+          <!-- Custom reports (hidden until populated) -->
+          <div id="custom-reports-section" style="display:none" class="lib-section">
+            <div class="lib-section-title">Custom reports</div>
+            <div class="report-grid" id="custom-reports-grid"></div>
+          </div>
+
+        </div>
+      </div>
+
+      <!-- ═══ VIEW 3: AI REPORT BUILDER ═══ -->
+      <div id="view-ai" style="display:none;flex-direction:column;flex:1;overflow:hidden">
+
+        <!-- Header -->
+        <div class="report-header" style="padding:var(--space-3) var(--space-5)">
+          <div style="display:flex;align-items:center;justify-content:space-between">
+            <div style="display:flex;align-items:center;gap:var(--space-2)">
+              <button class="bc-link" onclick="showLibrary()">Reports</button>
+              <span style="color:var(--color-text-placeholder);margin:0 4px"><i class="ti ti-chevron-right" style="font-size:11px"></i></span>
+              <span style="font-size:var(--text-sm);color:var(--color-text-secondary)">AI report builder</span>
+            </div>
+            <div id="ai-result-actions" style="display:none;gap:var(--space-2)">
+              <button class="btn-secondary" onclick="resetAI()"><i class="ti ti-message"></i> New request</button>
+              <button class="btn-secondary" onclick="saveToLibrary()"><i class="ti ti-bookmark"></i> Add to library</button>
+              <button class="btn-primary" onclick="alert('Downloading…')"><i class="ti ti-download"></i> Download</button>
+            </div>
+          </div>
+        </div>
+
+        <!-- Two-column layout: chat left, report right -->
+        <div style="display:flex;flex:1;overflow:hidden">
+
+          <!-- Left: conversation panel -->
+          <div style="width:380px;min-width:380px;border-right:1px solid var(--color-border);display:flex;flex-direction:column;background:var(--color-surface)">
+
+            <!-- Chat body -->
+            <div id="ai-chat-body" style="flex:1;overflow-y:auto;padding:var(--space-4);display:flex;flex-direction:column;gap:var(--space-3)">
+            </div>
+
+            <!-- Compose -->
+            <div style="padding:var(--space-3) var(--space-4);border-top:1px solid var(--color-border);flex-shrink:0">
+              <div style="display:flex;gap:var(--space-2);align-items:flex-end">
+                <textarea id="ai-input" class="form-textarea" style="flex:1;min-height:40px;max-height:100px;resize:none;font-size:var(--text-sm)" placeholder="Ask anything about your study data…" oninput="autoResize(this)" onkeydown="if(event.key==='Enter'&&!event.shiftKey){event.preventDefault();sendAIPrompt()}"></textarea>
+                <button id="ai-send-btn" class="btn-primary" style="height:40px;width:40px;padding:0;flex-shrink:0;justify-content:center" onclick="sendAIPrompt()"><i class="ti ti-arrow-up" style="font-size:16px"></i></button>
+              </div>
+              <div style="font-size:10px;color:var(--color-text-tertiary);margin-top:6px;text-align:center">Enter to send · Shift+Enter for new line</div>
+            </div>
+          </div>
+
+          <!-- Right: report output -->
+          <div style="flex:1;overflow:hidden;background:var(--color-page-bg);display:flex;flex-direction:column" id="ai-report-area">
+            <div id="ai-empty-state" style="height:100%;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:var(--space-4);padding:var(--space-6)">
+              <div style="width:56px;height:56px;border-radius:var(--radius-lg);background:var(--color-surface);border:1px solid var(--color-border);display:flex;align-items:center;justify-content:center">
+                <i class="ti ti-chart-bar" style="font-size:26px;color:var(--color-text-placeholder)"></i>
+              </div>
+              <div style="text-align:center;max-width:320px">
+                <div style="font-size:var(--text-base);font-weight:500;color:var(--color-text-primary);margin-bottom:var(--space-2)">Your report will appear here</div>
+                <div style="font-size:var(--text-sm);color:var(--color-text-tertiary);line-height:1.6">Start a conversation on the left — describe what you want to see and I\'ll generate a report from the study data.</div>
+              </div>
+              <div style="display:flex;flex-wrap:wrap;gap:var(--space-2);justify-content:center;max-width:400px">
+                <button class="ai-suggestion" onclick="usePrompt(this)">Query aging by CRC</button>
+                <button class="ai-suggestion" onclick="usePrompt(this)">SDV completion this week</button>
+                <button class="ai-suggestion" onclick="usePrompt(this)">Overdue visits by site</button>
+                <button class="ai-suggestion" onclick="usePrompt(this)">AE summary for Sponsor</button>
+                <button class="ai-suggestion" onclick="usePrompt(this)">Missing data by form</button>
+              </div>
+            </div>
+            <!-- Title + filters — shown above the report content -->
+            <div id="ai-report-header" style="display:none;border-bottom:1px solid var(--color-border);background:var(--color-surface);flex-shrink:0">
+              <div style="padding:var(--space-4) var(--space-5) var(--space-3)">
+                <div style="display:flex;align-items:center;gap:var(--space-3);margin-bottom:var(--space-1)">
+                  <h2 id="ai-report-h2" style="font-size:var(--text-xl);font-weight:500"></h2>
+                  <span class="rc-tag cat-progress" style="font-size:var(--text-xs)">AI Generated</span>
+                </div>
+                <div id="ai-report-summary" style="font-size:var(--text-sm);color:var(--color-text-tertiary)"></div>
+                <div id="ai-report-meta" style="font-size:10px;color:var(--color-text-tertiary);margin-top:2px;font-family:var(--font-mono)"></div>
+              </div>
+              <div class="report-filters" style="border-top:1px solid var(--color-border)">
+                <select class="filter-select" onchange="applyFilters()">
+                  <option>All sites</option><option>Austin</option><option>Dallas</option><option>Houston</option>
+                </select>
+                <select class="filter-select" onchange="applyFilters()">
+                  <option>All visits</option><option>Visit 1</option><option>Visit 2</option><option>Visit 3</option>
+                </select>
+                <span class="filter-sep">From</span>
+                <input class="filter-date" type="text" value="2026-04-01">
+                <span class="filter-sep">to</span>
+                <input class="filter-date" type="text" value="2026-05-30">
+                <button class="btn-primary" style="margin-left:auto" onclick="applyFilters()"><i class="ti ti-refresh"></i> Apply filters</button>
+              </div>
+            </div>
+            <div id="ai-report-preview" style="display:none;padding:var(--space-5);overflow-y:auto;flex:1"></div>
+          </div>
+
+        </div>
+      </div>
+
+      <!-- ═══ VIEW 2: REPORT OUTPUT ═══ -->
+      <div id="view-report" style="display:none;flex-direction:column;flex:1;overflow:hidden">
+
+        <div class="report-header">
+          <div class="rh-top">
+            <div>
+              <button class="bc-link" onclick="showLibrary()">Reports</button>
+              <span style="color:var(--color-text-placeholder);margin:0 6px;font-size:11px"><i class="ti ti-chevron-right" style="font-size:11px"></i></span>
+              <span id="rh-title-sm" style="font-size:var(--text-sm);color:var(--color-text-secondary)"></span>
+            </div>
+            <div style="display:flex;gap:var(--space-2)">
+              <button class="btn-secondary"><i class="ti ti-download"></i> Export CSV</button>
+              <button class="btn-secondary"><i class="ti ti-file-type-pdf"></i> Export PDF</button>
+              <button class="btn-secondary"><i class="ti ti-clock"></i> Schedule</button>
+            </div>
+          </div>
+          <div class="report-title-row">
+            <h2 class="report-title" id="rh-title"></h2>
+            <span class="rc-tag" id="rh-cat"></span>
+          </div>
+          <div class="rh-meta" style="margin-top:var(--space-2)">
+            <div class="rh-meta-item"><i class="ti ti-calendar"></i> AK-2401 · BRD Cattle Phase II</div>
+            <div class="rh-meta-item"><i class="ti ti-refresh"></i> Last run: 2026-05-30 14:32</div>
+            <div class="rh-meta-item"><i class="ti ti-database"></i> Data as of: 2026-05-30</div>
+          </div>
+        </div>
+
+        <div class="report-filters">
+          <select class="filter-select"><option>All sites</option><option>Austin</option><option>Dallas</option><option>Houston</option></select>
+          <select class="filter-select"><option>All visits</option><option>Visit 1</option><option>Visit 2</option><option>Visit 3</option></select>
+          <span class="filter-sep">From</span>
+          <input class="filter-date" type="text" value="2026-04-01">
+          <span class="filter-sep">to</span>
+          <input class="filter-date" type="text" value="2026-05-30">
+          <button class="btn-primary" style="margin-left:auto"><i class="ti ti-refresh"></i> Run report</button>
+        </div>
+
+        <div class="report-body" id="report-body"></div>
+
+      </div>
+
+    </div>
+  </div>
+</div>
+
+<script>
+const REPORTS = {
+  enrollment: {
+    title: 'Enrollment & retention',
+    cat: 'Progress', catCls: 'cat-progress',
+    render: renderEnrollment,
+  },
+  queries: {
+    title: 'Query summary',
+    cat: 'Data quality', catCls: 'cat-quality',
+    render: renderQueries,
+  },
+  sdv: {
+    title: 'SDV status',
+    cat: 'SDV', catCls: 'cat-sdv',
+    render: renderSDV,
+  },
+  ae: {
+    title: 'Adverse events',
+    cat: 'Safety', catCls: 'cat-safety',
+    render: renderAE,
+  },
+};
+
+function openReport(key) {
+  const r = REPORTS[key] || REPORTS.enrollment;
+  document.getElementById('rh-title').textContent = r.title;
+  document.getElementById('rh-title-sm').textContent = r.title;
+  document.getElementById('rh-cat').textContent = r.cat;
+  document.getElementById('rh-cat').className = 'rc-tag ' + r.catCls;
+  document.getElementById('report-body').innerHTML = r.render();
+  document.getElementById('view-library').style.display = 'none';
+  document.getElementById('view-report').style.display = 'flex';
+}
+
+function showLibrary() {
+  document.getElementById('view-report').style.display = 'none';
+  document.getElementById('view-ai').style.display = 'none';
+  document.getElementById('view-library').style.display = 'flex';
+}
+function openAI() {
+  document.getElementById('view-library').style.display = 'none';
+  document.getElementById('view-ai').style.display = 'flex';
+  resetAI();
+}
+// ── ENROLLMENT REPORT ──────────────────────────────────────────────────────
+function renderEnrollment() {
+  return `
+    <div class="kpi-row">
+      <div class="kpi-card">
+        <div class="kpi-label">Enrolled</div>
+        <div class="kpi-value">14</div>
+        <div class="kpi-sub">of 20 target</div>
+        <div class="kpi-trend trend-up"><i class="ti ti-trending-up" style="font-size:12px"></i> 70% complete</div>
+      </div>
+      <div class="kpi-card">
+        <div class="kpi-label">Screening failures</div>
+        <div class="kpi-value">3</div>
+        <div class="kpi-sub">17.6% screen failure rate</div>
+      </div>
+      <div class="kpi-card">
+        <div class="kpi-label">Dropouts</div>
+        <div class="kpi-value">0</div>
+        <div class="kpi-sub">0% dropout rate</div>
+        <div class="kpi-trend trend-up">On target</div>
+      </div>
+      <div class="kpi-card">
+        <div class="kpi-label">Avg. time to enroll</div>
+        <div class="kpi-value">4.2</div>
+        <div class="kpi-sub">days from screen to enroll</div>
+      </div>
+      <div class="kpi-card">
+        <div class="kpi-label">Active sites</div>
+        <div class="kpi-value">3</div>
+        <div class="kpi-sub">Austin · Dallas · Houston</div>
+      </div>
+    </div>
+
+    <div class="chart-row">
+      <div class="chart-card">
+        <div class="chart-title">Cumulative enrollment by week</div>
+        <div class="chart-area" id="enroll-chart"></div>
+        <div class="chart-x" id="enroll-x"></div>
+      </div>
+      <div class="chart-card">
+        <div class="chart-title">Enrollment by site</div>
+        <div class="donut-wrap" id="site-donut"></div>
+      </div>
+    </div>
+
+    <div class="report-table-wrap">
+      <div class="report-table-header">
+        <div class="report-table-title">Enrollment by site</div>
+        <button class="btn-secondary" style="height:28px;font-size:var(--text-xs)"><i class="ti ti-download"></i> CSV</button>
+      </div>
+      <table class="rt">
+        <thead><tr>
+          <th>Site</th><th>Target</th><th>Enrolled</th><th>Screening</th><th>Failures</th><th>Progress</th><th>Status</th>
+        </tr></thead>
+        <tbody>
+          <tr>
+            <td style="font-weight:500">Austin</td>
+            <td class="cell-mono">10</td><td class="cell-mono">8</td><td class="cell-mono">2</td><td class="cell-mono">1</td>
+            <td><div class="pct-bar-wrap"><div class="pct-track"><div class="pct-fill" style="width:80%;background:var(--blue-600)"></div></div><span class="pct-label">80%</span></div></td>
+            <td><span class="badge badge-info">Enrolling</span></td>
+          </tr>
+          <tr>
+            <td style="font-weight:500">Dallas</td>
+            <td class="cell-mono">6</td><td class="cell-mono">4</td><td class="cell-mono">1</td><td class="cell-mono">1</td>
+            <td><div class="pct-bar-wrap"><div class="pct-track"><div class="pct-fill" style="width:67%;background:var(--blue-600)"></div></div><span class="pct-label">67%</span></div></td>
+            <td><span class="badge badge-info">Enrolling</span></td>
+          </tr>
+          <tr>
+            <td style="font-weight:500">Houston</td>
+            <td class="cell-mono">4</td><td class="cell-mono">2</td><td class="cell-mono">0</td><td class="cell-mono">1</td>
+            <td><div class="pct-bar-wrap"><div class="pct-track"><div class="pct-fill" style="width:50%;background:var(--amber-200)"></div></div><span class="pct-label">50%</span></div></td>
+            <td><span class="badge badge-warn">Behind</span></td>
+          </tr>
+          <tr style="background:var(--color-page-bg)">
+            <td style="font-weight:700">Total</td>
+            <td class="cell-mono" style="font-weight:700">20</td>
+            <td class="cell-mono" style="font-weight:700">14</td>
+            <td class="cell-mono" style="font-weight:700">3</td>
+            <td class="cell-mono" style="font-weight:700">3</td>
+            <td><div class="pct-bar-wrap"><div class="pct-track"><div class="pct-fill" style="width:70%;background:var(--blue-600)"></div></div><span class="pct-label">70%</span></div></td>
+            <td><span class="badge badge-info">On track</span></td>
+          </tr>
+        </tbody>
+      </table>
+    </div>`;
+}
+
+// ── QUERY REPORT ───────────────────────────────────────────────────────────
+function renderQueries() {
+  return `
+    <div class="kpi-row">
+      <div class="kpi-card">
+        <div class="kpi-label">Total queries</div>
+        <div class="kpi-value">38</div>
+        <div class="kpi-sub">across all sites</div>
+      </div>
+      <div class="kpi-card">
+        <div class="kpi-label">Open</div>
+        <div class="kpi-value" style="color:var(--red-600)">12</div>
+        <div class="kpi-sub">31.6% open rate</div>
+        <div class="kpi-trend trend-down"><i class="ti ti-alert-circle" style="font-size:12px"></i> Above threshold</div>
+      </div>
+      <div class="kpi-card">
+        <div class="kpi-label">Avg. resolution time</div>
+        <div class="kpi-value">4.8</div>
+        <div class="kpi-sub">days</div>
+        <div class="kpi-trend trend-flat">Target: &lt;5 days</div>
+      </div>
+      <div class="kpi-card">
+        <div class="kpi-label">Queries &gt;14 days</div>
+        <div class="kpi-value" style="color:var(--red-600)">3</div>
+        <div class="kpi-sub">requiring escalation</div>
+      </div>
+      <div class="kpi-card">
+        <div class="kpi-label">Query rate</div>
+        <div class="kpi-value">2.7</div>
+        <div class="kpi-sub">per 100 data points</div>
+      </div>
+    </div>
+
+    <div class="report-table-wrap" style="margin-bottom:var(--space-4)">
+      <div class="report-table-header">
+        <div class="report-table-title">Query status by site</div>
+      </div>
+      <table class="rt">
+        <thead><tr>
+          <th>Site</th><th>Open</th><th>Responded</th><th>Resolved</th><th>Total</th><th>Avg. age (days)</th><th>Query rate</th>
+        </tr></thead>
+        <tbody>
+          <tr><td style="font-weight:500">Austin</td><td class="cell-mono" style="color:var(--red-600)">7</td><td class="cell-mono">4</td><td class="cell-mono">14</td><td class="cell-mono">25</td><td class="cell-mono">5.2</td><td><span class="badge badge-warn">3.1%</span></td></tr>
+          <tr><td style="font-weight:500">Dallas</td><td class="cell-mono" style="color:var(--amber-700)">3</td><td class="cell-mono">2</td><td class="cell-mono">8</td><td class="cell-mono">13</td><td class="cell-mono">3.8</td><td><span class="badge badge-ok">2.0%</span></td></tr>
+          <tr><td style="font-weight:500">Houston</td><td class="cell-mono" style="color:var(--green-600)">2</td><td class="cell-mono">1</td><td class="cell-mono">4</td><td class="cell-mono">7</td><td class="cell-mono">2.1</td><td><span class="badge badge-ok">1.8%</span></td></tr>
+        </tbody>
+      </table>
+    </div>
+
+    <div class="report-table-wrap">
+      <div class="report-table-header">
+        <div class="report-table-title">Oldest open queries</div>
+        <button class="btn-secondary" style="height:28px;font-size:var(--text-xs)"><i class="ti ti-download"></i> CSV</button>
+      </div>
+      <table class="rt">
+        <thead><tr><th>Query ID</th><th>Subject</th><th>Form · Field</th><th>Raised by</th><th>Raised</th><th>Days open</th><th>Status</th></tr></thead>
+        <tbody>
+          <tr><td class="cell-mono">Q-017</td><td class="cell-mono">AUSB1P1-01</td><td class="cell-muted">PE · Rectal temp</td><td class="cell-muted">J. Rodriguez · CRA</td><td class="cell-mono">2026-05-09</td><td><span style="color:var(--red-600);font-family:var(--font-mono);font-weight:500">21d</span></td><td><span class="badge badge-crit">Open</span></td></tr>
+          <tr><td class="cell-mono">Q-012</td><td class="cell-mono">AUSB1P2-03</td><td class="cell-muted">PE · Heart rate</td><td class="cell-muted">J. Rodriguez · CRA</td><td class="cell-mono">2026-05-14</td><td><span style="color:var(--red-600);font-family:var(--font-mono);font-weight:500">16d</span></td><td><span class="badge badge-crit">Open</span></td></tr>
+          <tr><td class="cell-mono">Q-019</td><td class="cell-mono">DALB1P1-01</td><td class="cell-muted">BW log · Body weight</td><td class="cell-muted">E. Tron · CRC</td><td class="cell-mono">2026-05-16</td><td><span style="color:var(--red-600);font-family:var(--font-mono);font-weight:500">14d</span></td><td><span class="badge badge-warn">Responded</span></td></tr>
+          <tr><td class="cell-mono">Q-023</td><td class="cell-mono">AUSB2P1-02</td><td class="cell-muted">Welfare · BCS</td><td class="cell-muted">J. Rodriguez · CRA</td><td class="cell-mono">2026-05-20</td><td><span style="color:var(--amber-700);font-family:var(--font-mono);font-weight:500">10d</span></td><td><span class="badge badge-crit">Open</span></td></tr>
+          <tr><td class="cell-mono">Q-026</td><td class="cell-mono">HOUB1P1-02</td><td class="cell-muted">Dosing · Route</td><td class="cell-muted">J. Rodriguez · CRA</td><td class="cell-mono">2026-05-22</td><td><span style="color:var(--amber-700);font-family:var(--font-mono);font-weight:500">8d</span></td><td><span class="badge badge-crit">Open</span></td></tr>
+        </tbody>
+      </table>
+    </div>`;
+}
+
+// ── SDV REPORT ─────────────────────────────────────────────────────────────
+function renderSDV() {
+  return `
+    <div class="kpi-row">
+      <div class="kpi-card">
+        <div class="kpi-label">Fields verified</div>
+        <div class="kpi-value">312</div>
+        <div class="kpi-sub">of 480 required</div>
+        <div class="kpi-trend trend-up"><i class="ti ti-trending-up" style="font-size:12px"></i> 65% complete</div>
+      </div>
+      <div class="kpi-card">
+        <div class="kpi-label">SDV rate</div>
+        <div class="kpi-value" style="color:var(--blue-600)">65%</div>
+        <div class="kpi-sub">target: 100%</div>
+      </div>
+      <div class="kpi-card">
+        <div class="kpi-label">Pending</div>
+        <div class="kpi-value" style="color:var(--amber-700)">168</div>
+        <div class="kpi-sub">fields awaiting SDV</div>
+      </div>
+      <div class="kpi-card">
+        <div class="kpi-label">SDV queries</div>
+        <div class="kpi-value">5</div>
+        <div class="kpi-sub">raised during verification</div>
+      </div>
+    </div>
+
+    <div class="report-table-wrap">
+      <div class="report-table-header">
+        <div class="report-table-title">SDV completion by site and form</div>
+        <button class="btn-secondary" style="height:28px;font-size:var(--text-xs)"><i class="ti ti-download"></i> CSV</button>
+      </div>
+      <table class="rt">
+        <thead><tr><th>Site</th><th>Form</th><th>Total fields</th><th>Verified</th><th>Pending</th><th>Queried</th><th>Progress</th></tr></thead>
+        <tbody>
+          <tr><td style="font-weight:500">Austin</td><td class="cell-muted">Physical exam</td><td class="cell-mono">120</td><td class="cell-mono">96</td><td class="cell-mono">20</td><td class="cell-mono">4</td><td><div class="pct-bar-wrap"><div class="pct-track"><div class="pct-fill" style="width:80%;background:var(--blue-600)"></div></div><span class="pct-label">80%</span></div></td></tr>
+          <tr><td style="font-weight:500">Austin</td><td class="cell-muted">Body weight log</td><td class="cell-mono">48</td><td class="cell-mono">32</td><td class="cell-mono">16</td><td class="cell-mono">0</td><td><div class="pct-bar-wrap"><div class="pct-track"><div class="pct-fill" style="width:67%;background:var(--blue-600)"></div></div><span class="pct-label">67%</span></div></td></tr>
+          <tr><td style="font-weight:500">Dallas</td><td class="cell-muted">Physical exam</td><td class="cell-mono">72</td><td class="cell-mono">72</td><td class="cell-mono">0</td><td class="cell-mono">1</td><td><div class="pct-bar-wrap"><div class="pct-track"><div class="pct-fill" style="width:100%;background:var(--green-600)"></div></div><span class="pct-label">100%</span></div></td></tr>
+          <tr><td style="font-weight:500">Dallas</td><td class="cell-muted">Dosing record</td><td class="cell-mono">48</td><td class="cell-mono">24</td><td class="cell-mono">24</td><td class="cell-mono">0</td><td><div class="pct-bar-wrap"><div class="pct-track"><div class="pct-fill" style="width:50%;background:var(--amber-200)"></div></div><span class="pct-label">50%</span></div></td></tr>
+          <tr><td style="font-weight:500">Houston</td><td class="cell-muted">Physical exam</td><td class="cell-mono">48</td><td class="cell-mono">16</td><td class="cell-mono">32</td><td class="cell-mono">0</td><td><div class="pct-bar-wrap"><div class="pct-track"><div class="pct-fill" style="width:33%;background:var(--red-200)"></div></div><span class="pct-label">33%</span></div></td></tr>
+          <tr><td style="font-weight:500">Houston</td><td class="cell-muted">Welfare assessment</td><td class="cell-mono">24</td><td class="cell-mono">8</td><td class="cell-mono">16</td><td class="cell-mono">0</td><td><div class="pct-bar-wrap"><div class="pct-track"><div class="pct-fill" style="width:33%;background:var(--red-200)"></div></div><span class="pct-label">33%</span></div></td></tr>
+        </tbody>
+      </table>
+    </div>`;
+}
+
+// ── AE REPORT ──────────────────────────────────────────────────────────────
+function renderAE() {
+  return `
+    <div class="kpi-row">
+      <div class="kpi-card">
+        <div class="kpi-label">Total AEs</div>
+        <div class="kpi-value">4</div>
+        <div class="kpi-sub">across all subjects</div>
+      </div>
+      <div class="kpi-card">
+        <div class="kpi-label">SAEs</div>
+        <div class="kpi-value" style="color:var(--red-600)">1</div>
+        <div class="kpi-sub">1 subject affected</div>
+        <div class="kpi-trend trend-down"><i class="ti ti-alert-circle" style="font-size:12px"></i> Under review</div>
+      </div>
+      <div class="kpi-card">
+        <div class="kpi-label">Resolved</div>
+        <div class="kpi-value" style="color:var(--green-600)">2</div>
+        <div class="kpi-sub">50% resolution rate</div>
+      </div>
+      <div class="kpi-card">
+        <div class="kpi-label">AE rate</div>
+        <div class="kpi-value">28.6%</div>
+        <div class="kpi-sub">4 of 14 subjects</div>
+      </div>
+    </div>
+
+    <div class="report-table-wrap">
+      <div class="report-table-header">
+        <div class="report-table-title">Adverse event log</div>
+        <button class="btn-secondary" style="height:28px;font-size:var(--text-xs)"><i class="ti ti-download"></i> CIOMS export</button>
+      </div>
+      <table class="rt">
+        <thead><tr><th>AE ID</th><th>Subject</th><th>Event</th><th>Severity</th><th>Causality</th><th>Onset</th><th>Status</th></tr></thead>
+        <tbody>
+          <tr><td class="cell-mono">AE-001</td><td class="cell-mono">AUSB1P1-03</td><td style="font-size:var(--text-sm)">Injection site reaction</td><td><span class="badge badge-warn">Mild</span></td><td class="cell-muted">Possibly related</td><td class="cell-mono">2026-05-06</td><td><span class="badge badge-ok">Resolved</span></td></tr>
+          <tr><td class="cell-mono">SAE-001</td><td class="cell-mono" style="color:var(--red-600)">DALB1P1-01</td><td style="font-size:var(--text-sm);font-weight:500">Severe BRD — emergency treatment</td><td><span class="badge badge-crit">Severe</span></td><td class="cell-muted">Not related</td><td class="cell-mono">2026-05-17</td><td><span class="badge badge-warn">Ongoing</span></td></tr>
+          <tr><td class="cell-mono">AE-002</td><td class="cell-mono">AUSB1P2-03</td><td style="font-size:var(--text-sm)">Mild pyrexia</td><td><span class="badge badge-warn">Mild</span></td><td class="cell-muted">Probably related</td><td class="cell-mono">2026-05-08</td><td><span class="badge badge-ok">Resolved</span></td></tr>
+          <tr><td class="cell-mono">AE-003</td><td class="cell-mono">HOUB1P1-01</td><td style="font-size:var(--text-sm)">Decreased appetite</td><td><span class="badge badge-info">Minimal</span></td><td class="cell-muted">Unlikely related</td><td class="cell-mono">2026-05-22</td><td><span class="badge badge-warn">Ongoing</span></td></tr>
+        </tbody>
+      </table>
+    </div>`;
+}
+
+// ── Draw bar chart on enrollment report load ──────────────────────────────
+function drawCharts() {
+  const chart = document.getElementById('enroll-chart');
+  const xAxis = document.getElementById('enroll-x');
+  if (!chart) return;
+  const weeks = [
+    { label:'W1', val:2 },{ label:'W2', val:5 },{ label:'W3', val:7 },
+    { label:'W4', val:9 },{ label:'W5', val:11 },{ label:'W6', val:12 },
+    { label:'W7', val:13 },{ label:'W8', val:14 },
+  ];
+  const max = 20;
+  chart.innerHTML = weeks.map(w =>
+    `<div style="flex:1;display:flex;flex-direction:column;align-items:center">
+      <div class="bar" style="height:${Math.round(w.val/max*140)}px;background:var(--blue-600);opacity:${w.label==='W8'?'1':'0.7'}"></div>
+    </div>`
+  ).join('');
+  xAxis.innerHTML = weeks.map(w => `<div class="chart-x-item">${w.label}</div>`).join('');
+
+  // Donut
+  const donut = document.getElementById('site-donut');
+  if (!donut) return;
+  const data = [{label:'Austin',val:8,col:'var(--blue-600)'},{label:'Dallas',val:4,col:'var(--purple-600)'},{label:'Houston',val:2,col:'var(--slate-200)'}];
+  const total = data.reduce((s,d)=>s+d.val,0);
+  let offset = 0;
+  const r = 45, cx = 60, cy = 60, circ = 2*Math.PI*r;
+  const segs = data.map(d => {
+    const pct = d.val/total; const dash = pct*circ; const gap = circ-dash;
+    const seg = `<circle cx="${cx}" cy="${cy}" r="${r}" fill="none" stroke="${d.col}" stroke-width="14" stroke-dasharray="${dash} ${gap}" stroke-dashoffset="${-offset}" transform="rotate(-90 ${cx} ${cy})"/>`;
+    offset += dash; return seg;
+  }).join('');
+  donut.innerHTML = `
+    <div class="donut-svg-wrap">
+      <svg class="donut-svg" viewBox="0 0 120 120">${segs}</svg>
+      <div class="donut-center"><div class="donut-pct">14</div><div class="donut-sub">enrolled</div></div>
+    </div>
+    <div class="donut-legend">${data.map(d=>`
+      <div class="dl-item">
+        <div class="dl-left"><div class="dl-dot" style="background:${d.col}"></div>${d.label}</div>
+        <div class="dl-val">${d.val}</div>
+      </div>`).join('')}
+    </div>`;
+}
+
+// Observe report body changes to draw charts
+const obs = new MutationObserver(() => { setTimeout(drawCharts, 50); });
+obs.observe(document.getElementById('report-body'), { childList:true });
+
+// ── AI Report Builder — Simulated conversation ────────────────────────────────
+
+let aiHistory = [];
+let reportGenerated = false;
+let turnCount = 0;
+
+const SIMULATED_TURNS = [
+  // Turn 1: user says anything → AI asks clarifying question
+  {
+    user: null, // matches any first message
+    ai: `Got it! To build the right report, a couple of quick questions:<br><br>
+<strong>1. Who is the primary audience?</strong> (CRA reviewing SDV, Sponsor wanting a safety overview, DM checking data quality, or PI tracking progress?)<br><br>
+<strong>2. What time period?</strong> (All data to date, last 30 days, or a specific visit?)`
+  },
+  // Turn 2: user clarifies → AI proposes structure
+  {
+    user: null,
+    ai: `Perfect. Based on that, I'd suggest a report with these sections:<br><br>
+<strong>① Study progress snapshot</strong> — enrollment, visit completion, overdue visits<br>
+<strong>② Data quality summary</strong> — open queries, query aging by CRC, edit check failures<br>
+<strong>③ SDV status</strong> — completion rate by site and form<br><br>
+Does that look right, or would you like to swap any section out?`
+  },
+  // Turn 3: user confirms → AI generates report
+  {
+    user: null,
+    ai: '__GENERATE_REPORT__'
+  }
+];
+
+function initAIChat() {
+  aiHistory = [];
+  reportGenerated = false;
+  turnCount = 0;
+  const body = document.getElementById('ai-chat-body');
+  body.innerHTML = '';
+  appendAIMessage(`Hi! I can build a custom report for <strong>AK-2401 — BRD Cattle Phase II</strong> using your current study data.<br><br>
+What would you like to see? You can describe it in your own words — I'll ask a couple of questions to get the details right.`);
+}
+
+function appendUserMessage(text) {
+  const body = document.getElementById('ai-chat-body');
+  const div = document.createElement('div');
+  div.style.cssText = 'display:flex;justify-content:flex-end;margin-bottom:4px';
+  div.innerHTML = `<div style="background:var(--color-cta-bg);color:#fff;border-radius:var(--radius-lg);padding:10px 14px;font-size:var(--text-sm);max-width:85%;line-height:1.5">${text}</div>`;
+  body.appendChild(div);
+  body.scrollTop = body.scrollHeight;
+}
+
+function appendAIMessage(html, id) {
+  const body = document.getElementById('ai-chat-body');
+  const div = document.createElement('div');
+  div.style.cssText = 'display:flex;gap:10px;margin-bottom:4px;align-items:flex-start';
+  if (id) div.id = id;
+  div.innerHTML = `
+    <div style="width:28px;height:28px;border-radius:50%;background:var(--color-cta-bg);display:flex;align-items:center;justify-content:center;flex-shrink:0;margin-top:2px">
+      <i class="ti ti-sparkles" style="font-size:12px;color:#fff"></i>
+    </div>
+    <div style="background:var(--color-page-bg);border:1px solid var(--color-border);border-radius:var(--radius-lg);padding:10px 14px;font-size:var(--text-sm);line-height:1.6;flex:1;color:var(--color-text-primary)">
+      ${html}
+    </div>`;
+  body.appendChild(div);
+  body.scrollTop = body.scrollHeight;
+  return div;
+}
+
+function sendAIPrompt() {
+  const input = document.getElementById('ai-input');
+  const text  = input.value.trim();
+  if (!text) return;
+  input.value = '';
+  autoResize(input);
+
+  appendUserMessage(text);
+
+  const sendBtn = document.getElementById('ai-send-btn');
+  sendBtn.disabled = true;
+  appendAIMessage('<div class="ai-thinking"><span></span><span></span><span></span></div>', 'ai-thinking-msg');
+  document.getElementById('ai-chat-body').scrollTop = 9999;
+
+  const turn = SIMULATED_TURNS[Math.min(turnCount, SIMULATED_TURNS.length - 1)];
+  turnCount++;
+
+  setTimeout(() => {
+    document.getElementById('ai-thinking-msg')?.remove();
+
+    if (turn.ai === '__GENERATE_REPORT__') {
+      appendAIMessage('Generating your report now…');
+      setTimeout(() => {
+        generateReport();
+      }, 800);
+    } else {
+      appendAIMessage(turn.ai);
+    }
+    sendBtn.disabled = false;
+  }, 1200);
+}
+
+function generateReport() {
+  const sections = [
+    {
+      type: 'kpi',
+      items: [
+        { label:'Enrolled', value:'14', sub:'of 20 target · 70%', color:'info' },
+        { label:'Overdue visits', value:'4', sub:'window exceeded', color:'crit' },
+        { label:'Open queries', value:'12', sub:'31.6% open rate', color:'warn' },
+        { label:'SDV complete', value:'65%', sub:'312 of 480 fields', color:'info' },
+        { label:'SAEs', value:'1', sub:'DALB1P1-01 · ongoing', color:'crit' },
+      ]
+    },
+    {
+      type: 'table',
+      title: 'Query aging by CRC',
+      columns: ['CRC', 'Site', 'Total queries', 'Open', 'Avg. age', 'Oldest'],
+      rows: [
+        ['E. Tron', 'Austin / Houston', '22', '9', '5.8d', '21d (Q-017)'],
+        ['M. Lopez', 'Dallas', '16', '3', '3.1d', '10d (Q-023)'],
+      ]
+    },
+    {
+      type: 'table',
+      title: 'SDV completion by site',
+      columns: ['Site', 'Required', 'Verified', 'Pending', 'Progress'],
+      rows: [
+        ['Austin', '288', '230', '58', '80%'],
+        ['Dallas', '120', '72', '48', '60%'],
+        ['Houston', '72', '10', '62', '14%'],
+      ]
+    },
+    {
+      type: 'table',
+      title: 'Overdue visits',
+      columns: ['Subject', 'Visit', 'Site', 'Window closed', 'Days overdue'],
+      rows: [
+        ['AUSB1P1-01', 'V3 — Day 21', 'Austin', '2026-05-24', '6d'],
+        ['AUSB1P2-03', 'V3 — Day 21', 'Austin', '2026-05-25', '5d'],
+        ['DALB1P1-01', 'V2 — Day 7',  'Dallas', '2026-05-26', '4d'],
+        ['AUSB2P1-02', 'V2 — Day 7',  'Austin', '2026-05-27', '3d'],
+      ]
+    }
+  ];
+
+  renderAIReport('Study progress · Data quality · SDV', 'A combined progress, query and SDV status report for AK-2401 as of 2026-05-30.', sections);
+  reportGenerated = true;
+  // ai-left-meta is shown from renderAIReport
+  document.getElementById('ai-result-actions').style.display = 'flex';
+  document.getElementById('ai-empty-state').style.display = 'none';
+  document.getElementById('ai-report-preview').style.display = 'block';
+  appendAIMessage('✓ Done! Your report is on the right. Use the filters below to narrow by site, visit or date range — I\'ll update it instantly.');
+}
+
+function renderAIReport(title, summary, sections) {
+  const colorMap = {ok:'var(--green-600)', warn:'var(--amber-700)', crit:'var(--red-600)', info:'var(--blue-600)'};
+  // Populate header title row
+  const h2 = document.getElementById('ai-report-h2');
+  const sumEl = document.getElementById('ai-report-summary');
+  const metaEl = document.getElementById('ai-report-meta');
+  if (h2) h2.textContent = title;
+  if (sumEl) sumEl.textContent = summary;
+  if (metaEl) metaEl.textContent = 'Generated ' + new Date().toLocaleTimeString('en-GB',{hour:'2-digit',minute:'2-digit'}) + ' · AK-2401 · data as of 2026-05-30';
+  document.getElementById('ai-report-header').style.display = 'block';
+  let html = '';
+
+  for (const s of sections) {
+    if (s.type === 'kpi') {
+      html += `<div class="kpi-row" style="margin-bottom:var(--space-4)">` +
+        s.items.map(k => `<div class="kpi-card">
+          <div class="kpi-label">${k.label}</div>
+          <div class="kpi-value" style="${k.color?'color:'+colorMap[k.color]:''}">${k.value}</div>
+          <div class="kpi-sub">${k.sub}</div>
+        </div>`).join('') + `</div>`;
+    } else if (s.type === 'table') {
+      html += `<div class="report-table-wrap" style="margin-bottom:var(--space-4)">
+        <div class="report-table-header"><div class="report-table-title">${s.title}</div></div>
+        <table class="rt"><thead><tr>${s.columns.map(c=>`<th>${c}</th>`).join('')}</tr></thead>
+        <tbody>${s.rows.map(row=>`<tr>${row.map((cell,i)=>`<td class="${i>0?'cell-mono':''}" style="${i===0?'font-weight:500':'color:var(--color-text-secondary)'}">${cell}</td>`).join('')}</tr>`).join('')}
+        </tbody></table></div>`;
+    }
+  }
+  document.getElementById('ai-report-preview').innerHTML = html;
+}
+
+function applyFilters() {
+  if (!reportGenerated) return;
+  const selects = document.querySelectorAll('#ai-filters select');
+  const dates   = document.querySelectorAll('#ai-filters input');
+  const site  = selects[0]?.value;
+  const visit = selects[1]?.value;
+  const from  = dates[0]?.value;
+  const to    = dates[1]?.value;
+  appendUserMessage(`Filter to: ${site}, ${visit}, ${from} – ${to}`);
+  appendAIMessage('<div class="ai-thinking"><span></span><span></span><span></span></div>', 'ai-thinking-msg');
+  setTimeout(() => {
+    document.getElementById('ai-thinking-msg')?.remove();
+    appendAIMessage(`Updated. Showing data for <strong>${site}</strong>, <strong>${visit}</strong>, ${from} – ${to}.`);
+    // Re-render with filter note in title
+    generateReport();
+  }, 900);
+}
+
+function usePrompt(btn) {
+  document.getElementById('ai-input').value = btn.textContent;
+  sendAIPrompt();
+}
+
+function resetAI() {
+  reportGenerated = false;
+  turnCount = 0;
+  document.getElementById('ai-report-header').style.display = 'none';
+  document.getElementById('ai-result-actions').style.display = 'none';
+  document.getElementById('ai-empty-state').style.display = 'flex';
+  document.getElementById('ai-report-preview').style.display = 'none';
+  document.getElementById('ai-report-preview').innerHTML = '';
+  initAIChat();
+}
+
+function autoResize(el) {
+  el.style.height = 'auto';
+  el.style.height = Math.min(el.scrollHeight, 120) + 'px';
+}
+
+
+// ── Custom reports library ────────────────────────────────────────────────
+const customReports = [];
+
+function saveToLibrary() {
+  const h2 = document.getElementById('ai-report-h2');
+  const sumEl = document.getElementById('ai-report-summary');
+  if (!h2 || !h2.textContent) return;
+  const report = {
+    id: 'custom-' + Date.now(),
+    title: h2.textContent,
+    desc: sumEl?.textContent || '',
+    savedAt: new Date().toLocaleString('en-GB', {day:'numeric',month:'short',year:'numeric',hour:'2-digit',minute:'2-digit'}),
+    html: document.getElementById('ai-report-preview')?.innerHTML || '',
+  };
+  customReports.push(report);
+  updateCustomSection();
+  // Show feedback in chat
+  appendAIMessage('Report saved to your library. You can find it under <strong>Custom reports</strong> on the Reports page.');
+}
+
+function updateCustomSection() {
+  const section = document.getElementById('custom-reports-section');
+  if (!section) return;
+  if (customReports.length === 0) { section.style.display = 'none'; return; }
+  section.style.display = 'block';
+  const grid = document.getElementById('custom-reports-grid');
+  grid.innerHTML = customReports.map(r => `
+    <div class="report-card" onclick="openCustomReport('${r.id}')">
+      <div class="rc-header">
+        <div class="rc-icon icon-audit"><i class="ti ti-sparkles"></i></div>
+        <div class="rc-actions">
+          <button class="btn-icon" title="Delete" onclick="event.stopPropagation();deleteCustomReport('${r.id}')"><i class="ti ti-trash" style="font-size:13px"></i></button>
+        </div>
+      </div>
+      <div>
+        <div class="rc-name">${r.title}</div>
+        <div class="rc-desc">${r.desc}</div>
+      </div>
+      <div class="rc-meta">
+        <span class="rc-tag cat-audit">Custom · AI</span>
+        <span class="rc-last"><i class="ti ti-clock" style="font-size:10px"></i> ${r.savedAt}</span>
+      </div>
+    </div>`).join('');
+}
+
+function openCustomReport(id) {
+  const r = customReports.find(r => r.id === id);
+  if (!r) return;
+  document.getElementById('rh-title').textContent = r.title;
+  document.getElementById('rh-title-sm').textContent = r.title;
+  document.getElementById('rh-cat').textContent = 'Custom · AI';
+  document.getElementById('rh-cat').className = 'rc-tag cat-audit';
+  document.getElementById('report-body').innerHTML = r.html;
+  document.getElementById('view-library').style.display = 'none';
+  document.getElementById('view-report').style.display = 'flex';
+}
+
+function deleteCustomReport(id) {
+  const idx = customReports.findIndex(r => r.id === id);
+  if (idx > -1) customReports.splice(idx, 1);
+  updateCustomSection();
+}
+
+function openModal(id) {
+  document.getElementById(id).classList.add('open');
+}
+function closeModal(id) {
+  document.getElementById(id).classList.remove('open');
+}
+// Close on overlay click
+document.querySelectorAll('.modal-overlay').forEach(overlay => {
+  overlay.addEventListener('click', e => {
+    if (e.target === overlay) overlay.classList.remove('open');
+  });
+});
+
+</script>
+
+<!-- ── Schedule report modal ── -->
+<div class="modal-overlay" id="modal-schedule">
+  <div class="modal">
+    <div class="modal-header">
+      <div class="modal-title">Schedule report</div>
+      <button class="modal-close" onclick="closeModal('modal-schedule')"><i class="ti ti-x"></i></button>
+    </div>
+    <div class="modal-body">
+      <div class="form-row">
+        <div class="form-label">Report</div>
+        <select class="form-select">
+          <option>Enrollment &amp; retention</option>
+          <option>Query summary</option>
+          <option>SDV status</option>
+          <option>Visit completion</option>
+          <option>Adverse events</option>
+          <option>Protocol deviations</option>
+        </select>
+      </div>
+      <div class="section-divider">Frequency</div>
+      <div class="form-row">
+        <div class="form-label">Run every</div>
+        <div class="form-row-2">
+          <select class="form-select">
+            <option>Daily</option>
+            <option>Weekly</option>
+            <option selected>Bi-weekly</option>
+            <option>Monthly</option>
+          </select>
+          <select class="form-select">
+            <option>Monday</option>
+            <option>Tuesday</option>
+            <option selected>Wednesday</option>
+            <option>Thursday</option>
+            <option>Friday</option>
+          </select>
+        </div>
+        <div class="form-hint">Next run: Wednesday 2026-06-04 at 06:00 UTC</div>
+      </div>
+      <div class="section-divider">Delivery</div>
+      <div class="form-row">
+        <div class="form-label">Send to</div>
+        <input class="form-input" type="text" value="j.rodriguez@clintrials.co, e.tron@arken.io" placeholder="Email addresses separated by commas">
+        <div class="form-hint">Recipients will receive a PDF + CSV attachment</div>
+      </div>
+      <div class="form-row">
+        <div class="form-label">Format</div>
+        <div class="checkbox-group">
+          <label class="checkbox-item"><input type="checkbox" checked> PDF report</label>
+          <label class="checkbox-item"><input type="checkbox" checked> CSV data export</label>
+          <label class="checkbox-item"><input type="checkbox"> Excel workbook</label>
+        </div>
+      </div>
+      <div class="form-row">
+        <div class="form-label">Message (optional)</div>
+        <textarea class="form-textarea" placeholder="Add a note for recipients…"></textarea>
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn-secondary" onclick="closeModal('modal-schedule')">Cancel</button>
+      <button class="btn-primary" onclick="closeModal('modal-schedule');alert('Schedule saved. Next delivery: Wednesday 2026-06-04.')"><i class="ti ti-check"></i> Save schedule</button>
+    </div>
+  </div>
+</div>
+
+        <div class="modal-title">AI report builder</div>
+      </div>
+      <button class="modal-close" onclick="closeModal('modal-custom');resetAI()"><i class="ti ti-x"></i></button>
+    </div>
+
+    <!-- Step 1: prompt ── -->
+    <div id="ai-step-prompt" style="display:flex;flex-direction:column;flex:1;overflow:hidden">
+      <div style="padding:var(--space-4) var(--space-5);flex:1;overflow-y:auto;display:flex;flex-direction:column;gap:var(--space-4)">
+        <!-- Intro message -->
+        <div style="display:flex;gap:var(--space-3)">
+          <div style="width:28px;height:28px;border-radius:50%;background:var(--color-cta-bg);display:flex;align-items:center;justify-content:center;flex-shrink:0;margin-top:2px">
+            <i class="ti ti-sparkles" style="font-size:13px;color:#fff"></i>
+          </div>
+          <div style="background:var(--color-page-bg);border:1px solid var(--color-border);border-radius:var(--radius-lg);padding:var(--space-3) var(--space-4);font-size:var(--text-sm);color:var(--color-text-primary);line-height:1.6;flex:1">
+            Hi! I can generate a custom report for study <strong>AK-2401 — BRD Cattle Phase II</strong> based on your current data.<br><br>
+            Just describe what you'd like to see — for example:<br>
+            <span style="color:var(--color-text-tertiary);font-style:italic">"Show me query performance by CRC over the last 30 days"</span><br>
+            <span style="color:var(--color-text-tertiary);font-style:italic">"SDV completion rate by site this week"</span><br>
+            <span style="color:var(--color-text-tertiary);font-style:italic">"Which subjects have the most overdue visits?"</span>
+          </div>
+        </div>
+        <!-- Suggestions -->
+        <div style="display:flex;flex-wrap:wrap;gap:var(--space-2);padding-left:40px">
+          <button class="ai-suggestion" onclick="usePrompt(this)">Query aging by CRC</button>
+          <button class="ai-suggestion" onclick="usePrompt(this)">SDV completion this week</button>
+          <button class="ai-suggestion" onclick="usePrompt(this)">Overdue visits by site</button>
+          <button class="ai-suggestion" onclick="usePrompt(this)">AE summary for Sponsor</button>
+          <button class="ai-suggestion" onclick="usePrompt(this)">Missing data by form</button>
+        </div>
+        <!-- AI chat thread (populated after send) -->
+        <div id="ai-thread"></div>
+      </div>
+      <!-- Compose -->
+      <div style="padding:var(--space-4) var(--space-5);border-top:1px solid var(--color-border);display:flex;gap:var(--space-2);align-items:flex-end">
+        <textarea id="ai-input" class="form-textarea" style="flex:1;min-height:44px;max-height:120px;resize:none" placeholder="Describe the report you want…" oninput="autoResize(this)" onkeydown="if(event.key==='Enter'&&!event.shiftKey){event.preventDefault();sendAIPrompt()}"></textarea>
+        <button class="btn-primary" style="height:44px;padding:0 var(--space-3);flex-shrink:0" onclick="sendAIPrompt()"><i class="ti ti-arrow-up" style="font-size:16px"></i></button>
+      </div>
+    </div>
+
+    <!-- Step 2: report result ── -->
+    <div id="ai-step-result" style="display:none;flex-direction:column;flex:1;overflow:hidden">
+      <!-- Result header -->
+      <div style="padding:var(--space-3) var(--space-5);background:var(--green-50);border-bottom:1px solid var(--green-200);display:flex;align-items:center;gap:var(--space-2);flex-shrink:0">
+        <i class="ti ti-circle-check-filled" style="color:var(--green-600);font-size:16px;flex-shrink:0"></i>
+        <span style="font-size:var(--text-sm);color:var(--green-600);font-weight:500" id="ai-result-label">Report generated</span>
+        <button style="margin-left:auto;background:none;border:none;font-size:var(--text-xs);color:var(--color-text-tertiary);cursor:pointer;text-decoration:underline;text-underline-offset:2px" onclick="resetAI()">Start over</button>
+      </div>
+      <!-- Report preview -->
+      <div id="ai-report-preview" style="flex:1;overflow-y:auto;padding:var(--space-4) var(--space-5)"></div>
+      <!-- Actions -->
+      <div style="padding:var(--space-4) var(--space-5);border-top:1px solid var(--color-border);display:flex;align-items:center;justify-content:space-between">
+        <span style="font-size:var(--text-xs);color:var(--color-text-tertiary)" id="ai-generated-at"></span>
+        <div style="display:flex;gap:var(--space-2)">
+          <button class="btn-secondary" onclick="closeModal('modal-custom');resetAI()"><i class="ti ti-x"></i> Close</button>
+          <button class="btn-secondary" onclick="alert('Report added to library. You can find it under your custom reports.')"><i class="ti ti-bookmark"></i> Add to library</button>
+          <button class="btn-primary" onclick="alert('Downloading report as PDF + CSV…');closeModal('modal-custom');resetAI()"><i class="ti ti-download"></i> Download</button>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+</body>
+</html>
