@@ -1,0 +1,1183 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Arken EDC — Invoices</title>
+<link href="https://fonts.googleapis.com/css2?family=Roboto:wght@400;500;700&family=Roboto+Mono:wght@400;500&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@tabler/icons-webfont@latest/tabler-icons.min.css">
+<style>
+:root {
+  --color-nav-bg:#1A1F2E;--color-nav-hover:#2C3248;--color-nav-icon:#8aafc8;
+  --color-page-bg:#FBFBFB;--color-surface:#FFFFFF;
+  --color-border:#E8E8E6;--color-border-subtle:#F0F0EE;
+  --color-text-primary:#2C2D33;--color-text-secondary:#4F535B;
+  --color-text-tertiary:#6D7480;--color-text-placeholder:#C4C4C2;
+  --color-hover-bg:#F0F0EE;--color-cta-bg:#1A1F2E;--color-cta-hover:#2C3248;
+  --color-link:#3D4A5C;
+  --amber-50:#FFF8E7;--amber-200:#F5B830;--amber-700:#8A5C00;
+  --red-50:#FFF0F0;--red-200:#EC8585;--red-600:#B52626;
+  --green-50:#EEFAF4;--green-200:#58BC88;--green-600:#1A6B47;
+  --blue-50:#E8F4FF;--blue-200:#7AB8EE;--blue-600:#1760A8;
+  --slate-50:#EEF1F6;--slate-200:#8AA0B8;--slate-600:#3D5A78;
+  --purple-50:#F0EEFF;--purple-200:#A9A3EC;--purple-600:#534AB7;
+  --font-sans:'Roboto',system-ui,sans-serif;--font-mono:'Roboto Mono',monospace;
+  --text-xs:11px;--text-sm:12px;--text-base:14px;--text-lg:16px;--text-3xl:24px;
+  --weight-regular:400;--weight-medium:500;--weight-bold:700;
+  --radius-sm:2px;--radius-md:4px;--radius-lg:6px;--radius-full:9999px;
+  --space-1:4px;--space-2:8px;--space-3:12px;--space-4:16px;--space-5:20px;--space-6:24px;
+  --duration-fast:120ms;--ease-default:cubic-bezier(0.16,1,0.3,1);
+  --tracking-caps:0.07em;
+}
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+body{font-family:var(--font-sans);font-size:var(--text-base);color:var(--color-text-primary);background:var(--color-page-bg);-webkit-font-smoothing:antialiased}
+
+/* ─── Shell ── */
+.shell{display:flex;height:100vh;overflow:hidden}
+.sidenav{width:74px;background:var(--color-nav-bg);display:flex;flex-direction:column;align-items:center;padding:var(--space-3) 0;gap:2px;flex-shrink:0}
+.nav-logo{width:30px;height:30px;border-radius:var(--radius-md);background:var(--color-nav-hover);display:flex;align-items:center;justify-content:center;margin-bottom:var(--space-3)}
+.nav-logo span{font-size:var(--text-base);font-weight:700;color:#fff}
+.nav-item{width:100%;min-height:50px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:3px;border:none;background:transparent;color:var(--color-nav-icon);cursor:pointer;transition:background var(--duration-fast);padding:4px 0}
+.nav-item:hover{background:var(--color-nav-hover);color:#fff}
+.nav-item.active{background:var(--color-nav-hover);color:#fff}
+.nav-item i{font-size:20px}.nav-label{font-size:11px;font-weight:500;color:inherit;text-align:center}
+.nav-spacer{flex:1}.nav-sep{width:100%;height:1px;background:rgba(255,255,255,0.08);margin:var(--space-2) 0}
+.main{flex:1;display:flex;flex-direction:column;min-width:0;overflow:hidden}
+.topbar{height:56px;background:var(--color-nav-bg);display:flex;align-items:center;padding:0 var(--space-5);gap:var(--space-3);flex-shrink:0;border-bottom:1px solid rgba(255,255,255,0.06)}
+.tb-study{background:var(--color-nav-hover);color:#fff;font-size:var(--text-base);font-weight:500;padding:7px var(--space-4);border-radius:var(--radius-md);border:1px solid #525D73;display:flex;align-items:center;gap:4px;cursor:pointer}
+.tb-right{margin-left:auto;display:flex;align-items:center;gap:var(--space-3)}
+.tb-icon{width:28px;height:28px;display:flex;align-items:center;justify-content:center;border-radius:var(--radius-md);border:none;background:transparent;color:#fff;cursor:pointer}
+.tb-icon i{font-size:20px}
+.tb-role{background:var(--color-nav-hover);color:#fff;font-size:var(--text-sm);font-weight:500;padding:3px var(--space-2);border-radius:var(--radius-md);border:1px solid #525D73;display:flex;align-items:center;gap:4px;cursor:pointer}
+.tb-avatar{width:30px;height:30px;border-radius:50%;background:#3D5A78;color:#EEF1F6;font-size:12px;font-weight:500;display:flex;align-items:center;justify-content:center}
+.page-wrap{flex:1;display:flex;flex-direction:column;overflow:hidden}
+
+/* ─── Shared ── */
+.btn-primary{display:flex;align-items:center;gap:4px;height:32px;padding:0 var(--space-3);font-size:var(--text-sm);font-weight:500;font-family:var(--font-sans);border:none;border-radius:var(--radius-md);background:var(--color-cta-bg);color:#fff;cursor:pointer;white-space:nowrap}
+.btn-primary:hover{background:var(--color-cta-hover)}
+.btn-primary i{font-size:14px}
+.btn-secondary{display:flex;align-items:center;gap:4px;height:32px;padding:0 var(--space-3);font-size:var(--text-sm);font-weight:500;font-family:var(--font-sans);border:1px solid var(--color-border);border-radius:var(--radius-md);background:var(--color-surface);color:var(--color-text-primary);cursor:pointer;white-space:nowrap}
+.btn-secondary:hover{background:var(--color-hover-bg)}
+.btn-secondary i{font-size:14px}
+.btn-icon{display:flex;align-items:center;justify-content:center;width:28px;height:28px;border:none;background:none;border-radius:var(--radius-md);color:var(--color-text-tertiary);cursor:pointer}
+.btn-icon:hover{background:var(--color-hover-bg);color:var(--color-text-primary)}
+.btn-icon i{font-size:15px}
+.badge{display:inline-flex;align-items:center;gap:3px;padding:2px var(--space-2);border-radius:var(--radius-full);font-size:var(--text-xs);font-weight:500;border:1px solid;white-space:nowrap}
+.badge-draft   {background:var(--slate-50);border-color:var(--slate-200);color:var(--slate-600)}
+.badge-submitted{background:var(--amber-50);border-color:var(--amber-200);color:var(--amber-700)}
+.badge-approved{background:var(--blue-50);border-color:var(--blue-200);color:var(--blue-600)}
+.badge-paid    {background:var(--green-50);border-color:var(--green-200);color:var(--green-600)}
+.badge-override{background:var(--purple-50);border-color:var(--purple-200);color:var(--purple-600)}
+
+/* ─── Page header + tabs ── */
+.page-header{padding:var(--space-4) var(--space-5);border-bottom:1px solid var(--color-border);background:var(--color-surface);flex-shrink:0;display:flex;align-items:center;justify-content:space-between}
+.page-title{font-size:var(--text-3xl);font-weight:500}
+.tabs{display:flex;border-bottom:1px solid var(--color-border);background:var(--color-surface);flex-shrink:0;padding:0 var(--space-5)}
+.tab{display:flex;align-items:center;gap:var(--space-2);padding:var(--space-3) var(--space-4);font-size:var(--text-sm);font-weight:500;color:var(--color-text-tertiary);background:none;border:none;border-bottom:2px solid transparent;cursor:pointer;white-space:nowrap}
+.tab:hover{color:var(--color-text-primary)}
+.tab.active{color:var(--color-text-primary);border-bottom-color:var(--color-text-primary)}
+
+/* ── List table ── */
+.table-wrap{flex:1;overflow-y:auto}
+.list-table{width:100%;border-collapse:collapse;font-size:var(--text-sm)}
+.list-table thead th{position:sticky;top:0;z-index:5;background:var(--color-surface);padding:var(--space-2) var(--space-3);text-align:left;font-size:var(--text-xs);font-weight:500;text-transform:uppercase;letter-spacing:var(--tracking-caps);color:var(--color-text-tertiary);border-bottom:1px solid var(--color-border);white-space:nowrap}
+.list-table thead th:first-child{padding-left:var(--space-5)}
+.list-table thead th:last-child{padding-right:var(--space-5);text-align:right}
+.list-table tbody tr{border-bottom:1px solid var(--color-border-subtle);cursor:pointer;transition:background var(--duration-fast)}
+.list-table tbody tr:hover{background:var(--color-hover-bg)}
+.list-table tbody td{padding:var(--space-2) var(--space-3);vertical-align:middle}
+.list-table tbody td:first-child{padding-left:var(--space-5)}
+.list-table tbody td:last-child{padding-right:var(--space-5);text-align:right}
+.cell-mono{font-family:var(--font-mono);font-size:var(--text-sm);color:var(--color-text-secondary)}
+.cell-money{font-family:var(--font-mono);font-size:var(--text-sm);font-weight:500;color:var(--color-text-primary);text-align:right}
+.cell-muted{color:var(--color-text-secondary);font-size:var(--text-sm)}
+.summary-bar{padding:var(--space-2) var(--space-5);background:var(--color-surface);border-top:1px solid var(--color-border);display:flex;align-items:center;gap:var(--space-4);font-size:var(--text-xs);color:var(--color-text-tertiary);flex-shrink:0}
+.sv{font-weight:500;color:var(--color-text-primary);font-family:var(--font-mono)}
+.sv.ok{color:var(--green-600)}.sv.warn{color:var(--amber-700)}
+
+/* ════════════════════════════════════
+   VIEW 1 — FEE SCHEDULE
+   ════════════════════════════════════ */
+#view-fee{display:flex;flex-direction:column;flex:1;overflow:hidden}
+
+/* Event row editing */
+.fee-input{height:30px;padding:0 var(--space-2);font-family:var(--font-mono);font-size:var(--text-sm);border:1px solid var(--color-border);border-radius:var(--radius-sm);background:var(--color-surface);color:var(--color-text-primary);outline:none;width:100px;text-align:right}
+.fee-input:focus{border-color:var(--blue-600);box-shadow:0 0 0 2px rgba(23,96,168,0.15)}
+.fee-input.override{border-color:var(--purple-200);background:var(--purple-50);color:var(--purple-600)}
+.override-pill{display:inline-flex;align-items:center;gap:3px;font-size:10px;color:var(--purple-600);background:var(--purple-50);border:1px solid var(--purple-200);border-radius:var(--radius-full);padding:1px 6px;margin-left:4px}
+.section-header-row td{background:var(--color-page-bg);font-size:var(--text-xs);font-weight:700;text-transform:uppercase;letter-spacing:var(--tracking-caps);color:var(--color-text-secondary);padding:var(--space-2) var(--space-3);border-bottom:1px solid var(--color-border);text-align:left}
+.section-header-row td:first-child{padding-left:var(--space-5)}
+
+/* ════════════════════════════════════
+   VIEW 2 — SITE INVOICES
+   ════════════════════════════════════ */
+#view-invoices{display:none;flex-direction:column;flex:1;overflow:hidden}
+
+/* KPI strip */
+.kpi-row{display:grid;grid-template-columns:repeat(5,1fr);gap:var(--space-3);padding:var(--space-4) var(--space-5);background:var(--color-surface);border-bottom:1px solid var(--color-border);flex-shrink:0}
+.kpi-card{display:flex;flex-direction:column;gap:3px}
+.kpi-label{font-size:var(--text-xs);text-transform:uppercase;letter-spacing:var(--tracking-caps);color:var(--color-text-tertiary)}
+.kpi-value{font-size:20px;font-weight:700;font-family:var(--font-mono);color:var(--color-text-primary);line-height:1}
+.kpi-sub{font-size:var(--text-xs);color:var(--color-text-tertiary)}
+
+/* Progress bar */
+.pct-wrap{display:flex;align-items:center;gap:var(--space-2)}
+.pct-track{flex:1;height:4px;background:var(--color-border);border-radius:var(--radius-full);overflow:hidden}
+.pct-fill{height:100%;border-radius:var(--radius-full)}
+.pct-label{font-family:var(--font-mono);font-size:var(--text-xs);color:var(--color-text-secondary);white-space:nowrap;min-width:36px}
+
+/* Invoice detail panel */
+.invoice-detail{display:none;position:fixed;top:0;right:0;width:500px;height:100%;background:var(--color-surface);border-left:1px solid var(--color-border);flex-direction:column;z-index:100;transform:translateX(100%);transition:transform 300ms var(--ease-default);box-shadow:-8px 0 32px rgba(14,18,28,0.12)}
+.invoice-detail.open{display:flex;transform:translateX(0)}
+.panel-overlay{display:none;position:fixed;inset:0;background:rgba(14,18,28,0.3);z-index:99}
+.panel-overlay.open{display:block}
+.id-header{padding:var(--space-4) var(--space-5);border-bottom:1px solid var(--color-border);flex-shrink:0;display:flex;align-items:flex-start;justify-content:space-between}
+.id-header-left{display:flex;flex-direction:column;gap:3px}
+.id-invoice-num{font-size:var(--text-lg);font-weight:500}
+.id-meta{font-size:var(--text-xs);color:var(--color-text-tertiary);display:flex;align-items:center;gap:var(--space-3)}
+.id-close{width:28px;height:28px;border:none;background:none;cursor:pointer;border-radius:var(--radius-sm);color:var(--color-text-tertiary);display:flex;align-items:center;justify-content:center}
+.id-close:hover{background:var(--color-hover-bg)}
+.id-close i{font-size:16px}
+.id-site-block{padding:var(--space-3) var(--space-5);background:var(--color-page-bg);border-bottom:1px solid var(--color-border);flex-shrink:0;display:flex;align-items:center;justify-content:space-between}
+.id-site-name{font-size:var(--text-base);font-weight:500}
+.id-site-meta{font-size:var(--text-xs);color:var(--color-text-tertiary);margin-top:2px}
+.id-total{text-align:right}
+.id-total-label{font-size:var(--text-xs);color:var(--color-text-tertiary)}
+.id-total-amount{font-size:22px;font-weight:700;font-family:var(--font-mono);color:var(--color-text-primary)}
+.id-body{flex:1;overflow-y:auto;padding:var(--space-4) var(--space-5)}
+.id-section-title{font-size:var(--text-xs);font-weight:500;text-transform:uppercase;letter-spacing:var(--tracking-caps);color:var(--color-text-tertiary);margin-bottom:var(--space-2);margin-top:var(--space-4)}
+.id-section-title:first-child{margin-top:0}
+.line-item{display:flex;align-items:center;justify-content:space-between;padding:var(--space-2) 0;border-bottom:1px solid var(--color-border-subtle);gap:var(--space-3)}
+.li-left{flex:1;min-width:0}
+.li-name{font-size:var(--text-sm);color:var(--color-text-primary)}
+.li-meta{font-size:var(--text-xs);color:var(--color-text-tertiary);margin-top:1px}
+.li-right{text-align:right;flex-shrink:0}
+.li-qty{font-size:var(--text-xs);color:var(--color-text-tertiary)}
+.li-amount{font-family:var(--font-mono);font-size:var(--text-sm);font-weight:500;color:var(--color-text-primary)}
+.li-override{font-size:10px;color:var(--purple-600);display:flex;align-items:center;gap:3px;justify-content:flex-end}
+.id-subtotal{display:flex;justify-content:space-between;padding:var(--space-3) 0;font-weight:500}
+.id-holdback{display:flex;justify-content:space-between;padding:var(--space-2) 0;font-size:var(--text-sm);color:var(--color-text-secondary);border-top:1px solid var(--color-border)}
+.id-net{display:flex;justify-content:space-between;padding:var(--space-3) 0;font-size:var(--text-lg);font-weight:700;border-top:2px solid var(--color-border);margin-top:var(--space-2)}
+.id-footer{padding:var(--space-4) var(--space-5);border-top:1px solid var(--color-border);display:flex;gap:var(--space-2);justify-content:flex-end;flex-shrink:0}
+
+/* Edit event modal */
+
+/* Site contact modal */
+.site-info-grid{display:grid;grid-template-columns:1fr 1fr;gap:var(--space-5)}
+.site-info-block{display:flex;flex-direction:column;gap:var(--space-3)}
+.sib-title{font-size:var(--text-xs);font-weight:700;text-transform:uppercase;letter-spacing:var(--tracking-caps);color:var(--color-text-tertiary);padding-bottom:var(--space-2);border-bottom:1px solid var(--color-border-subtle)}
+.sib-field{display:flex;flex-direction:column;gap:2px}
+.sib-label{font-size:10px;font-weight:500;text-transform:uppercase;letter-spacing:var(--tracking-caps);color:var(--color-text-placeholder)}
+.sib-value{font-size:var(--text-sm);color:var(--color-text-primary)}
+.sib-value.mono{font-family:var(--font-mono)}
+
+
+.trigger-mode-btn{height:28px;padding:0 var(--space-3);font-size:var(--text-xs);font-weight:500;font-family:var(--font-sans);border:1px solid var(--color-border);border-radius:var(--radius-md);background:var(--color-surface);color:var(--color-text-secondary);cursor:pointer;transition:all var(--duration-fast)}
+.trigger-mode-btn.active{background:var(--color-cta-bg);border-color:var(--color-cta-bg);color:#fff}
+
+.modal-overlay{display:none;position:fixed;inset:0;background:rgba(14,18,28,0.45);z-index:200;align-items:center;justify-content:center}
+.modal-overlay.open{display:flex}
+.modal{background:var(--color-surface);border-radius:var(--radius-lg);border:1px solid var(--color-border);width:540px;max-width:calc(100vw - var(--space-6));box-shadow:0 16px 48px rgba(14,18,28,0.18);display:flex;flex-direction:column;max-height:80vh}
+.modal-header{padding:var(--space-4) var(--space-5);border-bottom:1px solid var(--color-border);display:flex;align-items:center;justify-content:space-between;flex-shrink:0}
+.modal-title{font-size:var(--text-lg);font-weight:500}
+.modal-close{width:28px;height:28px;border:none;background:none;cursor:pointer;border-radius:var(--radius-sm);color:var(--color-text-tertiary);display:flex;align-items:center;justify-content:center}
+.modal-close:hover{background:var(--color-hover-bg)}
+.modal-close i{font-size:16px}
+.modal-body{padding:var(--space-5);overflow-y:auto;display:flex;flex-direction:column;gap:var(--space-4)}
+.modal-footer{padding:var(--space-4) var(--space-5);border-top:1px solid var(--color-border);display:flex;align-items:center;justify-content:flex-end;gap:var(--space-2);flex-shrink:0}
+.form-row{display:flex;flex-direction:column;gap:var(--space-1)}
+.form-label{font-size:var(--text-sm);font-weight:500;color:var(--color-text-primary)}
+.form-hint{font-size:var(--text-xs);color:var(--color-text-tertiary)}
+.form-input{height:36px;padding:0 var(--space-3);font-size:var(--text-sm);font-family:var(--font-sans);border:1px solid var(--color-border);border-radius:var(--radius-md);background:var(--color-surface);color:var(--color-text-primary);outline:none;width:100%}
+.form-input:focus{border-color:var(--blue-600)}
+.form-input.mono{font-family:var(--font-mono)}
+.form-row-2{display:grid;grid-template-columns:1fr 1fr;gap:var(--space-3)}
+.form-row-3{display:grid;grid-template-columns:1fr 1fr 1fr;gap:var(--space-3)}
+.section-divider{font-size:var(--text-xs);font-weight:500;text-transform:uppercase;letter-spacing:var(--tracking-caps);color:var(--color-text-tertiary);padding-bottom:var(--space-2);border-bottom:1px solid var(--color-border-subtle)}
+.override-row{display:flex;align-items:center;justify-content:space-between;padding:var(--space-2) 0;border-bottom:1px solid var(--color-border-subtle)}
+.override-site{font-size:var(--text-sm);font-weight:500;min-width:80px}
+.override-toggle{display:flex;align-items:center;gap:var(--space-2)}
+.override-amount{height:30px;padding:0 var(--space-2);font-size:var(--text-sm);font-family:var(--font-mono);border:1px solid var(--color-border);border-radius:var(--radius-sm);background:var(--color-surface);color:var(--color-text-primary);outline:none;width:100px;text-align:right}
+.override-amount:focus{border-color:var(--purple-600)}
+.override-amount:disabled{background:var(--color-page-bg);color:var(--color-text-placeholder)}
+.override-amount.active{border-color:var(--purple-200);background:var(--purple-50);color:var(--purple-600)}
+.change-indicator{font-size:var(--text-xs);color:var(--color-text-tertiary)}
+.change-indicator.up{color:var(--green-600)}.change-indicator.down{color:var(--amber-700)}
+</style>
+</head>
+<body>
+<div class="shell">
+  <nav class="sidenav">
+    <div class="nav-logo"><span>Ar</span></div>
+    <button class="nav-item"><i class="ti ti-layout-dashboard"></i><span class="nav-label">Dashboard</span></button>
+    <button class="nav-item"><i class="ti ti-list"></i><span class="nav-label">Animals</span></button>
+    <button class="nav-item"><i class="ti ti-chart-bar"></i><span class="nav-label">Reports</span></button>
+    <button class="nav-item active"><i class="ti ti-receipt"></i><span class="nav-label">Invoices</span></button>
+    <div class="nav-spacer"></div>
+    <div class="nav-sep"></div>
+    <button class="nav-item"><i class="ti ti-settings"></i><span class="nav-label">Settings</span></button>
+  </nav>
+
+  <div class="main">
+    <header class="topbar">
+      <button class="tb-study">AK-2401 — BRD Cattle Phase II <i class="ti ti-chevron-right" style="font-size:11px"></i></button>
+      <div class="tb-right">
+        <button class="tb-icon"><i class="ti ti-bell"></i></button>
+        <button class="tb-role">PM <i class="ti ti-chevron-right" style="font-size:10px"></i></button>
+        <div class="tb-avatar">KL</div>
+      </div>
+    </header>
+
+    <div class="page-wrap">
+      <div class="page-header">
+        <h1 class="page-title">Invoices</h1>
+        <div style="display:flex;gap:var(--space-2)">
+          <button class="btn-secondary"><i class="ti ti-download"></i> Export</button>
+          <button class="btn-primary" id="main-action-btn" onclick="mainAction()"><i class="ti ti-plus"></i> Generate invoices</button>
+        </div>
+      </div>
+
+      <div class="tabs">
+        <button class="tab active" onclick="switchTab(this,'fee')"><i class="ti ti-table" style="font-size:14px"></i> Fee schedule</button>
+        <button class="tab" onclick="switchTab(this,'invoices')"><i class="ti ti-receipt" style="font-size:14px"></i> Site invoices</button>
+        <button class="tab" onclick="switchTab(this,'preview')"><i class="ti ti-file-invoice" style="font-size:14px"></i> Invoice preview</button>
+      </div>
+
+      <!-- ═══ VIEW 1: FEE SCHEDULE ═══ -->
+      <div id="view-fee">
+        <div style="padding:var(--space-3) var(--space-5);background:var(--color-surface);border-bottom:1px solid var(--color-border);display:flex;align-items:center;gap:var(--space-4);flex-shrink:0">
+          <span style="font-size:var(--text-sm);color:var(--color-text-secondary)">Study default rates · Site-level overrides shown in <span style="color:var(--purple-600);font-weight:500">purple</span></span>
+          <div style="margin-left:auto;display:flex;align-items:center;gap:var(--space-3)">
+            <label style="display:flex;align-items:center;gap:var(--space-2);font-size:var(--text-sm);cursor:pointer">
+              <input type="checkbox" id="show-overrides" checked style="accent-color:var(--purple-600)"> Show site overrides
+            </label>
+            <button class="btn-secondary" style="height:28px;font-size:var(--text-xs)"><i class="ti ti-plus"></i> Add event type</button>
+          </div>
+        </div>
+        <div class="table-wrap">
+          <table class="list-table" id="fee-table">
+            <thead>
+              <tr>
+                <th onclick="feeSort('name')" style="cursor:pointer">Event type <i class="ti ti-arrows-sort fee-si" id="fsi-name" style="font-size:10px;color:transparent;margin-left:2px"></i></th>
+                <th>Trigger</th>
+                <th onclick="feeSort('rate')" style="cursor:pointer">Study default rate <i class="ti ti-arrows-sort fee-si" id="fsi-rate" style="font-size:10px;color:transparent;margin-left:2px"></i></th>
+                <th>Austin <span style="font-family:var(--font-mono);font-size:9px;color:var(--color-text-placeholder)" id="th-curr-Austin">USD</span> override</th>
+                <th>Dallas <span style="font-family:var(--font-mono);font-size:9px;color:var(--color-text-placeholder)" id="th-curr-Dallas">USD</span> override</th>
+                <th>Houston <span style="font-family:var(--font-mono);font-size:9px;color:var(--color-text-placeholder)" id="th-curr-Houston">USD</span> override</th>
+                <th style="text-align:right">Actions</th>
+              </tr>
+            </thead>
+            <tbody id="fee-tbody"></tbody>
+          </table>
+        </div>
+        <div class="summary-bar" id="fee-summary"></div>
+      </div>
+
+      <!-- ═══ VIEW 2: SITE INVOICES ═══ -->
+      <div id="view-invoices" style="display:none">
+        <div class="kpi-row" id="inv-kpis"></div>
+        <div style="padding:var(--space-3) var(--space-5);background:var(--color-surface);border-bottom:1px solid var(--color-border);display:flex;align-items:center;gap:var(--space-3);flex-shrink:0">
+          <select style="height:30px;padding:0 24px 0 var(--space-2);font-size:var(--text-sm);font-family:var(--font-sans);border:1px solid var(--color-border);border-radius:var(--radius-md);background:var(--color-surface);color:var(--color-text-primary);cursor:pointer;appearance:none;background-image:url('data:image/svg+xml,%3Csvg width=\'8\' height=\'12\' viewBox=\'0 0 8 12\' fill=\'none\' xmlns=\'http://www.w3.org/2000/svg\'%3E%3Cpath d=\'M1 1L6 6L1 11\' stroke=\'%236D7480\' stroke-width=\'1.5\' stroke-linecap=\'round\' stroke-linejoin=\'round\'/%3E%3C/svg%3E');background-repeat:no-repeat;background-position:right 8px center;outline:none">
+            <option>All sites</option><option>Austin</option><option>Dallas</option><option>Houston</option>
+          </select>
+          <select style="height:30px;padding:0 24px 0 var(--space-2);font-size:var(--text-sm);font-family:var(--font-sans);border:1px solid var(--color-border);border-radius:var(--radius-md);background:var(--color-surface);cursor:pointer;appearance:none;background-image:url('data:image/svg+xml,%3Csvg width=\'8\' height=\'12\' viewBox=\'0 0 8 12\' fill=\'none\' xmlns=\'http://www.w3.org/2000/svg\'%3E%3Cpath d=\'M1 1L6 6L1 11\' stroke=\'%236D7480\' stroke-width=\'1.5\' stroke-linecap=\'round\' stroke-linejoin=\'round\'/%3E%3C/svg%3E');background-repeat:no-repeat;background-position:right 8px center;outline:none">
+            <option>All statuses</option><option>Draft</option><option>Submitted</option><option>Approved</option><option>Paid</option>
+          </select>
+          <span style="font-size:var(--text-xs);color:var(--color-text-tertiary);margin-left:auto" id="inv-count"></span>
+        </div>
+        <div class="table-wrap">
+          <table class="list-table" id="inv-table">
+            <thead>
+              <tr>
+                <th>Invoice</th>
+                <th>Site</th>
+                <th>Period</th>
+                <th>Events</th>
+                <th>Gross amount</th>
+                <th>Holdback (10%)</th>
+                <th>Net payable</th>
+                <th>Status</th>
+                <th></th>
+              </tr>
+            </thead>
+            <tbody id="inv-tbody"></tbody>
+          </table>
+        </div>
+        <div class="summary-bar" id="inv-summary"></div>
+      </div>
+
+
+      <!-- ═══ VIEW 3: INVOICE PREVIEW ═══ -->
+      <div id="view-preview" style="display:none;flex-direction:column;flex:1;overflow:hidden">
+        <div style="padding:var(--space-3) var(--space-5);background:var(--color-surface);border-bottom:1px solid var(--color-border);display:flex;align-items:center;gap:var(--space-3);flex-shrink:0">
+          <select id="preview-select" onchange="renderPreview()" style="height:32px;padding:0 24px 0 var(--space-3);font-size:var(--text-sm);font-family:var(--font-sans);border:1px solid var(--color-border);border-radius:var(--radius-md);background:var(--color-surface);cursor:pointer;appearance:none;background-image:url('data:image/svg+xml,%3Csvg width='8' height='12' viewBox='0 0 8 12' fill='none' xmlns='http://www.w3.org/2000/svg'%3E%3Cpath d='M1 1L6 6L1 11' stroke='%236D7480' stroke-width='1.5' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E');background-repeat:no-repeat;background-position:right 10px center;outline:none">
+            <option value="INV-2401-001">INV-2401-001 — Austin</option>
+            <option value="INV-2401-002">INV-2401-002 — Dallas</option>
+            <option value="INV-2401-003">INV-2401-003 — Houston</option>
+          </select>
+          <div style="margin-left:auto;display:flex;gap:var(--space-2)">
+            <button class="btn-secondary"><i class="ti ti-download"></i> Download PDF</button>
+            <button class="btn-secondary"><i class="ti ti-printer"></i> Print</button>
+          </div>
+        </div>
+        <div style="flex:1;overflow-y:auto;background:#E8E8E6;padding:var(--space-6)">
+          <div id="invoice-paper" style="background:#fff;max-width:760px;margin:0 auto;padding:48px 56px;box-shadow:0 2px 16px rgba(0,0,0,0.10);border-radius:var(--radius-lg);font-family:var(--font-sans)"></div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Panel overlay + Invoice detail -->
+<div class="panel-overlay" id="panel-overlay" onclick="closeDetail()"></div>
+<div class="invoice-detail" id="invoice-detail">
+  <div class="id-header">
+    <div class="id-header-left">
+      <div class="id-invoice-num" id="id-num"></div>
+      <div class="id-meta" id="id-meta"></div>
+    </div>
+    <button class="id-close" onclick="closeDetail()"><i class="ti ti-x"></i></button>
+  </div>
+  <div class="id-site-block">
+    <div>
+      <div class="id-site-name" id="id-site"></div>
+      <div class="id-site-meta" id="id-period"></div>
+    </div>
+    <div class="id-total">
+      <div class="id-total-label">Net payable</div>
+      <div class="id-total-amount" id="id-total"></div>
+    </div>
+  </div>
+  <div class="id-body" id="id-body"></div>
+  <div class="id-footer">
+    <button class="btn-secondary" onclick="closeDetail()">Close</button>
+    <button class="btn-secondary"><i class="ti ti-download"></i> Download PDF</button>
+    <button class="btn-primary" id="id-action-btn">Submit invoice</button>
+  </div>
+</div>
+
+<script>
+// ── Fee schedule data ──────────────────────────────────────────────────────
+const FEE_EVENTS = [
+  // Enrollment
+  { id:'E01', section:'Enrollment & Screening', name:'Screening visit',       trigger:'Subject screened',           rate:450,  overrides:{} },
+  { id:'E02', section:'Enrollment & Screening', name:'Enrollment',             trigger:'Subject enrolled (signed CF)',rate:800,  overrides:{Austin:850} },
+  { id:'E03', section:'Enrollment & Screening', name:'Screen failure',         trigger:'Subject screen-failed',       rate:200,  overrides:{} },
+  // Visits
+  { id:'E04', section:'Protocol visits',        name:'Visit 1 — Baseline',     trigger:'V1 all forms complete',       rate:950,  overrides:{} },
+  { id:'E05', section:'Protocol visits',        name:'Visit 2 — Day 7',        trigger:'V2 all forms complete',       rate:750,  overrides:{Dallas:700} },
+  { id:'E06', section:'Protocol visits',        name:'Visit 3 — Day 21',       trigger:'V3 all forms complete',       rate:750,  overrides:{} },
+  { id:'E07', section:'Protocol visits',        name:'Visit 4 — Day 28',       trigger:'V4 all forms complete',       rate:750,  overrides:{} },
+  { id:'E08', section:'Protocol visits',        name:'Visit 5 — EOT Day 42',   trigger:'V5 all forms complete',       rate:1100, overrides:{} },
+  { id:'E09', section:'Protocol visits',        name:'Unscheduled visit',       trigger:'Unscheduled visit completed', rate:400,  overrides:{} },
+  // Safety
+  { id:'E10', section:'Safety events',          name:'SAE report',             trigger:'SAE form submitted <24hr',    rate:1200, overrides:{} },
+  { id:'E11', section:'Safety events',          name:'Protocol deviation',     trigger:'PD logged and approved',      rate:300,  overrides:{} },
+  { id:'E12', section:'Safety events',          name:'Early termination',      trigger:'Subject withdrawn',           rate:500,  overrides:{Houston:450} },
+  // Close-out
+  { id:'E13', section:'Study close-out',        name:'Database lock',          trigger:'Lock confirmed by DM',        rate:2500, overrides:{} },
+  { id:'E14', section:'Study close-out',        name:'Final site visit',       trigger:'Close-out visit completed',   rate:800,  overrides:{} },
+];
+
+const SITES = [
+  {
+    name:'Austin', currency:'USD', symbol:'$',
+    contact:{ name:'Dr. Margaret Tillson', title:'Principal Investigator', address:'4820 Research Blvd', city:'Austin, TX 78759', country:'USA', phone:'+1 (512) 943-2201', email:'m.tillson@austinvet.edu' },
+    billing:{ name:'Sandra Kowalski', company:'Austin Veterinary Research Center', attn:'Clinical Trials Finance', email:'billing@austinvet.edu', phone:'+1 (512) 943-2200 ext 4', address:'4820 Research Blvd, Suite 200', city:'Austin, TX 78759', country:'USA' },
+  },
+  {
+    name:'Dallas', currency:'USD', symbol:'$',
+    contact:{ name:'Dr. James Okafor', title:'Principal Investigator', address:'1901 Inwood Rd', city:'Dallas, TX 75235', country:'USA', phone:'+1 (214) 648-3111', email:'j.okafor@dallasvetsci.org' },
+    billing:{ name:'Patricia Reinholt', company:'Dallas Veterinary Sciences LLC', attn:'Accounts Receivable', email:'ar@dallasvetsci.org', phone:'+1 (214) 648-3100', address:'1901 Inwood Rd, Building B', city:'Dallas, TX 75235', country:'USA' },
+  },
+  {
+    name:'Houston', currency:'USD', symbol:'$',
+    contact:{ name:'Dr. Lucia Navarro', title:'Principal Investigator', address:'6431 Fannin St', city:'Houston, TX 77030', country:'USA', phone:'+1 (713) 500-4719', email:'l.navarro@houstonvet.com' },
+    billing:{ name:'Derek Samuelson', company:'Houston Livestock Research Inc.', attn:'Clinical Billing Dept', email:'clinbilling@houstonvet.com', phone:'+1 (713) 500-4700', address:'6431 Fannin St, Floor 3', city:'Houston, TX 77030', country:'USA' },
+  },
+];
+const SITE_NAMES = SITES.map(s=>s.name);
+
+// ── Invoice data ───────────────────────────────────────────────────────────
+const INVOICES = [
+  {
+    id:'INV-2401-001', site:'Austin', period:'Apr – May 2026', status:'submitted', issueDate:'2026-05-31',
+    lineItems:[
+      { event:'E01', name:'Screening visit',     qty:9,  rate:450,  override:null },
+      { event:'E02', name:'Enrollment',           qty:8,  rate:850,  override:'Austin' },
+      { event:'E03', name:'Screen failure',       qty:1,  rate:200,  override:null },
+      { event:'E04', name:'Visit 1 — Baseline',  qty:8,  rate:950,  override:null },
+      { event:'E05', name:'Visit 2 — Day 7',     qty:8,  rate:750,  override:null },
+      { event:'E06', name:'Visit 3 — Day 21',    qty:5,  rate:750,  override:null },
+      { event:'E10', name:'SAE report',           qty:1,  rate:1200, override:null },
+    ],
+    holdbackPct:0.10,
+  },
+  {
+    id:'INV-2401-002', site:'Dallas', period:'Apr – May 2026', status:'approved', issueDate:'2026-05-30',
+    lineItems:[
+      { event:'E01', name:'Screening visit',     qty:5,  rate:450,  override:null },
+      { event:'E02', name:'Enrollment',           qty:4,  rate:800,  override:null },
+      { event:'E03', name:'Screen failure',       qty:1,  rate:200,  override:null },
+      { event:'E04', name:'Visit 1 — Baseline',  qty:4,  rate:950,  override:null },
+      { event:'E05', name:'Visit 2 — Day 7',     qty:4,  rate:700,  override:'Dallas' },
+      { event:'E06', name:'Visit 3 — Day 21',    qty:2,  rate:750,  override:null },
+    ],
+    holdbackPct:0.10,
+  },
+  {
+    id:'INV-2401-003', site:'Houston', period:'Apr – May 2026', status:'draft', issueDate:'2026-06-01',
+    lineItems:[
+      { event:'E01', name:'Screening visit',     qty:3,  rate:450,  override:null },
+      { event:'E02', name:'Enrollment',           qty:2,  rate:800,  override:null },
+      { event:'E03', name:'Screen failure',       qty:1,  rate:200,  override:null },
+      { event:'E04', name:'Visit 1 — Baseline',  qty:2,  rate:950,  override:null },
+      { event:'E05', name:'Visit 2 — Day 7',     qty:2,  rate:750,  override:null },
+    ],
+    holdbackPct:0.10,
+  },
+];
+
+function gross(inv) { return inv.lineItems.reduce((s,l)=>s+l.qty*l.rate,0); }
+function holdback(inv) { return Math.round(gross(inv)*inv.holdbackPct); }
+function net(inv) { return gross(inv) - holdback(inv); }
+const fmt = n => '$'+n.toLocaleString('en-US');
+
+// ── Tab switching ──────────────────────────────────────────────────────────
+function switchTab(btn, view) {
+  document.querySelectorAll('.tab').forEach(t=>t.classList.remove('active'));
+  btn.classList.add('active');
+  document.getElementById('view-fee').style.display      = view==='fee'      ? 'flex' : 'none';
+  document.getElementById('view-invoices').style.display = view==='invoices' ? 'flex' : 'none';
+  document.getElementById('view-preview').style.display  = view==='preview'  ? 'flex' : 'none';
+  const actionCfg = {
+    fee:      { label:'<i class="ti ti-plus"></i> Add event type',    fn: openAddEventModal },
+    invoices: { label:'<i class="ti ti-plus"></i> Generate invoices', fn: generateInvoices },
+    preview:  { label:'<i class="ti ti-download"></i> Download PDF',   fn: ()=>alert('Downloading PDF…') },
+  };
+  const cfg = actionCfg[view] || actionCfg.fee;
+  document.getElementById('main-action-btn').innerHTML = cfg.label;
+  document.getElementById('main-action-btn').onclick   = cfg.fn;
+  if (view==='invoices') renderInvoices();
+  if (view==='preview')  renderPreview();
+}
+
+function generateInvoices() {
+  const pending = INVOICES.filter(i=>i.status==='draft').map(i=>i.site);
+  if (!pending.length) { alert('All invoices are already submitted or later. No drafts to generate.'); return; }
+  const confirmed = confirm(
+    'Generate invoices for:\n\n' + pending.map(s=>'  · '+s).join('\n') +
+    '\n\nThis will create draft invoices for all completed billable events since the last billing date. You can review and submit each invoice individually.'
+  );
+  if (confirmed) {
+    alert('Draft invoices generated for:\n\n' + pending.map(s=>'  ✓ '+s+' (Draft → ready to review)').join('\n') +
+      '\n\nSwitch to Site invoices tab to review.');
+  }
+}
+
+function openAddEventModal() {
+  // Pre-fill with empty values for new event
+  const newId = 'E' + String(FEE_EVENTS.length + 1).padStart(2,'0');
+  editingEventId = '__new__';
+  document.getElementById('edit-modal-title').textContent = 'Add event type';
+  document.getElementById('edit-name').value    = '';
+  document.getElementById('edit-id').value      = newId;
+  document.getElementById('edit-trigger').value = '';
+  setTriggerMode('form');
+  document.getElementById('edit-rate').value    = '';
+  document.getElementById('edit-section').selectedIndex = 0;
+  document.getElementById('override-rows').innerHTML = SITES.map(({name:site, currency, symbol}) => `
+    <div class="override-row">
+      <span class="override-site">${site}</span>
+      <div class="override-toggle">
+        <label style="display:flex;align-items:center;gap:6px;font-size:var(--text-sm);cursor:pointer">
+          <input type="checkbox" id="ov-check-${site}" onchange="toggleOverride('${site}')" style="accent-color:var(--purple-600)"> Override
+        </label>
+        <input class="override-amount" id="ov-input-${site}" type="text" value="" disabled placeholder="—">
+        <select class="override-curr" id="ov-curr-${site}" onchange="onCurrencyChange('${site}',this.value)" style="height:30px;padding:0 6px;font-size:var(--text-xs);font-family:var(--font-mono);border:1px solid var(--color-border);border-radius:var(--radius-sm);background:var(--color-surface);cursor:pointer;outline:none;color:var(--color-text-secondary);min-width:60px">
+          <option value="USD" ${currency==='USD'?'selected':''}>USD</option>
+          <option value="CAD" ${currency==='CAD'?'selected':''}>CAD</option>
+          <option value="EUR" ${currency==='EUR'?'selected':''}>EUR</option>
+          <option value="GBP" ${currency==='GBP'?'selected':''}>GBP</option>
+          <option value="AUD" ${currency==='AUD'?'selected':''}>AUD</option>
+        </select>
+        <span id="ov-diff-${site}" style="min-width:40px;font-size:var(--text-xs)"></span>
+      </div>
+    </div>`).join('');
+  document.getElementById('edit-modal').classList.add('open');
+}
+
+// ── Fee schedule ───────────────────────────────────────────────────────────
+function renderFee() {
+  const tbody = document.getElementById('fee-tbody');
+  let sections = {};
+  FEE_EVENTS.forEach(e => { if (!sections[e.section]) sections[e.section]=[]; sections[e.section].push(e); });
+
+  let html = '';
+  let totalDefault = 0;
+  Object.entries(sections).forEach(([sec, events]) => {
+    html += `<tr class="section-header-row"><td colspan="7">${sec}</td></tr>`;
+    events.forEach(e => {
+      totalDefault += e.rate;
+      const makeCell = (site) => {
+        const ov = e.overrides[site];
+        if (ov !== undefined) {
+          return `<td><input class="fee-input override" type="text" value="${fmt(ov)}" title="${site} override · Default: ${fmt(e.rate)}">
+            <span class="override-pill"><i class="ti ti-pencil" style="font-size:9px"></i> override</span></td>`;
+        }
+        return `<td><input class="fee-input" type="text" value="${fmt(e.rate)}" placeholder="—"></td>`;
+      };
+      html += `<tr>
+        <td>
+          <div style="font-size:var(--text-sm);font-weight:500;color:var(--color-text-primary)">${e.name}</div>
+          <div style="font-size:10px;color:var(--color-text-tertiary)">${e.id}</div>
+        </td>
+        <td class="cell-muted">${e.trigger}</td>
+        <td><input class="fee-input" type="text" value="${fmt(e.rate)}" style="font-weight:500"></td>
+        ${SITE_NAMES.map(s=>makeCell(s)).join('')}
+        <td><div style="display:flex;justify-content:flex-end;gap:4px">
+          <button class="btn-icon" title="Edit" onclick="openEditModal('${e.id}')"><i class="ti ti-pencil"></i></button>
+          <button class="btn-icon" title="Delete" style="color:var(--red-200)"><i class="ti ti-trash"></i></button>
+        </div></td>
+      </tr>`;
+    });
+  });
+
+  tbody.innerHTML = html;
+  const overrideCount = FEE_EVENTS.reduce((s,e)=>s+Object.keys(e.overrides).length,0);
+  document.getElementById('fee-summary').innerHTML = `
+    <div style="display:flex;align-items:center;gap:var(--space-1)"><span>Event types:</span><span class="sv">${FEE_EVENTS.length}</span></div>
+    <div style="display:flex;align-items:center;gap:var(--space-1)"><span>Site overrides:</span><span class="sv warn">${overrideCount}</span></div>
+    <div style="display:flex;align-items:center;gap:var(--space-1)"><span>Holdback:</span><span class="sv">10%</span></div>
+    <div style="margin-left:auto;font-size:var(--text-xs);color:var(--color-text-tertiary)">Rates in USD · Last updated 2026-04-15</div>`;
+}
+
+// ── Site invoices ──────────────────────────────────────────────────────────
+function renderInvoices() {
+  const totalGross   = INVOICES.reduce((s,i)=>s+gross(i),0);
+  const totalNet     = INVOICES.reduce((s,i)=>s+net(i),0);
+  const totalHold    = INVOICES.reduce((s,i)=>s+holdback(i),0);
+  const paid         = INVOICES.filter(i=>i.status==='paid').reduce((s,i)=>s+net(i),0);
+  const outstanding  = totalNet - paid;
+
+  // KPIs
+  document.getElementById('inv-kpis').innerHTML = `
+    <div class="kpi-card"><div class="kpi-label">Total billed (gross)</div><div class="kpi-value">${fmt(totalGross)}</div><div class="kpi-sub">3 invoices</div></div>
+    <div class="kpi-card"><div class="kpi-label">Holdback (10%)</div><div class="kpi-value" style="color:var(--amber-700)">${fmt(totalHold)}</div><div class="kpi-sub">released at close-out</div></div>
+    <div class="kpi-card"><div class="kpi-label">Net payable</div><div class="kpi-value">${fmt(totalNet)}</div><div class="kpi-sub">after holdback</div></div>
+    <div class="kpi-card"><div class="kpi-label">Outstanding</div><div class="kpi-value" style="color:var(--red-600)">${fmt(outstanding)}</div><div class="kpi-sub">awaiting payment</div></div>
+    <div class="kpi-card">
+      <div class="kpi-label">Collection rate</div>
+      <div class="kpi-value" style="color:var(--blue-600)">${totalNet>0?Math.round(paid/totalNet*100):0}%</div>
+      <div class="kpi-sub" style="margin-top:4px">
+        <div class="pct-wrap"><div class="pct-track"><div class="pct-fill" style="width:${totalNet>0?Math.round(paid/totalNet*100):0}%;background:var(--blue-600)"></div></div><span class="pct-label">${fmt(paid)} paid</span></div>
+      </div>
+    </div>`;
+
+  const statusBadge = {
+    draft:     '<span class="badge badge-draft">Draft</span>',
+    submitted: '<span class="badge badge-submitted">Submitted</span>',
+    approved:  '<span class="badge badge-approved">Approved</span>',
+    paid:      '<span class="badge badge-paid"><i class="ti ti-check" style="font-size:10px"></i> Paid</span>',
+  };
+
+  const tbody = document.getElementById('inv-tbody');
+  tbody.innerHTML = INVOICES.map(inv => {
+    const g = gross(inv), h = holdback(inv), n = net(inv);
+    const ovCount = inv.lineItems.filter(l=>l.override).length;
+    return `<tr onclick="openDetail('${inv.id}')">
+      <td>
+        <div style="font-weight:500;font-family:var(--font-mono);font-size:var(--text-sm)">${inv.id}</div>
+        <div style="font-size:10px;color:var(--color-text-tertiary)">Issued ${inv.issueDate}</div>
+      </td>
+      <td><div style="display:flex;align-items:center;gap:var(--space-2)"><span style="font-weight:500">${inv.site}</span><button class="btn-icon" style="width:20px;height:20px" onclick="event.stopPropagation();openSiteModal('${inv.site}')" title="Site info"><i class="ti ti-info-circle" style="font-size:13px"></i></button></div></td>
+      <td class="cell-muted">${inv.period}</td>
+      <td>
+        <span class="cell-mono">${inv.lineItems.length}</span>
+        ${ovCount ? `<span class="override-pill" style="margin-left:4px"><i class="ti ti-pencil" style="font-size:9px"></i> ${ovCount} override${ovCount>1?'s':''}</span>` : ''}
+      </td>
+      <td class="cell-money">${fmt(g)}</td>
+      <td class="cell-money" style="color:var(--amber-700)">−${fmt(h)}</td>
+      <td class="cell-money" style="color:var(--green-600)">${fmt(n)}</td>
+      <td>${statusBadge[inv.status]||''}</td>
+      <td><div style="display:flex;justify-content:flex-end"><button class="btn-icon" onclick="event.stopPropagation();openDetail('${inv.id}')"><i class="ti ti-arrow-right"></i></button></div></td>
+    </tr>`;
+  }).join('');
+
+  document.getElementById('inv-count').textContent = INVOICES.length + ' invoices';
+  document.getElementById('inv-summary').innerHTML = `
+    <div style="display:flex;align-items:center;gap:var(--space-1)"><span>Total gross:</span><span class="sv">${fmt(totalGross)}</span></div>
+    <div style="display:flex;align-items:center;gap:var(--space-1)"><span>Total holdback:</span><span class="sv warn">${fmt(totalHold)}</span></div>
+    <div style="display:flex;align-items:center;gap:var(--space-1)"><span>Net payable:</span><span class="sv">${fmt(totalNet)}</span></div>
+    <div style="display:flex;align-items:center;gap:var(--space-1)"><span>Outstanding:</span><span class="sv" style="color:var(--red-600)">${fmt(outstanding)}</span></div>`;
+}
+
+// ── Invoice detail panel ───────────────────────────────────────────────────
+function openDetail(id) {
+  const inv = INVOICES.find(i=>i.id===id);
+  if (!inv) return;
+
+  document.getElementById('id-num').textContent = inv.id;
+  const statusLabel = {draft:'Draft',submitted:'Submitted — awaiting approval',approved:'Approved — awaiting payment',paid:'Paid'};
+  document.getElementById('id-meta').innerHTML = `
+    <span>${statusLabel[inv.status]||inv.status}</span>
+    <span>·</span><span>Issued ${inv.issueDate}</span>`;
+  document.getElementById('id-site').innerHTML = `${inv.site} — AK-2401 <button class="btn-icon" style="width:20px;height:20px;display:inline-flex;vertical-align:middle" onclick="openSiteModal('${inv.site}')" title="Site info"><i class="ti ti-info-circle" style="font-size:13px"></i></button>`;
+  document.getElementById('id-period').textContent = 'Billing period: ' + inv.period;
+  document.getElementById('id-total').textContent = fmt(net(inv));
+
+  // Group line items by section
+  const sections = {};
+  inv.lineItems.forEach(l => {
+    const ev = FEE_EVENTS.find(e=>e.id===l.event);
+    const sec = ev?.section || 'Other';
+    if (!sections[sec]) sections[sec]=[];
+    sections[sec].push(l);
+  });
+
+  let bodyHtml = '';
+  let runningGross = 0;
+  Object.entries(sections).forEach(([sec, items]) => {
+    bodyHtml += `<div class="id-section-title">${sec}</div>`;
+    items.forEach(l => {
+      const subtotal = l.qty * l.rate;
+      runningGross += subtotal;
+      bodyHtml += `<div class="line-item">
+        <div class="li-left">
+          <div class="li-name">${l.name}</div>
+          ${l.override ? `<div class="li-override"><i class="ti ti-pencil" style="font-size:10px"></i> ${l.override} site override</div>` : ''}
+        </div>
+        <div class="li-right">
+          <div class="li-qty">${l.qty} × ${fmt(l.rate)}</div>
+          <div class="li-amount">${fmt(subtotal)}</div>
+        </div>
+      </div>`;
+    });
+  });
+
+  const g = gross(inv), h = holdback(inv), n = net(inv);
+  bodyHtml += `
+    <div class="id-subtotal"><span>Gross total</span><span style="font-family:var(--font-mono)">${fmt(g)}</span></div>
+    <div class="id-holdback"><span>Holdback (${Math.round(inv.holdbackPct*100)}%) — released at close-out</span><span style="font-family:var(--font-mono)">−${fmt(h)}</span></div>
+    <div class="id-net"><span>Net payable</span><span style="font-family:var(--font-mono);color:var(--green-600)">${fmt(n)}</span></div>`;
+
+  document.getElementById('id-body').innerHTML = bodyHtml;
+
+  const actionLabels = {draft:'Submit invoice',submitted:'Approve invoice',approved:'Mark as paid',paid:'Paid ✓'};
+  const actionBtn = document.getElementById('id-action-btn');
+  actionBtn.textContent = actionLabels[inv.status];
+  actionBtn.disabled = inv.status === 'paid';
+  actionBtn.onclick = () => advanceStatus(inv.id);
+
+  document.getElementById('panel-overlay').classList.add('open');
+  document.getElementById('invoice-detail').classList.add('open');
+}
+
+function advanceStatus(id) {
+  const inv = INVOICES.find(i=>i.id===id);
+  const next = {draft:'submitted',submitted:'approved',approved:'paid'};
+  if (next[inv.status]) {
+    inv.status = next[inv.status];
+    closeDetail();
+    renderInvoices();
+    setTimeout(()=>openDetail(id), 50);
+  }
+}
+
+function closeDetail() {
+  document.getElementById('panel-overlay').classList.remove('open');
+  document.getElementById('invoice-detail').classList.remove('open');
+}
+
+// ── Edit event modal ─────────────────────────────────────────────────────
+let editingEventId = null;
+
+function openEditModal(id) {
+  const e = FEE_EVENTS.find(ev => ev.id === id);
+  if (!e) return;
+  editingEventId = id;
+
+  document.getElementById('edit-modal-title').textContent = 'Edit — ' + e.name;
+  document.getElementById('edit-name').value    = e.name;
+  document.getElementById('edit-id').value      = e.id;
+  document.getElementById('edit-trigger').value = e.trigger;
+  document.getElementById('edit-rate').value    = e.rate;
+
+  // Section select
+  const sel = document.getElementById('edit-section');
+  for (let i=0; i<sel.options.length; i++) {
+    if (sel.options[i].text === e.section) { sel.selectedIndex = i; break; }
+  }
+
+  // Override rows — pre-populate existing overrides with correct currency + value
+  const container = document.getElementById('override-rows');
+  container.innerHTML = SITES.map(({name:site, currency, symbol}) => {
+    const ov = e.overrides[site];
+    const hasOv = ov !== undefined;
+    const diff = hasOv ? ov - e.rate : 0;
+    const diffHtml = hasOv && diff !== 0
+      ? `<span class="change-indicator ${diff>0?'up':'down'}">${diff>0?'+':''}${symbol}${Math.abs(diff)}</span>` : '';
+    return `<div class="override-row">
+      <span class="override-site">${site}</span>
+      <div class="override-toggle">
+        <label style="display:flex;align-items:center;gap:6px;font-size:var(--text-sm);cursor:pointer">
+          <input type="checkbox" id="ov-check-${site}" ${hasOv?'checked':''}
+            onchange="toggleOverride('${site}')" style="accent-color:var(--purple-600)">
+          Override
+        </label>
+        <input class="override-amount ${hasOv?'active':''}" id="ov-input-${site}"
+          type="text" value="${hasOv ? ov : e.rate}" ${hasOv?'':'disabled'}
+          oninput="updateOverrideIndicator('${site}')">
+        <select class="override-curr" id="ov-curr-${site}" onchange="onCurrencyChange('${site}',this.value)" style="height:30px;padding:0 6px;font-size:var(--text-xs);font-family:var(--font-mono);border:1px solid var(--color-border);border-radius:var(--radius-sm);background:var(--color-surface);cursor:pointer;outline:none;color:var(--color-text-secondary);min-width:60px">
+          <option value="USD" ${currency==='USD'?'selected':''}>USD</option>
+          <option value="CAD" ${currency==='CAD'?'selected':''}>CAD</option>
+          <option value="EUR" ${currency==='EUR'?'selected':''}>EUR</option>
+          <option value="GBP" ${currency==='GBP'?'selected':''}>GBP</option>
+          <option value="AUD" ${currency==='AUD'?'selected':''}>AUD</option>
+        </select>
+        <span id="ov-diff-${site}" style="min-width:40px;font-size:var(--text-xs)">${diffHtml}</span>
+      </div>
+    </div>`;
+  }).join('');
+
+  document.getElementById('edit-modal').classList.add('open');
+}
+
+function toggleOverride(site) {
+  const chk   = document.getElementById(`ov-check-${site}`);
+  const input = document.getElementById(`ov-input-${site}`);
+  const enabled = chk.checked;
+  input.disabled = !enabled;
+  input.classList.toggle('active', enabled);
+  if (enabled) {
+    const defaultRate = parseInt(document.getElementById('edit-rate').value.replace(/[^0-9]/g,''))||0;
+    input.value = defaultRate;
+  }
+  updateOverrideIndicator(site);
+}
+
+function updateOverrideIndicator(site) {
+  const defaultRate = parseInt(document.getElementById('edit-rate').value.replace(/[^0-9]/g,''))||0;
+  const chk   = document.getElementById(`ov-check-${site}`);
+  const input = document.getElementById(`ov-input-${site}`);
+  const diff  = document.getElementById(`ov-diff-${site}`);
+  if (!chk || !diff) return;
+  if (!chk.checked) { diff.innerHTML=''; return; }
+  // Read symbol from the currency dropdown in this row
+  const curr = document.getElementById(`ov-curr-${site}`)?.value || 'USD';
+  const sym  = CURRENCY_SYMBOLS[curr] || '$';
+  const ov = parseInt(input.value.replace(/[^0-9]/g,''))||0;
+  const d = ov - defaultRate;
+  diff.innerHTML = d !== 0
+    ? `<span class="change-indicator ${d>0?'up':'down'}">${d>0?'+':''}${sym}${Math.abs(d)}</span>` : '';
+}
+
+function updateOverrideIndicators() {
+  SITES.forEach(s => updateOverrideIndicator(s.name));
+}
+
+function saveEditModal() {
+  if (editingEventId === '__new__') {
+    const newEvent = {
+      id: document.getElementById('edit-id').value.trim(),
+      section: document.getElementById('edit-section').value,
+      name: document.getElementById('edit-name').value.trim(),
+      trigger: document.getElementById('edit-trigger').value.trim(),
+      rate: parseInt(document.getElementById('edit-rate').value.replace(/[^0-9]/g,''))||0,
+      overrides: {}
+    };
+    SITES.forEach(({name: site}) => {
+      const chk = document.getElementById(`ov-check-${site}`);
+      if (chk?.checked) {
+        const val = parseInt(document.getElementById(`ov-input-${site}`).value.replace(/[^0-9]/g,''))||newEvent.rate;
+        newEvent.overrides[site] = val;
+      }
+    });
+    FEE_EVENTS.push(newEvent);
+    closeEditModal();
+    renderFee();
+    return;
+  }
+  const e = FEE_EVENTS.find(ev => ev.id === editingEventId);
+  if (!e) return;
+
+  e.name    = document.getElementById('edit-name').value.trim();
+  const triggerMode = document.getElementById('tmode-field')?.classList.contains('active') ? 'field' : 'form';
+  if (triggerMode === 'field') {
+    const form  = document.getElementById('tf-form')?.value  || '';
+    const field = document.getElementById('tf-field')?.value || '';
+    const op    = document.getElementById('tf-op')?.value    || '=';
+    const val   = document.getElementById('tf-value')?.value || '';
+    e.trigger = `[${form}] ${field} ${op} "${val}"`;
+  } else {
+    e.trigger = document.getElementById('edit-trigger')?.value.trim() || '';
+  }
+  e.rate    = parseInt(document.getElementById('edit-rate').value.replace(/[^0-9]/g,''))||0;
+  e.section = document.getElementById('edit-section').value;
+
+  e.overrides = {};
+  SITES.forEach(({name: site}) => {
+    const chk  = document.getElementById(`ov-check-${site}`);
+    const curr = document.getElementById(`ov-curr-${site}`)?.value || 'USD';
+    // Update site currency
+    const siteObj = SITES.find(s=>s.name===site);
+    if (siteObj) { siteObj.currency = curr; siteObj.symbol = {USD:'$',CAD:'CA$',EUR:'€',GBP:'£',AUD:'A$'}[curr]||'$'; }
+    // Update table header currency badge
+    const th = document.getElementById('th-curr-'+site);
+    if (th) th.textContent = curr;
+    if (chk?.checked) {
+      const val = parseInt(document.getElementById(`ov-input-${site}`).value.replace(/[^0-9]/g,''))||e.rate;
+      e.overrides[site] = val;
+    }
+  });
+
+  closeEditModal();
+  renderFee();
+}
+
+function closeEditModal() {
+  document.getElementById('edit-modal').classList.remove('open');
+  editingEventId = null;
+}
+
+// Close on overlay click
+document.getElementById('edit-modal').addEventListener('click', e => {
+  if (e.target === document.getElementById('edit-modal')) closeEditModal();
+});
+
+// ── Invoice preview ──────────────────────────────────────────────────────
+function renderPreview() {
+  const id  = document.getElementById('preview-select').value;
+  const inv = INVOICES.find(i=>i.id===id);
+  if (!inv) return;
+
+  const g = gross(inv), h = holdback(inv), n = net(inv);
+  const statusColor = {draft:'#6D7480',submitted:'#8A5C00',approved:'#1760A8',paid:'#1A6B47'};
+  const statusLabel = {draft:'DRAFT',submitted:'SUBMITTED',approved:'APPROVED',paid:'PAID'};
+
+  // Group line items by section
+  const sections = {};
+  inv.lineItems.forEach(l => {
+    const ev = FEE_EVENTS.find(e=>e.id===l.event);
+    const sec = ev?.section || 'Other';
+    if (!sections[sec]) sections[sec]=[];
+    sections[sec].push(l);
+  });
+
+  let itemsHtml = '';
+  Object.entries(sections).forEach(([sec, items]) => {
+    itemsHtml += `<tr><td colspan="4" style="padding:12px 0 4px;font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:0.07em;color:#6D7480;border-bottom:1px solid #E8E8E6">${sec}</td></tr>`;
+    items.forEach(l => {
+      const sub = l.qty * l.rate;
+      itemsHtml += `<tr style="border-bottom:1px solid #F0F0EE">
+        <td style="padding:8px 0;font-size:13px;color:#2C2D33">${l.name}${l.override?`<span style="font-size:10px;color:#534AB7;margin-left:8px;background:#F0EEFF;border:1px solid #A9A3EC;border-radius:99px;padding:1px 6px">${l.override} rate</span>`:''}</td>
+        <td style="padding:8px 16px;font-size:13px;color:#6D7480;text-align:right;font-family:Roboto Mono,monospace">${l.qty}</td>
+        <td style="padding:8px 16px;font-size:13px;color:#6D7480;text-align:right;font-family:Roboto Mono,monospace">${fmt(l.rate)}</td>
+        <td style="padding:8px 0;font-size:13px;font-weight:500;text-align:right;font-family:Roboto Mono,monospace">${fmt(sub)}</td>
+      </tr>`;
+    });
+  });
+
+  document.getElementById('invoice-paper').innerHTML = `
+    <!-- Letterhead -->
+    <div style="display:flex;align-items:flex-start;justify-content:space-between;margin-bottom:40px">
+      <div>
+        <div style="font-size:22px;font-weight:700;color:#1A1F2E;letter-spacing:-0.3px">Arken EDC</div>
+        <div style="font-size:12px;color:#6D7480;margin-top:4px;line-height:1.6">Clinical Research Services<br>123 Research Blvd, Austin TX 78701<br>billing@arken.io</div>
+      </div>
+      <div style="text-align:right">
+        <div style="font-size:28px;font-weight:700;color:#1A1F2E;font-family:Roboto Mono,monospace">${inv.id}</div>
+        <div style="display:inline-block;margin-top:6px;padding:3px 12px;border-radius:99px;font-size:11px;font-weight:700;letter-spacing:0.07em;color:${statusColor[inv.status]};border:2px solid ${statusColor[inv.status]}">${statusLabel[inv.status]}</div>
+      </div>
+    </div>
+
+    <!-- Parties -->
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:32px;margin-bottom:32px;padding:20px;background:#FBFBFB;border-radius:6px;border:1px solid #E8E8E6">
+      <div>
+        <div style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:0.07em;color:#6D7480;margin-bottom:8px">Bill to</div>
+        ${(() => { const s = SITES.find(st=>st.name===inv.site); const b = s?.billing; return b
+          ? `<div style="font-size:14px;font-weight:500">${b.company}</div>
+             <div style="font-size:12px;color:#6D7480;margin-top:4px;line-height:1.6">
+               ATTN: ${b.attn}<br>${b.name}<br>${b.address}<br>${b.city}<br>${b.country}
+             </div>`
+          : `<div style="font-size:14px;font-weight:500">${inv.site} Clinical Site</div>`; })()}
+      </div>
+      <div>
+        <div style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:0.07em;color:#6D7480;margin-bottom:8px">Invoice details</div>
+        <div style="display:grid;grid-template-columns:auto 1fr;gap:4px 16px;font-size:12px">
+          <span style="color:#6D7480">Issue date</span><span style="font-family:Roboto Mono,monospace">${inv.issueDate}</span>
+          <span style="color:#6D7480">Due date</span><span style="font-family:Roboto Mono,monospace">2026-06-30</span>
+          <span style="color:#6D7480">Period</span><span>${inv.period}</span>
+          <span style="color:#6D7480">Study</span><span>AK-2401</span>
+        </div>
+      </div>
+    </div>
+
+    <!-- Line items -->
+    <table style="width:100%;border-collapse:collapse;margin-bottom:24px">
+      <thead>
+        <tr style="border-bottom:2px solid #1A1F2E">
+          <th style="padding:8px 0;text-align:left;font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:0.07em;color:#1A1F2E">Description</th>
+          <th style="padding:8px 16px;text-align:right;font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:0.07em;color:#1A1F2E">Qty</th>
+          <th style="padding:8px 16px;text-align:right;font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:0.07em;color:#1A1F2E">Unit rate</th>
+          <th style="padding:8px 0;text-align:right;font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:0.07em;color:#1A1F2E">Amount</th>
+        </tr>
+      </thead>
+      <tbody>${itemsHtml}</tbody>
+    </table>
+
+    <!-- Totals -->
+    <div style="margin-left:auto;width:280px">
+      <div style="display:flex;justify-content:space-between;padding:8px 0;border-bottom:1px solid #E8E8E6;font-size:13px">
+        <span style="color:#4F535B">Subtotal</span>
+        <span style="font-family:Roboto Mono,monospace;font-weight:500">${fmt(g)}</span>
+      </div>
+      <div style="display:flex;justify-content:space-between;padding:8px 0;border-bottom:1px solid #E8E8E6;font-size:13px">
+        <span style="color:#4F535B">Holdback (${Math.round(inv.holdbackPct*100)}%) — released at close-out</span>
+        <span style="font-family:Roboto Mono,monospace;color:#8A5C00">−${fmt(h)}</span>
+      </div>
+      <div style="display:flex;justify-content:space-between;padding:12px 0;font-size:16px;font-weight:700;border-top:2px solid #1A1F2E;margin-top:4px">
+        <span>Net payable</span>
+        <span style="font-family:Roboto Mono,monospace;color:#1A6B47">${fmt(n)}</span>
+      </div>
+    </div>
+
+    <!-- Payment instructions -->
+    <div style="margin-top:40px;padding:16px 20px;background:#F0F0EE;border-radius:6px;font-size:12px;color:#4F535B;line-height:1.7">
+      <strong style="color:#1A1F2E">Payment instructions</strong><br>
+      Wire transfer to Arken Clinical Research · Bank of Texas · Routing 111000025 · Account 4892-7712<br>
+      Reference: ${inv.id} · Payment due within 30 days of issue date.
+    </div>
+
+    <!-- Footer -->
+    <div style="margin-top:32px;padding-top:16px;border-top:1px solid #E8E8E6;display:flex;justify-content:space-between;font-size:11px;color:#C4C4C2">
+      <span>${inv.id} · Generated by Arken EDC · AK-2401</span>
+      <span>Page 1 of 1</span>
+    </div>`;
+}
+
+
+
+const CURRENCY_SYMBOLS = {USD:'$',CAD:'CA$',EUR:'€',GBP:'£',AUD:'A$'};
+
+function onCurrencyChange(site, newCurrency) {
+  const sym = CURRENCY_SYMBOLS[newCurrency] || '$';
+  // Update the site object immediately so diff shows correct symbol
+  const siteObj = SITES.find(s=>s.name===site);
+  if (siteObj) { siteObj.currency = newCurrency; siteObj.symbol = sym; }
+  // Re-run diff for this site with new symbol
+  updateOverrideIndicator(site);
+}
+
+function openSiteModal(siteName) {
+  const s = SITES.find(st=>st.name===siteName);
+  if (!s) return;
+  document.getElementById('site-modal-title').textContent = siteName + ' — Site information';
+
+  const f = (label, value, mono=false) =>
+    `<div class="sib-field"><div class="sib-label">${label}</div><div class="sib-value${mono?' mono':''}">${value||'—'}</div></div>`;
+
+  document.getElementById('site-modal-body').innerHTML = `
+    <div class="site-info-grid">
+      <div class="site-info-block">
+        <div class="sib-title">Principal investigator contact</div>
+        ${f('Name', s.contact.name)}
+        ${f('Title', s.contact.title)}
+        ${f('Address', s.contact.address)}
+        ${f('City / State / Zip', s.contact.city)}
+        ${f('Country', s.contact.country)}
+        ${f('Phone', s.contact.phone, true)}
+        ${f('Email', s.contact.email, true)}
+      </div>
+      <div class="site-info-block">
+        <div class="sib-title">Billing contact</div>
+        ${f('Contact name', s.billing.name)}
+        ${f('Company', s.billing.company)}
+        ${f('ATTN', s.billing.attn)}
+        ${f('Email', s.billing.email, true)}
+        ${f('Phone', s.billing.phone, true)}
+        ${f('Address', s.billing.address)}
+        ${f('City / State / Zip', s.billing.city)}
+        ${f('Country', s.billing.country)}
+      </div>
+    </div>
+    <div style="margin-top:var(--space-4);padding:var(--space-3);background:var(--color-page-bg);border:1px solid var(--color-border);border-radius:var(--radius-md);font-size:var(--text-xs);color:var(--color-text-tertiary)">
+      <i class="ti ti-info-circle" style="font-size:12px;margin-right:4px"></i>
+      Site contact information is set up during site onboarding and can be updated in Settings → Sites.
+    </div>`;
+  document.getElementById('site-modal').classList.add('open');
+}
+
+function closeSiteModal() {
+  document.getElementById('site-modal').classList.remove('open');
+}
+
+document.addEventListener('DOMContentLoaded', () => {
+  document.getElementById('site-modal')?.addEventListener('click', e => {
+    if (e.target === document.getElementById('site-modal')) closeSiteModal();
+  });
+});
+
+function setTriggerMode(mode) {
+  document.getElementById('tmode-form').classList.toggle('active', mode==='form');
+  document.getElementById('tmode-field').classList.toggle('active', mode==='field');
+  document.getElementById('trigger-form-block').style.display = mode==='form' ? '' : 'none';
+  document.getElementById('trigger-field-block').style.display = mode==='field' ? '' : 'none';
+}
+
+// Live preview for field trigger
+['tf-form','tf-field','tf-op','tf-value'].forEach(id => {
+  document.addEventListener('input', e => {
+    if (e.target.id === id || ['tf-form','tf-field','tf-op','tf-value'].includes(e.target.id)) updateTriggerPreview();
+  });
+  document.addEventListener('change', e => {
+    if (['tf-form','tf-field','tf-op','tf-value'].includes(e.target.id)) updateTriggerPreview();
+  });
+});
+
+function updateTriggerPreview() {
+  const form  = document.getElementById('tf-form')?.value  || '—';
+  const field = document.getElementById('tf-field')?.value || '—';
+  const op    = document.getElementById('tf-op')?.value    || '=';
+  const val   = document.getElementById('tf-value')?.value || '…';
+  const prev  = document.getElementById('tf-preview');
+  if (prev) prev.textContent = `Preview: [${form}] ${field} ${op} "${val}"`;
+}
+
+// ── Fee table sort ────────────────────────────────────────────────────────
+let feeSortField = null, feeSortDir = 'none';
+function feeSort(field) {
+  feeSortDir = feeSortField===field ? (feeSortDir==='none'?'asc':feeSortDir==='asc'?'desc':'none') : 'asc';
+  feeSortField = field;
+  if (feeSortDir !== 'none') {
+    FEE_EVENTS.sort((a,b) => {
+      const av = a[field]||'', bv = b[field]||'';
+      return feeSortDir==='asc' ? String(av).localeCompare(String(bv),undefined,{numeric:true})
+                                 : String(bv).localeCompare(String(av),undefined,{numeric:true});
+    });
+  }
+  renderFee();
+  document.querySelectorAll('.fee-si').forEach(ic=>{ ic.className='ti ti-arrows-sort fee-si'; ic.style.color='transparent'; });
+  const ic = document.getElementById('fsi-'+field);
+  if (ic && feeSortDir!=='none') { ic.className=`ti ti-arrow-${feeSortDir==='asc'?'up':'down'} fee-si`; ic.style.color='var(--blue-600)'; }
+}
+
+// Boot
+renderFee();
+</script>
+
+
+<!-- Site contact/billing modal -->
+<div class="modal-overlay" id="site-modal">
+  <div class="modal" style="width:600px">
+    <div class="modal-header">
+      <div class="modal-title" id="site-modal-title">Site info</div>
+      <button class="modal-close" onclick="closeSiteModal()"><i class="ti ti-x"></i></button>
+    </div>
+    <div class="modal-body" id="site-modal-body"></div>
+    <div class="modal-footer">
+      <button class="btn-secondary" onclick="closeSiteModal()">Close</button>
+      <button class="btn-primary" onclick="closeSiteModal()"><i class="ti ti-check"></i> Done</button>
+    </div>
+  </div>
+</div>
+
+<!-- Edit event modal -->
+<div class="modal-overlay" id="edit-modal">
+  <div class="modal">
+    <div class="modal-header">
+      <div class="modal-title" id="edit-modal-title">Edit event type</div>
+      <button class="modal-close" onclick="closeEditModal()"><i class="ti ti-x"></i></button>
+    </div>
+    <div class="modal-body">
+      <div class="form-row">
+        <div class="form-label">Event name</div>
+        <input class="form-input" id="edit-name" type="text">
+      </div>
+      <div class="form-row-2">
+        <div class="form-row">
+          <div class="form-label">Event ID</div>
+          <input class="form-input mono" id="edit-id" type="text">
+          <div class="form-hint">Used for reporting and exports</div>
+        </div>
+        <div class="form-row">
+          <div class="form-label">Section</div>
+          <select class="form-input" id="edit-section" style="cursor:pointer">
+            <option>Enrollment &amp; Screening</option>
+            <option>Protocol visits</option>
+            <option>Safety events</option>
+            <option>Study close-out</option>
+          </select>
+        </div>
+      </div>
+      <div class="form-row">
+        <div class="form-label">Trigger condition</div>
+        <div style="display:flex;gap:var(--space-2);margin-bottom:var(--space-2)">
+          <button class="trigger-mode-btn active" id="tmode-form" onclick="setTriggerMode('form')">Form completion</button>
+          <button class="trigger-mode-btn" id="tmode-field" onclick="setTriggerMode('field')">Field value</button>
+        </div>
+        <!-- Form completion trigger -->
+        <div id="trigger-form-block">
+          <input class="form-input" id="edit-trigger" type="text" placeholder="e.g. V2 all forms complete">
+          <div class="form-hint">The fee triggers when this condition is met at the study/visit level</div>
+        </div>
+        <!-- Field value trigger -->
+        <div id="trigger-field-block" style="display:none">
+          <div class="form-row-3" style="margin-bottom:var(--space-2)">
+            <div class="form-row">
+              <div class="form-label" style="font-size:10px">Form</div>
+              <select class="form-input" id="tf-form" style="cursor:pointer;font-size:var(--text-sm)">
+                <option>AE form</option>
+                <option>Physical exam</option>
+                <option>Welfare assessment</option>
+                <option>Dosing record</option>
+                <option>Body weight log</option>
+                <option>Medical history</option>
+              </select>
+            </div>
+            <div class="form-row">
+              <div class="form-label" style="font-size:10px">Field</div>
+              <select class="form-input" id="tf-field" style="cursor:pointer;font-size:var(--text-sm)">
+                <option>AE severity</option>
+                <option>SAE flag</option>
+                <option>Visit status</option>
+                <option>Withdrawal reason</option>
+                <option>Deviation type</option>
+              </select>
+            </div>
+            <div class="form-row">
+              <div class="form-label" style="font-size:10px">Operator</div>
+              <select class="form-input" id="tf-op" style="cursor:pointer;font-size:var(--text-sm)">
+                <option>=</option>
+                <option>≠</option>
+                <option>contains</option>
+                <option>is not empty</option>
+              </select>
+            </div>
+          </div>
+          <div class="form-row">
+            <div class="form-label" style="font-size:10px">Value</div>
+            <input class="form-input" id="tf-value" type="text" placeholder="e.g. Severe, Yes, SAE" style="font-family:var(--font-mono)">
+          </div>
+          <div id="tf-preview" style="margin-top:var(--space-2);padding:var(--space-2) var(--space-3);background:var(--color-page-bg);border:1px solid var(--color-border);border-radius:var(--radius-md);font-size:var(--text-xs);font-family:var(--font-mono);color:var(--color-text-secondary)">Preview: —</div>
+          <div class="form-hint" style="margin-top:var(--space-1)">Fee triggers when this field condition is met on any submitted record</div>
+        </div>
+      </div>
+      <div class="section-divider">Rates</div>
+      <div class="form-row">
+        <div class="form-label">Study default rate (USD)</div>
+        <input class="form-input mono" id="edit-rate" type="text" oninput="updateOverrideIndicators()">
+        <div class="form-hint">Applies to all sites unless overridden below</div>
+      </div>
+      <div class="section-divider">Site-level overrides</div>
+      <div class="form-hint" style="margin-bottom:var(--space-2)">Override the default rate for individual sites. Leave disabled to use the study default.</div>
+      <div id="override-rows"></div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn-secondary" onclick="closeEditModal()">Cancel</button>
+      <button class="btn-primary" onclick="saveEditModal()"><i class="ti ti-check"></i> Save changes</button>
+    </div>
+  </div>
+</div>
+</body>
+</html>
