@@ -1,12 +1,12 @@
 # Arken EDC — Decisions Log
-All design and technical decisions with rationale. Every entry is a potential portfolio talking point.
+All design and technical decisions with rationale. Every entry is a portfolio talking point.
 
 ---
 
 ## Sessions 1–5 (2026-05-25 — 2026-05-27)
 
 ### Product name: Arken
-Hard consonants signal precision. No trademark conflict. Works at platform + module level. Easy to pronounce across languages.
+Hard consonants signal precision. No trademark conflict. Works at platform + module level.
 
 ### Light-first mode
 Light covers the largest user group (clinical monitors in offices). Dark planned for field technicians on tablets.
@@ -15,9 +15,9 @@ Light covers the largest user group (clinical monitors in offices). Dark planned
 Amber (warning) → Orange (discrepancy) → Red (critical). No competitor EDC uses three levels — all collapse to two. Clinical rationale: amber = out-of-range but plausible, orange = edit check failure, red = safety-critical.
 
 ### Color palette
-Navy CTA (#1A1F2E) differentiates from all competitors. Semantic colours: blue = SDV/data, green = complete/clean, amber = warning/pending, red = critical/overdue, purple = pen-level/group, slate = secondary/locked.
+Navy CTA (#1A1F2E) differentiates from all competitors. Semantic: blue = SDV/data, green = complete, amber = warning, red = critical, purple = group/pen level, slate = secondary/locked.
 
-### Table system (canonical — from component 14)
+### Table system (canonical)
 ```css
 .list-table thead th { position:sticky; top:0; z-index:5; background:var(--color-surface);
   font-size:var(--text-xs); text-transform:uppercase; letter-spacing:var(--tracking-caps);
@@ -25,108 +25,102 @@ Navy CTA (#1A1F2E) differentiates from all competitors. Semantic colours: blue =
 th:first-child, td:first-child { padding-left: var(--space-5); }
 th:last-child, td:last-child { padding-right: var(--space-5); }
 ```
-Three-state sort: desc → asc → none. `ti-arrows-sort` hidden default → placeholder on hover → blue-600 active.
+Three-state sort: desc → asc → none. Sort icons updated AFTER render() on fresh DOM nodes (stale node bug fix).
 
 ### Collapsible nav
-74px collapsed → 160px expanded. Edge toggle at `top:56px; right:-13px`. Badge in expanded state uses `position:relative` not absolute.
+74px collapsed → 160px expanded. Edge toggle at `top:56px; right:-13px`.
 
 ---
 
 ## Sessions 6–8 (2026-05-28 — 2026-05-30)
 
 ### Query flow (components 08, 13, 19)
-**Three states only — no "Closed":** Raised → Responded → Resolved.
-**Responded = field returns to default:** The field-input tint (amber for query, orange for edit check) clears when the CRC responds. The flag stays. This is a key UX decision — the field is no longer "in error", it's "in conversation".
-**Resolved = green flag+check:** `flag-query-resolved-icon` — a filled flag with a small SVG checkmark badge overlaid at bottom-right. Distinct from SDV icon (`ti-circle-check`). Badge size: 8×8px.
+Three states only: Raised → Responded → Resolved. No "Closed".
+Responded = field returns to default (tint clears, flag stays amber). Resolved = green flag+check icon (`flag-query-resolved-icon`).
 
-### Edit check vs Query distinction
-Edit checks = system-raised (orange flag). Queries = human-raised (amber flag). Same lifecycle, different trigger and colour. Resolved state is identical for both.
+### Edit check vs Query
+Edit checks = system-raised (orange flag). Queries = human-raised (amber flag). Same lifecycle, different trigger and colour.
 
 ### Delta (Δ) change reason system
-Three icon states matching traffic-light pattern:
-- Dotted border red = change required (system-auto, blocks submit)
-- Solid border blue = answered (CRC submitted reason)
-- Filled green = reviewed (CRA approved)
-Panel mirrors query thread structure: field context + thread + compose.
-Submit gate: blocked until all deltas are reviewed. Button tooltip shows count.
+Dotted red = change required · Solid blue = answered · Filled green = reviewed.
+Submit gate blocked until all deltas reviewed.
 
-### Reason for change (RFC)
-Two save modes (study-level config):
-- **Form-level:** RFC inline panel appears when re-editing saved field. Confirm → "Pending save". Actual save on Submit.
-- **Field-level:** No submit button. RFC panel → Confirm → field auto-saves with "Saving…" → "Saved ✓".
-First-time entry never triggers RFC — only edits to previously saved values.
-**Batch entry RFC:** Single amber bar at bottom of grid for the whole batch. "Override per row" placeholder for app phase.
+### RFC (Reason for Change)
+Two modes: Form-level (RFC panel on re-edit, confirm → pending save, actual save on Submit) · Field-level (auto-save on confirm, no submit button). First-time entry never triggers RFC.
 
 ### SDV icon
-`ti-circle-check` (outline) = unverified. `ti-circle-check-filled` (solid blue) = verified.
-NOT the flag+check pattern — that is query-resolved only.
-SDV and query icons coexist on the same field row.
+`ti-circle-check` outline = unverified. `ti-circle-check-filled` blue = verified. NOT the flag+check pattern (that is query-resolved only).
 
-### Remarks dropdown (components 13, 19)
-Checkbox behaviour — each mode independently toggleable. Both active = "Remarks: Queries, SDV mode". Label updates to reflect exactly what's active.
+### Flag visibility rules
+Queries off → inactive flags hide; active (flagged/resolved) stay. SDV off → unverified icons hide; verified stay.
 
 ---
 
 ## Sessions 9–10 (2026-05-31 — 2026-06-02)
 
-### Calendar — Protocol Schedule of Events
-Matrix layout (not Gantt). Procedures on Y axis, study days on X axis.
-Phase shading: grey (screening) / blue (treatment) / green (follow-up).
-Markers: X (procedure) · D (dosing) · B (blood) · A (assessment) · ⊘ (fasting) · ! (due today) · ⚠ (overdue).
-D0 = pivot point with bold border + ★. Today column = red tint + "← today".
-**No completion markers** — SoE shows protocol intent only, not subject-level status.
+### Calendar — Protocol SoE
+Matrix layout (not Gantt). Procedure on Y, study day on X. Phase shading. D0 = pivot with bold border + ★.
 
 ### Visits page — flat urgency table
-Single flat table sorted by urgency: overdue first (red-50 tint) → due today (amber tint) → upcoming (white).
-Row tints carry the urgency signal — no section headers needed.
-Accessibility: tertiary text (#6D7480) replaced with secondary (#4F535B) on red-50 backgrounds (fails 4.5:1 WCAG AA at 4.25:1 on red-50).
+Single flat table sorted by urgency: overdue (red-50 tint) → due today (amber) → upcoming (white).
 
 ### SDV page architecture
-SDV worklist (18) + form-level verification (19) are separate files.
-The actual form IS the SDV tool — no separate field list. CRA lands on the real form with SDV icons overlaid. This is better UX than a parallel field list because context is preserved.
+SDV worklist (18) + form-level verification (19) are separate files. The form IS the SDV tool — CRA works on the real form with SDV icons overlaid.
 
-### Batch entry design decisions
-1. **Form-level vs grid-level RFC:** One reason covers the whole batch. Per-row override is placeholder for app phase — too complex for prototype.
-2. **Optional fields:** `optional:true` flag excludes from required count. 5/5 required filled = Ready even if Notes is empty. Status badge shows X/N where N = required count only.
-3. **Pen-level defaults:** Entered once in a section above the grid, applied to all animals. "Applied to all animals" note appears on fill. No re-render on keystroke — DOM update only.
-4. **Apply-to-all toggle:** Per column, propagates value instantly. Blue fill on applied cells.
+### Batch entry
+Form-level vs grid-level RFC. Optional fields excluded from required count. Pen-level defaults entered once, applied to all animals.
 
 ### Reports — AI builder
-Two-column layout: chat (380px left) + report output (right).
-3-turn simulated conversation → report renders in right panel.
-Title + AI Generated badge + filters appear above the report content (not in the chat panel).
-Filters use the same `.report-filters` pattern as standard reports.
-"Add to library" saves to a Custom reports section at the top of the library.
-
-### Flag visibility rules
-- When queries mode OFF: inactive flags (no active query) hide. Active flags (flagged/resolved) stay visible.
-- When SDV mode OFF: unverified SDV icons hide. Verified icons stay visible.
-- Resolved/closed queries show inactive flags on all other fields (queries still "active" in the mode toggle).
-
-### Flag icon for resolved queries
-`flag-query-resolved-icon` — relative wrapper, `ti-flag-filled` + absolutely positioned SVG checkmark badge (8×8px, `stroke-width:1.8`, `stroke-linecap:round`). Green (#1A6B47). Distinct from blue SDV circle-check.
-CSS class: `.flag-btn.query-resolved { color: var(--green-600); }`
+Two-column: chat (380px) + report output. Filters above report content. "Add to library" → Custom reports section.
 
 ---
 
-## Session 11 (2026-06-02)
+## Sessions 11–12 (2026-06-02 — 2026-06-04)
 
-### Coding — four-column hierarchy (not a flattened path string)
-**Decision:** Store LLT, PT, HLT, and SOC as separate fields. Never concatenate into a path string.
-**Rationale:** Flattening loses the analytical value entirely. Multi-level safety analysis requires independent grouping — you need to count all "Gastrointestinal disorders" (SOC) separately from all "Decreased appetite" (PT) events. A single path cell makes this impossible without string parsing. Each level is a first-class dimension in the data model.
+### Coding — four-column hierarchy
+LLT, PT, HLT, SOC as separate columns. Never concatenate into a path string. Each level is a first-class dimension for safety analysis. Species/Breed as own column — veterinary key differentiator.
 
-### Coding — Species/Breed as a column
-**Decision:** Species / Breed displayed as its own column in the coding table.
-**Rationale:** Veterinary EDC key differentiator. Multi-species studies (bovine + equine + canine in the same platform) require breed-level filtering for safety analysis. No competitor EDC surfaces this in the coding worklist.
-
-### Coding — auto-code confidence threshold
-**Decision:** ≥80% = auto-coded (green), <80% = needs review (orange), 0% = pending.
-**Rationale:** 80% balances efficiency and safety. Below 80% there's enough ambiguity that a DM should check — wrong coding at this level can affect primary safety endpoints and regulatory submissions. The review tab makes this workflow explicit rather than hiding uncertain codings in the main list.
+### Coding — auto-code threshold
+≥80% = auto-coded, <80% = needs review, 0% = pending. 9 keyword rules, multi-keyword hits increase confidence proportionally.
 
 ### Sort icon DOM timing fix
-**Problem:** Sort icons were targeting stale DOM nodes captured before `render()` rebuilt the table, causing icons to never update visually.
-**Fix:** Always call `render()` first, then re-query fresh DOM nodes for icon updates. This pattern should be used in all components where sort state and re-render are combined.
+Always call `render()` first, then re-query fresh DOM nodes for icon updates. Stale node references from before render silently fail.
 
-### Reports — AI builder architecture
-**Decision:** Two-column layout (380px chat + flexible report area). Title + filters live above the report content in the right panel, not in the chat thread.
-**Rationale:** The chat is for conversation — putting report metadata there creates cognitive overload. The right panel mirrors the standard report output view so the DM has a consistent mental model regardless of whether the report came from the library or the AI builder.
+### Invoices — fee schedule structure
+14 event types across 4 sections. Three trigger modes: Form completion (grouped dropdown with visit groups + individual forms) · Field value (form/field/operator/value builder with live preview) · Study milestone (dropdown). No free-text input — all triggers selected from structured options.
+
+### Invoices — currency per site column
+Currency header row above first section. One `<select>` per site column — changing it calls `setSiteCurrency(site, currency)` which updates `siteObj.symbol` and re-renders. All cells in that column (override and non-override) show the site's currency symbol. On modal open, each site's override row pre-selects the column currency.
+
+### Invoices — override save order bug
+Root cause: `saveEditModal` had two code paths; the `__new__` branch skipped currency sync. Fix: sync all `SITES[].symbol` from `ov-curr-{site}` DOM elements at the very top of `saveEditModal`, before any branching. This ensures `renderFee()` always reads the correct symbol regardless of path taken.
+
+### Invoices — 20-site scalability
+Per-site override columns don't scale beyond ~4 sites (table too wide). Correct pattern for 20+ sites: collapse to a single "Site overrides" summary column, with a scrollable panel in the edit modal (max-height:280px, overflow-y:auto) listing all sites as rows. Implemented for 3 sites for now; pattern documented for scale-up.
+
+### Invoices — invoice detail panel status bar
+Query-style status bar below panel header: badge chip (slate/amber/blue/green) + description text + issue date right-aligned. Paid invoices hide the primary action button entirely (not disabled).
+
+### Inventory — shipments tab (first tab)
+Empty state with centred "Receive first shipment" CTA. Modal flow: shipment date + receive date + CSV upload zone → Import CSV → opens review table inline. Confirm → row appears confirmed, expandable/view-only. "Receive shipment" sticky primary button at bottom of table (always visible, scrolls with overflow).
+
+### Inventory — site filter in topbar
+Site picker lives at topbar level (not per-tab). Same `tb-site` dropdown pattern as file 05. Rationale: site is a session-level context, not a local table filter. CRC at Austin scopes their whole workspace; CRA/PM sees all sites by default.
+
+### Inventory — reconciliation by treatment group
+Group-level aggregation (not per-vial). Columns: #Received · #Usable · #Removed · #Dispensed · #Returned · Variance (received − returned − removed, should be 0) · Auto status badge · Confirmation dropdown · Notes. All rows neutral white — status communicated through badge and text only.
+
+### Inventory — dispensing log unit status
+Four statuses without dates in the chip: Back in storage (green) · Returned to sponsor (purple) · At home (blue) · Removed (red). Return date in its own column. Chips are visual-only; dates live in dedicated columns.
+
+### Inventory — return modal
+Return date + volume remaining + condition dropdown (good/acceptable → back to inventory; compromised/damaged → removed) + sponsor return date (shown when empty or bad condition) + manual removal override checkbox (orange, force-removes regardless of volume).
+
+### JS safety patterns learned
+- Never use `JSON.stringify` in `onclick` HTML attributes (double-quote collision)
+- Use index lookup arrays (`DISP_ROWS[i]`) instead of inline JSON
+- Template literals inside double-quoted HTML attributes → always use named functions
+- `const SHIPMENTS = [...]` must be declared before boot calls that reference it
+- Duplicate element IDs break silently
+- `document.getElementById('x').addEventListener(...)` without null guard crashes if element not yet parsed → always use `?.addEventListener`
+- `document.addEventListener('input', ...)` loops add duplicate listeners → add `oninput`/`onchange` directly on elements instead
