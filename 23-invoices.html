@@ -89,7 +89,7 @@ body{font-family:var(--font-sans);font-size:var(--text-base);color:var(--color-t
 .list-table tbody td:first-child{padding-left:var(--space-5)}
 .list-table tbody td:last-child{padding-right:var(--space-5);text-align:right}
 .cell-mono{font-family:var(--font-mono);font-size:var(--text-sm);color:var(--color-text-secondary)}
-.cell-money{font-family:var(--font-mono);font-size:var(--text-sm);font-weight:500;color:var(--color-text-primary);text-align:right}
+.cell-money{font-family:var(--font-mono);font-size:var(--text-sm);font-weight:500;color:var(--color-text-primary)}
 .cell-muted{color:var(--color-text-secondary);font-size:var(--text-sm)}
 .summary-bar{padding:var(--space-2) var(--space-5);background:var(--color-surface);border-top:1px solid var(--color-border);display:flex;align-items:center;gap:var(--space-4);font-size:var(--text-xs);color:var(--color-text-tertiary);flex-shrink:0}
 .sv{font-weight:500;color:var(--color-text-primary);font-family:var(--font-mono)}
@@ -105,6 +105,9 @@ body{font-family:var(--font-sans);font-size:var(--text-base);color:var(--color-t
 .fee-input:focus{border-color:var(--blue-600);box-shadow:0 0 0 2px rgba(23,96,168,0.15)}
 .fee-input.override{border-color:var(--purple-200);background:var(--purple-50);color:var(--purple-600)}
 .override-pill{display:inline-flex;align-items:center;gap:3px;font-size:10px;color:var(--purple-600);background:var(--purple-50);border:1px solid var(--purple-200);border-radius:var(--radius-full);padding:1px 6px;margin-left:4px}
+.currency-header-row td{background:var(--color-surface);padding:var(--space-2) var(--space-3);border-bottom:2px solid var(--color-border)}
+.currency-header-row td:first-child{padding-left:var(--space-5)}
+.curr-col-select{height:26px;padding:0 20px 0 var(--space-2);font-size:var(--text-xs);font-family:var(--font-mono);font-weight:500;border:1px solid var(--color-border);border-radius:var(--radius-sm);background:var(--color-surface);cursor:pointer;appearance:none;background-image:url("data:image/svg+xml,%3Csvg width='8' height='10' viewBox='0 0 8 10' fill='none' xmlns='http://www.w3.org/2000/svg'%3E%3Cpath d='M1 1L4 4L7 1' stroke='%236D7480' stroke-width='1.2' stroke-linecap='round'/%3E%3C/svg%3E");background-repeat:no-repeat;background-position:right 6px center;outline:none;color:var(--color-text-primary)}
 .section-header-row td{background:var(--color-page-bg);font-size:var(--text-xs);font-weight:700;text-transform:uppercase;letter-spacing:var(--tracking-caps);color:var(--color-text-secondary);padding:var(--space-2) var(--space-3);border-bottom:1px solid var(--color-border);text-align:left}
 .section-header-row td:first-child{padding-left:var(--space-5)}
 
@@ -138,6 +141,11 @@ body{font-family:var(--font-sans);font-size:var(--text-base);color:var(--color-t
 .id-close{width:28px;height:28px;border:none;background:none;cursor:pointer;border-radius:var(--radius-sm);color:var(--color-text-tertiary);display:flex;align-items:center;justify-content:center}
 .id-close:hover{background:var(--color-hover-bg)}
 .id-close i{font-size:16px}
+
+/* Invoice detail status bar */
+.inv-status-bar{padding:var(--space-2) var(--space-5);border-bottom:1px solid var(--color-border);display:flex;align-items:center;gap:var(--space-3);flex-shrink:0;background:var(--color-page-bg)}
+.inv-status-desc{font-size:var(--text-xs);color:var(--color-text-tertiary)}
+
 .id-site-block{padding:var(--space-3) var(--space-5);background:var(--color-page-bg);border-bottom:1px solid var(--color-border);flex-shrink:0;display:flex;align-items:center;justify-content:space-between}
 .id-site-name{font-size:var(--text-base);font-weight:500}
 .id-site-meta{font-size:var(--text-xs);color:var(--color-text-tertiary);margin-top:2px}
@@ -201,8 +209,6 @@ body{font-family:var(--font-sans);font-size:var(--text-base);color:var(--color-t
 .override-amount:focus{border-color:var(--purple-600)}
 .override-amount:disabled{background:var(--color-page-bg);color:var(--color-text-placeholder)}
 .override-amount.active{border-color:var(--purple-200);background:var(--purple-50);color:var(--purple-600)}
-.change-indicator{font-size:var(--text-xs);color:var(--color-text-tertiary)}
-.change-indicator.up{color:var(--green-600)}.change-indicator.down{color:var(--amber-700)}
 </style>
 </head>
 <body>
@@ -233,7 +239,7 @@ body{font-family:var(--font-sans);font-size:var(--text-base);color:var(--color-t
         <h1 class="page-title">Invoices</h1>
         <div style="display:flex;gap:var(--space-2)">
           <button class="btn-secondary"><i class="ti ti-download"></i> Export</button>
-          <button class="btn-primary" id="main-action-btn" onclick="mainAction()"><i class="ti ti-plus"></i> Generate invoices</button>
+          <button class="btn-primary" id="main-action-btn" onclick="openAddEventModal()"><i class="ti ti-plus"></i> Add event type</button>
         </div>
       </div>
 
@@ -247,12 +253,7 @@ body{font-family:var(--font-sans);font-size:var(--text-base);color:var(--color-t
       <div id="view-fee">
         <div style="padding:var(--space-3) var(--space-5);background:var(--color-surface);border-bottom:1px solid var(--color-border);display:flex;align-items:center;gap:var(--space-4);flex-shrink:0">
           <span style="font-size:var(--text-sm);color:var(--color-text-secondary)">Study default rates · Site-level overrides shown in <span style="color:var(--purple-600);font-weight:500">purple</span></span>
-          <div style="margin-left:auto;display:flex;align-items:center;gap:var(--space-3)">
-            <label style="display:flex;align-items:center;gap:var(--space-2);font-size:var(--text-sm);cursor:pointer">
-              <input type="checkbox" id="show-overrides" checked style="accent-color:var(--purple-600)"> Show site overrides
-            </label>
-            <button class="btn-secondary" style="height:28px;font-size:var(--text-xs)"><i class="ti ti-plus"></i> Add event type</button>
-          </div>
+
         </div>
         <div class="table-wrap">
           <table class="list-table" id="fee-table">
@@ -261,9 +262,9 @@ body{font-family:var(--font-sans);font-size:var(--text-base);color:var(--color-t
                 <th onclick="feeSort('name')" style="cursor:pointer">Event type <i class="ti ti-arrows-sort fee-si" id="fsi-name" style="font-size:10px;color:transparent;margin-left:2px"></i></th>
                 <th>Trigger</th>
                 <th onclick="feeSort('rate')" style="cursor:pointer">Study default rate <i class="ti ti-arrows-sort fee-si" id="fsi-rate" style="font-size:10px;color:transparent;margin-left:2px"></i></th>
-                <th>Austin <span style="font-family:var(--font-mono);font-size:9px;color:var(--color-text-placeholder)" id="th-curr-Austin">USD</span> override</th>
-                <th>Dallas <span style="font-family:var(--font-mono);font-size:9px;color:var(--color-text-placeholder)" id="th-curr-Dallas">USD</span> override</th>
-                <th>Houston <span style="font-family:var(--font-mono);font-size:9px;color:var(--color-text-placeholder)" id="th-curr-Houston">USD</span> override</th>
+                <th>Austin override</th>
+                <th>Dallas override</th>
+                <th>Houston override</th>
                 <th style="text-align:right">Actions</th>
               </tr>
             </thead>
@@ -289,14 +290,14 @@ body{font-family:var(--font-sans);font-size:var(--text-base);color:var(--color-t
           <table class="list-table" id="inv-table">
             <thead>
               <tr>
-                <th>Invoice</th>
-                <th>Site</th>
-                <th>Period</th>
+                <th onclick="invSort(0)" style="cursor:pointer">Invoice <i class="ti ti-arrows-sort inv-si" style="font-size:10px;color:transparent;margin-left:2px"></i></th>
+                <th onclick="invSort(1)" style="cursor:pointer">Site <i class="ti ti-arrows-sort inv-si" style="font-size:10px;color:transparent;margin-left:2px"></i></th>
+                <th onclick="invSort(2)" style="cursor:pointer">Period <i class="ti ti-arrows-sort inv-si" style="font-size:10px;color:transparent;margin-left:2px"></i></th>
                 <th>Events</th>
-                <th>Gross amount</th>
-                <th>Holdback (10%)</th>
-                <th>Net payable</th>
-                <th>Status</th>
+                <th onclick="invSort(4)" style="cursor:pointer">Gross amount <i class="ti ti-arrows-sort inv-si" style="font-size:10px;color:transparent;margin-left:2px"></i></th>
+                <th onclick="invSort(5)" style="cursor:pointer">Holdback (10%) <i class="ti ti-arrows-sort inv-si" style="font-size:10px;color:transparent;margin-left:2px"></i></th>
+                <th onclick="invSort(6)" style="cursor:pointer">Net payable <i class="ti ti-arrows-sort inv-si" style="font-size:10px;color:transparent;margin-left:2px"></i></th>
+                <th onclick="invSort(7)" style="cursor:pointer">Status <i class="ti ti-arrows-sort inv-si" style="font-size:10px;color:transparent;margin-left:2px"></i></th>
                 <th></th>
               </tr>
             </thead>
@@ -334,10 +335,10 @@ body{font-family:var(--font-sans);font-size:var(--text-base);color:var(--color-t
   <div class="id-header">
     <div class="id-header-left">
       <div class="id-invoice-num" id="id-num"></div>
-      <div class="id-meta" id="id-meta"></div>
     </div>
     <button class="id-close" onclick="closeDetail()"><i class="ti ti-x"></i></button>
   </div>
+  <div class="inv-status-bar"><span class="badge" id="id-status-badge"></span><span class="inv-status-desc" id="id-status-desc"></span><span style="font-family:var(--font-mono);font-size:var(--text-xs);color:var(--color-text-tertiary);margin-left:auto" id="id-issue-date"></span></div>
   <div class="id-site-block">
     <div>
       <div class="id-site-name" id="id-site"></div>
@@ -482,7 +483,9 @@ function openAddEventModal() {
   document.getElementById('edit-modal-title').textContent = 'Add event type';
   document.getElementById('edit-name').value    = '';
   document.getElementById('edit-id').value      = newId;
-  document.getElementById('edit-trigger').value = '';
+  const _et = document.getElementById('edit-trigger'); if(_et) _et.value = '';
+  const trigSel = document.getElementById('edit-trigger-select');
+  if (trigSel) trigSel.value = '';
   setTriggerMode('form');
   document.getElementById('edit-rate').value    = '';
   document.getElementById('edit-section').selectedIndex = 0;
@@ -501,7 +504,7 @@ function openAddEventModal() {
           <option value="GBP" ${currency==='GBP'?'selected':''}>GBP</option>
           <option value="AUD" ${currency==='AUD'?'selected':''}>AUD</option>
         </select>
-        <span id="ov-diff-${site}" style="min-width:40px;font-size:var(--text-xs)"></span>
+
       </div>
     </div>`).join('');
   document.getElementById('edit-modal').classList.add('open');
@@ -513,19 +516,35 @@ function renderFee() {
   let sections = {};
   FEE_EVENTS.forEach(e => { if (!sections[e.section]) sections[e.section]=[]; sections[e.section].push(e); });
 
-  let html = '';
+  const currencyOptions = ['USD','CAD','EUR','GBP','AUD'].map(cur =>
+    `<option value="${cur}">${cur}</option>`).join('');
+
+  let html = `<tr class="currency-header-row">
+    <td colspan="3" style="font-size:var(--text-xs);font-weight:500;text-transform:uppercase;letter-spacing:var(--tracking-caps);color:var(--color-text-tertiary)">Default currency per site</td>
+    ${SITE_NAMES.map(site => {
+      const sObj = SITES.find(s=>s.name===site);
+      return `<td><select class="curr-col-select" onchange="setSiteCurrency('${site}',this.value)">${
+        ['USD','CAD','EUR','GBP','AUD'].map(cur =>
+          `<option value="${cur}" ${(sObj?.currency||'USD')===cur?'selected':''}>${cur}</option>`
+        ).join('')
+      }</select></td>`;
+    }).join('')}
+    <td></td>
+  </tr>`;
   let totalDefault = 0;
   Object.entries(sections).forEach(([sec, events]) => {
-    html += `<tr class="section-header-row"><td colspan="7">${sec}</td></tr>`;
+    html += `<tr class="section-header-row"><td colspan="7" style="text-align:left">${sec}</td></tr>`;
     events.forEach(e => {
       totalDefault += e.rate;
       const makeCell = (site) => {
+        const sObj = SITES.find(s=>s.name===site);
+        const sym  = sObj?.symbol || '$';
         const ov = e.overrides[site];
         if (ov !== undefined) {
-          return `<td><input class="fee-input override" type="text" value="${fmt(ov)}" title="${site} override · Default: ${fmt(e.rate)}">
+          return `<td><input class="fee-input override" type="text" value="${sym}${ov.toLocaleString('en-US')}" title="${site} override · Default: ${fmt(e.rate)}">
             <span class="override-pill"><i class="ti ti-pencil" style="font-size:9px"></i> override</span></td>`;
         }
-        return `<td><input class="fee-input" type="text" value="${fmt(e.rate)}" placeholder="—"></td>`;
+        return `<td><input class="fee-input" type="text" value="${sym}${e.rate.toLocaleString('en-US')}" placeholder="—"></td>`;
       };
       html += `<tr>
         <td>
@@ -618,10 +637,16 @@ function openDetail(id) {
   if (!inv) return;
 
   document.getElementById('id-num').textContent = inv.id;
-  const statusLabel = {draft:'Draft',submitted:'Submitted — awaiting approval',approved:'Approved — awaiting payment',paid:'Paid'};
-  document.getElementById('id-meta').innerHTML = `
-    <span>${statusLabel[inv.status]||inv.status}</span>
-    <span>·</span><span>Issued ${inv.issueDate}</span>`;
+  // Status bar
+  const statusBadgeCls = {draft:'badge-draft',submitted:'badge-submitted',approved:'badge-approved',paid:'badge-paid'};
+  const statusLabels   = {draft:'Draft',submitted:'Submitted',approved:'Approved',paid:'Paid'};
+  const statusDescs    = {draft:'Awaiting submission',submitted:'Awaiting approval',approved:'Awaiting payment',paid:'Payment received'};
+  const badge = document.getElementById('id-status-badge');
+  if (badge) { badge.className='badge '+(statusBadgeCls[inv.status]||'badge-draft'); badge.textContent=statusLabels[inv.status]||inv.status; }
+  const descEl = document.getElementById('id-status-desc');
+  if (descEl) descEl.textContent = statusDescs[inv.status]||'';
+  const dateEl = document.getElementById('id-issue-date');
+  if (dateEl) dateEl.textContent = 'Issued '+inv.issueDate;
   document.getElementById('id-site').innerHTML = `${inv.site} — AK-2401 <button class="btn-icon" style="width:20px;height:20px;display:inline-flex;vertical-align:middle" onclick="openSiteModal('${inv.site}')" title="Site info"><i class="ti ti-info-circle" style="font-size:13px"></i></button>`;
   document.getElementById('id-period').textContent = 'Billing period: ' + inv.period;
   document.getElementById('id-total').textContent = fmt(net(inv));
@@ -663,11 +688,16 @@ function openDetail(id) {
 
   document.getElementById('id-body').innerHTML = bodyHtml;
 
-  const actionLabels = {draft:'Submit invoice',submitted:'Approve invoice',approved:'Mark as paid',paid:'Paid ✓'};
+  const actionLabels = {draft:'Submit invoice',submitted:'Approve invoice',approved:'Mark as paid'};
   const actionBtn = document.getElementById('id-action-btn');
-  actionBtn.textContent = actionLabels[inv.status];
-  actionBtn.disabled = inv.status === 'paid';
-  actionBtn.onclick = () => advanceStatus(inv.id);
+  if (inv.status === 'paid') {
+    actionBtn.style.display = 'none';
+  } else {
+    actionBtn.style.display = '';
+    actionBtn.textContent = actionLabels[inv.status] || 'Submit invoice';
+    actionBtn.disabled = false;
+    actionBtn.onclick = () => advanceStatus(inv.id);
+  }
 
   document.getElementById('panel-overlay').classList.add('open');
   document.getElementById('invoice-detail').classList.add('open');
@@ -700,7 +730,24 @@ function openEditModal(id) {
   document.getElementById('edit-modal-title').textContent = 'Edit — ' + e.name;
   document.getElementById('edit-name').value    = e.name;
   document.getElementById('edit-id').value      = e.id;
-  document.getElementById('edit-trigger').value = e.trigger;
+  // Detect trigger mode from existing value
+  const milestoneValues = ['Subject enrolled','Subject screen failure','Subject early termination','SAE report','Protocol deviation','Database lock','Close-out visit','Final site visit'];
+  const fieldIndicator  = e.trigger?.startsWith('[');
+  const isMilestone     = milestoneValues.some(m => e.trigger?.includes(m));
+
+  if (fieldIndicator) {
+    setTriggerMode('field');
+  } else if (isMilestone) {
+    setTriggerMode('milestone');
+    const ms = document.getElementById('edit-trigger-milestone');
+    if (ms) { const m = [...ms.options].find(o=>o.value===e.trigger); ms.value = m?e.trigger:''; }
+  } else {
+    setTriggerMode('form');
+    const fs = document.getElementById('edit-trigger-select');
+    if (fs) { const m = [...fs.options].find(o=>o.value===e.trigger); fs.value = m?e.trigger:''; }
+  }
+  const inp = document.getElementById('edit-trigger');
+  if (inp) inp.value = e.trigger;
   document.getElementById('edit-rate').value    = e.rate;
 
   // Section select
@@ -714,9 +761,7 @@ function openEditModal(id) {
   container.innerHTML = SITES.map(({name:site, currency, symbol}) => {
     const ov = e.overrides[site];
     const hasOv = ov !== undefined;
-    const diff = hasOv ? ov - e.rate : 0;
-    const diffHtml = hasOv && diff !== 0
-      ? `<span class="change-indicator ${diff>0?'up':'down'}">${diff>0?'+':''}${symbol}${Math.abs(diff)}</span>` : '';
+    const displayVal = hasOv ? (symbol + ov.toLocaleString('en-US')) : '';
     return `<div class="override-row">
       <span class="override-site">${site}</span>
       <div class="override-toggle">
@@ -726,8 +771,8 @@ function openEditModal(id) {
           Override
         </label>
         <input class="override-amount ${hasOv?'active':''}" id="ov-input-${site}"
-          type="text" value="${hasOv ? ov : e.rate}" ${hasOv?'':'disabled'}
-          oninput="updateOverrideIndicator('${site}')">
+          type="text" value="${displayVal}" ${hasOv?'':'disabled'}
+          placeholder="—">
         <select class="override-curr" id="ov-curr-${site}" onchange="onCurrencyChange('${site}',this.value)" style="height:30px;padding:0 6px;font-size:var(--text-xs);font-family:var(--font-mono);border:1px solid var(--color-border);border-radius:var(--radius-sm);background:var(--color-surface);cursor:pointer;outline:none;color:var(--color-text-secondary);min-width:60px">
           <option value="USD" ${currency==='USD'?'selected':''}>USD</option>
           <option value="CAD" ${currency==='CAD'?'selected':''}>CAD</option>
@@ -735,7 +780,6 @@ function openEditModal(id) {
           <option value="GBP" ${currency==='GBP'?'selected':''}>GBP</option>
           <option value="AUD" ${currency==='AUD'?'selected':''}>AUD</option>
         </select>
-        <span id="ov-diff-${site}" style="min-width:40px;font-size:var(--text-xs)">${diffHtml}</span>
       </div>
     </div>`;
   }).join('');
@@ -751,38 +795,28 @@ function toggleOverride(site) {
   input.classList.toggle('active', enabled);
   if (enabled) {
     const defaultRate = parseInt(document.getElementById('edit-rate').value.replace(/[^0-9]/g,''))||0;
-    input.value = defaultRate;
+    const curr = document.getElementById(`ov-curr-${site}`)?.value || 'USD';
+    const sym  = CURRENCY_SYMBOLS[curr] || '$';
+    input.value = sym + defaultRate.toLocaleString('en-US');
+  } else {
+    input.value = '';
   }
-  updateOverrideIndicator(site);
-}
-
-function updateOverrideIndicator(site) {
-  const defaultRate = parseInt(document.getElementById('edit-rate').value.replace(/[^0-9]/g,''))||0;
-  const chk   = document.getElementById(`ov-check-${site}`);
-  const input = document.getElementById(`ov-input-${site}`);
-  const diff  = document.getElementById(`ov-diff-${site}`);
-  if (!chk || !diff) return;
-  if (!chk.checked) { diff.innerHTML=''; return; }
-  // Read symbol from the currency dropdown in this row
-  const curr = document.getElementById(`ov-curr-${site}`)?.value || 'USD';
-  const sym  = CURRENCY_SYMBOLS[curr] || '$';
-  const ov = parseInt(input.value.replace(/[^0-9]/g,''))||0;
-  const d = ov - defaultRate;
-  diff.innerHTML = d !== 0
-    ? `<span class="change-indicator ${d>0?'up':'down'}">${d>0?'+':''}${sym}${Math.abs(d)}</span>` : '';
-}
-
-function updateOverrideIndicators() {
-  SITES.forEach(s => updateOverrideIndicator(s.name));
 }
 
 function saveEditModal() {
+  // Always sync site currencies from modal dropdowns FIRST (before any DOM changes)
+  const _SYM = {USD:'$',CAD:'CA$',EUR:'€',GBP:'£',AUD:'A$'};
+  SITES.forEach(s => {
+    const el = document.getElementById(`ov-curr-${s.name}`);
+    if (el) { s.currency = el.value; s.symbol = _SYM[el.value]||'$'; }
+  });
+
   if (editingEventId === '__new__') {
     const newEvent = {
       id: document.getElementById('edit-id').value.trim(),
       section: document.getElementById('edit-section').value,
       name: document.getElementById('edit-name').value.trim(),
-      trigger: document.getElementById('edit-trigger').value.trim(),
+      trigger: document.getElementById('edit-trigger')?.value?.trim() || '',
       rate: parseInt(document.getElementById('edit-rate').value.replace(/[^0-9]/g,''))||0,
       overrides: {}
     };
@@ -802,35 +836,38 @@ function saveEditModal() {
   if (!e) return;
 
   e.name    = document.getElementById('edit-name').value.trim();
-  const triggerMode = document.getElementById('tmode-field')?.classList.contains('active') ? 'field' : 'form';
-  if (triggerMode === 'field') {
+  const isField     = document.getElementById('tmode-field')?.classList.contains('active');
+  const isMilestone = document.getElementById('tmode-milestone')?.classList.contains('active');
+  if (isField) {
     const form  = document.getElementById('tf-form')?.value  || '';
     const field = document.getElementById('tf-field')?.value || '';
     const op    = document.getElementById('tf-op')?.value    || '=';
     const val   = document.getElementById('tf-value')?.value || '';
     e.trigger = `[${form}] ${field} ${op} "${val}"`;
+  } else if (isMilestone) {
+    e.trigger = document.getElementById('edit-trigger-milestone')?.value || '';
   } else {
-    e.trigger = document.getElementById('edit-trigger')?.value.trim() || '';
+    e.trigger = document.getElementById('edit-trigger-select')?.value
+             || document.getElementById('edit-trigger')?.value.trim() || '';
   }
   e.rate    = parseInt(document.getElementById('edit-rate').value.replace(/[^0-9]/g,''))||0;
   e.section = document.getElementById('edit-section').value;
 
+  // Build overrides map
   e.overrides = {};
   SITES.forEach(({name: site}) => {
-    const chk  = document.getElementById(`ov-check-${site}`);
-    const curr = document.getElementById(`ov-curr-${site}`)?.value || 'USD';
-    // Update site currency
-    const siteObj = SITES.find(s=>s.name===site);
-    if (siteObj) { siteObj.currency = curr; siteObj.symbol = {USD:'$',CAD:'CA$',EUR:'€',GBP:'£',AUD:'A$'}[curr]||'$'; }
-    // Update table header currency badge
-    const th = document.getElementById('th-curr-'+site);
-    if (th) th.textContent = curr;
+    const chk = document.getElementById(`ov-check-${site}`);
     if (chk?.checked) {
-      const val = parseInt(document.getElementById(`ov-input-${site}`).value.replace(/[^0-9]/g,''))||e.rate;
+      const val = parseInt(document.getElementById(`ov-input-${site}`)?.value?.replace(/[^0-9]/g,'')||'0')||e.rate;
       e.overrides[site] = val;
     }
   });
 
+  // Close AFTER reading — so DOM elements are still accessible
+  // (closeEditModal only hides the modal, doesn't remove elements,
+  //  but innerHTML reassignment on next open would create duplicates
+  //  that getElementById finds first — so we read BEFORE close)
+  // Already done in Pass 1 above. Now close then render.
   closeEditModal();
   renderFee();
 }
@@ -841,7 +878,7 @@ function closeEditModal() {
 }
 
 // Close on overlay click
-document.getElementById('edit-modal').addEventListener('click', e => {
+document.getElementById('edit-modal')?.addEventListener('click', e => {
   if (e.target === document.getElementById('edit-modal')) closeEditModal();
 });
 
@@ -960,13 +997,29 @@ function renderPreview() {
 
 const CURRENCY_SYMBOLS = {USD:'$',CAD:'CA$',EUR:'€',GBP:'£',AUD:'A$'};
 
+function setSiteCurrency(site, currency) {
+  const sym = {USD:'$',CAD:'CA$',EUR:'€',GBP:'£',AUD:'A$'}[currency]||'$';
+  const sObj = SITES.find(s=>s.name===site);
+  if (sObj) { sObj.currency = currency; sObj.symbol = sym; }
+  renderFee(); // re-render to update all override cells for this column
+}
+
 function onCurrencyChange(site, newCurrency) {
   const sym = CURRENCY_SYMBOLS[newCurrency] || '$';
-  // Update the site object immediately so diff shows correct symbol
   const siteObj = SITES.find(s=>s.name===site);
   if (siteObj) { siteObj.currency = newCurrency; siteObj.symbol = sym; }
-  // Re-run diff for this site with new symbol
-  updateOverrideIndicator(site);
+  // Update the override input in the modal
+  const input = document.getElementById(`ov-input-${site}`);
+  if (input && !input.disabled) {
+    const raw = parseInt(input.value.replace(/[^0-9]/g,''))||0;
+    input.value = sym + raw.toLocaleString('en-US');
+  }
+  // Live-update the fee table cell
+  const feeInp = document.querySelector(`#fee-table input.fee-input.override[data-site="${site}"]`);
+  if (feeInp) {
+    const raw = parseInt(feeInp.value.replace(/[^0-9]/g,''))||0;
+    feeInp.value = sym + raw.toLocaleString('en-US');
+  }
 }
 
 function openSiteModal(siteName) {
@@ -1018,22 +1071,29 @@ document.addEventListener('DOMContentLoaded', () => {
   });
 });
 
-function setTriggerMode(mode) {
-  document.getElementById('tmode-form').classList.toggle('active', mode==='form');
-  document.getElementById('tmode-field').classList.toggle('active', mode==='field');
-  document.getElementById('trigger-form-block').style.display = mode==='form' ? '' : 'none';
-  document.getElementById('trigger-field-block').style.display = mode==='field' ? '' : 'none';
+function onTriggerSelectChange() {
+  // value stored in hidden field for saving
+  const sel = document.getElementById('edit-trigger-select');
+  const inp = document.getElementById('edit-trigger');
+  if (sel?.value && inp) inp.value = sel.value;
 }
 
-// Live preview for field trigger
-['tf-form','tf-field','tf-op','tf-value'].forEach(id => {
-  document.addEventListener('input', e => {
-    if (e.target.id === id || ['tf-form','tf-field','tf-op','tf-value'].includes(e.target.id)) updateTriggerPreview();
+function onMilestoneSelectChange() {
+  const sel = document.getElementById('edit-trigger-milestone');
+  const inp = document.getElementById('edit-trigger');
+  if (sel?.value && inp) inp.value = sel.value;
+}
+
+function setTriggerMode(mode) {
+  ['form','field','milestone'].forEach(m => {
+    const btn = document.getElementById('tmode-'+m);
+    const blk = document.getElementById('trigger-'+m+'-block');
+    if (btn) btn.classList.toggle('active', m===mode);
+    if (blk) blk.style.display = m===mode ? '' : 'none';
   });
-  document.addEventListener('change', e => {
-    if (['tf-form','tf-field','tf-op','tf-value'].includes(e.target.id)) updateTriggerPreview();
-  });
-});
+}
+
+// Field preview fired directly from element handlers
 
 function updateTriggerPreview() {
   const form  = document.getElementById('tf-form')?.value  || '—';
@@ -1060,6 +1120,27 @@ function feeSort(field) {
   document.querySelectorAll('.fee-si').forEach(ic=>{ ic.className='ti ti-arrows-sort fee-si'; ic.style.color='transparent'; });
   const ic = document.getElementById('fsi-'+field);
   if (ic && feeSortDir!=='none') { ic.className=`ti ti-arrow-${feeSortDir==='asc'?'up':'down'} fee-si`; ic.style.color='var(--blue-600)'; }
+}
+
+let invSortCol = -1, invSortDir = 'none';
+function invSort(ci) {
+  invSortDir = invSortCol===ci ? (invSortDir==='none'?'asc':invSortDir==='asc'?'desc':'none') : 'asc';
+  invSortCol = ci;
+  // Update icons
+  document.querySelectorAll('.inv-si').forEach(ic=>{ ic.className='ti ti-arrows-sort inv-si'; ic.style.color='transparent'; });
+  const ths = document.querySelectorAll('#inv-table thead th');
+  const ic = ths[ci]?.querySelector('.inv-si');
+  if (ic && invSortDir!=='none') { ic.className=`ti ti-arrow-${invSortDir==='asc'?'up':'down'} inv-si`; ic.style.color='var(--blue-600)'; }
+  if (invSortDir==='none') { renderInvoices(); return; }
+  const tbody = document.querySelector('#inv-table tbody');
+  if (!tbody) return;
+  const rows = [...tbody.querySelectorAll('tr')];
+  rows.sort((a,b)=>{
+    const av=a.cells[ci]?.textContent.trim()||'';
+    const bv=b.cells[ci]?.textContent.trim()||'';
+    return invSortDir==='asc' ? av.localeCompare(bv,undefined,{numeric:true}) : bv.localeCompare(av,undefined,{numeric:true});
+  });
+  rows.forEach(r=>tbody.appendChild(r));
 }
 
 // Boot
@@ -1115,18 +1196,54 @@ renderFee();
         <div style="display:flex;gap:var(--space-2);margin-bottom:var(--space-2)">
           <button class="trigger-mode-btn active" id="tmode-form" onclick="setTriggerMode('form')">Form completion</button>
           <button class="trigger-mode-btn" id="tmode-field" onclick="setTriggerMode('field')">Field value</button>
+          <button class="trigger-mode-btn" id="tmode-milestone" onclick="setTriggerMode('milestone')">Study milestone</button>
         </div>
+        <input type="hidden" id="edit-trigger" value="">
         <!-- Form completion trigger -->
         <div id="trigger-form-block">
-          <input class="form-input" id="edit-trigger" type="text" placeholder="e.g. V2 all forms complete">
-          <div class="form-hint">The fee triggers when this condition is met at the study/visit level</div>
+          <select class="form-input" id="edit-trigger-select" style="cursor:pointer" onchange="onTriggerSelectChange()">
+            <option value="">— Select a form —</option>
+            <optgroup label="Visit groups (all forms)">
+              <option value="V1 — Baseline: all forms complete">V1 — Baseline (all forms)</option>
+              <option value="V2 — Day 7: all forms complete">V2 — Day 7 (all forms)</option>
+              <option value="V3 — Day 21: all forms complete">V3 — Day 21 (all forms)</option>
+              <option value="V4 — Day 28: all forms complete">V4 — Day 28 (all forms)</option>
+              <option value="V5 — EOT Day 42: all forms complete">V5 — EOT Day 42 (all forms)</option>
+            </optgroup>
+            <optgroup label="Individual forms">
+              <option value="Physical exam form submitted">Physical exam</option>
+              <option value="Body weight log submitted">Body weight log</option>
+              <option value="Welfare assessment submitted">Welfare assessment</option>
+              <option value="Dosing record submitted">Dosing record</option>
+              <option value="Adverse event form submitted">Adverse event form</option>
+              <option value="Medical history submitted">Medical history</option>
+              <option value="Concomitant medications submitted">Concomitant medications</option>
+              <option value="Early termination form submitted">Early termination form</option>
+            </optgroup>
+          </select>
+          <div class="form-hint" style="margin-top:var(--space-1)">Fee triggers when this form is submitted for a subject</div>
+        </div>
+        <!-- Study milestone trigger -->
+        <div id="trigger-milestone-block" style="display:none">
+          <select class="form-input" id="edit-trigger-milestone" style="cursor:pointer" onchange="onMilestoneSelectChange()">
+            <option value="">— Select a milestone —</option>
+            <option value="Subject enrolled — ICF signed">Subject enrolled (ICF signed)</option>
+            <option value="Subject screen failure recorded">Screen failure recorded</option>
+            <option value="Subject early termination">Subject early termination</option>
+            <option value="SAE report submitted within 24h">SAE report submitted (&lt;24h)</option>
+            <option value="Protocol deviation logged and approved">Protocol deviation logged</option>
+            <option value="Database lock confirmed by DM">Database lock (DM confirmed)</option>
+            <option value="Close-out visit completed">Close-out visit completed</option>
+            <option value="Final site visit completed">Final site visit completed</option>
+          </select>
+          <div class="form-hint" style="margin-top:var(--space-1)">Fee triggers when this study milestone is recorded</div>
         </div>
         <!-- Field value trigger -->
         <div id="trigger-field-block" style="display:none">
           <div class="form-row-3" style="margin-bottom:var(--space-2)">
             <div class="form-row">
               <div class="form-label" style="font-size:10px">Form</div>
-              <select class="form-input" id="tf-form" style="cursor:pointer;font-size:var(--text-sm)">
+              <select class="form-input" id="tf-form" style="cursor:pointer;font-size:var(--text-sm)" onchange="updateTriggerPreview()">
                 <option>AE form</option>
                 <option>Physical exam</option>
                 <option>Welfare assessment</option>
@@ -1137,7 +1254,7 @@ renderFee();
             </div>
             <div class="form-row">
               <div class="form-label" style="font-size:10px">Field</div>
-              <select class="form-input" id="tf-field" style="cursor:pointer;font-size:var(--text-sm)">
+              <select class="form-input" id="tf-field" style="cursor:pointer;font-size:var(--text-sm)" onchange="updateTriggerPreview()">
                 <option>AE severity</option>
                 <option>SAE flag</option>
                 <option>Visit status</option>
@@ -1147,7 +1264,7 @@ renderFee();
             </div>
             <div class="form-row">
               <div class="form-label" style="font-size:10px">Operator</div>
-              <select class="form-input" id="tf-op" style="cursor:pointer;font-size:var(--text-sm)">
+              <select class="form-input" id="tf-op" style="cursor:pointer;font-size:var(--text-sm)" onchange="updateTriggerPreview()">
                 <option>=</option>
                 <option>≠</option>
                 <option>contains</option>
@@ -1157,7 +1274,7 @@ renderFee();
           </div>
           <div class="form-row">
             <div class="form-label" style="font-size:10px">Value</div>
-            <input class="form-input" id="tf-value" type="text" placeholder="e.g. Severe, Yes, SAE" style="font-family:var(--font-mono)">
+            <input class="form-input" id="tf-value" type="text" placeholder="e.g. Severe, Yes, SAE" style="font-family:var(--font-mono)" oninput="updateTriggerPreview()">
           </div>
           <div id="tf-preview" style="margin-top:var(--space-2);padding:var(--space-2) var(--space-3);background:var(--color-page-bg);border:1px solid var(--color-border);border-radius:var(--radius-md);font-size:var(--text-xs);font-family:var(--font-mono);color:var(--color-text-secondary)">Preview: —</div>
           <div class="form-hint" style="margin-top:var(--space-1)">Fee triggers when this field condition is met on any submitted record</div>
