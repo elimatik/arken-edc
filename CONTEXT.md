@@ -1,6 +1,6 @@
 # Arken EDC — Project Context
 **Paste this at the start of every Claude session.**
-Last updated: 2026-06-04 | Phase: 1 — Design System (Sessions 1–12 complete)
+Last updated: 2026-06-06 | Phase: 1 — Design System (Sessions 1–14 complete)
 
 ---
 
@@ -38,30 +38,31 @@ arken-edc/
 │   ├── arken-tokens.css
 │   └── arken-tokens.json
 └── components/
-    ├── 01-form-field-group.html  ← All input types + composite fields
-    ├── 02-badge.html             ← Outline / filled / role / count badges
-    ├── 03-data-table.html        ← List-table pattern
-    ├── 04-app-shell.html         ← Nav + topbar, collapsible, role-based
-    ├── 05-metric-card.html       ← 6 accent variants + tb-site topbar pattern
-    ├── 06-alert-banner.html      ← 5 severity variants + dismissible
-    ├── 07-panel-card.html        ← Dashboard content patterns
-    ├── 08-form-field-flag.html   ← Flag states — 5 sections
-    ├── 09-form-sidebar.html      ← Visit navigator + status icons
-    ├── 10-subject-header.html    ← One-line layout, all status variants
-    ├── 11-audit-trail-full.html  ← Full-page audit trail
-    ├── 12-form-audit-trail.html  ← Form-level audit + signature track
-    ├── 13-query-thread.html      ← Query lifecycle + Remarks + Delta (Δ)
-    ├── 14-list-pages.html        ← Study→Site→Barn→Pen→Animal drill-down
-    ├── 15-queries-list.html      ← Study-wide queries list
-    ├── 16-visits.html            ← Today's visits — flat urgency table
-    ├── 17-calendar.html          ← Protocol Schedule of Events (SoE matrix)
-    ├── 18-sdv.html               ← SDV worklist
-    ├── 19-form-sdv.html          ← Form in SDV + Queries combined mode
-    ├── 20-batch-entry.html       ← Batch entry: form picker + grid
-    ├── 21-reports.html           ← Report library + output + AI builder
-    ├── 22-coding.html            ← VeDRA/MedDRA AE coding — DM workflow
-    ├── 23-invoices.html          ← Fee schedule + site invoices + preview
-    └── 24-inventory.html         ← Shipments, inventory, dispensing, reconciliation
+    ├── 01-form-field-group.html
+    ├── 02-badge.html
+    ├── 03-data-table.html
+    ├── 04-app-shell.html
+    ├── 05-metric-card.html
+    ├── 06-alert-banner.html
+    ├── 07-panel-card.html
+    ├── 08-form-field-flag.html
+    ├── 09-form-sidebar.html
+    ├── 10-subject-header.html
+    ├── 11-audit-trail-full.html
+    ├── 12-form-audit-trail.html
+    ├── 13-query-thread.html
+    ├── 14-list-pages.html
+    ├── 15-queries-list.html
+    ├── 16-visits.html
+    ├── 17-calendar.html
+    ├── 18-sdv.html
+    ├── 19-form-sdv.html
+    ├── 20-batch-entry.html
+    ├── 21-reports.html
+    ├── 22-coding.html
+    ├── 23-invoices.html
+    ├── 24-inventory.html
+    └── 25-settings.html          ← COMPLETE as of session 14
 ```
 
 ---
@@ -74,7 +75,7 @@ arken-edc/
 4. `text-transform: uppercase` — never `font-variant: small-caps`
 5. Roboto Mono on all data values, IDs, timestamps
 6. 1px borders everywhere · 4px base radius
-7. Fields and buttons: 32px height
+7. Fields and buttons: 32px height (36px in settings forms)
 8. Links: text underlined, icon NOT underlined
 9. Every component file is self-contained — declare all tokens in `:root`
 10. Topbar = study pill + site dropdown. Breadcrumb = full navigation path.
@@ -95,16 +96,13 @@ Five sections: Query states · Edit check states · SDV states · Critical/SAE �
 VeDRA v3.1 (veterinary, default) + MedDRA v26.1. Four-column hierarchy: LLT · PT · HLT · SOC. Plus Species/Breed column. Auto-code: ≥80% confidence → coded, <80% → needs review. Coding panel slide-in with match scores.
 
 ### 23 — Invoices
-**Fee schedule tab:** Event types across 4 sections, sortable. Currency header row — one currency selector per site column, all cells in that column use that currency. Three trigger modes: Form completion (grouped dropdown) · Field value (builder with preview) · Study milestone (dropdown). Site-level overrides per event with checkbox + rate input + currency dropdown. Override saves correctly on first save (SITES symbol synced before renderFee).
-**Site invoices tab:** KPI strip, invoice table (sortable), status badge chips in detail panel (query-style: badge + desc + date). Paid invoices hide the primary action button. Money columns left-aligned.
-**Invoice preview tab:** Print-ready document with billing contact pulled from SITES data.
+Fee schedule + site invoices + invoice preview. Currency per site column. Three trigger modes: Form completion · Field value (builder) · Study milestone. Site-level overrides. Invoice detail panel with query-style status bar.
 
 ### 24 — Inventory
-**Shipments tab (first):** Empty state → "Receive first shipment" centred button. Modal: shipment date + receive date + CSV upload zone → Import CSV → review table (vial ID, vol, conc, expiry, treatment group, received, usable). Confirm → row appears as confirmed, expandable, view/download only. "Receive shipment" sticky button at bottom of list.
-**Inventory tab:** KPI cards (clickable status filters), treatment group filter, expiry date col (11px), current volume as plain number. Site dropdown in topbar (dark theme, `tb-site` pattern from file 05).
-**Dispensing log tab:** Pulled from form data. Unit status chips: Back in storage (green), Returned to sponsor (purple), At home (blue), Removed (red). Return icon (⟳) → return modal (date, volume remaining, condition, sponsor return date, manual removal override checkbox).
-**Vial detail tab:** Full lifecycle timeline — received · dispensed · returned · removed · sponsor return. KPI strip + colour-coded dot timeline.
-**Reconciliation tab:** Per treatment group: #Received, #Usable, #Removed, #Dispensed, #Returned, Variance (= received − returned − removed), Auto status badge (Balanced/Outstanding), Confirmation dropdown, Notes. All rows neutral white background.
+Shipments · Inventory · Dispensing log · Vial detail · Reconciliation. Site filter in topbar. Return modal with condition-based routing. Reconciliation by treatment group with Variance column.
+
+### 25 — Settings (complete — session 14)
+Eight sections: Study settings · Study preferences · Roles · Form permissions · Randomization · Inventory · Audit & Signatures · Billing. See DECISIONS.md sessions 13–14 for full detail.
 
 ---
 
@@ -116,25 +114,12 @@ VeDRA v3.1 (veterinary, default) + MedDRA v26.1. Four-column hierarchy: LLT · P
 <div id="site-dropdown">
   <button class="site-dd-item active" onclick="setSiteFilter('')">All sites</button>
   <button class="site-dd-item" onclick="setSiteFilter('Austin')">Austin</button>
-  ...
 </div>
 ```
-`tb-site`: plain white text + chevron, no border/background. Dropdown: white surface, `site-dd-item` rows, active = blue-600 + blue-50.
+`tb-site`: plain white text + chevron, no border/background. Dropdown: white surface, active = blue-600 + blue-50. Close on outside click.
 
 ---
 
 ## Remaining to build
 
-### 25-settings.html — Settings hub (next)
-| Section | Content |
-|---|---|
-| **Role creation** | Define roles (CRC, CRA, PI, DM, PM, Admin), permissions per role |
-| **Form permissions** | Which roles can view / edit / sign / lock each form |
-| **Study settings** | Protocol config, drug info, site list, holdback %, study dates |
-| **Randomization** | Treatment groups, randomization list upload, blinding config |
-| **Inventory settings** | Connect dispensing form fields to inventory |
-| **Audit trail** | Signature requirements, reason-for-change config |
-| **Billing settings** | Fee schedule (moved from invoices tab), currency per site |
-
-### Living style guide
-GitHub Pages component reference — last item.
+- **Living style guide:** GitHub Pages component reference — the final item.

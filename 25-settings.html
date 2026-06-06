@@ -154,9 +154,9 @@ body{font-family:var(--font-sans);font-size:var(--text-base);color:var(--color-t
 /* Permission matrix */
 .perm-matrix{width:100%;border-collapse:collapse;font-size:var(--text-xs)}
 .perm-matrix th{text-align:center;padding:var(--space-2) var(--space-2);font-size:10px;font-weight:500;text-transform:uppercase;letter-spacing:var(--tracking-caps);color:var(--color-text-tertiary);border-bottom:1px solid var(--color-border);white-space:nowrap}
-.perm-matrix th:first-child{text-align:left;padding-left:var(--space-3);min-width:160px}
+.perm-matrix th:first-child{text-align:left;padding-left:var(--space-5);min-width:160px}
 .perm-matrix td{text-align:center;padding:var(--space-2);border-bottom:1px solid var(--color-border-subtle);vertical-align:middle}
-.perm-matrix td:first-child{text-align:left;padding-left:var(--space-3);font-size:var(--text-sm);color:var(--color-text-primary)}
+.perm-matrix td:first-child{text-align:left;padding-left:var(--space-5);font-size:var(--text-sm);color:var(--color-text-primary)}
 .perm-matrix tr:last-child td{border-bottom:none}
 .perm-cb{width:14px;height:14px;accent-color:var(--blue-600);cursor:pointer}
 .perm-matrix tr:hover td{background:var(--color-hover-bg)}
@@ -166,7 +166,7 @@ body{font-family:var(--font-sans);font-size:var(--text-base);color:var(--color-t
 .fp-row{background:var(--color-surface);border:1px solid var(--color-border);border-radius:var(--radius-lg);overflow:hidden}
 .fp-row-header{padding:var(--space-4) var(--space-5);display:flex;align-items:center;justify-content:space-between;cursor:pointer;gap:var(--space-3)}
 .fp-row-header:hover{background:var(--color-hover-bg)}
-.fp-form-name{font-size:var(--text-base);font-weight:500;color:var(--color-text-primary);line-height:1.3}
+.fp-form-name{font-size:var(--text-sm);font-weight:500;color:var(--color-text-primary);line-height:1.3}
 .fp-form-section{font-size:var(--text-sm);color:var(--color-text-tertiary);margin-top:3px}
 .fp-summary{display:flex;gap:4px;flex-wrap:wrap}
 .fp-table{display:none;border-top:1px solid var(--color-border);overflow-x:auto}
@@ -183,6 +183,11 @@ body{font-family:var(--font-sans);font-size:var(--text-base);color:var(--color-t
 
 /* ─── Randomization ──────────────────────────────────────── */
 .group-row{display:flex;align-items:center;gap:var(--space-3);padding:var(--space-3) 0;border-bottom:1px solid var(--color-border-subtle)}
+.group-row:last-child{border-bottom:none}
+.strat-scope-btn{display:inline-flex;align-items:center;gap:4px;height:28px;padding:0 var(--space-3);font-size:var(--text-xs);font-weight:500;font-family:var(--font-sans);border:1px solid var(--color-border);border-radius:var(--radius-md);background:var(--color-surface);color:var(--color-text-secondary);cursor:pointer;transition:all var(--duration-fast)}
+.strat-scope-btn:hover{border-color:var(--blue-200);color:var(--blue-600);background:var(--blue-50)}
+.strat-scope-btn.active{border-color:var(--blue-600);color:var(--blue-600);background:var(--blue-50);font-weight:500}
+.strat-factor-card{border:1px solid var(--color-border);border-radius:var(--radius-md);background:var(--color-surface)}
 .group-row:last-child{border-bottom:none}
 .group-color-dot{width:12px;height:12px;border-radius:50%;flex-shrink:0}
 .ratio-bar{height:8px;border-radius:var(--radius-full);overflow:hidden;background:var(--color-border);margin-top:var(--space-2)}
@@ -516,7 +521,18 @@ body{font-family:var(--font-sans);font-size:var(--text-base);color:var(--color-t
             <p class="section-desc">Control what each role can do on each form</p>
           </div>
           <div style="display:flex;align-items:center;gap:var(--space-3);margin-bottom:var(--space-4)">
-            <div style="font-size:var(--text-xs);color:var(--color-text-tertiary)">Click a form row to expand permissions</div>
+            <!-- View toggle -->
+            <div style="display:flex;border:1px solid var(--color-border);border-radius:var(--radius-md);overflow:hidden;flex-shrink:0">
+              <button id="fp-view-form-btn" onclick="setFpView('form')"
+                style="display:inline-flex;align-items:center;gap:5px;height:28px;padding:0 var(--space-3);font-size:var(--text-xs);font-weight:500;font-family:var(--font-sans);border:none;background:var(--color-cta-bg);color:#fff;cursor:pointer">
+                <i class="ti ti-file-text" style="font-size:12px"></i> By form
+              </button>
+              <button id="fp-view-role-btn" onclick="setFpView('role')"
+                style="display:inline-flex;align-items:center;gap:5px;height:28px;padding:0 var(--space-3);font-size:var(--text-xs);font-weight:500;font-family:var(--font-sans);border:none;background:var(--color-surface);color:var(--color-text-secondary);cursor:pointer">
+                <i class="ti ti-users" style="font-size:12px"></i> By role
+              </button>
+            </div>
+            <div style="font-size:var(--text-xs);color:var(--color-text-tertiary)" id="fp-view-hint">Expand a form to see which roles have access</div>
             <div style="margin-left:auto;display:flex;gap:var(--space-2)">
               <button class="btn-secondary" style="height:28px;font-size:var(--text-xs)" id="expand-all-btn" onclick="toggleExpandAll()">
                 <i class="ti ti-arrows-maximize" id="expand-all-icon"></i> <span id="expand-all-label">Expand all</span>
@@ -544,38 +560,59 @@ body{font-family:var(--font-sans);font-size:var(--text-base);color:var(--color-t
               <div class="settings-row">
                 <div><div class="settings-row-label">Randomization method</div><div class="settings-row-desc">How subjects are assigned to treatment groups</div></div>
                 <div class="settings-row-value">
-                  <select class="form-select" style="max-width:280px">
-                    <option>Blocked randomization</option>
-                    <option>Simple randomization</option>
-                    <option>Stratified randomization</option>
-                    <option>Minimization</option>
+                  <select class="form-select" style="max-width:280px" id="rand-method-select" onchange="onRandMethodChange(this.value)">
+                    <option value="blocked">Blocked randomization</option>
+                    <option value="simple">Simple randomization</option>
+                    <option value="stratified">Stratified randomization</option>
+                    <option value="minimization">Minimization</option>
                   </select>
+                  <div id="rand-method-hint" style="display:none;margin-top:var(--space-2);padding:var(--space-2) var(--space-3);background:var(--blue-50);border:1px solid var(--blue-200);border-radius:var(--radius-md);font-size:var(--text-xs);color:var(--blue-600)"></div>
                 </div>
               </div>
-              <div class="settings-row">
-                <div><div class="settings-row-label">Block size</div></div>
-                <div class="settings-row-value">
-                  <select class="form-select" style="max-width:120px"><option>4</option><option>6</option><option>8</option><option>Variable</option></select>
+              <div class="settings-row" id="rand-row-blocksize">
+                <div><div class="settings-row-label">Block size</div><div class="settings-row-desc">Number of subjects per randomization block</div></div>
+                <div class="settings-row-value" style="display:flex;align-items:center;gap:var(--space-2)">
+                  <select class="form-select" style="max-width:120px" id="rand-block-select" onchange="checkBlockRatioCompat()">
+                    <option value="4">4</option><option value="6">6</option><option value="8">8</option><option value="variable">Variable</option>
+                  </select>
+                  <div id="block-compat-warn" style="display:none;font-size:var(--text-xs);color:var(--amber-700);align-items:center;gap:4px">
+                    <i class="ti ti-alert-triangle" style="font-size:13px"></i><span id="block-compat-text"></span>
+                  </div>
                 </div>
               </div>
               <div class="settings-row">
                 <div><div class="settings-row-label">Blinding</div><div class="settings-row-desc">Who knows the treatment assignment</div></div>
                 <div class="settings-row-value">
-                  <select class="form-select" style="max-width:200px">
-                    <option>Open-label (no blinding)</option>
-                    <option>Single-blind</option>
-                    <option>Double-blind</option>
+                  <select class="form-select" style="max-width:200px" onchange="autosaveField(this,'Blinding')">
+                    <option>Open-label (no blinding)</option><option>Single-blind</option><option>Double-blind</option>
                   </select>
                 </div>
               </div>
-              <div class="settings-row">
-                <div><div class="settings-row-label">Stratification factors</div><div class="settings-row-desc">Variables used to balance groups</div></div>
-                <div class="settings-row-value">
-                  <div style="display:flex;gap:4px;flex-wrap:wrap">
-                    <span class="badge badge-blue">Site</span>
-                    <span class="badge badge-blue">Body weight range</span>
-                    <button class="btn-secondary" style="height:24px;font-size:10px"><i class="ti ti-plus" style="font-size:10px"></i> Add factor</button>
-                  </div>
+              <div id="rand-row-strat" style="padding:var(--space-3) 0;border-bottom:1px solid var(--color-border-subtle)">
+                <div style="margin-bottom:var(--space-3)">
+                  <div class="settings-row-label" id="rand-strat-label">Stratification factors</div>
+                  <div class="settings-row-desc" id="rand-strat-desc">Variables used to balance groups at randomization</div>
+                </div>
+                <div style="display:flex;align-items:center;gap:var(--space-2);margin-bottom:var(--space-3)" id="strat-scope-row">
+                  <button class="strat-scope-btn active" id="strat-scope-site" onclick="setStratScope('site')"><i class="ti ti-building-hospital" style="font-size:13px"></i> Per site</button>
+                  <button class="strat-scope-btn" id="strat-scope-study" onclick="setStratScope('study')"><i class="ti ti-flask" style="font-size:13px"></i> Across study</button>
+                  <span style="font-size:var(--text-xs);color:var(--color-text-tertiary);margin-left:4px" id="strat-scope-hint">Randomization balanced separately within each site</span>
+                </div>
+                <div id="strat-factor-list" style="display:flex;flex-direction:column;gap:var(--space-2);margin-bottom:var(--space-3)"></div>
+                <div id="strat-required-note" style="display:none;margin-bottom:var(--space-2);font-size:var(--text-xs);color:var(--amber-700)"><i class="ti ti-alert-triangle" style="font-size:11px"></i> At least one stratification factor is required for this method.</div>
+                <button class="btn-secondary" style="height:28px;font-size:var(--text-xs)" onclick="openAddStratModal()"><i class="ti ti-plus"></i> Add factor</button>
+              </div>
+              <div id="rand-row-dynamic" style="display:none;padding:var(--space-3) 0">
+                <div style="padding:var(--space-3) var(--space-4);background:var(--color-page-bg);border:1px solid var(--color-border);border-radius:var(--radius-md);font-size:var(--text-sm);color:var(--color-text-secondary);display:flex;align-items:flex-start;gap:var(--space-3)">
+                  <i class="ti ti-info-circle" style="font-size:16px;color:var(--slate-600);flex-shrink:0;margin-top:1px"></i>
+                  <div><div style="font-weight:500;margin-bottom:2px">Dynamic assignment — no randomization list required</div>
+                  <div style="font-size:var(--text-xs);color:var(--color-text-tertiary)">Minimization assigns each new subject to the group that minimises imbalance across stratification factors at that moment.</div></div>
+                </div>
+              </div>
+              <div id="rand-row-simple-warn" style="display:none;padding:var(--space-2) 0">
+                <div style="padding:var(--space-3) var(--space-4);background:var(--amber-50);border:1px solid var(--amber-200);border-radius:var(--radius-md);font-size:var(--text-xs);color:var(--amber-700);display:flex;align-items:flex-start;gap:var(--space-2)">
+                  <i class="ti ti-alert-triangle" style="font-size:14px;flex-shrink:0;margin-top:1px"></i>
+                  <span>Simple randomization is not recommended for studies with fewer than 100 subjects.</span>
                 </div>
               </div>
             </div>
@@ -591,15 +628,19 @@ body{font-family:var(--font-sans);font-size:var(--text-base);color:var(--color-t
 
           <div class="settings-card">
             <div class="settings-card-header">
-              <div><div class="settings-card-title">Randomization list</div><div class="settings-card-desc">Upload or generate the randomization schedule</div></div>
+              <div><div class="settings-card-title">Randomization list</div><div class="settings-card-desc" id="rand-list-desc">Upload or generate the randomization schedule</div></div>
+              <button class="btn-primary" id="rand-btn-lock"><i class="ti ti-lock"></i> Lock randomization</button>
             </div>
             <div class="settings-card-body">
-              <div style="display:flex;gap:var(--space-3)">
+              <div style="display:flex;gap:var(--space-3);margin-bottom:var(--space-3)" id="rand-list-actions">
                 <button class="btn-secondary"><i class="ti ti-file-type-csv"></i> Upload list (CSV)</button>
                 <button class="btn-secondary"><i class="ti ti-refresh"></i> Generate list</button>
-                <button class="btn-primary" style="margin-left:auto"><i class="ti ti-lock"></i> Lock randomization</button>
               </div>
-              <div style="margin-top:var(--space-3);padding:var(--space-3);background:var(--color-page-bg);border:1px solid var(--color-border);border-radius:var(--radius-md);font-size:var(--text-xs);color:var(--color-text-tertiary)">
+              <div id="rand-minimization-note" style="display:none;margin-bottom:var(--space-3);padding:var(--space-3);background:var(--color-page-bg);border:1px solid var(--color-border);border-radius:var(--radius-md);font-size:var(--text-xs);color:var(--color-text-tertiary)">
+                <i class="ti ti-info-circle" style="font-size:13px;margin-right:4px"></i>
+                Minimization uses real-time dynamic assignment — no randomization list is needed.
+              </div>
+              <div style="padding:var(--space-3);background:var(--color-page-bg);border:1px solid var(--color-border);border-radius:var(--radius-md);font-size:var(--text-xs);color:var(--color-text-tertiary)">
                 <i class="ti ti-info-circle" style="font-size:12px;margin-right:4px"></i>
                 Randomization list will be locked before first enrollment. Once locked, assignments cannot be changed without a protocol amendment.
               </div>
@@ -607,117 +648,159 @@ body{font-family:var(--font-sans);font-size:var(--text-base);color:var(--color-t
           </div>
         </div>
 
-        <!-- ════════════════ INVENTORY SETTINGS ════════════════ -->
+<!-- ════════════════ INVENTORY SETTINGS ════════════════ -->
         <div class="settings-section" id="section-inventory">
           <div class="section-header">
             <h1 class="section-title">Inventory</h1>
-            <p class="section-desc">Connect study forms to inventory dispensing and return events</p>
+            <p class="section-desc">Connect study forms to inventory events, configure rules and access permissions</p>
           </div>
 
+          <!-- Dispense trigger -->
           <div class="settings-card">
             <div class="settings-card-header">
-              <div><div class="settings-card-title">Dispense trigger</div><div class="settings-card-desc">Which form field drives a dispensing event</div></div>
+              <div><div class="settings-card-title">Dispense trigger</div><div class="settings-card-desc">Which form fields log a dispensing event</div></div>
             </div>
             <div class="settings-card-body">
               <div class="form-grid-2" style="margin-bottom:var(--space-4)">
                 <div class="form-field">
                   <div class="form-label">Dispensing form</div>
-                  <select class="form-select"><option>Dosing record</option><option>AE form</option><option>Physical exam</option></select>
+                  <select class="form-select" onchange="autosaveField(this,'Dispensing form')"><option>Dosing record</option><option>Drug administration log</option><option>Physical exam</option></select>
                 </div>
+                <div class="form-field">
+                  <div class="form-label">Unit ID field</div>
+                  <select class="form-select" onchange="autosaveField(this,'Unit ID field')"><option>Unit ID</option><option>Vial ID</option><option>Kit ID</option></select>
+                  <div class="form-hint">Identifies the specific unit being dispensed</div>
+                </div>
+              </div>
+              <div class="form-grid-2">
                 <div class="form-field">
                   <div class="form-label">Volume field</div>
-                  <select class="form-select"><option>Volume administered (ml)</option><option>Dose given (ml)</option></select>
-                </div>
-              </div>
-              <div class="form-grid-2">
-                <div class="form-field">
-                  <div class="form-label">Vial ID field</div>
-                  <select class="form-select"><option>Vial ID</option><option>Unit ID</option></select>
+                  <select class="form-select" onchange="autosaveField(this,'Volume field')"><option>Volume administered (ml)</option><option>Dose given (ml)</option><option>Amount dispensed</option></select>
                 </div>
                 <div class="form-field">
-                  <div class="form-label">Route field</div>
-                  <select class="form-select"><option>Route of administration</option><option>Injection site</option></select>
+                  <div class="form-label">Dispensing date field</div>
+                  <select class="form-select" onchange="autosaveField(this,'Dispensing date field')"><option>Date of administration</option><option>Visit date</option><option>Dosing date</option></select>
                 </div>
               </div>
             </div>
           </div>
 
+          <!-- Return trigger -->
           <div class="settings-card">
             <div class="settings-card-header">
-              <div><div class="settings-card-title">Return trigger</div><div class="settings-card-desc">Which form field logs a drug return event</div></div>
+              <div><div class="settings-card-title">Return trigger</div><div class="settings-card-desc">Which form fields log a drug return event</div></div>
             </div>
             <div class="settings-card-body">
-              <div class="form-grid-2">
+              <div class="form-grid-2" style="margin-bottom:var(--space-4)">
                 <div class="form-field">
                   <div class="form-label">Return form</div>
-                  <select class="form-select"><option>Drug return log</option><option>Dosing record</option></select>
+                  <select class="form-select" onchange="autosaveField(this,'Return form')"><option>Drug return log</option><option>Dosing record</option><option>Inventory return form</option></select>
                 </div>
                 <div class="form-field">
-                  <div class="form-label">Volume returned field</div>
-                  <select class="form-select"><option>Volume remaining (ml)</option><option>Returned volume</option></select>
+                  <div class="form-label">Vial ID field</div>
+                  <select class="form-select" onchange="autosaveField(this,'Return vial ID field')"><option>Vial ID</option><option>Unit ID</option><option>Kit ID</option></select>
+                </div>
+              </div>
+              <div class="form-grid-2">
+                <div class="form-field">
+                  <div class="form-label">Return date field</div>
+                  <select class="form-select" onchange="autosaveField(this,'Return date field')"><option>Date of return</option><option>Visit date</option><option>Collection date</option></select>
+                </div>
+                <div class="form-field">
+                  <div class="form-label">Condition field</div>
+                  <select class="form-select" onchange="autosaveField(this,'Condition field')"><option>Unit condition on return</option><option>Physical condition</option><option>Integrity status</option></select>
+                  <div class="form-hint">Used to determine if returned units re-enter stock</div>
                 </div>
               </div>
             </div>
           </div>
 
+          <!-- Inventory rules -->
           <div class="settings-card">
             <div class="settings-card-header">
               <div><div class="settings-card-title">Inventory rules</div></div>
             </div>
             <div class="settings-card-body">
-              <div class="settings-row">
-                <div><div class="settings-row-label">Require vial ID on dispense</div><div class="settings-row-desc">Block form submission without a vial ID</div></div>
-                <label class="toggle"><input type="checkbox" checked><span class="toggle-slider"></span></label>
+
+              <div style="display:flex;align-items:flex-start;gap:var(--space-3);padding:var(--space-3) 0;border-bottom:1px solid var(--color-border-subtle)">
+                <label class="toggle" style="flex-shrink:0;margin-top:2px"><input type="checkbox" checked><span class="toggle-slider"></span></label>
+                <div><div class="settings-row-label">Require unit ID on dispense</div><div class="settings-row-desc">Block form submission if no unit ID is recorded</div></div>
               </div>
-              <div class="settings-row">
-                <div><div class="settings-row-label">Alert on low stock</div><div class="settings-row-desc">Notify CRC when fewer than 3 vials available</div></div>
-                <label class="toggle"><input type="checkbox" checked><span class="toggle-slider"></span></label>
+
+              <div style="padding:var(--space-3) 0;border-bottom:1px solid var(--color-border-subtle)">
+                <div style="display:flex;align-items:flex-start;gap:var(--space-3)">
+                  <label class="toggle" style="flex-shrink:0;margin-top:2px"><input type="checkbox" id="low-stock-toggle" checked onchange="toggleLowStock(this.checked)"><span class="toggle-slider"></span></label>
+                  <div><div class="settings-row-label">Alert on low stock</div><div class="settings-row-desc">Trigger a notification when available units fall below threshold</div></div>
+                </div>
+                <div id="low-stock-config" style="margin-top:var(--space-3);margin-left:52px;padding:var(--space-3) var(--space-4);background:var(--color-page-bg);border:1px solid var(--color-border);border-radius:var(--radius-md)">
+                  <div style="display:grid;grid-template-columns:auto 1fr;gap:0 var(--space-5)">
+                    <div class="form-label">Threshold</div>
+                    <div class="form-label">Notify roles</div>
+                    <div style="display:flex;align-items:center;gap:var(--space-2);margin-top:4px">
+                      <input class="form-input" type="number" min="1" value="3" style="width:72px;font-family:var(--font-mono)" onblur="autosaveField(this,'Low stock threshold')">
+                      <span style="font-size:var(--text-sm);color:var(--color-text-secondary)">units</span>
+                    </div>
+                    <div style="display:flex;gap:var(--space-2);flex-wrap:wrap;align-items:center;margin-top:4px" id="low-stock-roles"></div>
+                  </div>
+                </div>
               </div>
-              <div class="settings-row">
-                <div><div class="settings-row-label">Auto-deplete on zero return</div><div class="settings-row-desc">Mark vial depleted when 0 ml returned</div></div>
-                <label class="toggle"><input type="checkbox" checked><span class="toggle-slider"></span></label>
+
+              <div style="display:flex;align-items:flex-start;gap:var(--space-3);padding:var(--space-3) 0;border-bottom:1px solid var(--color-border-subtle)">
+                <label class="toggle" style="flex-shrink:0;margin-top:2px"><input type="checkbox" checked><span class="toggle-slider"></span></label>
+                <div><div class="settings-row-label">Auto-deplete on zero return</div><div class="settings-row-desc">Mark unit as depleted when 0 ml is returned</div></div>
               </div>
+
+              <div style="padding:var(--space-3) 0">
+                <div style="display:flex;align-items:flex-start;gap:var(--space-3)">
+                  <label class="toggle" style="flex-shrink:0;margin-top:2px"><input type="checkbox" id="partial-return-toggle" checked onchange="togglePartialReturn(this.checked)"><span class="toggle-slider"></span></label>
+                  <div><div class="settings-row-label">Allow partial unit returns</div><div class="settings-row-desc">Returned units re-enter stock based on the condition recorded on the return form</div></div>
+                </div>
+                <div id="partial-return-config" style="margin-top:var(--space-3);margin-left:52px;padding:var(--space-4);background:var(--color-page-bg);border:1px solid var(--color-border);border-radius:var(--radius-md);display:flex;flex-direction:column;gap:var(--space-4)">
+                  <div>
+                    <div class="form-label" style="margin-bottom:var(--space-2)">Condition field on return form</div>
+                    <div id="condition-field-status" style="display:flex;align-items:center;gap:var(--space-2);font-size:var(--text-sm)">
+                      <span class="badge badge-blue" style="font-family:var(--font-mono);font-size:10px">Unit condition on return</span>
+                      <span style="font-size:var(--text-xs);color:var(--color-text-tertiary)">linked from Return trigger → Condition field</span>
+                      <button class="btn-icon" style="width:22px;height:22px;margin-left:2px" title="Unlink" onclick="unlinkConditionField()"><i class="ti ti-unlink" style="font-size:12px"></i></button>
+                    </div>
+                  </div>
+                  <div id="condition-mapping-wrap">
+                    <div style="font-size:var(--text-xs);font-weight:500;text-transform:uppercase;letter-spacing:var(--tracking-caps);color:var(--color-text-tertiary);margin-bottom:var(--space-2)">Condition options → stock outcome</div>
+                    <div id="condition-mapping-rows" style="display:flex;flex-direction:column"></div>
+                  </div>
+                  <div class="form-field">
+                    <div class="form-label">Minimum returnable volume</div>
+                    <div style="display:flex;align-items:center;gap:var(--space-2);margin-top:4px">
+                      <input class="form-input" type="number" min="0" step="0.1" value="0.5" style="width:72px;font-family:var(--font-mono)" onblur="autosaveField(this,'Min returnable volume')">
+                      <span style="font-size:var(--text-sm);color:var(--color-text-secondary)">ml — below this the unit is marked depleted regardless of condition</span>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
             </div>
           </div>
+
+          <!-- Inventory permissions -->
+          <div class="settings-card">
+            <div class="settings-card-header">
+              <div><div class="settings-card-title">Inventory permissions</div><div class="settings-card-desc">Who can access and perform each stage of inventory management</div></div>
+            </div>
+            <div class="settings-card-body" style="padding:0;overflow-x:auto">
+              <table class="perm-matrix" id="inv-perm-table" style="min-width:560px;width:100%">
+                <thead id="inv-perm-head"><tr></tr></thead>
+                <tbody id="inv-perm-body"></tbody>
+              </table>
+            </div>
+          </div>
+
         </div>
 
-        <!-- ════════════════ AUDIT & SIGNATURES ════════════════ -->
+<!-- ════════════════ AUDIT & SIGNATURES ════════════════ -->
         <div class="settings-section" id="section-audit">
           <div class="section-header">
             <h1 class="section-title">Audit &amp; Signatures</h1>
             <p class="section-desc">Configure audit trail behaviour and electronic signature requirements</p>
-          </div>
-
-          <div class="settings-card">
-            <div class="settings-card-header">
-              <div><div class="settings-card-title">Audit trail</div></div>
-            </div>
-            <div class="settings-card-body">
-              <div class="settings-row">
-                <div><div class="settings-row-label">Audit trail scope</div><div class="settings-row-desc">What changes are recorded in the audit log</div></div>
-                <div class="settings-row-value">
-                  <select class="form-select" style="max-width:240px"><option>All field changes</option><option>Signed fields only</option><option>Critical fields only</option></select>
-                </div>
-              </div>
-              <div class="settings-row">
-                <div><div class="settings-row-label">Reason for change</div><div class="settings-row-desc">When is a reason required for edits</div></div>
-                <div class="settings-row-value">
-                  <select class="form-select" style="max-width:240px">
-                    <option>Always required on re-edit</option>
-                    <option>Required for signed fields only</option>
-                    <option>Required for critical fields only</option>
-                  </select>
-                </div>
-              </div>
-              <div class="settings-row">
-                <div><div class="settings-row-label">Unalterable timestamps</div><div class="settings-row-desc">21 CFR Part 11 — server-side timestamps on all entries</div></div>
-                <label class="toggle"><input type="checkbox" checked disabled><span class="toggle-slider"></span></label>
-              </div>
-              <div class="settings-row">
-                <div><div class="settings-row-label">Retain deleted records</div><div class="settings-row-desc">Soft-delete only — all records visible in audit trail</div></div>
-                <label class="toggle"><input type="checkbox" checked disabled><span class="toggle-slider"></span></label>
-              </div>
-            </div>
           </div>
 
           <div class="settings-card">
@@ -735,13 +818,19 @@ body{font-family:var(--font-sans);font-size:var(--text-base);color:var(--color-t
                   </select>
                 </div>
               </div>
-              <div class="settings-row">
-                <div><div class="settings-row-label">Require meaning statement</div><div class="settings-row-desc">Signer must select the meaning of their signature (e.g. "I have reviewed and approved")</div></div>
-                <label class="toggle"><input type="checkbox" checked><span class="toggle-slider"></span></label>
+              <div style="display:flex;align-items:flex-start;gap:var(--space-3);padding:var(--space-3) 0;border-bottom:1px solid var(--color-border-subtle)">
+                <label class="toggle" style="flex-shrink:0;margin-top:2px"><input type="checkbox" checked><span class="toggle-slider"></span></label>
+                <div>
+                  <div class="settings-row-label">Require meaning statement</div>
+                  <div class="settings-row-desc">Signer must select the meaning of their signature (e.g. "I have reviewed and approved")</div>
+                </div>
               </div>
-              <div class="settings-row">
-                <div><div class="settings-row-label">Co-signature</div><div class="settings-row-desc">Require a second signer for specific forms</div></div>
-                <label class="toggle"><input type="checkbox"><span class="toggle-slider"></span></label>
+              <div style="display:flex;align-items:flex-start;gap:var(--space-3);padding:var(--space-3) 0">
+                <label class="toggle" style="flex-shrink:0;margin-top:2px"><input type="checkbox"><span class="toggle-slider"></span></label>
+                <div>
+                  <div class="settings-row-label">Co-signature</div>
+                  <div class="settings-row-desc">Require a second signer for specific forms</div>
+                </div>
               </div>
             </div>
           </div>
@@ -754,13 +843,78 @@ body{font-family:var(--font-sans);font-size:var(--text-base);color:var(--color-t
           </div>
         </div>
 
-        <!-- ════════════════ BILLING ════════════════ -->
+<!-- ════════════════ BILLING ════════════════ -->
         <div class="settings-section" id="section-billing">
           <div class="section-header">
             <h1 class="section-title">Billing</h1>
             <p class="section-desc">Fee schedule and payment configuration for this study</p>
           </div>
 
+          <!-- Billing information -->
+          <div class="settings-card">
+            <div class="settings-card-header">
+              <div><div class="settings-card-title">Billing information</div><div class="settings-card-desc">Invoice recipient details for this study</div></div>
+            </div>
+            <div class="settings-card-body">
+              <div class="form-grid-2" style="margin-bottom:var(--space-4)">
+                <div class="form-field">
+                  <div class="form-label">Contact name <span style="color:var(--red-600)">*</span></div>
+                  <input class="form-input" placeholder="Full name" onblur="autosaveField(this,'Billing contact name')">
+                </div>
+                <div class="form-field">
+                  <div class="form-label">Company <span style="color:var(--red-600)">*</span></div>
+                  <input class="form-input" placeholder="Organization or company name" onblur="autosaveField(this,'Billing company')">
+                </div>
+              </div>
+              <div class="form-grid-2" style="margin-bottom:var(--space-4)">
+                <div class="form-field">
+                  <div class="form-label">ATTN</div>
+                  <input class="form-input" placeholder="Attention line" onblur="autosaveField(this,'Billing ATTN')">
+                </div>
+                <div class="form-field">
+                  <div class="form-label">Email <span style="color:var(--red-600)">*</span></div>
+                  <input class="form-input" type="email" placeholder="billing@example.com" onblur="autosaveField(this,'Billing email')">
+                </div>
+              </div>
+              <div class="form-grid-2" style="margin-bottom:var(--space-4)">
+                <div class="form-field">
+                  <div class="form-label">Phone</div>
+                  <input class="form-input" type="tel" placeholder="+1 (555) 000-0000" onblur="autosaveField(this,'Billing phone')">
+                </div>
+                <div class="form-field">
+                  <div class="form-label">Address <span style="color:var(--red-600)">*</span></div>
+                  <input class="form-input" placeholder="Street address" onblur="autosaveField(this,'Billing address')">
+                </div>
+              </div>
+              <div class="form-grid-2" style="margin-bottom:var(--space-4)">
+                <div class="form-field">
+                  <div class="form-label">City <span style="color:var(--red-600)">*</span></div>
+                  <input class="form-input" placeholder="City" onblur="autosaveField(this,'Billing city')">
+                </div>
+                <div class="form-field">
+                  <div class="form-label">State / Province / Region</div>
+                  <input class="form-input" placeholder="State or province" onblur="autosaveField(this,'Billing state')">
+                </div>
+              </div>
+              <div class="form-grid-2">
+                <div class="form-field">
+                  <div class="form-label">Postal / ZIP code <span style="color:var(--red-600)">*</span></div>
+                  <input class="form-input" placeholder="Postal or ZIP code" style="font-family:var(--font-mono)" onblur="autosaveField(this,'Billing postal code')">
+                </div>
+                <div class="form-field">
+                  <div class="form-label">Country <span style="color:var(--red-600)">*</span></div>
+                  <select class="form-select" onchange="autosaveField(this,'Billing country')">
+                    <option value="">— select country —</option>
+                    <option>United States</option><option>Canada</option><option>United Kingdom</option>
+                    <option>Australia</option><option>Germany</option><option>France</option>
+                    <option>Italy</option><option>Spain</option><option>Netherlands</option><option>Other</option>
+                  </select>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- Payment terms -->
           <div class="settings-card">
             <div class="settings-card-header">
               <div><div class="settings-card-title">Payment terms</div></div>
@@ -785,10 +939,11 @@ body{font-family:var(--font-sans);font-size:var(--text-base);color:var(--color-t
             </div>
           </div>
 
+          <!-- Fee schedule -->
           <div class="settings-card">
             <div class="settings-card-header">
               <div><div class="settings-card-title">Fee schedule</div><div class="settings-card-desc">Billable events and rates — applies to all site invoices</div></div>
-              <button class="btn-primary"><i class="ti ti-plus"></i> Add event</button>
+              <button class="btn-primary" onclick="openFeeModal(null)"><i class="ti ti-plus"></i> Add event</button>
             </div>
             <div style="overflow-x:auto">
               <table class="fee-table" id="billing-fee-table"></table>
@@ -952,6 +1107,7 @@ function showSection(id) {
   if (id==='formperm')     renderFormPerms();
   if (id==='billing')      renderBillingFee();
   if (id==='randomization') renderGroups();
+  if (id==='inventory')    { renderInvPerms(); renderLowStockRoles(); renderConditionMapping(); }
   if (id==='audit')        renderSigForms();
 }
 
@@ -1298,6 +1454,139 @@ function closeRoleModal() { document.getElementById('role-modal').classList.remo
 // ═══════════════════════════════════════════════════════════
 // FORM PERMISSIONS
 // ═══════════════════════════════════════════════════════════
+// ── Form permissions view switcher ──────────────────────────
+let _fpView = 'form'; // 'form' | 'role'
+
+function setFpView(view) {
+  _fpView = view;
+  const formBtn = document.getElementById('fp-view-form-btn');
+  const roleBtn = document.getElementById('fp-view-role-btn');
+  const hint    = document.getElementById('fp-view-hint');
+  const NAV_BG  = getComputedStyle(document.documentElement).getPropertyValue('--color-cta-bg').trim();
+  if (formBtn) {
+    formBtn.style.background = view==='form' ? 'var(--color-cta-bg)' : 'var(--color-surface)';
+    formBtn.style.color      = view==='form' ? '#fff' : 'var(--color-text-secondary)';
+  }
+  if (roleBtn) {
+    roleBtn.style.background = view==='role' ? 'var(--color-cta-bg)' : 'var(--color-surface)';
+    roleBtn.style.color      = view==='role' ? '#fff' : 'var(--color-text-secondary)';
+  }
+  if (hint) hint.textContent = view==='form'
+    ? 'Expand a form to see which roles have access'
+    : 'Expand a role to see its permissions across all forms';
+  _allFormsExpanded = false;
+  const expandBtn = document.getElementById('expand-all-btn');
+  if (expandBtn) {
+    document.getElementById('expand-all-icon').className  = 'ti ti-arrows-maximize';
+    document.getElementById('expand-all-label').textContent = 'Expand all';
+  }
+  if (view==='form') renderFormPerms();
+  else renderFormPermsByRole();
+}
+
+function renderFormPermsByRole() {
+  const container = document.getElementById('formperm-list');
+  if (!container) return;
+
+  container.innerHTML = ROLES.map(r => {
+    // Summarize: how many forms does this role have any access to?
+    const accessCount = FORMS.filter(f => FORM_PERMS_6.some(p => r.formPerms[f.id]?.[p])).length;
+    const permSummary = FORM_PERMS_6
+      .filter(p => FORMS.some(f => r.formPerms[f.id]?.[p]))
+      .map(p => FORM_PERM_LABELS_6[p])
+      .join(' · ') || 'No permissions set';
+
+    // Group forms by section for the expanded table
+    const sections = {};
+    FORMS.forEach(f => { if (!sections[f.section]) sections[f.section]=[]; sections[f.section].push(f); });
+
+    const tableRows = Object.entries(sections).map(([sec, forms]) =>
+      '<tr class="section-hdr"><td colspan="' + (FORM_PERMS_6.length+1) + '" style="padding-left:var(--space-5)">' + sec + '</td></tr>' +
+      forms.map(f => {
+        const hasAny = FORM_PERMS_6.some(p => r.formPerms[f.id]?.[p]);
+        return '<tr>' +
+          '<td style="font-weight:500;padding-left:var(--space-5)">' + f.name +
+            (f.requiresSig ? ' <span style="font-size:10px;color:var(--blue-600);font-weight:400">· Sig req.</span>' : '') +
+          '</td>' +
+          FORM_PERMS_6.map(p =>
+            '<td style="text-align:center">' +
+            '<input type="checkbox" class="perm-cb" ' + (r.formPerms[f.id]?.[p] ? 'checked' : '') +
+            ' onchange="toggleFormPerm_cb(\'' + r.id + '\',\'' + f.id + '\',\'' + p + '\',this.checked)"' +
+            ' style="accent-color:var(--blue-600)">' +
+            '</td>'
+          ).join('') +
+        '</tr>';
+      }).join('')
+    ).join('');
+
+    return '<div class="fp-row" style="margin-bottom:var(--space-2)">' +
+      '<div class="fp-row-header" onclick="toggleRolePerm(\'' + r.id + '\')">' +
+        '<div style="width:14px;height:14px;border-radius:50%;background:' + (r.color||'var(--slate-600)') + ';flex-shrink:0"></div>' +
+        '<div style="flex:1;min-width:0">' +
+          '<div class="fp-form-name">' + r.name + '</div>' +
+          '<div class="fp-form-section">' +
+            accessCount + ' form' + (accessCount!==1?'s':'') + ' with access' +
+            ' · ' + permSummary +
+          '</div>' +
+        '</div>' +
+        '<i class="ti ti-chevron-down" style="font-size:14px;color:var(--color-text-tertiary);flex-shrink:0" id="fp-role-chev-' + r.id + '"></i>' +
+      '</div>' +
+      '<div class="fp-table" id="fp-role-table-' + r.id + '">' +
+        '<table class="fp-matrix">' +
+          '<thead><tr>' +
+            '<th style="min-width:180px;padding-left:var(--space-5)">Form</th>' +
+            FORM_PERMS_6.map(p =>
+              '<th style="text-align:center">' +
+                '<div style="display:flex;flex-direction:column;align-items:center;gap:3px">' +
+                  '<span title="' + FORM_PERM_DESC_6[p] + '">' + FORM_PERM_LABELS_6[p] + '</span>' +
+                  '<input type="checkbox" class="perm-cb" id="fp-role-col-all-' + r.id + '-' + p + '"' +
+                  ' title="Select all / deselect all"' +
+                  ' onchange="toggleRolePermCol(\'' + r.id + '\',\'' + p + '\',this.checked)"' +
+                  ' style="accent-color:var(--blue-600);cursor:pointer">' +
+                '</div>' +
+              '</th>'
+            ).join('') +
+          '</tr></thead>' +
+          '<tbody class="fp-matrix-body">' + tableRows + '</tbody>' +
+        '</table>' +
+      '</div>' +
+    '</div>';
+  }).join('');
+
+  // Update col-all checkboxes for role view
+  ROLES.forEach(r => FORM_PERMS_6.forEach(p => updateRoleColAllCheckbox(r.id, p)));
+}
+
+function toggleRolePerm(rid) {
+  const table = document.getElementById('fp-role-table-'+rid);
+  const chev  = document.getElementById('fp-role-chev-'+rid);
+  if (!table) return;
+  const open = table.classList.toggle('open');
+  if (chev) chev.className = (open ? 'ti ti-chevron-up' : 'ti ti-chevron-down');
+  if (chev) chev.style.cssText = 'font-size:14px;color:var(--color-text-tertiary);flex-shrink:0;margin-left:var(--space-2)';
+}
+
+function toggleRolePermCol(roleId, perm, val) {
+  FORMS.forEach(f => {
+    if (ROLES.find(r=>r.id===roleId)?.formPerms[f.id])
+      ROLES.find(r=>r.id===roleId).formPerms[f.id][perm] = val;
+    const cb = document.getElementById('fp-cb-'+roleId+'-'+f.id+'-'+perm);
+    if (cb) cb.checked = val;
+  });
+  updateRoleColAllCheckbox(roleId, perm);
+}
+
+function updateRoleColAllCheckbox(roleId, perm) {
+  const r = ROLES.find(x=>x.id===roleId);
+  if (!r) return;
+  const allChecked = FORMS.every(f => r.formPerms[f.id]?.[perm]);
+  const anyChecked = FORMS.some(f  => r.formPerms[f.id]?.[perm]);
+  const cb = document.getElementById('fp-role-col-all-'+roleId+'-'+perm);
+  if (!cb) return;
+  cb.checked = allChecked;
+  cb.indeterminate = !allChecked && anyChecked;
+}
+
 function renderFormPerms() {
   const container = document.getElementById('formperm-list');
   const sections = {};
@@ -1428,15 +1717,18 @@ function applyAIGrouping() {
 
 function toggleExpandAll() {
   _allFormsExpanded = !_allFormsExpanded;
-  FORMS.forEach(f => {
-    const table = document.getElementById('fp-table-'+f.id);
-    const chev  = document.getElementById('fp-chev-'+f.id);
+  const items = _fpView === 'form'
+    ? FORMS.map(f => ({ tableId:'fp-table-'+f.id, chevId:'fp-chev-'+f.id }))
+    : ROLES.map(r => ({ tableId:'fp-role-table-'+r.id, chevId:'fp-role-chev-'+r.id }));
+  items.forEach(({tableId, chevId}) => {
+    const table = document.getElementById(tableId);
+    const chev  = document.getElementById(chevId);
     if (table) table.classList.toggle('open', _allFormsExpanded);
     if (chev) { chev.className='ti ti-chevron-'+(_allFormsExpanded?'up':'down'); chev.style.cssText='font-size:14px;color:var(--color-text-tertiary);flex-shrink:0'; }
   });
   const icon  = document.getElementById('expand-all-icon');
   const label = document.getElementById('expand-all-label');
-  if (icon)  icon.className  = 'ti ti-'+(_allFormsExpanded?'arrows-minimize':'arrows-maximize');
+  if (icon)  icon.className   = 'ti ti-'+(_allFormsExpanded?'arrows-minimize':'arrows-maximize');
   if (label) label.textContent = _allFormsExpanded ? 'Collapse all' : 'Expand all';
 }
 
@@ -1449,55 +1741,86 @@ function renderGroups() {
   const total = GROUPS.reduce((s,g)=>s+g.ratio,0);
   const body  = document.getElementById('groups-body');
   if (!body) return;
-  body.innerHTML = `
-    <div style="margin-bottom:var(--space-3)">
-      <div style="font-size:var(--text-xs);color:var(--color-text-tertiary);margin-bottom:var(--space-2)">Allocation ratio</div>
-      <div class="ratio-bar"><div style="display:flex;height:100%">${GROUPS.map(g=>`
-        <div class="ratio-fill" style="width:${Math.round(g.ratio/total*100)}%;background:${g.color};opacity:0.8" title="${g.name}: ${Math.round(g.ratio/total*100)}%"></div>`).join('')}</div></div>
-      <div style="display:flex;gap:var(--space-3);margin-top:var(--space-2)">
-        ${GROUPS.map(g=>`<span style="display:flex;align-items:center;gap:4px;font-size:var(--text-xs);color:var(--color-text-secondary)">
-          <span style="width:8px;height:8px;border-radius:50%;background:${g.color};display:inline-block"></span>
-          ${g.name} (${Math.round(g.ratio/total*100)}%)</span>`).join('')}
-      </div>
-    </div>
-    ${GROUPS.map(g=>`
-      <div class="group-row">
-        <div class="group-color-dot" style="background:${g.color}"></div>
-        <div style="flex:1">
-          <div style="font-size:var(--text-sm);font-weight:500">${g.name}</div>
-          <div style="font-size:var(--text-xs);color:var(--color-text-tertiary);font-family:var(--font-mono)">${g.code} · Blinded label: ${g.blinded}</div>
-        </div>
-        <div style="font-size:var(--text-sm);color:var(--color-text-secondary)">Ratio: ${g.ratio}</div>
-        <button class="btn-icon" title="Edit"><i class="ti ti-pencil"></i></button>
-        <button class="btn-icon" title="Remove" style="color:var(--red-200)"><i class="ti ti-trash"></i></button>
-      </div>`).join('')}`;
+  body.innerHTML =
+    '<div style="margin-bottom:var(--space-3)">' +
+      '<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:var(--space-2)">' +
+        '<div style="font-size:var(--text-xs);color:var(--color-text-tertiary)">Allocation ratio</div>' +
+        '<button class="btn-icon" style="width:24px;height:24px" title="Edit ratios" onclick="openRatioModal()"><i class="ti ti-pencil" style="font-size:13px"></i></button>' +
+      '</div>' +
+      '<div class="ratio-bar"><div style="display:flex;height:100%">' +
+        GROUPS.map(g=>'<div class="ratio-fill" style="width:'+Math.round(g.ratio/total*100)+'%;background:'+g.color+';opacity:0.8"></div>').join('') +
+      '</div></div>' +
+      '<div style="display:flex;gap:var(--space-3);margin-top:var(--space-2)">' +
+        GROUPS.map(g=>'<span style="display:flex;align-items:center;gap:4px;font-size:var(--text-xs);color:var(--color-text-secondary)"><span style="width:8px;height:8px;border-radius:50%;background:'+g.color+';display:inline-block"></span>'+g.name+' '+g.ratio+'/'+total+' ('+Math.round(g.ratio/total*100)+'%)</span>').join('') +
+      '</div>' +
+    '</div>' +
+    GROUPS.map((g,i) =>
+      '<div class="group-row">' +
+        '<div class="group-color-dot" style="background:'+g.color+'"></div>' +
+        '<div style="flex:1"><div style="font-size:var(--text-sm);font-weight:500">'+g.name+'</div>' +
+        '<div style="font-size:var(--text-xs);color:var(--color-text-tertiary);font-family:var(--font-mono)">'+g.code+' · Blinded label: '+g.blinded+'</div></div>' +
+        '<div style="font-size:var(--text-sm);font-family:var(--font-mono);color:var(--color-text-secondary);min-width:52px;text-align:right">Ratio: '+g.ratio+'</div>' +
+        '<button class="btn-icon" title="Edit group" onclick="openEditGroupModal('+i+')"><i class="ti ti-pencil"></i></button>' +
+        '<button class="btn-icon" title="Remove group" style="color:var(--red-200)" onclick="removeGroup('+i+')"><i class="ti ti-trash"></i></button>' +
+      '</div>'
+    ).join('');
 }
 
-function openGroupModal()  { document.getElementById('group-modal').classList.add('open'); }
+function removeGroup(i) {
+  if (GROUPS.length <= 2) { showToast('At least 2 treatment groups required'); return; }
+  GROUPS.splice(i, 1); renderGroups();
+}
+
+function openGroupModal() {
+  document.getElementById('grp-modal-title').textContent = 'Add treatment group';
+  document.getElementById('grp-name').value = '';
+  document.getElementById('grp-code').value = '';
+  document.getElementById('grp-ratio').value = '1';
+  document.getElementById('grp-blinded').value = '';
+  document.getElementById('group-modal')._editIdx = null;
+  document.getElementById('group-modal').classList.add('open');
+}
+
+function openEditGroupModal(i) {
+  const g = GROUPS[i]; if (!g) return;
+  document.getElementById('grp-modal-title').textContent = 'Edit group';
+  document.getElementById('grp-name').value = g.name;
+  document.getElementById('grp-code').value = g.code;
+  document.getElementById('grp-ratio').value = g.ratio;
+  document.getElementById('grp-blinded').value = g.blinded;
+  document.getElementById('group-modal')._editIdx = i;
+  document.getElementById('group-modal').classList.add('open');
+}
+
 function closeGroupModal() { document.getElementById('group-modal').classList.remove('open'); }
+
 function saveGroup() {
-  const name = document.getElementById('grp-name').value.trim();
-  if (!name) return;
-  const colors = ['#534AB7','#C94C0C','#8A5C00','#1A6B47'];
-  GROUPS.push({ id:'G0'+(GROUPS.length+1), name, code:document.getElementById('grp-code').value||name.substring(0,4).toUpperCase(), ratio:parseInt(document.getElementById('grp-ratio').value)||1, blinded:document.getElementById('grp-blinded').value||name, color:colors[GROUPS.length%colors.length] });
-  closeGroupModal();
-  renderGroups();
+  const name = document.getElementById('grp-name').value.trim(); if (!name) return;
+  const code = document.getElementById('grp-code').value.trim() || name.substring(0,4).toUpperCase();
+  const ratio = Math.max(1, parseInt(document.getElementById('grp-ratio').value)||1);
+  const blinded = document.getElementById('grp-blinded').value.trim() || name;
+  const colors = ['#1760A8','#1A6B47','#6D7480','#534AB7','#C94C0C','#8A5C00'];
+  const modal = document.getElementById('group-modal');
+  const editIdx = modal._editIdx;
+  if (editIdx !== null && editIdx !== undefined) { Object.assign(GROUPS[editIdx], {name,code,ratio,blinded}); }
+  else { GROUPS.push({id:'G0'+(GROUPS.length+1),name,code,ratio,blinded,color:colors[GROUPS.length%colors.length]}); }
+  closeGroupModal(); renderGroups(); checkBlockRatioCompat();
+  showToast(editIdx !== null ? 'Group updated' : 'Group added');
 }
 
-// ═══════════════════════════════════════════════════════════
-// AUDIT — signature forms
-// ═══════════════════════════════════════════════════════════
+
 function renderSigForms() {
   const el = document.getElementById('sig-forms-body');
   if (!el) return;
-  el.innerHTML = FORMS.map(f=>`
-    <div class="settings-row">
-      <div>
-        <div class="settings-row-label">${f.name}</div>
-        <div class="settings-row-desc">${f.section}</div>
-      </div>
-      <label class="toggle"><input type="checkbox" ${f.requiresSig?'checked':''} onchange="toggleSigRequired('${f.id}',this.checked)"><span class="toggle-slider"></span></label>
-    </div>`).join('');
+  el.innerHTML = FORMS.map((f,i) =>
+    '<div style="display:flex;align-items:flex-start;gap:var(--space-3);padding:var(--space-3) 0;' +
+    (i < FORMS.length-1 ? 'border-bottom:1px solid var(--color-border-subtle)' : '') + '">' +
+    '<label class="toggle" style="flex-shrink:0;margin-top:2px"><input type="checkbox" ' + (f.requiresSig?'checked':'') +
+    ' onchange="toggleSigRequired(\'' + f.id + '\',this.checked)"><span class="toggle-slider"></span></label>' +
+    '<div><div class="settings-row-label">' + f.name + '</div>' +
+    '<div class="settings-row-desc">' + f.section + '</div></div>' +
+    '</div>'
+  ).join('');
 }
 
 function toggleSigRequired(fid, val) {
@@ -1512,19 +1835,20 @@ function renderBillingFee() {
   const table = document.getElementById('billing-fee-table');
   if (!table) return;
   const sections = {};
-  FEE_EVENTS.forEach(e => { if (!sections[e.section]) sections[e.section]=[]; sections[e.section].push(e); });
-  let html = `<thead><tr>
-    <th>Event type</th><th>Trigger</th><th style="text-align:right">Default rate (USD)</th><th style="text-align:right"></th>
-  </tr></thead><tbody>`;
+  FEE_EVENTS.forEach((e,i) => { if (!sections[e.section]) sections[e.section]=[]; sections[e.section].push({...e,_idx:i}); });
+  let html = '<thead><tr>' +
+    '<th>Event type</th><th>Trigger</th><th style="text-align:right">Default rate (USD)</th><th style="text-align:right;padding-right:var(--space-4)"></th>' +
+    '</tr></thead><tbody>';
   Object.entries(sections).forEach(([sec,evts])=>{
-    html += `<tr class="section-hdr"><td colspan="4">${sec}</td></tr>`;
+    html += '<tr class="section-hdr"><td colspan="4">' + sec + '</td></tr>';
     evts.forEach(e=>{
-      html += `<tr>
-        <td style="font-weight:500">${e.name}</td>
-        <td style="color:var(--color-text-secondary);font-size:var(--text-sm)">${e.trigger}</td>
-        <td style="text-align:right"><input class="fee-input-sm" type="text" value="$${e.rate.toLocaleString('en-US')}"></td>
-        <td style="text-align:right"><button class="btn-icon"><i class="ti ti-pencil"></i></button></td>
-      </tr>`;
+      html += '<tr>' +
+        '<td style="font-weight:500">' + e.name + '</td>' +
+        '<td style="color:var(--color-text-secondary);font-size:var(--text-sm)">' + e.trigger + '</td>' +
+        '<td style="text-align:right"><input class="fee-input-sm" type="number" value="' + e.rate + '" onblur="updateFeeRate(' + e._idx + ',this.value)" style="width:90px;text-align:right"></td>' +
+        '<td style="text-align:right;padding-right:var(--space-4)">' +
+          '<button class="btn-icon" onclick="openFeeModal(' + e._idx + ')"><i class="ti ti-pencil"></i></button>' +
+        '</td></tr>';
     });
   });
   html += '</tbody>';
@@ -1865,8 +2189,409 @@ renderAmendments();
 renderChangeReasons();
 renderQueryTemplates();
 renderSubjectCols();
+
+// ═══════════════════════════════════════════════════════════
+// INVENTORY SETTINGS
+// ═══════════════════════════════════════════════════════════
+const INV_ROLES = ['CRC','CRA','PI','DM','PM','Admin'];
+
+const INV_PERMS = [
+  { key:'view_stock',       label:'View stock levels',         desc:'See current inventory, lot numbers and expiry dates' },
+  { key:'log_shipment',     label:'Log incoming shipment',     desc:'Record a new shipment arrival and unit manifest' },
+  { key:'confirm_shipment', label:'Confirm & activate units',  desc:'Verify shipment and make units available for dispensing' },
+  { key:'dispense',         label:'Record dispensing',         desc:'Log a dispensing event against a subject visit' },
+  { key:'log_return',       label:'Log drug return',           desc:'Record returned units from a subject' },
+  { key:'confirm_return',   label:'Confirm return & restock',  desc:'Verify returned unit condition and update stock' },
+  { key:'reconcile',        label:'Reconcile inventory',       desc:'Perform end-of-study or periodic reconciliation' },
+  { key:'destroy',          label:'Destroy / write off units', desc:'Mark units as destroyed or unusable' },
+];
+
+const INV_PERM_DEFAULTS = {
+  CRC:   { view_stock:true,  log_shipment:false, confirm_shipment:false, dispense:true,  log_return:true,  confirm_return:false, reconcile:false, destroy:false },
+  CRA:   { view_stock:true,  log_shipment:false, confirm_shipment:false, dispense:false, log_return:false, confirm_return:false, reconcile:true,  destroy:false },
+  PI:    { view_stock:true,  log_shipment:false, confirm_shipment:false, dispense:true,  log_return:false, confirm_return:true,  reconcile:false, destroy:false },
+  DM:    { view_stock:true,  log_shipment:false, confirm_shipment:false, dispense:false, log_return:false, confirm_return:false, reconcile:true,  destroy:true  },
+  PM:    { view_stock:true,  log_shipment:true,  confirm_shipment:true,  dispense:false, log_return:false, confirm_return:true,  reconcile:true,  destroy:false },
+  Admin: { view_stock:true,  log_shipment:true,  confirm_shipment:true,  dispense:true,  log_return:true,  confirm_return:true,  reconcile:true,  destroy:true  },
+};
+let INV_ROLE_PERMS = JSON.parse(JSON.stringify(INV_PERM_DEFAULTS));
+
+const CONDITION_OPTIONS = {
+  unit_condition:     ['Intact / sealed','Partially used — good condition','Partially used — compromised','Damaged','Expired','Unknown'],
+  physical_condition: ['Acceptable','Minor damage — usable','Major damage','Unacceptable'],
+  integrity_status:   ['Seal intact','Seal broken — contents acceptable','Seal broken — contents suspect','Failed'],
+};
+const OUTCOME_OPTIONS = [
+  { value:'restock_full',    label:'Return to stock (full unit)',    color:'var(--green-600)', bg:'var(--green-50)'  },
+  { value:'restock_partial', label:'Return to stock (partial unit)', color:'var(--blue-600)',  bg:'var(--blue-50)'   },
+  { value:'destroy',         label:'Remove from stock / destroy',    color:'var(--red-600)',   bg:'var(--red-50)'    },
+  { value:'quarantine',      label:'Quarantine — pending review',    color:'var(--amber-700)', bg:'var(--amber-50)'  },
+];
+const DEFAULT_MAPPINGS = {
+  unit_condition: { 'Intact / sealed':'restock_full', 'Partially used — good condition':'restock_partial', 'Partially used — compromised':'quarantine', 'Damaged':'destroy', 'Expired':'destroy', 'Unknown':'quarantine' },
+  physical_condition: { 'Acceptable':'restock_full', 'Minor damage — usable':'restock_partial', 'Major damage':'destroy', 'Unacceptable':'destroy' },
+  integrity_status: { 'Seal intact':'restock_full', 'Seal broken — contents acceptable':'restock_partial', 'Seal broken — contents suspect':'quarantine', 'Failed':'destroy' },
+};
+let _conditionMappings = JSON.parse(JSON.stringify(DEFAULT_MAPPINGS));
+let _activeConditionField = 'unit_condition';
+let _conditionFieldLinked = true;
+
+function renderInvPerms() {
+  const thead = document.getElementById('inv-perm-head');
+  if (thead) {
+    thead.innerHTML = '<tr><th style="min-width:200px;padding-left:var(--space-5)">Action</th>' +
+      INV_ROLES.map(r=>'<th>'+r+'</th>').join('') + '</tr>';
+  }
+  const tbody = document.getElementById('inv-perm-body');
+  if (!tbody) return;
+  tbody.innerHTML = INV_PERMS.map(p => '<tr>' +
+    '<td style="padding-left:var(--space-5)"><div style="font-weight:500">'+p.label+'</div><div style="font-size:var(--text-xs);color:var(--color-text-tertiary)">'+p.desc+'</div></td>' +
+    INV_ROLES.map(function(r) {
+      return '<td><input type="checkbox" class="perm-cb" ' + (INV_ROLE_PERMS[r]?.[p.key]?'checked':'') +
+      ' onchange="onInvPermChange(this)" data-role="'+r+'" data-perm="'+p.key+'" style="accent-color:var(--blue-600)"></td>';
+    }).join('') + '</tr>'
+  ).join('');
+}
+
+function onInvPermChange(el) {
+  const role = el.dataset.role, perm = el.dataset.perm, val = el.checked;
+  if (!INV_ROLE_PERMS[role]) INV_ROLE_PERMS[role] = {};
+  INV_ROLE_PERMS[role][perm] = val;
+  showToast('Permission updated');
+}
+
+function renderLowStockRoles() {
+  const wrap = document.getElementById('low-stock-roles');
+  if (!wrap) return;
+  wrap.innerHTML = INV_ROLES.map(r =>
+    '<label style="display:flex;align-items:center;gap:5px;font-size:var(--text-xs);cursor:pointer;padding:3px 8px;border:1px solid var(--color-border);border-radius:var(--radius-full);background:var(--color-surface)">' +
+    '<input type="checkbox" ' + (r==='CRC'||r==='Admin'?'checked':'') + ' style="accent-color:var(--blue-600);width:11px;height:11px"> ' + r + '</label>'
+  ).join('');
+}
+
+function toggleLowStock(on) {
+  const cfg = document.getElementById('low-stock-config');
+  if (cfg) cfg.style.display = on ? '' : 'none';
+}
+
+function togglePartialReturn(on) {
+  const cfg = document.getElementById('partial-return-config');
+  if (cfg) cfg.style.display = on ? '' : 'none';
+}
+
+function unlinkConditionField() {
+  _conditionFieldLinked = false;
+  _activeConditionField = '';
+  const status = document.getElementById('condition-field-status');
+  if (status) status.innerHTML = '<span style="font-size:var(--text-sm);color:var(--color-text-tertiary)">Not linked — go to Return trigger to set a condition field</span>';
+  const wrap = document.getElementById('condition-mapping-wrap');
+  if (wrap) wrap.style.display = 'none';
+  showToast('Condition field unlinked');
+}
+
+function renderConditionMapping() {
+  const wrap = document.getElementById('condition-mapping-rows');
+  if (!wrap) return;
+  const fieldKey = _activeConditionField;
+  if (!fieldKey) {
+    wrap.innerHTML = '<div style="font-size:var(--text-xs);color:var(--color-text-placeholder);padding:var(--space-2) 0">Select a condition field to map its options.</div>';
+    return;
+  }
+  const options  = CONDITION_OPTIONS[fieldKey] || [];
+  const mappings = _conditionMappings[fieldKey] || {};
+  if (!_conditionMappings[fieldKey]) _conditionMappings[fieldKey] = {};
+  wrap.innerHTML = options.map(opt => {
+    const current = mappings[opt] || 'destroy';
+    return '<div style="display:flex;align-items:center;gap:var(--space-3);padding:var(--space-2) 0;border-bottom:1px solid var(--color-border-subtle)">' +
+      '<span style="flex:1;font-size:var(--text-sm)">' + opt + '</span>' +
+      '<span style="font-size:var(--text-xs);color:var(--color-text-tertiary)">→</span>' +
+      '<div style="display:flex;gap:var(--space-1)">' +
+        OUTCOME_OPTIONS.map(o =>
+          '<button data-field="'+fieldKey+'" data-opt="'+opt.replace(/"/g,'&quot;')+'" data-outcome="'+o.value+'" onclick="setConditionMapping(this)" ' +
+          'style="height:26px;padding:0 var(--space-2);font-size:var(--text-xs);font-family:var(--font-sans);border:1px solid ' +
+          (current===o.value ? o.color : 'var(--color-border)') + ';border-radius:var(--radius-md);' +
+          'background:' + (current===o.value ? o.bg : 'var(--color-surface)') + ';' +
+          'color:' + (current===o.value ? o.color : 'var(--color-text-secondary)') + ';cursor:pointer;white-space:nowrap">' +
+          o.label + '</button>'
+        ).join('') +
+      '</div>' +
+    '</div>';
+  }).join('');
+}
+
+function setConditionMapping(el) {
+  const fieldKey = el.dataset.field, opt = el.dataset.opt, outcome = el.dataset.outcome;
+  if (!_conditionMappings[fieldKey]) _conditionMappings[fieldKey] = {};
+  _conditionMappings[fieldKey][opt] = outcome;
+  renderConditionMapping();
+  showToast('Outcome mapped');
+}
+
+// ═══════════════════════════════════════════════════════════
+// FEE EVENT MODAL
+// ═══════════════════════════════════════════════════════════
+let _feeEditIdx = null;
+
+function openFeeModal(idx) {
+  _feeEditIdx = idx;
+  const isNew = idx === null;
+  const e = isNew ? null : FEE_EVENTS[idx];
+  document.getElementById('fee-modal-title').textContent = isNew ? 'Add fee event' : 'Edit fee event';
+  document.getElementById('fee-name').value    = e ? e.name    : '';
+  document.getElementById('fee-trigger').value = e ? e.trigger : '';
+  document.getElementById('fee-rate').value    = e ? e.rate    : 0;
+  document.getElementById('fee-delete-btn').style.display = isNew ? 'none' : '';
+  const sel = document.getElementById('fee-section-select');
+  const customInp = document.getElementById('fee-section-custom');
+  if (e) {
+    let found = false;
+    for (let i=0; i<sel.options.length; i++) {
+      if (sel.options[i].value !== '__new__' && sel.options[i].text === e.section) { sel.selectedIndex=i; found=true; break; }
+    }
+    if (!found) { sel.value='__new__'; customInp.value=e.section; customInp.style.display=''; }
+    else customInp.style.display='none';
+  } else { sel.selectedIndex=0; customInp.style.display='none'; }
+  document.getElementById('fee-modal').classList.add('open');
+}
+
+function closeFeeModal() { document.getElementById('fee-modal').classList.remove('open'); }
+
+function onFeeSectionChange(val) {
+  const inp = document.getElementById('fee-section-custom');
+  if (val==='__new__') { inp.style.display=''; inp.focus(); }
+  else inp.style.display='none';
+}
+
+function saveFeeEvent() {
+  const name = document.getElementById('fee-name').value.trim();
+  if (!name) { showToast('Event name is required'); return; }
+  const sel = document.getElementById('fee-section-select');
+  const section = sel.value==='__new__'
+    ? document.getElementById('fee-section-custom').value.trim() || 'Other'
+    : sel.options[sel.selectedIndex].text;
+  const trigger = document.getElementById('fee-trigger').value.trim();
+  const rate    = parseFloat(document.getElementById('fee-rate').value) || 0;
+  if (_feeEditIdx !== null) { Object.assign(FEE_EVENTS[_feeEditIdx], {name,section,trigger,rate}); showToast('Fee event updated'); }
+  else { FEE_EVENTS.push({section,name,trigger,rate}); showToast('Fee event added'); }
+  closeFeeModal();
+  renderBillingFee();
+}
+
+function deleteFeeEvent() {
+  if (_feeEditIdx===null) return;
+  FEE_EVENTS.splice(_feeEditIdx,1);
+  closeFeeModal();
+  renderBillingFee();
+  showToast('Fee event removed');
+}
+
+// Boot for inventory
+renderInvPerms();
+// renderLowStockRoles and renderConditionMapping called from showSection
+
+
+// ═══════════════════════════════════════════════════════════
+// RANDOMIZATION — method show/hide + strat factors + ratio modal
+// ═══════════════════════════════════════════════════════════
+let STRAT_FACTORS = [
+  { key:'sf_site',   name:'Site',             source:'site', form:'', field:'', levels:[] },
+  { key:'sf_weight', name:'Body weight range', source:'form', form:'Body weight log', field:'Body weight (kg)', levels:[{label:'< 200 kg'},{label:'\u2265 200 kg'}] },
+];
+
+function onRandMethodChange(method) {
+  const rowBlock=document.getElementById('rand-row-blocksize'),rowDynamic=document.getElementById('rand-row-dynamic'),rowSimWarn=document.getElementById('rand-row-simple-warn'),listActions=document.getElementById('rand-list-actions'),minNote=document.getElementById('rand-minimization-note'),stratDesc=document.getElementById('rand-strat-desc'),stratReq=document.getElementById('strat-required-note');
+  if(rowBlock)rowBlock.style.display='';if(rowDynamic)rowDynamic.style.display='none';if(rowSimWarn)rowSimWarn.style.display='none';if(listActions)listActions.style.display='flex';if(minNote)minNote.style.display='none';if(stratReq)stratReq.style.display='none';
+  if(method==='simple'){if(rowBlock)rowBlock.style.display='none';if(rowSimWarn)rowSimWarn.style.display='';}
+  else if(method==='stratified'){if(stratDesc)stratDesc.textContent='Required — define the variables used to form strata.';if(STRAT_FACTORS.length===0&&stratReq)stratReq.style.display='';}
+  else if(method==='minimization'){if(rowBlock)rowBlock.style.display='none';if(rowDynamic)rowDynamic.style.display='';if(listActions)listActions.style.display='none';if(minNote)minNote.style.display='';if(STRAT_FACTORS.length===0&&stratReq)stratReq.style.display='';}
+  checkBlockRatioCompat();showToast('Method updated');
+}
+
+function checkBlockRatioCompat(){
+  const methodEl=document.getElementById('rand-method-select'),blockEl=document.getElementById('rand-block-select'),warnEl=document.getElementById('block-compat-warn'),warnText=document.getElementById('block-compat-text');
+  if(!methodEl||!blockEl||!warnEl)return;
+  const method=methodEl.value,blockVal=blockEl.value,ratioTotal=GROUPS.reduce((s,g)=>s+g.ratio,0);
+  if((method==='blocked'||method==='stratified')&&blockVal!=='variable'){const blockNum=parseInt(blockVal);if(blockNum%ratioTotal!==0){warnEl.style.display='flex';if(warnText)warnText.textContent='Block size '+blockNum+' is not a multiple of ratio total '+ratioTotal+'.';}else warnEl.style.display='none';}else warnEl.style.display='none';
+}
+
+let _sfEditKey=null,_sfLevels=[],_stratScope='site';
+
+function setStratScope(scope){
+  _stratScope=scope;
+  document.getElementById('strat-scope-site')?.classList.toggle('active',scope==='site');
+  document.getElementById('strat-scope-study')?.classList.toggle('active',scope==='study');
+  const hint=document.getElementById('strat-scope-hint');
+  if(hint)hint.textContent=scope==='site'?'Randomization balanced separately within each site':'Randomization balanced across the whole study';
+  showToast('Stratification scope updated');
+}
+
+function removeStratFactor(key){STRAT_FACTORS=STRAT_FACTORS.filter(f=>f.key!==key);renderStratFactors();}
+
+function openAddStratModal(){
+  _sfEditKey=null;_sfLevels=[];
+  document.getElementById('sf-modal-title').textContent='Add stratification factor';
+  document.getElementById('sf-save-btn').innerHTML='<i class="ti ti-check"></i> Add factor';
+  document.getElementById('sf-name').value='';document.getElementById('sf-source').value='site';
+  const formEl=document.getElementById('sf-form');if(formEl){formEl.value='F01';onStratFormChange('F01');}
+  const fieldEl=document.getElementById('sf-field');if(fieldEl)fieldEl.value='';
+  onStratSourceChange('site');renderSfLevels();
+  document.getElementById('strat-add-modal').classList.add('open');
+}
+
+function openEditStratModal(key){
+  const f=STRAT_FACTORS.find(x=>x.key===key);if(!f)return;
+  _sfEditKey=key;_sfLevels=f.levels.map(l=>({...l}));
+  document.getElementById('sf-modal-title').textContent='Edit stratification factor';
+  document.getElementById('sf-save-btn').innerHTML='<i class="ti ti-check"></i> Save changes';
+  document.getElementById('sf-name').value=f.name;document.getElementById('sf-source').value=f.source;
+  const formEl=document.getElementById('sf-form');
+  if(f.source==='form'&&formEl){for(let i=0;i<formEl.options.length;i++){if(formEl.options[i].text===f.form){formEl.value=formEl.options[i].value;break;}}onStratFormChange(formEl.value);const fieldEl=document.getElementById('sf-field');if(fieldEl)fieldEl.value=f.field;}
+  onStratSourceChange(f.source);renderSfLevels();
+  document.getElementById('strat-add-modal').classList.add('open');
+}
+
+function closeStratModal(){document.getElementById('strat-add-modal').classList.remove('open');}
+function sfAddLevel(){_sfLevels.push({label:''});renderSfLevels();const rows=document.querySelectorAll('#sf-levels-list .sf-level-input');if(rows.length)rows[rows.length-1].focus();}
+function sfRemoveLevel(i){_sfLevels.splice(i,1);renderSfLevels();}
+function sfUpdateLevel(i,val){if(_sfLevels[i])_sfLevels[i].label=val;}
+
+function renderSfLevels(){
+  const list=document.getElementById('sf-levels-list');if(!list)return;
+  if(_sfLevels.length===0){list.innerHTML='<div style="font-size:var(--text-xs);color:var(--color-text-placeholder);padding:var(--space-2) 0;border:1px dashed var(--color-border);border-radius:var(--radius-md);text-align:center">No levels yet</div>';return;}
+  list.innerHTML=_sfLevels.map((lv,i)=>'<div style="display:flex;align-items:center;gap:var(--space-2)"><i class="ti ti-grip-vertical" style="font-size:13px;color:var(--color-text-placeholder);cursor:grab;flex-shrink:0"></i><input class="form-input sf-level-input" style="height:32px;font-size:var(--text-sm);flex:1" value="'+lv.label+'" placeholder="e.g. &lt;200 kg" oninput="sfUpdateLevel('+i+',this.value)" onblur="sfUpdateLevel('+i+',this.value)"><button class="btn-icon" style="flex-shrink:0" onclick="sfRemoveLevel('+i+')"><i class="ti ti-x" style="font-size:13px"></i></button></div>').join('');
+}
+
+function onStratSourceChange(val){
+  const formRow=document.getElementById('sf-form-row'),fieldRow=document.getElementById('sf-field-row'),levelsSection=document.getElementById('sf-levels-section'),hint=document.getElementById('sf-source-hint');
+  if(val==='site'){if(formRow)formRow.style.display='none';if(fieldRow)fieldRow.style.display='none';if(levelsSection)levelsSection.style.display='none';if(hint)hint.textContent='Site is always available.';}
+  else{if(formRow)formRow.style.display='';if(fieldRow)fieldRow.style.display='';if(levelsSection)levelsSection.style.display='';if(hint)hint.textContent='Select the form and field.';const formEl=document.getElementById('sf-form');if(formEl)onStratFormChange(formEl.value);}
+}
+
+const FORM_FIELDS={F01:['Body condition score','Heart rate (bpm)','Temperature (\u00b0C)','Respiratory rate','Mucous membrane color','Hydration status','Lameness score','Overall health score'],F02:['Body weight (kg)','Weight change from baseline (kg)','Weight change (%)'],F03:['Welfare score','Pain score','Behavioural score','Housing condition','Feed intake assessment','Water intake assessment'],F04:['Dose administered (ml)','Volume administered (ml)','Route of administration','Injection site','Administered by','Dose date','Vial ID'],F05:['AE description','AE onset date','AE severity','AE outcome','Relationship to study drug','Action taken'],F06:['Medication name','Dose','Route','Indication','Start date','End date'],F07:['Species','Breed','Sex','Age (months)','Prior vaccinations','Relevant medical history'],F08:['ICF signed date','Owner/guardian name','Consent obtained by','ICF version']};
+
+function onStratFormChange(formId){const fieldSel=document.getElementById('sf-field');if(!fieldSel)return;const fields=FORM_FIELDS[formId]||[];fieldSel.innerHTML='<option value="">\u2014 select a field \u2014</option>'+fields.map(f=>'<option value="'+f+'">'+f+'</option>').join('');}
+
+function saveStratFactor(){
+  const name=document.getElementById('sf-name').value.trim();if(!name){showToast('Factor name is required');return;}
+  const source=document.getElementById('sf-source').value;
+  const formEl=document.getElementById('sf-form'),form=source==='form'?(formEl?.options[formEl.selectedIndex]?.text||''):'';
+  const fieldEl=document.getElementById('sf-field'),field=source==='form'?(fieldEl?.value||''):'';
+  if(source==='form'&&!field){showToast('Please select a field');return;}
+  if(source==='form'){document.querySelectorAll('#sf-levels-list .sf-level-input').forEach((el,i)=>{if(_sfLevels[i])_sfLevels[i].label=el.value;});}
+  const levels=source==='site'?[]:_sfLevels.filter(l=>l.label.trim()!=='');
+  if(_sfEditKey){const f=STRAT_FACTORS.find(x=>x.key===_sfEditKey);if(f)Object.assign(f,{name,source,form,field,levels});showToast('Factor updated');}
+  else{STRAT_FACTORS.push({key:'sf_'+Date.now(),name,source,form,field,levels});showToast('Factor added');}
+  closeStratModal();renderStratFactors();
+}
+
+function renderStratFactors(){
+  const list=document.getElementById('strat-factor-list');if(!list)return;
+  if(STRAT_FACTORS.length===0){list.innerHTML='<div style="font-size:var(--text-sm);color:var(--color-text-placeholder);padding:var(--space-1) 0">No stratification factors defined.</div>';return;}
+  list.innerHTML=STRAT_FACTORS.map(f=>{
+    const srcBadge=f.source==='site'?'<span class="badge badge-slate" style="font-size:10px">Site</span>':'<span class="badge badge-blue" style="font-size:10px">Form field</span>';
+    const lvls=f.source!=='site'?f.levels.filter(l=>l.label.trim()):[];
+    const detail=f.source==='site'?"Built-in \u2014 uses the study's site list":f.form+' \u2192 '+(f.field||'\u2014')+(lvls.length?' ('+lvls.map(l=>l.label).join(' / ')+')':'');
+    return '<div class="strat-factor-card"><div style="display:flex;align-items:center;gap:var(--space-3);padding:var(--space-3)">'+
+      '<i class="ti ti-grip-vertical" style="font-size:14px;color:var(--color-text-placeholder);cursor:grab;flex-shrink:0"></i>'+
+      '<div style="flex:1;min-width:0"><div style="display:flex;align-items:center;gap:var(--space-2);margin-bottom:3px">'+
+        '<span style="font-size:var(--text-sm);font-weight:500">'+f.name+'</span>'+srcBadge+'</div>'+
+        '<div style="font-size:var(--text-xs);color:var(--color-text-tertiary)">'+detail+'</div></div>'+
+      '<div style="display:flex;align-items:center;gap:2px;flex-shrink:0">'+
+        '<button class="btn-icon" style="width:28px;height:28px" data-key="'+f.key+'" onclick="openEditStratModal(this.dataset.key)"><i class="ti ti-pencil" style="font-size:13px"></i></button>'+
+        '<button class="btn-icon" style="width:28px;height:28px" data-key="'+f.key+'" onclick="removeStratFactor(this.dataset.key)"><i class="ti ti-trash" style="font-size:13px;color:var(--color-text-placeholder)"></i></button>'+
+      '</div></div></div>';
+  }).join('');
+}
+
+let _ratioTemp=[];
+function openRatioModal(){_ratioTemp=GROUPS.map(g=>({...g}));updateRatioModal();document.getElementById('ratio-modal').classList.add('open');}
+function closeRatioModal(){document.getElementById('ratio-modal').classList.remove('open');}
+function updateRatioModal(){
+  const body=document.getElementById('ratio-modal-body');if(!body)return;
+  const total=_ratioTemp.reduce((s,g)=>s+g.ratio,0)||1,planned=60;
+  body.innerHTML='<div style="display:flex;flex-direction:column;gap:var(--space-2)">'+_ratioTemp.map((g,i)=>'<div style="display:flex;align-items:center;gap:var(--space-3)"><span style="width:10px;height:10px;border-radius:50%;background:'+g.color+';flex-shrink:0;display:inline-block"></span><span style="font-size:var(--text-sm);font-weight:500;min-width:140px">'+g.name+'</span><input type="number" min="1" value="'+g.ratio+'" style="width:64px;height:32px;padding:0 var(--space-2);font-family:var(--font-mono);font-size:var(--text-sm);border:1px solid var(--color-border);border-radius:var(--radius-md);text-align:center" oninput="onRatioInput('+i+',this.value)"><span style="font-size:var(--text-xs);color:var(--color-text-tertiary);font-family:var(--font-mono);min-width:36px">'+Math.round(g.ratio/total*100)+'%</span></div>').join('')+'</div><div><div style="font-size:var(--text-xs);font-weight:500;color:var(--color-text-secondary);margin-bottom:var(--space-2)">Preview</div><div style="height:16px;border-radius:var(--radius-full);overflow:hidden;background:var(--color-border);display:flex">'+_ratioTemp.map(g=>'<div style="width:'+Math.round(g.ratio/total*100)+'%;background:'+g.color+';height:100%;transition:width 150ms"></div>').join('')+'</div><div style="display:flex;gap:var(--space-3);margin-top:var(--space-2);flex-wrap:wrap">'+_ratioTemp.map(g=>'<span style="display:flex;align-items:center;gap:4px;font-size:var(--text-xs)"><span style="width:8px;height:8px;border-radius:50%;background:'+g.color+';display:inline-block"></span>'+g.name+' '+g.ratio+'/'+total+' ('+Math.round(g.ratio/total*100)+'%)</span>').join('')+'</div></div><div style="padding:var(--space-3);background:var(--color-page-bg);border:1px solid var(--color-border);border-radius:var(--radius-md)"><div style="font-size:var(--text-xs);font-weight:500;margin-bottom:var(--space-2)">Estimated enrollment at '+planned+' subjects</div><div style="display:flex;gap:var(--space-4);flex-wrap:wrap">'+_ratioTemp.map(g=>'<span style="font-size:var(--text-xs)"><span style="font-family:var(--font-mono);font-weight:500">~'+Math.round(g.ratio/total*planned)+'</span> '+g.name+'</span>').join('')+'</div></div>';
+}
+function onRatioInput(idx,val){_ratioTemp[idx].ratio=Math.max(1,parseInt(val)||1);updateRatioModal();}
+function saveRatios(){_ratioTemp.forEach((t,i)=>{if(GROUPS[i])GROUPS[i].ratio=t.ratio;});closeRatioModal();renderGroups();checkBlockRatioCompat();showToast('Ratios updated');}
+
+// Boot: render stratification factors after all JS is defined
+renderStratFactors();
+
 </script>
 
+
+<!-- Group modal (Add / Edit) -->
+<div class="modal-overlay" id="group-modal">
+  <div class="modal" style="width:440px">
+    <div class="modal-header">
+      <div class="modal-title" id="grp-modal-title">Add treatment group</div>
+      <button class="modal-close" onclick="closeGroupModal()"><i class="ti ti-x"></i></button>
+    </div>
+    <div class="modal-body">
+      <div class="form-field"><div class="form-label">Group name</div><input class="form-input" id="grp-name" placeholder="e.g. Treatment A"></div>
+      <div style="display:flex;gap:var(--space-3)">
+        <div class="form-field" style="flex:0 0 90px"><div class="form-label">Code</div><input class="form-input" id="grp-code" placeholder="TRT-A" style="font-family:var(--font-mono)"></div>
+        <div class="form-field" style="flex:0 0 80px"><div class="form-label">Ratio</div><input class="form-input" id="grp-ratio" type="number" min="1" value="1" style="font-family:var(--font-mono)" oninput="checkBlockRatioCompat()"></div>
+        <div class="form-field" style="flex:1"><div class="form-label">Blinded label</div><input class="form-input" id="grp-blinded" placeholder="e.g. Group 1"></div>
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn-secondary" onclick="closeGroupModal()">Cancel</button>
+      <button class="btn-primary" onclick="saveGroup()"><i class="ti ti-check"></i> Save group</button>
+    </div>
+  </div>
+</div>
+
+<!-- Ratio editor modal -->
+<div class="modal-overlay" id="ratio-modal">
+  <div class="modal" style="width:480px">
+    <div class="modal-header">
+      <div><div class="modal-title">Edit allocation ratios</div><div style="font-size:var(--text-xs);color:var(--color-text-tertiary);margin-top:2px">Set the relative weight for each treatment group</div></div>
+      <button class="modal-close" onclick="closeRatioModal()"><i class="ti ti-x"></i></button>
+    </div>
+    <div class="modal-body" id="ratio-modal-body"></div>
+    <div class="modal-footer">
+      <button class="btn-secondary" onclick="closeRatioModal()">Cancel</button>
+      <button class="btn-primary" onclick="saveRatios()"><i class="ti ti-check"></i> Apply ratios</button>
+    </div>
+  </div>
+</div>
+
+<!-- Add / Edit stratification factor modal -->
+<div class="modal-overlay" id="strat-add-modal">
+  <div class="modal" style="width:480px">
+    <div class="modal-header">
+      <div><div class="modal-title" id="sf-modal-title">Add stratification factor</div><div style="font-size:var(--text-xs);color:var(--color-text-tertiary);margin-top:2px">Define a variable used to balance treatment groups</div></div>
+      <button class="modal-close" onclick="closeStratModal()"><i class="ti ti-x"></i></button>
+    </div>
+    <div class="modal-body">
+      <div class="form-field"><div class="form-label">Factor name</div><input class="form-input" id="sf-name" placeholder="e.g. Sex, Age class, Breed, Disease severity"></div>
+      <div class="form-field">
+        <div class="form-label">Source</div>
+        <select class="form-select" id="sf-source" onchange="onStratSourceChange(this.value)"><option value="site">Site — balance by site</option><option value="form">Form field — pull value from a CRF field</option></select>
+        <div style="font-size:var(--text-xs);color:var(--color-text-tertiary);margin-top:4px" id="sf-source-hint">Site is always available — no form mapping needed.</div>
+      </div>
+      <div id="sf-form-row" class="form-field" style="display:none">
+        <div class="form-label">Form</div>
+        <select class="form-select" id="sf-form" onchange="onStratFormChange(this.value)">
+          <option value="F01">Physical exam</option><option value="F02">Body weight log</option><option value="F03">Welfare assessment</option><option value="F04">Dosing record</option><option value="F05">Adverse event</option><option value="F06">Concomitant medications</option><option value="F07">Medical history</option><option value="F08">Informed consent (ICF)</option>
+        </select>
+      </div>
+      <div id="sf-field-row" class="form-field" style="display:none"><div class="form-label">Field</div><select class="form-select" id="sf-field"><option value="">— select a field —</option></select></div>
+      <div id="sf-levels-section" style="border-top:1px solid var(--color-border-subtle);padding-top:var(--space-4)">
+        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:var(--space-2)">
+          <div><div style="font-size:var(--text-sm);font-weight:500">Levels</div><div style="font-size:var(--text-xs);color:var(--color-text-tertiary);margin-top:2px">Define the categories subjects are sorted into</div></div>
+          <button class="btn-secondary" style="height:28px;font-size:var(--text-xs)" onclick="sfAddLevel()"><i class="ti ti-plus"></i> Add level</button>
+        </div>
+        <div id="sf-levels-list" style="display:flex;flex-direction:column;gap:var(--space-1)"></div>
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn-secondary" onclick="closeStratModal()">Cancel</button>
+      <button class="btn-primary" id="sf-save-btn" onclick="saveStratFactor()"><i class="ti ti-check"></i> Add factor</button>
+    </div>
+  </div>
+</div>
 
 <!-- AI auto-group modal -->
 <div class="modal-overlay" id="ai-group-modal">
@@ -1898,6 +2623,62 @@ renderSubjectCols();
 <div class="autosave-toast" id="autosave-toast">
   <i class="ti ti-circle-check" style="font-size:14px"></i>
   <span id="autosave-toast-text">Saved</span>
+</div>
+
+
+<!-- Fee event modal -->
+<div class="modal-overlay" id="fee-modal">
+  <div class="modal" style="width:480px">
+    <div class="modal-header">
+      <div>
+        <div class="modal-title" id="fee-modal-title">Add fee event</div>
+        <div style="font-size:var(--text-xs);color:var(--color-text-tertiary);margin-top:2px">Define a billable event and its default rate</div>
+      </div>
+      <button class="modal-close" onclick="closeFeeModal()"><i class="ti ti-x"></i></button>
+    </div>
+    <div class="modal-body">
+      <div class="form-field">
+        <div class="form-label">Event name</div>
+        <input class="form-input" id="fee-name" placeholder="e.g. Visit 3 — Day 28">
+      </div>
+      <div class="form-field">
+        <div class="form-label">Section</div>
+        <div style="display:flex;gap:var(--space-2)">
+          <select class="form-select" id="fee-section-select" style="flex:1" onchange="onFeeSectionChange(this.value)">
+            <option>Enrollment &amp; Screening</option>
+            <option>Protocol visits</option>
+            <option>Safety events</option>
+            <option>Study close-out</option>
+            <option value="__new__">+ New section…</option>
+          </select>
+          <input class="form-input" id="fee-section-custom" placeholder="Section name" style="display:none;flex:1">
+        </div>
+      </div>
+      <div class="form-field">
+        <div class="form-label">Trigger</div>
+        <input class="form-input" id="fee-trigger" placeholder="e.g. V3 all forms complete">
+        <div class="form-hint">Describes the condition that makes this event billable</div>
+      </div>
+      <div class="form-field">
+        <div class="form-label">Default rate</div>
+        <div style="display:flex;align-items:center;gap:var(--space-2)">
+          <span style="font-size:var(--text-sm);color:var(--color-text-secondary)">$</span>
+          <input class="form-input" id="fee-rate" type="number" min="0" step="50" value="0" style="width:120px;font-family:var(--font-mono)">
+          <span style="font-size:var(--text-sm);color:var(--color-text-secondary)">USD</span>
+        </div>
+        <div class="form-hint">Per-site default — can be overridden per site in the Invoices tab</div>
+      </div>
+    </div>
+    <div class="modal-footer" style="justify-content:space-between">
+      <button class="btn-secondary" id="fee-delete-btn" style="color:var(--red-600);border-color:var(--red-200)" onclick="deleteFeeEvent()">
+        <i class="ti ti-trash"></i> Delete event
+      </button>
+      <div style="display:flex;gap:var(--space-2)">
+        <button class="btn-secondary" onclick="closeFeeModal()">Cancel</button>
+        <button class="btn-primary" onclick="saveFeeEvent()"><i class="ti ti-check"></i> Save</button>
+      </div>
+    </div>
+  </div>
 </div>
 
 </body>

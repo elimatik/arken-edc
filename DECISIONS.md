@@ -25,7 +25,7 @@ Navy CTA (#1A1F2E) differentiates from all competitors. Semantic: blue = SDV/dat
 th:first-child, td:first-child { padding-left: var(--space-5); }
 th:last-child, td:last-child { padding-right: var(--space-5); }
 ```
-Three-state sort: desc → asc → none. Sort icons updated AFTER render() on fresh DOM nodes (stale node bug fix).
+Three-state sort: desc → asc → none. Sort icons updated AFTER render() on fresh DOM nodes.
 
 ### Collapsible nav
 74px collapsed → 160px expanded. Edge toggle at `top:56px; right:-13px`.
@@ -36,91 +36,162 @@ Three-state sort: desc → asc → none. Sort icons updated AFTER render() on fr
 
 ### Query flow (components 08, 13, 19)
 Three states only: Raised → Responded → Resolved. No "Closed".
-Responded = field returns to default (tint clears, flag stays amber). Resolved = green flag+check icon (`flag-query-resolved-icon`).
-
-### Edit check vs Query
-Edit checks = system-raised (orange flag). Queries = human-raised (amber flag). Same lifecycle, different trigger and colour.
 
 ### Delta (Δ) change reason system
-Dotted red = change required · Solid blue = answered · Filled green = reviewed.
-Submit gate blocked until all deltas reviewed.
+Dotted red = change required · Solid blue = answered · Filled green = reviewed. Submit gate blocked until all deltas reviewed.
 
 ### RFC (Reason for Change)
-Two modes: Form-level (RFC panel on re-edit, confirm → pending save, actual save on Submit) · Field-level (auto-save on confirm, no submit button). First-time entry never triggers RFC.
+Two modes: Form-level (RFC panel on re-edit) · Field-level (auto-save on confirm). First-time entry never triggers RFC.
 
 ### SDV icon
-`ti-circle-check` outline = unverified. `ti-circle-check-filled` blue = verified. NOT the flag+check pattern (that is query-resolved only).
+`ti-circle-check` outline = unverified. `ti-circle-check-filled` blue = verified.
 
 ### Flag visibility rules
-Queries off → inactive flags hide; active (flagged/resolved) stay. SDV off → unverified icons hide; verified stay.
+Queries off → inactive flags hide; active stay. SDV off → unverified icons hide; verified stay.
 
 ---
 
 ## Sessions 9–10 (2026-05-31 — 2026-06-02)
 
 ### Calendar — Protocol SoE
-Matrix layout (not Gantt). Procedure on Y, study day on X. Phase shading. D0 = pivot with bold border + ★.
+Matrix layout (not Gantt). D0 = pivot with bold border + ★.
 
 ### Visits page — flat urgency table
-Single flat table sorted by urgency: overdue (red-50 tint) → due today (amber) → upcoming (white).
+Single flat table: overdue (red-50) → due today (amber) → upcoming (white).
 
 ### SDV page architecture
-SDV worklist (18) + form-level verification (19) are separate files. The form IS the SDV tool — CRA works on the real form with SDV icons overlaid.
+SDV worklist (18) + form-level verification (19) separate files. Form IS the SDV tool.
 
 ### Batch entry
-Form-level vs grid-level RFC. Optional fields excluded from required count. Pen-level defaults entered once, applied to all animals.
+Form-level vs grid-level RFC. Optional fields excluded from required count.
 
 ### Reports — AI builder
-Two-column: chat (380px) + report output. Filters above report content. "Add to library" → Custom reports section.
+Two-column: chat (380px) + report output. "Add to library" → Custom reports section.
 
 ---
 
 ## Sessions 11–12 (2026-06-02 — 2026-06-04)
 
 ### Coding — four-column hierarchy
-LLT, PT, HLT, SOC as separate columns. Never concatenate into a path string. Each level is a first-class dimension for safety analysis. Species/Breed as own column — veterinary key differentiator.
+LLT, PT, HLT, SOC as separate columns. Species/Breed as own column — veterinary differentiator.
 
 ### Coding — auto-code threshold
-≥80% = auto-coded, <80% = needs review, 0% = pending. 9 keyword rules, multi-keyword hits increase confidence proportionally.
-
-### Sort icon DOM timing fix
-Always call `render()` first, then re-query fresh DOM nodes for icon updates. Stale node references from before render silently fail.
+≥80% = auto-coded, <80% = needs review, 0% = pending.
 
 ### Invoices — fee schedule structure
-14 event types across 4 sections. Three trigger modes: Form completion (grouped dropdown with visit groups + individual forms) · Field value (form/field/operator/value builder with live preview) · Study milestone (dropdown). No free-text input — all triggers selected from structured options.
+14 event types across 4 sections. Three trigger modes: Form completion · Field value · Study milestone. All triggers from structured options, no free-text.
 
 ### Invoices — currency per site column
-Currency header row above first section. One `<select>` per site column — changing it calls `setSiteCurrency(site, currency)` which updates `siteObj.symbol` and re-renders. All cells in that column (override and non-override) show the site's currency symbol. On modal open, each site's override row pre-selects the column currency.
-
-### Invoices — override save order bug
-Root cause: `saveEditModal` had two code paths; the `__new__` branch skipped currency sync. Fix: sync all `SITES[].symbol` from `ov-curr-{site}` DOM elements at the very top of `saveEditModal`, before any branching. This ensures `renderFee()` always reads the correct symbol regardless of path taken.
+One `<select>` per site column. `setSiteCurrency(site, currency)` updates `siteObj.symbol` and re-renders all cells. Fix: sync all `SITES[].symbol` from DOM at the very top of `saveEditModal` before any branching.
 
 ### Invoices — 20-site scalability
-Per-site override columns don't scale beyond ~4 sites (table too wide). Correct pattern for 20+ sites: collapse to a single "Site overrides" summary column, with a scrollable panel in the edit modal (max-height:280px, overflow-y:auto) listing all sites as rows. Implemented for 3 sites for now; pattern documented for scale-up.
-
-### Invoices — invoice detail panel status bar
-Query-style status bar below panel header: badge chip (slate/amber/blue/green) + description text + issue date right-aligned. Paid invoices hide the primary action button entirely (not disabled).
-
-### Inventory — shipments tab (first tab)
-Empty state with centred "Receive first shipment" CTA. Modal flow: shipment date + receive date + CSV upload zone → Import CSV → opens review table inline. Confirm → row appears confirmed, expandable/view-only. "Receive shipment" sticky primary button at bottom of table (always visible, scrolls with overflow).
+>4 sites: collapse to "Site overrides" summary column + scrollable panel in edit modal (max-height:280px). Currently 3 sites; pattern documented for scale.
 
 ### Inventory — site filter in topbar
-Site picker lives at topbar level (not per-tab). Same `tb-site` dropdown pattern as file 05. Rationale: site is a session-level context, not a local table filter. CRC at Austin scopes their whole workspace; CRA/PM sees all sites by default.
+Site picker at topbar level (not per-tab). Rationale: site is session-level context, not a local filter.
 
-### Inventory — reconciliation by treatment group
-Group-level aggregation (not per-vial). Columns: #Received · #Usable · #Removed · #Dispensed · #Returned · Variance (received − returned − removed, should be 0) · Auto status badge · Confirmation dropdown · Notes. All rows neutral white — status communicated through badge and text only.
-
-### Inventory — dispensing log unit status
-Four statuses without dates in the chip: Back in storage (green) · Returned to sponsor (purple) · At home (blue) · Removed (red). Return date in its own column. Chips are visual-only; dates live in dedicated columns.
+### Inventory — reconciliation
+Group-level aggregation. Variance = received − returned − removed (should be 0). Neutral white rows — status through badge and text only.
 
 ### Inventory — return modal
-Return date + volume remaining + condition dropdown (good/acceptable → back to inventory; compromised/damaged → removed) + sponsor return date (shown when empty or bad condition) + manual removal override checkbox (orange, force-removes regardless of volume).
+Condition routing: good/acceptable → back to inventory; compromised/damaged → removed. Sponsor return date shown conditionally. Manual removal override checkbox (orange).
 
-### JS safety patterns learned
-- Never use `JSON.stringify` in `onclick` HTML attributes (double-quote collision)
-- Use index lookup arrays (`DISP_ROWS[i]`) instead of inline JSON
-- Template literals inside double-quoted HTML attributes → always use named functions
-- `const SHIPMENTS = [...]` must be declared before boot calls that reference it
-- Duplicate element IDs break silently
-- `document.getElementById('x').addEventListener(...)` without null guard crashes if element not yet parsed → always use `?.addEventListener`
-- `document.addEventListener('input', ...)` loops add duplicate listeners → add `oninput`/`onchange` directly on elements instead
+### JS safety patterns (sessions 1–12)
+- Never `JSON.stringify` in `onclick` attributes — quote collision
+- Use index lookup arrays not inline JSON in onClick
+- Template literals inside double-quoted attributes → named functions
+- `const DATA = [...]` before boot calls that reference it
+- No duplicate element IDs
+- `?.addEventListener` for null safety
+- `oninput`/`onchange` directly on elements, not `document.addEventListener`
+
+---
+
+## Sessions 13–14 (2026-06-05 — 2026-06-06)
+
+### Settings — section architecture
+8 sections in sidebar: Study settings · Study preferences · Roles · Form permissions · Randomization · Inventory · Audit & Signatures · Billing. Grouped under STUDY / ACCESS / PROTOCOL / SYSTEM labels.
+
+### Settings — toggle placement
+All toggle rows: toggle on **left**, label+desc on right. `display:flex; gap:space-3; align-items:flex-start`. Never `justify-content:space-between` for toggle rows — it pushes toggle to the far right. Expandable sub-configs (low stock, partial returns) use `margin-left:52px` to indent under the label text.
+
+### Settings — lazy render pattern
+Sections with JS-rendered content call their render functions from `showSection(id)`, NOT at boot, because the section's DOM elements don't exist until the section is first activated. Full map:
+```js
+if (id==='roles')         renderRoles();
+if (id==='preferences')   { renderChangeReasons(); renderQueryTemplates(); renderSubjectCols(); }
+if (id==='formperm')      renderFormPerms();
+if (id==='randomization') renderGroups();
+if (id==='inventory')     { renderInvPerms(); renderLowStockRoles(); renderConditionMapping(); }
+if (id==='audit')         renderSigForms();
+if (id==='billing')       renderBillingFee();
+```
+
+### Settings — JS definition order rule
+`let` variable declarations are NOT hoisted. Any boot-level call to a function that references a `let` variable must come AFTER that variable's declaration in the file. `function` declarations ARE hoisted so internal calls within function bodies are fine. Symptom: function runs but renders nothing (no error) because the variable is `undefined`. Fix: move the boot call to after all definitions, or use `window.onload`.
+
+### Settings — data-attribute pattern for onclick
+Never embed variable values directly in `onclick` strings inside JS template literals — single-quote collisions cause `SyntaxError: missing ) after argument list` that Node.js catches but is silent in some browsers. Canonical fix:
+```js
+// WRONG: '<button onclick="doThing(\''+key+'\')">'
+// RIGHT: '<button data-key="'+key+'" onclick="doThing(this.dataset.key)">'
+```
+Applied to: strat factor edit/remove, inventory permission checkboxes, condition mapping buttons.
+
+### Settings — Node.js syntax validation
+Before declaring any JS block done, run: `node --check /tmp/script.js`. Catches quote collisions and syntax errors that browser consoles may swallow. Implemented via Python `subprocess.run(['node','--check',tmpfile])` in bash_tool.
+
+### Settings — Roles section
+6 default roles: CRC · CRA · PI · DM · PM · Admin. Each role card has 5 stepped sections: Role info · Main tasks · Form permissions · Study access · User management. Read-only toggle hides tasks and form permission sections. Named JS handlers: `onTaskChange`, `onFormPermChange`, `onStudyPermChange`, `setRoleReadOnly`, `resetFromTasks`. Element IDs follow pattern: `fp-lbl-{roleId}-{perm}`, `task-lbl-{roleId}-{task}`, `role-tasks-section-{id}`.
+
+### Settings — Form permissions (two views)
+**By form** (default): expand a form row → role × permission matrix. Best for "who can access this form?"
+**By role**: expand a role row → form × permission matrix grouped by section. Best for "what can CRC do across all forms?"
+Toggle in section header — same underlying `r.formPerms` data, axes swapped. `setFpView('form'|'role')` swaps render function and hint text. Expand all / collapse all works for both views.
+
+### Settings — Randomization method show/hide
+| Method | Block size | Strat factors | List actions | Notes |
+|---|---|---|---|---|
+| Blocked | ✓ | Optional | ✓ | Default |
+| Simple | Hidden | Optional | ✓ | Amber warning: <100 subjects |
+| Stratified | ✓ | Required | ✓ | Strat desc becomes "Required" |
+| Minimization | Hidden | Required | Hidden | Dynamic assignment info panel shown |
+
+Block/ratio compat check: block size must be a multiple of ratio total. Shown as amber inline warning on both the block size row and inside the ratio editor modal.
+
+### Settings — Stratification factors
+Source types: **Site** (built-in, no form mapping, no levels, uses study's site list) · **Form field** (form select → field select, plus levels editor). Scope: Per site (balanced within each site) · Across study (balanced globally). Factor cards show: name, source badge, one-line detail (site: "Built-in — uses the study's site list"; form field: "FormName → FieldName (level1 / level2)"). Edit/remove via pencil + trash using `data-key` attributes. Modal supports both Add and Edit mode (`_sfEditKey` state). CSS classes `.strat-scope-btn` / `.strat-scope-btn.active` / `.strat-factor-card` must be in `<style>`.
+
+### Settings — Treatment group ratio editor
+Ratio bar in groups card has a pencil icon → opens ratio modal. Modal: one number input per group, live preview bar (proportional color segments, 150ms transition), estimated enrollment at 60 planned subjects, block/ratio compat check. `_ratioTemp` = deep copy of GROUPS on open; saved back on confirm.
+
+### Settings — Inventory rules
+Four rules with toggle-left pattern:
+1. Require unit ID on dispense — simple toggle
+2. Alert on low stock → config panel: Threshold (number input + "units") + Notify roles (pill checkboxes, 2-column CSS grid layout so labels align). Roles rendered by `renderLowStockRoles()`.
+3. Auto-deplete on zero return — simple toggle
+4. Allow partial unit returns → config panel: condition field (static linked badge from return trigger, not a dropdown; unlink button) + condition→outcome mapping table + minimum returnable volume (ml).
+
+### Settings — Condition → outcome mapping
+Condition field shown as a blue mono badge ("Unit condition on return") linked from Return trigger. Clicking unlink removes it and hides the mapping table. Each option from `CONDITION_OPTIONS[fieldKey]` maps to one of four outcomes: Return to stock (full unit) · Return to stock (partial unit) · Remove from stock / destroy · Quarantine — pending review. Active outcome highlighted with colored border + background. Buttons use `data-field`, `data-opt`, `data-outcome` attributes → `setConditionMapping(el)`.
+
+### Settings — Inventory permissions matrix
+8 actions × 6 roles. thead and tbody both rendered by `renderInvPerms()`. `onInvPermChange(el)` reads `el.dataset.role` and `el.dataset.perm`. Default role split: CRC=dispense+log_return, CRA=reconcile, PI=dispense+confirm_return, DM=reconcile+destroy, PM=log/confirm shipment+reconcile, Admin=all. `perm-matrix td:first-child` / `th:first-child` use `padding-left:var(--space-5)`.
+
+### Settings — Audit & Signatures
+Audit trail card **removed** — 21 CFR Part 11 compliance is non-negotiable, no user config. Only two remaining cards: Electronic signatures (method select + Require meaning statement toggle-left + Co-signature toggle-left) · Signature requirements per form (toggle-left per form rendered by `renderSigForms()`). Quote pattern for `toggleSigRequired`: `\'' + f.id + '\'`.
+
+### Settings — Billing section order
+1. Billing information (contact name, company, ATTN, email, phone, address, city, state, postal, country — required fields marked *). 2. Payment terms (holdback %, payment terms, currency). 3. Fee schedule (renderBillingFee + openFeeModal).
+
+### Settings — Fee schedule
+Rate column is `<input class="fee-input-sm" type="number">` with `onblur="updateFeeRate(idx, this.value)"` — editable inline without opening modal. Pencil → `openFeeModal(idx)`. Fee modal: event name, section (select + "New section…" reveals custom input), trigger (text + hint), default rate ($ prefix, USD, per-site override note). Footer: Delete event (left, hidden on add mode) + Cancel/Save (right). `_feeEditIdx` tracks add vs edit state.
+
+### Settings — CSS required for strat scope buttons
+These classes must exist in `<style>` (easy to miss when patching):
+```css
+.strat-scope-btn { inline-flex, 28px, bordered, secondary text }
+.strat-scope-btn:hover { blue-200 border, blue-600 text, blue-50 bg }
+.strat-scope-btn.active { blue-600 border+text, blue-50 bg, font-weight:500 }
+.strat-factor-card { 1px border, radius-md, surface bg }
+```
