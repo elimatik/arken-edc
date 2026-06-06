@@ -1,0 +1,1904 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Arken EDC — Settings</title>
+<link href="https://fonts.googleapis.com/css2?family=Roboto:wght@400;500;700&family=Roboto+Mono:wght@400;500&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@tabler/icons-webfont@latest/tabler-icons.min.css">
+<style>
+:root {
+  --color-nav-bg:#1A1F2E;--color-nav-hover:#2C3248;--color-nav-icon:#8aafc8;
+  --color-page-bg:#FBFBFB;--color-surface:#FFFFFF;
+  --color-border:#E8E8E6;--color-border-subtle:#F0F0EE;
+  --color-text-primary:#2C2D33;--color-text-secondary:#4F535B;
+  --color-text-tertiary:#6D7480;--color-text-placeholder:#C4C4C2;
+  --color-hover-bg:#F0F0EE;--color-cta-bg:#1A1F2E;--color-cta-hover:#2C3248;
+  --color-link:#3D4A5C;--color-focus-ring:#3D8FE0;
+  --amber-50:#FFF8E7;--amber-200:#F5B830;--amber-700:#8A5C00;
+  --red-50:#FFF0F0;--red-200:#EC8585;--red-600:#B52626;
+  --green-50:#EEFAF4;--green-200:#58BC88;--green-600:#1A6B47;
+  --blue-50:#E8F4FF;--blue-200:#7AB8EE;--blue-600:#1760A8;
+  --slate-50:#EEF1F6;--slate-200:#8AA0B8;--slate-600:#3D5A78;
+  --purple-50:#F0EEFF;--purple-200:#A9A3EC;--purple-600:#534AB7;
+  --orange-50:#FFF0E8;--orange-200:#F48E50;--orange-600:#C94C0C;
+  --font-sans:'Roboto',system-ui,sans-serif;--font-mono:'Roboto Mono',monospace;
+  --text-xs:11px;--text-sm:12px;--text-base:14px;--text-lg:16px;--text-xl:20px;--text-3xl:24px;
+  --weight-medium:500;--weight-bold:700;
+  --radius-sm:2px;--radius-md:4px;--radius-lg:6px;--radius-full:9999px;
+  --space-1:4px;--space-2:8px;--space-3:12px;--space-4:16px;--space-5:20px;--space-6:24px;
+  --duration-fast:120ms;--ease-default:cubic-bezier(0.16,1,0.3,1);
+  --tracking-caps:0.07em;
+}
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+body{font-family:var(--font-sans);font-size:var(--text-base);color:var(--color-text-primary);background:var(--color-page-bg);-webkit-font-smoothing:antialiased}
+
+/* ─── Shell ─────────────────────────────────────────────── */
+.shell{display:flex;height:100vh;overflow:hidden}
+.sidenav{width:74px;background:var(--color-nav-bg);display:flex;flex-direction:column;align-items:center;padding:var(--space-3) 0;gap:2px;flex-shrink:0}
+.nav-logo{width:30px;height:30px;border-radius:var(--radius-md);background:var(--color-nav-hover);display:flex;align-items:center;justify-content:center;margin-bottom:var(--space-3)}
+.nav-logo span{font-size:var(--text-base);font-weight:700;color:#fff}
+.nav-item{width:100%;min-height:50px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:3px;border:none;background:transparent;color:var(--color-nav-icon);cursor:pointer;padding:4px 0;transition:background var(--duration-fast)}
+.nav-item:hover,.nav-item.active{background:var(--color-nav-hover);color:#fff}
+.nav-item i{font-size:20px}.nav-label{font-size:11px;font-weight:500;color:inherit;text-align:center}
+.nav-spacer{flex:1}
+.main{flex:1;display:flex;flex-direction:column;min-width:0;overflow:hidden}
+.topbar{height:56px;background:var(--color-nav-bg);display:flex;align-items:center;padding:0 var(--space-5);gap:var(--space-3);flex-shrink:0}
+.tb-study{background:var(--color-nav-hover);color:#fff;font-size:var(--text-base);font-weight:500;padding:7px var(--space-4);border-radius:var(--radius-md);border:1px solid #525D73;display:flex;align-items:center;gap:4px;cursor:pointer}
+.tb-right{margin-left:auto;display:flex;align-items:center;gap:var(--space-3)}
+.tb-role{background:var(--color-nav-hover);color:#fff;font-size:var(--text-sm);font-weight:500;padding:3px var(--space-2);border-radius:var(--radius-md);border:1px solid #525D73;cursor:pointer;display:flex;align-items:center;gap:4px}
+.tb-avatar{width:30px;height:30px;border-radius:50%;background:#3D5A78;color:#EEF1F6;font-size:12px;font-weight:500;display:flex;align-items:center;justify-content:center}
+
+/* ─── Settings layout ────────────────────────────────────── */
+.settings-wrap{flex:1;display:flex;overflow:hidden}
+
+/* Left settings nav */
+.settings-nav{width:200px;background:var(--color-surface);border-right:1px solid var(--color-border);flex-shrink:0;padding:var(--space-4) 0;overflow-y:auto}
+.settings-nav-title{font-size:var(--text-xs);font-weight:500;text-transform:uppercase;letter-spacing:var(--tracking-caps);color:var(--color-text-tertiary);padding:0 var(--space-4) var(--space-2);margin-bottom:var(--space-1)}
+.settings-nav-item{display:flex;align-items:center;gap:var(--space-3);padding:var(--space-2) var(--space-4);font-size:var(--text-sm);color:var(--color-text-secondary);cursor:pointer;border-left:2px solid transparent;transition:all var(--duration-fast);border:none;background:none;width:100%;text-align:left}
+.settings-nav-item:hover{background:var(--color-hover-bg);color:var(--color-text-primary)}
+.settings-nav-item.active{background:var(--blue-50);color:var(--blue-600);border-left-color:var(--blue-600);font-weight:500}
+.settings-nav-item i{font-size:16px;flex-shrink:0}
+
+/* Content area */
+.settings-content{flex:1;overflow-y:auto;padding:var(--space-6)}
+.settings-section{display:none}
+.settings-section.active{display:block}
+.section-header{margin-bottom:var(--space-6)}
+.section-title{font-size:var(--text-3xl);font-weight:500;color:var(--color-text-primary)}
+.section-desc{font-size:var(--text-sm);color:var(--color-text-tertiary);margin-top:var(--space-1)}
+.settings-card{background:var(--color-surface);border:1px solid var(--color-border);border-radius:var(--radius-lg);margin-bottom:var(--space-4)}
+.settings-card-header{padding:var(--space-4) var(--space-5);border-bottom:1px solid var(--color-border);display:flex;align-items:center;justify-content:space-between}
+.settings-card-title{font-size:var(--text-base);font-weight:500}
+.settings-card-desc{font-size:var(--text-xs);color:var(--color-text-tertiary);margin-top:2px}
+.settings-card-body{padding:var(--space-5)}
+.settings-row{display:flex;align-items:flex-start;justify-content:space-between;padding:var(--space-3) 0;gap:var(--space-5)}
+.settings-row:last-child{border-bottom:none;padding-bottom:0}
+.settings-row-label{font-size:var(--text-sm);font-weight:500;color:var(--color-text-primary);flex-shrink:0;min-width:180px}
+.settings-row-desc{font-size:var(--text-xs);color:var(--color-text-tertiary);margin-top:2px}
+.settings-row-value{flex:1;min-width:0}
+
+/* ─── Form elements ──────────────────────────────────────── */
+.btn-primary{display:inline-flex;align-items:center;gap:4px;height:32px;padding:0 var(--space-3);font-size:var(--text-sm);font-weight:500;font-family:var(--font-sans);border:none;border-radius:var(--radius-md);background:var(--color-cta-bg);color:#fff;cursor:pointer;white-space:nowrap}
+.btn-primary:hover{background:var(--color-cta-hover)}
+.btn-secondary{display:inline-flex;align-items:center;gap:4px;height:32px;padding:0 var(--space-3);font-size:var(--text-sm);font-weight:500;font-family:var(--font-sans);border:1px solid var(--color-border);border-radius:var(--radius-md);background:var(--color-surface);color:var(--color-text-primary);cursor:pointer;white-space:nowrap}
+.btn-secondary:hover{background:var(--color-hover-bg)}
+.btn-icon{display:inline-flex;align-items:center;justify-content:center;width:28px;height:28px;border:none;background:none;border-radius:var(--radius-md);color:var(--color-text-tertiary);cursor:pointer}
+.btn-icon:hover{background:var(--color-hover-bg);color:var(--color-text-primary)}
+.form-input{height:36px;padding:0 var(--space-3);font-size:var(--text-sm);font-family:var(--font-sans);border:1px solid var(--color-border);border-radius:var(--radius-md);background:var(--color-surface);color:var(--color-text-primary);outline:none;width:100%}
+.form-input:focus{border-color:var(--color-focus-ring)}
+.form-select{height:36px;padding:0 28px 0 var(--space-3);font-size:var(--text-sm);font-family:var(--font-sans);border:1px solid var(--color-border);border-radius:var(--radius-md);background:var(--color-surface);cursor:pointer;appearance:none;background-image:url("data:image/svg+xml,%3Csvg width='8' height='12' viewBox='0 0 8 12' fill='none'%3E%3Cpath d='M1 1L6 6L1 11' stroke='%236D7480' stroke-width='1.5' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E");background-repeat:no-repeat;background-position:right 10px center;outline:none}
+.form-hint{font-size:var(--text-xs);color:var(--color-text-tertiary);margin-top:var(--space-1)}
+.form-grid-2{display:grid;grid-template-columns:1fr 1fr;gap:var(--space-4)}
+.form-grid-3{display:grid;grid-template-columns:1fr 1fr 1fr;gap:var(--space-4)}
+.form-field{display:flex;flex-direction:column;gap:var(--space-1)}
+.form-label{font-size:var(--text-sm);font-weight:500;color:var(--color-text-primary)}
+.badge{display:inline-flex;align-items:center;gap:3px;padding:2px var(--space-2);border-radius:var(--radius-full);font-size:var(--text-xs);font-weight:500;border:1px solid;white-space:nowrap}
+.badge-blue  {background:var(--blue-50);border-color:var(--blue-200);color:var(--blue-600)}
+.badge-green {background:var(--green-50);border-color:var(--green-200);color:var(--green-600)}
+.badge-slate {background:var(--slate-50);border-color:var(--slate-200);color:var(--slate-600)}
+.badge-amber {background:var(--amber-50);border-color:var(--amber-200);color:var(--amber-700)}
+.badge-purple{background:var(--purple-50);border-color:var(--purple-200);color:var(--purple-600)}
+.badge-red   {background:var(--red-50);border-color:var(--red-200);color:var(--red-600)}
+.badge-orange{background:var(--orange-50);border-color:var(--orange-200);color:var(--orange-600)}
+.toggle{position:relative;width:40px;height:22px;flex-shrink:0}
+.toggle input{opacity:0;width:0;height:0}
+.toggle-slider{position:absolute;inset:0;background:var(--color-border);border-radius:var(--radius-full);cursor:pointer;transition:background var(--duration-fast)}
+.toggle-slider:before{content:'';position:absolute;width:16px;height:16px;left:3px;top:3px;background:#fff;border-radius:50%;transition:transform var(--duration-fast)}
+.toggle input:checked + .toggle-slider{background:var(--blue-600)}
+.toggle input:checked + .toggle-slider:before{transform:translateX(18px)}
+
+/* ─── Roles section ──────────────────────────────────────── */
+
+/* Role card — clean 4-section layout */
+.rcs-header{font-size:var(--text-base);font-weight:500;color:var(--color-text-primary);margin-bottom:var(--space-3);display:flex;align-items:baseline;gap:var(--space-2)}
+.rcs-header-hint{font-size:var(--text-xs);font-weight:400;color:var(--color-text-tertiary)}
+.rcs-divider{border:none;border-top:1px solid var(--color-border);margin:var(--space-4) 0}
+.rcs-field{display:flex;flex-direction:column;gap:4px}
+.rcs-label{font-size:var(--text-xs);font-weight:500;color:var(--color-text-secondary)}
+.rcs-hint{font-size:10px;color:var(--color-text-placeholder)}
+.rcs-toggle-label{display:flex;align-items:center;gap:var(--space-2);font-size:var(--text-sm);cursor:pointer;margin-top:16px}
+/* Role card — new stepped layout */
+.role-section-hdr{font-size:var(--text-lg);font-weight:500;color:var(--color-text-primary);margin:var(--space-5) 0 var(--space-1)}
+.role-section-desc{font-size:var(--text-sm);color:var(--color-text-tertiary);margin-bottom:var(--space-4)}
+.role-section-divider{border:none;border-top:1px solid var(--color-border);margin:var(--space-5) 0}
+.task-cb-row{display:flex;gap:var(--space-3);flex-wrap:wrap;margin-top:var(--space-3)}
+.task-label{display:flex;align-items:center;gap:var(--space-2);padding:var(--space-2) var(--space-3);border:1px solid var(--color-border);border-radius:var(--radius-md);cursor:pointer;font-size:var(--text-sm);transition:all var(--duration-fast)}
+.task-label:hover{border-color:var(--blue-200);background:var(--blue-50)}
+.task-label input:checked ~ *{color:var(--blue-600)}
+.task-label.checked{border-color:var(--blue-600)}
+.perm-strip{display:flex;gap:var(--space-2);flex-wrap:wrap;margin-top:var(--space-3)}
+.perm-chip{display:flex;align-items:center;gap:6px;padding:var(--space-2) var(--space-3);border:1px solid var(--color-border);border-radius:var(--radius-md);font-size:var(--text-sm);cursor:pointer;transition:all var(--duration-fast);background:var(--color-surface)}
+.perm-chip:hover{border-color:var(--blue-200)}
+.perm-chip.on{border-color:var(--blue-600);background:var(--blue-50);color:var(--blue-600)}
+.perm-chip input{display:none}
+.study-perm-row{display:flex;align-items:center;justify-content:space-between;padding:var(--space-3) 0;border-bottom:1px solid var(--color-border-subtle)}
+.study-perm-row:last-child{border-bottom:none}
+.study-perm-label{font-size:var(--text-sm);font-weight:500;min-width:160px;display:flex;align-items:center;gap:6px}
+.study-perm-opts{display:flex;gap:var(--space-3);flex-wrap:wrap}
+.spo{display:flex;align-items:center;gap:6px;font-size:var(--text-sm);cursor:pointer}
+.reset-tasks-btn{height:26px;padding:0 var(--space-2);font-size:var(--text-xs);border:1px solid var(--color-border);border-radius:var(--radius-sm);background:none;cursor:pointer;color:var(--color-text-tertiary)}
+.reset-tasks-btn:hover{background:var(--color-hover-bg);color:var(--color-text-primary)}
+
+.role-card{background:var(--color-surface);border:1px solid var(--color-border);border-radius:var(--radius-lg);margin-bottom:var(--space-3);overflow:hidden}
+.role-card-header{padding:var(--space-3) var(--space-4);display:flex;align-items:center;gap:var(--space-3);cursor:pointer;transition:background var(--duration-fast)}
+.role-card-header:hover{background:var(--color-hover-bg)}
+.role-icon{width:32px;height:32px;border-radius:var(--radius-md);display:flex;align-items:center;justify-content:center;flex-shrink:0}
+.role-icon i{font-size:16px}
+.role-name{font-size:var(--text-base);font-weight:500}
+.role-desc{font-size:var(--text-xs);color:var(--color-text-tertiary);margin-top:1px}
+.role-actions{margin-left:auto;display:flex;align-items:center;gap:var(--space-2)}
+.role-body{display:none;border-top:1px solid var(--color-border);padding:var(--space-4)}
+.role-body.open{display:block}
+
+/* Permission matrix */
+.perm-matrix{width:100%;border-collapse:collapse;font-size:var(--text-xs)}
+.perm-matrix th{text-align:center;padding:var(--space-2) var(--space-2);font-size:10px;font-weight:500;text-transform:uppercase;letter-spacing:var(--tracking-caps);color:var(--color-text-tertiary);border-bottom:1px solid var(--color-border);white-space:nowrap}
+.perm-matrix th:first-child{text-align:left;padding-left:var(--space-3);min-width:160px}
+.perm-matrix td{text-align:center;padding:var(--space-2);border-bottom:1px solid var(--color-border-subtle);vertical-align:middle}
+.perm-matrix td:first-child{text-align:left;padding-left:var(--space-3);font-size:var(--text-sm);color:var(--color-text-primary)}
+.perm-matrix tr:last-child td{border-bottom:none}
+.perm-cb{width:14px;height:14px;accent-color:var(--blue-600);cursor:pointer}
+.perm-matrix tr:hover td{background:var(--color-hover-bg)}
+
+/* ─── Form permissions ───────────────────────────────────── */
+.fp-grid{display:grid;gap:var(--space-3)}
+.fp-row{background:var(--color-surface);border:1px solid var(--color-border);border-radius:var(--radius-lg);overflow:hidden}
+.fp-row-header{padding:var(--space-4) var(--space-5);display:flex;align-items:center;justify-content:space-between;cursor:pointer;gap:var(--space-3)}
+.fp-row-header:hover{background:var(--color-hover-bg)}
+.fp-form-name{font-size:var(--text-base);font-weight:500;color:var(--color-text-primary);line-height:1.3}
+.fp-form-section{font-size:var(--text-sm);color:var(--color-text-tertiary);margin-top:3px}
+.fp-summary{display:flex;gap:4px;flex-wrap:wrap}
+.fp-table{display:none;border-top:1px solid var(--color-border);overflow-x:auto}
+.fp-table.open{display:block}
+.fp-matrix{width:100%;border-collapse:collapse;font-size:var(--text-xs)}
+.fp-matrix th{background:var(--color-page-bg);padding:var(--space-2) var(--space-3);text-align:center;font-size:10px;font-weight:500;text-transform:uppercase;letter-spacing:var(--tracking-caps);color:var(--color-text-tertiary);border-bottom:1px solid var(--color-border);white-space:nowrap;min-width:60px}
+.fp-matrix th:first-child{text-align:left;min-width:120px}
+.fp-matrix td{text-align:center;padding:var(--space-2) var(--space-3);border-bottom:1px solid var(--color-border-subtle);vertical-align:middle}
+.fp-matrix td:first-child{text-align:left;font-size:var(--text-sm);font-weight:500}
+.fp-matrix tr:last-child td{border-bottom:none}
+.fp-matrix tr:hover td{background:var(--color-hover-bg)}
+.perm-icon{font-size:14px;color:var(--green-600)}
+.perm-icon.off{color:var(--color-border)}
+
+/* ─── Randomization ──────────────────────────────────────── */
+.group-row{display:flex;align-items:center;gap:var(--space-3);padding:var(--space-3) 0;border-bottom:1px solid var(--color-border-subtle)}
+.group-row:last-child{border-bottom:none}
+.group-color-dot{width:12px;height:12px;border-radius:50%;flex-shrink:0}
+.ratio-bar{height:8px;border-radius:var(--radius-full);overflow:hidden;background:var(--color-border);margin-top:var(--space-2)}
+.ratio-fill{height:100%;border-radius:var(--radius-full)}
+
+/* ─── Fee schedule (Billing section) ────────────────────────  */
+.fee-table{width:100%;border-collapse:collapse;font-size:var(--text-sm)}
+.fee-table th{padding:var(--space-2) var(--space-3);text-align:left;font-size:var(--text-xs);font-weight:500;text-transform:uppercase;letter-spacing:var(--tracking-caps);color:var(--color-text-tertiary);border-bottom:1px solid var(--color-border);background:var(--color-page-bg)}
+.fee-table th:first-child{padding-left:var(--space-4)}
+.fee-table td{padding:var(--space-2) var(--space-3);border-bottom:1px solid var(--color-border-subtle);vertical-align:middle}
+.fee-table td:first-child{padding-left:var(--space-4)}
+.fee-table tr.section-hdr td{background:var(--color-page-bg);font-size:var(--text-xs);font-weight:700;text-transform:uppercase;letter-spacing:var(--tracking-caps);color:var(--color-text-secondary);padding:var(--space-2) var(--space-3) var(--space-2) var(--space-4)}
+.fee-input-sm{height:28px;padding:0 var(--space-2);font-family:var(--font-mono);font-size:var(--text-sm);border:1px solid var(--color-border);border-radius:var(--radius-sm);background:var(--color-surface);width:90px;text-align:right;outline:none}
+.fee-input-sm:focus{border-color:var(--blue-600)}
+
+/* ─── Modal ──────────────────────────────────────────────── */
+.modal-overlay{display:none;position:fixed;inset:0;background:rgba(14,18,28,0.45);z-index:200;align-items:center;justify-content:center}
+.modal-overlay.open{display:flex}
+.modal{background:var(--color-surface);border-radius:var(--radius-lg);border:1px solid var(--color-border);width:520px;max-width:calc(100vw - var(--space-6));box-shadow:0 16px 48px rgba(14,18,28,0.18);display:flex;flex-direction:column;max-height:80vh}
+.modal-header{padding:var(--space-4) var(--space-5);border-bottom:1px solid var(--color-border);display:flex;align-items:center;justify-content:space-between;flex-shrink:0}
+.modal-title{font-size:var(--text-lg);font-weight:500}
+.modal-close{width:28px;height:28px;border:none;background:none;cursor:pointer;border-radius:var(--radius-sm);color:var(--color-text-tertiary);display:flex;align-items:center;justify-content:center}
+.modal-close:hover{background:var(--color-hover-bg)}
+.modal-body{padding:var(--space-5);overflow-y:auto;display:flex;flex-direction:column;gap:var(--space-4)}
+.modal-footer{padding:var(--space-4) var(--space-5);border-top:1px solid var(--color-border);display:flex;justify-content:flex-end;gap:var(--space-2);flex-shrink:0}
+.section-divider{font-size:var(--text-xs);font-weight:500;text-transform:uppercase;letter-spacing:var(--tracking-caps);color:var(--color-text-tertiary);padding-bottom:var(--space-2);border-bottom:1px solid var(--color-border-subtle)}
+/* Study type + hierarchy + save mode + milestones */
+.study-type-btn{display:inline-flex;align-items:center;gap:var(--space-2);height:36px;padding:0 var(--space-3);font-size:var(--text-sm);font-weight:500;font-family:var(--font-sans);border:1px solid var(--color-border);border-radius:var(--radius-md);background:var(--color-surface);color:var(--color-text-secondary);cursor:pointer;transition:all var(--duration-fast)}
+.study-type-btn:hover{border-color:var(--blue-200);color:var(--blue-600);background:var(--blue-50)}
+.study-type-btn.active{background:var(--color-cta-bg);border-color:var(--color-cta-bg);color:#fff}
+.hierarchy-level{display:flex;align-items:center;gap:var(--space-3);padding:var(--space-2) var(--space-3);background:var(--color-page-bg);border:1px solid var(--color-border);border-radius:var(--radius-md);margin-bottom:var(--space-2)}
+.hier-num{width:20px;height:20px;border-radius:50%;background:var(--color-cta-bg);color:#fff;font-size:10px;font-weight:700;display:flex;align-items:center;justify-content:center;flex-shrink:0}
+.hier-select{height:30px;padding:0 24px 0 var(--space-2);font-size:var(--text-sm);font-family:var(--font-sans);border:1px solid var(--color-border);border-radius:var(--radius-sm);background:var(--color-surface);cursor:pointer;appearance:none;background-image:url("data:image/svg+xml,%3Csvg width='8' height='12' viewBox='0 0 8 12' fill='none'%3E%3Cpath d='M1 1L6 6L1 11' stroke='%236D7480' stroke-width='1.5' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E");background-repeat:no-repeat;background-position:right 8px center;outline:none;min-width:160px}
+.hier-subject-badge{font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:0.05em;padding:2px 8px;border-radius:var(--radius-full);background:var(--green-50);border:1px solid var(--green-200);color:var(--green-600)}
+.save-mode-option{display:flex;cursor:pointer}
+.save-mode-option input{display:none}
+.save-mode-card{padding:var(--space-4);border:1px solid var(--color-border);border-radius:var(--radius-lg);min-width:240px;transition:all var(--duration-fast)}
+.save-mode-option input:checked + .save-mode-card{border-color:var(--blue-600);background:var(--blue-50);border-width:2px}
+.save-mode-card:hover{border-color:var(--blue-200)}
+@keyframes spin{from{transform:rotate(0deg)}to{transform:rotate(360deg)}}
+.autosave-toast{position:fixed;bottom:var(--space-5);right:var(--space-5);background:var(--color-cta-bg);color:#fff;font-size:var(--text-xs);padding:var(--space-2) var(--space-3);border-radius:var(--radius-md);display:none;align-items:center;gap:var(--space-2);z-index:300;box-shadow:0 4px 16px rgba(14,18,28,0.18)}
+.autosave-toast.show{display:flex}
+.milestone-row{display:flex;align-items:center;gap:var(--space-3);padding:var(--space-3) 0;border-bottom:1px solid var(--color-border-subtle)}
+.milestone-row:last-child{border-bottom:none;padding-bottom:0}
+</style>
+</head>
+<body>
+<div class="shell">
+  <nav class="sidenav">
+    <div class="nav-logo"><span>Ar</span></div>
+    <button class="nav-item"><i class="ti ti-layout-dashboard"></i><span class="nav-label">Dashboard</span></button>
+    <button class="nav-item"><i class="ti ti-list"></i><span class="nav-label">Animals</span></button>
+    <button class="nav-item"><i class="ti ti-calendar-event"></i><span class="nav-label">Visits</span></button>
+    <button class="nav-item"><i class="ti ti-receipt"></i><span class="nav-label">Invoices</span></button>
+    <div class="nav-spacer"></div>
+    <button class="nav-item active"><i class="ti ti-settings"></i><span class="nav-label">Settings</span></button>
+  </nav>
+
+  <div class="main">
+    <header class="topbar">
+      <button class="tb-study">AK-2401 — BRD Cattle Phase II <i class="ti ti-chevron-right" style="font-size:11px"></i></button>
+      <div class="tb-right">
+        <button class="tb-role">Admin <i class="ti ti-chevron-right" style="font-size:10px"></i></button>
+        <div class="tb-avatar">ET</div>
+      </div>
+    </header>
+
+    <div class="settings-wrap">
+
+      <!-- ── Settings nav sidebar ── -->
+      <nav class="settings-nav">
+        <div class="settings-nav-title">Study</div>
+        <button class="settings-nav-item active" onclick="showSection('study')">
+          <i class="ti ti-clipboard-list"></i> Study settings
+        </button>
+        <button class="settings-nav-item" onclick="showSection('preferences')">
+          <i class="ti ti-adjustments"></i> Study preferences
+        </button>
+
+        <div class="settings-nav-title" style="margin-top:var(--space-4)">Access</div>
+        <button class="settings-nav-item" onclick="showSection('roles')">
+          <i class="ti ti-shield-check"></i> Roles
+        </button>
+        <button class="settings-nav-item" onclick="showSection('formperm')">
+          <i class="ti ti-forms"></i> Form permissions
+        </button>
+        <div class="settings-nav-title" style="margin-top:var(--space-4)">Protocol</div>
+        <button class="settings-nav-item" onclick="showSection('randomization')">
+          <i class="ti ti-arrows-shuffle"></i> Randomization
+        </button>
+        <div class="settings-nav-title" style="margin-top:var(--space-4)">System</div>
+        <button class="settings-nav-item" onclick="showSection('inventory')">
+          <i class="ti ti-flask"></i> Inventory
+        </button>
+        <button class="settings-nav-item" onclick="showSection('audit')">
+          <i class="ti ti-writing"></i> Audit &amp; Signatures
+        </button>
+        <button class="settings-nav-item" onclick="showSection('billing')">
+          <i class="ti ti-receipt-2"></i> Billing
+        </button>
+      </nav>
+
+      <!-- ── Settings content ── -->
+      <div class="settings-content" id="settings-content">
+
+        <!-- ════════════════ STUDY SETTINGS ════════════════ -->
+        <div class="settings-section active" id="section-study">
+          <div class="section-header">
+            <h1 class="section-title">Study settings</h1>
+            <p class="section-desc">Core protocol configuration for AK-2401</p>
+          </div>
+
+          <!-- Study information -->
+          <div class="settings-card">
+            <div class="settings-card-header">
+              <div><div class="settings-card-title">Study information</div></div>
+              <button class="btn-secondary" id="study-info-edit-btn" onclick="editStudyInfo()"><i class="ti ti-pencil"></i> Edit</button>
+            </div>
+            <div class="settings-card-body" id="study-info-body">
+              <div class="settings-row">
+                <div><div class="settings-row-label">Study ID</div></div>
+                <div class="settings-row-value"><span style="font-family:var(--font-mono);font-weight:500">AK-2401</span></div>
+              </div>
+              <div class="settings-row">
+                <div><div class="settings-row-label">Study title</div></div>
+                <div class="settings-row-value" id="si-title-view">Phase II Efficacy Study of BRDVAX-01 in Commercial Beef Cattle</div>
+              </div>
+              <div class="settings-row">
+                <div><div class="settings-row-label">Sponsor</div></div>
+                <div class="settings-row-value" id="si-sponsor-view">BioVet Pharma Inc.</div>
+              </div>
+              <div class="settings-row">
+                <div><div class="settings-row-label">IND / NADA number</div></div>
+                <div class="settings-row-value"><span style="font-family:var(--font-mono)" id="si-ind-view">NADA-141-XXX · IND-AK-2401-US</span></div>
+              </div>
+              <div class="settings-row">
+                <div><div class="settings-row-label">Regulatory framework</div></div>
+                <div class="settings-row-value"><span class="badge badge-blue">21 CFR Part 11</span> <span class="badge badge-blue" style="margin-left:4px">VICH GL9</span></div>
+              </div>
+              <!-- Edit form (hidden) -->
+              <div id="study-info-edit" style="display:none;margin-top:var(--space-4);padding-top:var(--space-4);border-top:1px solid var(--color-border)">
+                <div class="form-grid-2" style="margin-bottom:var(--space-3)">
+                  <div class="form-field"><div class="form-label">Study title</div><input class="form-input" id="si-title-inp" value="Phase II Efficacy Study of BRDVAX-01 in Commercial Beef Cattle"></div>
+                  <div class="form-field"><div class="form-label">Sponsor</div><input class="form-input" id="si-sponsor-inp" value="BioVet Pharma Inc."></div>
+                </div>
+                <div class="form-field" style="margin-bottom:var(--space-3)"><div class="form-label">IND / NADA number</div><input class="form-input mono" id="si-ind-inp" value="NADA-141-XXX · IND-AK-2401-US"></div>
+                <div style="display:flex;gap:var(--space-2);justify-content:flex-end">
+                  <button class="btn-secondary" onclick="cancelStudyInfo()">Cancel</button>
+                  <button class="btn-primary" onclick="saveStudyInfo()"><i class="ti ti-check"></i> Save</button>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- Protocol & timeline -->
+          <div class="settings-card">
+            <div class="settings-card-header">
+              <div><div class="settings-card-title">Protocol &amp; timeline</div></div>
+            </div>
+            <div class="settings-card-body">
+
+              <div class="form-grid-3" style="margin-bottom:var(--space-4)">
+                <div class="form-field">
+                  <div class="form-label">Study start</div>
+                  <input class="form-input" type="text" value="2026-04-01" id="proto-start" onblur="autosaveField(this,'Study start')">
+                </div>
+                <div class="form-field">
+                  <div class="form-label">Enrollment close</div>
+                  <input class="form-input" type="text" value="2026-05-01" id="proto-enroll" onblur="autosaveField(this,'Enrollment close')">
+                </div>
+                <div class="form-field">
+                  <div class="form-label">Study end (planned)</div>
+                  <input class="form-input" type="text" value="2026-08-31" id="proto-end" onblur="autosaveField(this,'Study end')">
+                </div>
+              </div>
+              <div class="form-grid-2" style="margin-bottom:var(--space-4)">
+                <div class="form-field">
+                  <div class="form-label">Target enrollment</div>
+                  <input class="form-input" type="number" value="36" onblur="autosaveField(this,'Target enrollment')">
+                </div>
+                <div class="form-field">
+                  <div class="form-label">Protocol version</div>
+                  <div style="display:flex;align-items:center;gap:var(--space-2)">
+                    <input class="form-input" type="text" value="v2.1 — 2026-03-15" onblur="autosaveField(this,'Protocol version')">
+                    <button class="btn-icon" title="Download protocol document" style="flex-shrink:0;width:32px;height:36px;border:1px solid var(--color-border);border-radius:var(--radius-md)"><i class="ti ti-download" style="font-size:15px"></i></button>
+                  </div>
+                </div>
+              </div>
+
+            </div>
+          </div>
+
+          <!-- Study type + hierarchy -->
+          <div class="settings-card">
+            <div class="settings-card-header">
+              <div><div class="settings-card-title">Study type &amp; subject hierarchy</div><div class="settings-card-desc">Study type pre-fills the hierarchy — you can rename each level</div></div>
+            </div>
+            <div class="settings-card-body">
+              <!-- Step 1: study type -->
+              <div class="settings-row" style="padding-bottom:var(--space-4)">
+                <div><div class="settings-row-label">Study type</div><div class="settings-row-desc">Pre-fills the hierarchy below</div></div>
+                <div class="settings-row-value">
+                  <div style="display:flex;gap:var(--space-2);flex-wrap:wrap" id="study-type-btns">
+                    <button class="study-type-btn active" onclick="setStudyType('livestock')"><i class="ti ti-cow" style="font-size:16px"></i> Livestock</button>
+                    <button class="study-type-btn" onclick="setStudyType('companion')"><i class="ti ti-paw" style="font-size:16px"></i> Companion animal</button>
+                    <button class="study-type-btn" onclick="setStudyType('aquatic')"><i class="ti ti-fish" style="font-size:16px"></i> Aquatic</button>
+                    <button class="study-type-btn" onclick="setStudyType('custom')"><i class="ti ti-settings" style="font-size:16px"></i> Custom</button>
+                  </div>
+                </div>
+              </div>
+
+              <!-- Step 2: hierarchy levels -->
+              <div>
+                <div style="font-size:var(--text-xs);font-weight:500;text-transform:uppercase;letter-spacing:var(--tracking-caps);color:var(--color-text-tertiary);margin-bottom:var(--space-3)">Hierarchy levels <span id="hierarchy-note" style="font-weight:400;text-transform:none;color:var(--color-text-placeholder)">(top = study, fixed)</span></div>
+                <div id="hierarchy-levels"></div>
+                <button class="btn-secondary" style="height:28px;font-size:var(--text-xs);margin-top:var(--space-3)" onclick="addHierarchyLevel()"><i class="ti ti-plus"></i> Add level</button>
+              </div>
+            </div>
+          </div>
+          <!-- Drug & IP -->
+          <div class="settings-card">
+            <div class="settings-card-header">
+              <div><div class="settings-card-title">Drug &amp; investigational product</div></div>
+            </div>
+            <div class="settings-card-body">
+              <div class="form-grid-2" style="margin-bottom:var(--space-4)">
+                <div class="form-field">
+                  <div class="form-label">Drug name</div>
+                  <input class="form-input" value="BRDVAX-01" onblur="autosaveField(this,'Drug name')">
+                </div>
+                <div class="form-field">
+                  <div class="form-label">Formulation</div>
+                  <select class="form-select" onchange="autosaveField(this,'Formulation')"><option>Liquid injection</option><option>Tablet</option><option>Oral suspension</option></select>
+                </div>
+              </div>
+              <div class="form-grid-3">
+                <div class="form-field">
+                  <div class="form-label">Dose unit</div>
+                  <select class="form-select" onchange="autosaveField(this,'Dose unit')"><option>ml</option><option>mg</option><option>tablet</option></select>
+                </div>
+                <div class="form-field">
+                  <div class="form-label">Dose calculation</div>
+                  <input class="form-input" value="0.008 ml/kg body weight" onblur="autosaveField(this,'Dose calculation')">
+                </div>
+                <div class="form-field">
+                  <div class="form-label">Route</div>
+                  <select class="form-select" onchange="autosaveField(this,'Route')"><option>IM injection</option><option>SC injection</option><option>IV</option><option>Oral</option></select>
+                </div>
+              </div>
+            </div>
+          </div>
+
+        </div>
+
+
+        <!-- ════════════════ STUDY PREFERENCES ════════════════ -->
+        <div class="settings-section" id="section-preferences">
+          <div class="section-header">
+            <h1 class="section-title">Study preferences</h1>
+            <p class="section-desc">Behaviour and display preferences for this study</p>
+          </div>
+
+          <!-- Data save mode (moved from study settings) -->
+          <div class="settings-card">
+            <div class="settings-card-header">
+              <div><div class="settings-card-title">Data save mode</div><div class="settings-card-desc">How form data is saved by coordinators</div></div>
+            </div>
+            <div class="settings-card-body">
+              <div style="display:flex;gap:var(--space-3);flex-wrap:wrap">
+                <label class="save-mode-option">
+                  <input type="radio" name="save-mode" value="field" checked onchange="setSaveMode('field')">
+                  <div class="save-mode-card">
+                    <div style="margin-bottom:var(--space-1)"><span style="font-size:var(--text-sm);font-weight:500">Field-level autosave</span></div>
+                    <div style="font-size:var(--text-xs);color:var(--color-text-tertiary)">Saves on blur or change. No submit button. Immediate feedback. Reason for change triggered per field.</div>
+                  </div>
+                </label>
+                <label class="save-mode-option">
+                  <input type="radio" name="save-mode" value="form" onchange="setSaveMode('form')">
+                  <div class="save-mode-card">
+                    <div style="margin-bottom:var(--space-1)"><span style="font-size:var(--text-sm);font-weight:500">Form-level submit</span></div>
+                    <div style="font-size:var(--text-xs);color:var(--color-text-tertiary)">All fields saved together on submit. CRC reviews before committing. Best for longer visit forms.</div>
+                  </div>
+                </label>
+              </div>
+            </div>
+          </div>
+
+          <!-- Predefined change reasons -->
+          <div class="settings-card">
+            <div class="settings-card-header">
+              <div><div class="settings-card-title">Predefined change reasons</div><div class="settings-card-desc">Coordinators pick from this list when editing previously saved data</div></div>
+              <button class="btn-secondary" style="height:28px;font-size:var(--text-xs)" onclick="addChangeReason()"><i class="ti ti-plus"></i> Add</button>
+            </div>
+            <div class="settings-card-body" id="change-reasons-body"></div>
+          </div>
+
+          <!-- Predefined queries -->
+          <div class="settings-card">
+            <div class="settings-card-header">
+              <div><div class="settings-card-title">Predefined query templates</div><div class="settings-card-desc">Standard query text CRAs and DMs can select when raising queries</div></div>
+              <button class="btn-secondary" style="height:28px;font-size:var(--text-xs)" onclick="addQueryTemplate()"><i class="ti ti-plus"></i> Add</button>
+            </div>
+            <div class="settings-card-body" id="query-templates-body"></div>
+          </div>
+
+          <!-- Subject list columns -->
+          <div class="settings-card">
+            <div class="settings-card-header">
+              <div><div class="settings-card-title">Subject list columns</div><div class="settings-card-desc">Choose which columns appear in the subject list table</div></div>
+            </div>
+            <div class="settings-card-body" id="subject-cols-body"></div>
+          </div>
+
+        </div>
+                <!-- ════════════════ ROLES ════════════════ -->
+        <div class="settings-section" id="section-roles">
+          <div class="section-header">
+            <h1 class="section-title">Roles</h1>
+            <p class="section-desc">Define roles and their system-level permissions for this study</p>
+          </div>
+          <div style="display:flex;justify-content:flex-end;margin-bottom:var(--space-3)">
+            <button class="btn-primary" onclick="openRoleModal()"><i class="ti ti-plus"></i> Create role</button>
+          </div>
+          <div id="roles-list"></div>
+        </div>
+
+        <!-- ════════════════ FORM PERMISSIONS ════════════════ -->
+        <div class="settings-section" id="section-formperm">
+          <div class="section-header">
+            <h1 class="section-title">Form permissions</h1>
+            <p class="section-desc">Control what each role can do on each form</p>
+          </div>
+          <div style="display:flex;align-items:center;gap:var(--space-3);margin-bottom:var(--space-4)">
+            <div style="font-size:var(--text-xs);color:var(--color-text-tertiary)">Click a form row to expand permissions</div>
+            <div style="margin-left:auto;display:flex;gap:var(--space-2)">
+              <button class="btn-secondary" style="height:28px;font-size:var(--text-xs)" id="expand-all-btn" onclick="toggleExpandAll()">
+                <i class="ti ti-arrows-maximize" id="expand-all-icon"></i> <span id="expand-all-label">Expand all</span>
+              </button>
+              <button class="btn-secondary" style="height:28px;font-size:var(--text-xs)" onclick="openAIGroupModal()">
+                <i class="ti ti-sparkles" style="color:var(--purple-600)"></i> Auto-group forms
+              </button>
+            </div>
+          </div>
+          <div id="formperm-list"></div>
+        </div>
+
+        <!-- ════════════════ RANDOMIZATION ════════════════ -->
+        <div class="settings-section" id="section-randomization">
+          <div class="section-header">
+            <h1 class="section-title">Randomization</h1>
+            <p class="section-desc">Treatment group configuration, blinding, and assignment rules</p>
+          </div>
+
+          <div class="settings-card">
+            <div class="settings-card-header">
+              <div><div class="settings-card-title">Randomization settings</div></div>
+            </div>
+            <div class="settings-card-body">
+              <div class="settings-row">
+                <div><div class="settings-row-label">Randomization method</div><div class="settings-row-desc">How subjects are assigned to treatment groups</div></div>
+                <div class="settings-row-value">
+                  <select class="form-select" style="max-width:280px">
+                    <option>Blocked randomization</option>
+                    <option>Simple randomization</option>
+                    <option>Stratified randomization</option>
+                    <option>Minimization</option>
+                  </select>
+                </div>
+              </div>
+              <div class="settings-row">
+                <div><div class="settings-row-label">Block size</div></div>
+                <div class="settings-row-value">
+                  <select class="form-select" style="max-width:120px"><option>4</option><option>6</option><option>8</option><option>Variable</option></select>
+                </div>
+              </div>
+              <div class="settings-row">
+                <div><div class="settings-row-label">Blinding</div><div class="settings-row-desc">Who knows the treatment assignment</div></div>
+                <div class="settings-row-value">
+                  <select class="form-select" style="max-width:200px">
+                    <option>Open-label (no blinding)</option>
+                    <option>Single-blind</option>
+                    <option>Double-blind</option>
+                  </select>
+                </div>
+              </div>
+              <div class="settings-row">
+                <div><div class="settings-row-label">Stratification factors</div><div class="settings-row-desc">Variables used to balance groups</div></div>
+                <div class="settings-row-value">
+                  <div style="display:flex;gap:4px;flex-wrap:wrap">
+                    <span class="badge badge-blue">Site</span>
+                    <span class="badge badge-blue">Body weight range</span>
+                    <button class="btn-secondary" style="height:24px;font-size:10px"><i class="ti ti-plus" style="font-size:10px"></i> Add factor</button>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <div class="settings-card">
+            <div class="settings-card-header">
+              <div><div class="settings-card-title">Treatment groups</div><div class="settings-card-desc">Define groups and their randomization ratios</div></div>
+              <button class="btn-secondary" onclick="openGroupModal()"><i class="ti ti-plus"></i> Add group</button>
+            </div>
+            <div class="settings-card-body" id="groups-body"></div>
+          </div>
+
+          <div class="settings-card">
+            <div class="settings-card-header">
+              <div><div class="settings-card-title">Randomization list</div><div class="settings-card-desc">Upload or generate the randomization schedule</div></div>
+            </div>
+            <div class="settings-card-body">
+              <div style="display:flex;gap:var(--space-3)">
+                <button class="btn-secondary"><i class="ti ti-file-type-csv"></i> Upload list (CSV)</button>
+                <button class="btn-secondary"><i class="ti ti-refresh"></i> Generate list</button>
+                <button class="btn-primary" style="margin-left:auto"><i class="ti ti-lock"></i> Lock randomization</button>
+              </div>
+              <div style="margin-top:var(--space-3);padding:var(--space-3);background:var(--color-page-bg);border:1px solid var(--color-border);border-radius:var(--radius-md);font-size:var(--text-xs);color:var(--color-text-tertiary)">
+                <i class="ti ti-info-circle" style="font-size:12px;margin-right:4px"></i>
+                Randomization list will be locked before first enrollment. Once locked, assignments cannot be changed without a protocol amendment.
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- ════════════════ INVENTORY SETTINGS ════════════════ -->
+        <div class="settings-section" id="section-inventory">
+          <div class="section-header">
+            <h1 class="section-title">Inventory</h1>
+            <p class="section-desc">Connect study forms to inventory dispensing and return events</p>
+          </div>
+
+          <div class="settings-card">
+            <div class="settings-card-header">
+              <div><div class="settings-card-title">Dispense trigger</div><div class="settings-card-desc">Which form field drives a dispensing event</div></div>
+            </div>
+            <div class="settings-card-body">
+              <div class="form-grid-2" style="margin-bottom:var(--space-4)">
+                <div class="form-field">
+                  <div class="form-label">Dispensing form</div>
+                  <select class="form-select"><option>Dosing record</option><option>AE form</option><option>Physical exam</option></select>
+                </div>
+                <div class="form-field">
+                  <div class="form-label">Volume field</div>
+                  <select class="form-select"><option>Volume administered (ml)</option><option>Dose given (ml)</option></select>
+                </div>
+              </div>
+              <div class="form-grid-2">
+                <div class="form-field">
+                  <div class="form-label">Vial ID field</div>
+                  <select class="form-select"><option>Vial ID</option><option>Unit ID</option></select>
+                </div>
+                <div class="form-field">
+                  <div class="form-label">Route field</div>
+                  <select class="form-select"><option>Route of administration</option><option>Injection site</option></select>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <div class="settings-card">
+            <div class="settings-card-header">
+              <div><div class="settings-card-title">Return trigger</div><div class="settings-card-desc">Which form field logs a drug return event</div></div>
+            </div>
+            <div class="settings-card-body">
+              <div class="form-grid-2">
+                <div class="form-field">
+                  <div class="form-label">Return form</div>
+                  <select class="form-select"><option>Drug return log</option><option>Dosing record</option></select>
+                </div>
+                <div class="form-field">
+                  <div class="form-label">Volume returned field</div>
+                  <select class="form-select"><option>Volume remaining (ml)</option><option>Returned volume</option></select>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <div class="settings-card">
+            <div class="settings-card-header">
+              <div><div class="settings-card-title">Inventory rules</div></div>
+            </div>
+            <div class="settings-card-body">
+              <div class="settings-row">
+                <div><div class="settings-row-label">Require vial ID on dispense</div><div class="settings-row-desc">Block form submission without a vial ID</div></div>
+                <label class="toggle"><input type="checkbox" checked><span class="toggle-slider"></span></label>
+              </div>
+              <div class="settings-row">
+                <div><div class="settings-row-label">Alert on low stock</div><div class="settings-row-desc">Notify CRC when fewer than 3 vials available</div></div>
+                <label class="toggle"><input type="checkbox" checked><span class="toggle-slider"></span></label>
+              </div>
+              <div class="settings-row">
+                <div><div class="settings-row-label">Auto-deplete on zero return</div><div class="settings-row-desc">Mark vial depleted when 0 ml returned</div></div>
+                <label class="toggle"><input type="checkbox" checked><span class="toggle-slider"></span></label>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- ════════════════ AUDIT & SIGNATURES ════════════════ -->
+        <div class="settings-section" id="section-audit">
+          <div class="section-header">
+            <h1 class="section-title">Audit &amp; Signatures</h1>
+            <p class="section-desc">Configure audit trail behaviour and electronic signature requirements</p>
+          </div>
+
+          <div class="settings-card">
+            <div class="settings-card-header">
+              <div><div class="settings-card-title">Audit trail</div></div>
+            </div>
+            <div class="settings-card-body">
+              <div class="settings-row">
+                <div><div class="settings-row-label">Audit trail scope</div><div class="settings-row-desc">What changes are recorded in the audit log</div></div>
+                <div class="settings-row-value">
+                  <select class="form-select" style="max-width:240px"><option>All field changes</option><option>Signed fields only</option><option>Critical fields only</option></select>
+                </div>
+              </div>
+              <div class="settings-row">
+                <div><div class="settings-row-label">Reason for change</div><div class="settings-row-desc">When is a reason required for edits</div></div>
+                <div class="settings-row-value">
+                  <select class="form-select" style="max-width:240px">
+                    <option>Always required on re-edit</option>
+                    <option>Required for signed fields only</option>
+                    <option>Required for critical fields only</option>
+                  </select>
+                </div>
+              </div>
+              <div class="settings-row">
+                <div><div class="settings-row-label">Unalterable timestamps</div><div class="settings-row-desc">21 CFR Part 11 — server-side timestamps on all entries</div></div>
+                <label class="toggle"><input type="checkbox" checked disabled><span class="toggle-slider"></span></label>
+              </div>
+              <div class="settings-row">
+                <div><div class="settings-row-label">Retain deleted records</div><div class="settings-row-desc">Soft-delete only — all records visible in audit trail</div></div>
+                <label class="toggle"><input type="checkbox" checked disabled><span class="toggle-slider"></span></label>
+              </div>
+            </div>
+          </div>
+
+          <div class="settings-card">
+            <div class="settings-card-header">
+              <div><div class="settings-card-title">Electronic signatures (21 CFR Part 11)</div></div>
+            </div>
+            <div class="settings-card-body">
+              <div class="settings-row">
+                <div><div class="settings-row-label">Signature method</div></div>
+                <div class="settings-row-value">
+                  <select class="form-select" style="max-width:240px">
+                    <option>Username + password (biometric equivalent)</option>
+                    <option>Password re-entry</option>
+                    <option>PIN</option>
+                  </select>
+                </div>
+              </div>
+              <div class="settings-row">
+                <div><div class="settings-row-label">Require meaning statement</div><div class="settings-row-desc">Signer must select the meaning of their signature (e.g. "I have reviewed and approved")</div></div>
+                <label class="toggle"><input type="checkbox" checked><span class="toggle-slider"></span></label>
+              </div>
+              <div class="settings-row">
+                <div><div class="settings-row-label">Co-signature</div><div class="settings-row-desc">Require a second signer for specific forms</div></div>
+                <label class="toggle"><input type="checkbox"><span class="toggle-slider"></span></label>
+              </div>
+            </div>
+          </div>
+
+          <div class="settings-card">
+            <div class="settings-card-header">
+              <div><div class="settings-card-title">Signature requirements per form</div><div class="settings-card-desc">Which forms require electronic signature before submission</div></div>
+            </div>
+            <div class="settings-card-body" id="sig-forms-body"></div>
+          </div>
+        </div>
+
+        <!-- ════════════════ BILLING ════════════════ -->
+        <div class="settings-section" id="section-billing">
+          <div class="section-header">
+            <h1 class="section-title">Billing</h1>
+            <p class="section-desc">Fee schedule and payment configuration for this study</p>
+          </div>
+
+          <div class="settings-card">
+            <div class="settings-card-header">
+              <div><div class="settings-card-title">Payment terms</div></div>
+              <button class="btn-secondary"><i class="ti ti-pencil"></i> Edit</button>
+            </div>
+            <div class="settings-card-body">
+              <div class="settings-row">
+                <div><div class="settings-row-label">Holdback percentage</div><div class="settings-row-desc">Withheld until database lock</div></div>
+                <div class="settings-row-value" style="display:flex;align-items:center;gap:var(--space-2)">
+                  <input class="form-input" type="number" value="10" style="width:80px">
+                  <span style="font-size:var(--text-sm);color:var(--color-text-secondary)">%</span>
+                </div>
+              </div>
+              <div class="settings-row">
+                <div><div class="settings-row-label">Payment terms</div></div>
+                <div class="settings-row-value"><select class="form-select" style="max-width:180px"><option>Net 30</option><option>Net 45</option><option>Net 60</option></select></div>
+              </div>
+              <div class="settings-row">
+                <div><div class="settings-row-label">Study default currency</div></div>
+                <div class="settings-row-value"><select class="form-select" style="max-width:120px"><option>USD</option><option>CAD</option><option>EUR</option><option>GBP</option></select></div>
+              </div>
+            </div>
+          </div>
+
+          <div class="settings-card">
+            <div class="settings-card-header">
+              <div><div class="settings-card-title">Fee schedule</div><div class="settings-card-desc">Billable events and rates — applies to all site invoices</div></div>
+              <button class="btn-primary"><i class="ti ti-plus"></i> Add event</button>
+            </div>
+            <div style="overflow-x:auto">
+              <table class="fee-table" id="billing-fee-table"></table>
+            </div>
+          </div>
+        </div>
+
+      </div><!-- /settings-content -->
+    </div><!-- /settings-wrap -->
+  </div><!-- /main -->
+</div><!-- /shell -->
+
+<!-- Role modal -->
+<div class="modal-overlay" id="role-modal">
+  <div class="modal" style="width:560px">
+    <div class="modal-header">
+      <div class="modal-title" id="role-modal-title">Create role</div>
+      <button class="modal-close" onclick="closeRoleModal()"><i class="ti ti-x"></i></button>
+    </div>
+    <div class="modal-body">
+      <div class="form-field"><div class="form-label">Role name</div><input class="form-input" id="role-name" placeholder="e.g. Senior CRC"></div>
+      <div class="form-field">
+        <div class="form-label">Based on preset</div>
+        <select class="form-select" id="role-preset" onchange="applyPreset()">
+          <option value="">Custom (start blank)</option>
+          <option value="CRC">CRC — Clinical Research Coordinator</option>
+          <option value="CRA">CRA — Clinical Research Associate</option>
+          <option value="PI">PI — Principal Investigator</option>
+          <option value="DM">DM — Data Manager</option>
+          <option value="PM">PM — Project Manager</option>
+          <option value="Admin">Admin</option>
+        </select>
+      </div>
+      <div class="section-divider">System permissions</div>
+      <div id="role-perms-grid"></div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn-secondary" onclick="closeRoleModal()">Cancel</button>
+      <button class="btn-primary" onclick="saveRole()"><i class="ti ti-check"></i> Save role</button>
+    </div>
+  </div>
+</div>
+
+<script>
+// ═══════════════════════════════════════════════════════════
+// DATA
+// ═══════════════════════════════════════════════════════════
+const FORMS = [
+  { id:'F01', name:'Physical exam',          section:'Visit forms',    requiresSig:true  },
+  { id:'F02', name:'Body weight log',        section:'Visit forms',    requiresSig:false },
+  { id:'F03', name:'Welfare assessment',     section:'Visit forms',    requiresSig:true  },
+  { id:'F04', name:'Dosing record',          section:'Visit forms',    requiresSig:true  },
+  { id:'F05', name:'Adverse event',          section:'Safety',         requiresSig:true  },
+  { id:'F06', name:'Concomitant medications',section:'Safety',         requiresSig:false },
+  { id:'F07', name:'Medical history',        section:'Enrollment',     requiresSig:false },
+  { id:'F08', name:'Informed consent (ICF)', section:'Enrollment',     requiresSig:true  },
+  { id:'F09', name:'Drug return log',        section:'Inventory',      requiresSig:false },
+  { id:'F10', name:'Early termination',      section:'Close-out',      requiresSig:true  },
+];
+
+const PERMS = ['view','edit','sign','review','query','finalize','lock','edit_final'];
+const PERM_LABELS = { view:'View', edit:'Edit', sign:'Sign', review:'Review', query:'Query', finalize:'Finalize', lock:'Lock', edit_final:'Edit final' };
+
+const ROLE_PRESETS = {
+  CRC:   { view:true,  edit:true,  sign:true,  review:false, query:true,  finalize:false, lock:false, edit_final:false },
+  CRA:   { view:true,  edit:false, sign:false, review:true,  query:true,  finalize:false, lock:false, edit_final:false },
+  PI:    { view:true,  edit:true,  sign:true,  review:true,  query:true,  finalize:true,  lock:false, edit_final:false },
+  DM:    { view:true,  edit:true,  sign:false, review:true,  query:true,  finalize:true,  lock:true,  edit_final:true  },
+  PM:    { view:true,  edit:false, sign:false, review:true,  query:false, finalize:false, lock:false, edit_final:false },
+  Admin: { view:true,  edit:true,  sign:true,  review:true,  query:true,  finalize:true,  lock:true,  edit_final:true  },
+};
+
+const ROLE_COLORS = { CRC:'var(--blue-600)', CRA:'var(--purple-600)', PI:'var(--green-600)', DM:'var(--amber-700)', PM:'var(--slate-600)', Admin:'var(--red-600)' };
+const ROLE_BG     = { CRC:'var(--blue-50)',  CRA:'var(--purple-50)',  PI:'var(--green-50)',  DM:'var(--amber-50)',  PM:'var(--slate-50)',  Admin:'var(--red-50)'  };
+
+// Task definitions
+const TASKS = ['data_entry','monitoring','study_management','reporting'];
+const TASK_LABELS = { data_entry:'Data entry', monitoring:'Monitoring & SDV', study_management:'Study management', reporting:'Reporting & export' };
+
+// Task → form permission presets (6 perms that matter in practice)
+const FORM_PERMS_6 = ['view','edit','sign','review','query','finalize'];
+const FORM_PERM_LABELS_6 = { view:'Can view', edit:'Can edit', sign:'Can sign', review:'Can review', query:'Can query', finalize:'Can finalize' };
+const FORM_PERM_DESC_6 = { view:'Read form data and field values', edit:'Enter and modify field values', sign:'Apply electronic signature (PI level)', review:'Mark records as reviewed (CRA/DM)', query:'Raise, respond to, and close queries', finalize:'Mark form as final — triggers lock workflow' };
+
+const TASK_FORM_PERMS = {
+  data_entry:       { view:true,  edit:true,  sign:true,  review:false, query:true,  finalize:false },
+  monitoring:       { view:true,  edit:false, sign:false, review:true,  query:true,  finalize:false },
+  study_management: { view:true,  edit:false, sign:false, review:true,  query:false, finalize:true  },
+  reporting:        { view:true,  edit:false, sign:false, review:false, query:false, finalize:false },
+};
+
+// Task → study permission presets (4 that matter in practice)
+const STUDY_PERMS_4 = ['manage_subjects','lock_data','manage_study','export_data'];
+const STUDY_PERM_LABELS = { manage_subjects:'Manage subjects', lock_data:'Lock & finalize data', manage_study:'Study settings', export_data:'Export & reports' };
+const STUDY_PERM_DESC  = { manage_subjects:'Enroll, withdraw, and manage subject records', lock_data:'Lock forms, finalize data, sign off database', manage_study:'Edit study settings and configuration', export_data:'Export data and run reports' };
+
+const TASK_STUDY_PERMS = {
+  data_entry:       { manage_subjects:true,  lock_data:false, manage_study:false, export_data:false },
+  monitoring:       { manage_subjects:false, lock_data:false, manage_study:false, export_data:true  },
+  study_management: { manage_subjects:true,  lock_data:true,  manage_study:true,  export_data:true  },
+  reporting:        { manage_subjects:false, lock_data:false, manage_study:false, export_data:true  },
+};
+
+// Data perms folded into export_data study perm
+
+function mergeTaskPerms(tasks, lookup) {
+  const out = {};
+  tasks.forEach(t => { if(lookup[t]) Object.entries(lookup[t]).forEach(([k,v])=>{ if(v) out[k]=true; }); });
+  return out;
+}
+function buildRoleFromTasks(tasks) {
+  return {
+    formPermsDefault: mergeTaskPerms(tasks, TASK_FORM_PERMS),
+    studyPerms:       mergeTaskPerms(tasks, TASK_STUDY_PERMS),
+  };
+}
+
+const DEFAULT_ROLE_TASKS = { CRC:['data_entry'], CRA:['monitoring'], PI:['data_entry','monitoring'], DM:['study_management','reporting'], PM:['reporting'], Admin:['data_entry','monitoring','study_management','reporting'] };
+
+let ROLES = ['CRC','CRA','PI','DM','PM','Admin'].map((preset,i) => {
+  const tasks = DEFAULT_ROLE_TASKS[preset];
+  const desc = { CRC:'Clinical Research Coordinator — data entry and subject management', CRA:'Clinical Research Associate — monitoring and review', PI:'Principal Investigator — full clinical authority', DM:'Data Manager — data quality and lock authority', PM:'Project Manager — read-only access and reporting', Admin:'Administrator — full system access' }[preset];
+  const built = buildRoleFromTasks(tasks);
+  return { id:'R0'+(i+1), name:preset, code:preset[0], preset, desc, readOnly:false, allSites:false, tasks, perms:{...ROLE_PRESETS[preset]}, formPerms:Object.fromEntries(FORMS.map(f=>[f.id, {...built.formPermsDefault}])), studyPerms:{...built.studyPerms}, canManageRoles:preset==='Admin'?['CRC','CRA','PI','DM','PM']:[] };
+});
+
+let GROUPS = [
+  { id:'G01', name:'Treatment A', code:'TRT-A', ratio:1, blinded:'Group 1', color:'#1760A8' },
+  { id:'G02', name:'Treatment B', code:'TRT-B', ratio:1, blinded:'Group 2', color:'#1A6B47' },
+  { id:'G03', name:'Control',     code:'CTRL',  ratio:1, blinded:'Group 3', color:'#6D7480' },
+];
+
+const SITES_DATA = [
+  { id:'S01', name:'Austin', pi:'Dr. Margaret Tillson', subjects:9, status:'active' },
+  { id:'S02', name:'Dallas', pi:'Dr. James Okafor',     subjects:5, status:'active' },
+  { id:'S03', name:'Houston', pi:'Dr. Lucia Navarro',   subjects:3, status:'active' },
+];
+
+const FEE_EVENTS = [
+  { section:'Enrollment & Screening', name:'Screening visit',     trigger:'Subject screened',                rate:450 },
+  { section:'Enrollment & Screening', name:'Enrollment',          trigger:'Subject enrolled (ICF signed)',   rate:800 },
+  { section:'Enrollment & Screening', name:'Screen failure',      trigger:'Screen failure recorded',         rate:200 },
+  { section:'Protocol visits',        name:'Visit 1 — Baseline',  trigger:'V1 all forms complete',           rate:950 },
+  { section:'Protocol visits',        name:'Visit 2 — Day 7',     trigger:'V2 all forms complete',           rate:750 },
+  { section:'Protocol visits',        name:'Visit 5 — EOT',       trigger:'V5 all forms complete',           rate:1100 },
+  { section:'Safety events',          name:'SAE report',          trigger:'SAE form submitted <24h',         rate:1200 },
+  { section:'Study close-out',        name:'Database lock',       trigger:'Lock confirmed by DM',            rate:2500 },
+];
+
+// ═══════════════════════════════════════════════════════════
+// NAVIGATION
+// ═══════════════════════════════════════════════════════════
+function showSection(id) {
+  document.querySelectorAll('.settings-section').forEach(s=>s.classList.remove('active'));
+  document.querySelectorAll('.settings-nav-item').forEach(b=>b.classList.remove('active'));
+  document.getElementById('section-'+id)?.classList.add('active');
+  event.currentTarget.classList.add('active');
+  // Lazy render
+  if (id==='roles')        renderRoles();
+  if (id==='preferences')  { renderChangeReasons(); renderQueryTemplates(); renderSubjectCols(); }
+  if (id==='formperm')     renderFormPerms();
+  if (id==='billing')      renderBillingFee();
+  if (id==='randomization') renderGroups();
+  if (id==='audit')        renderSigForms();
+}
+
+// ═══════════════════════════════════════════════════════════
+// SITES
+// ═══════════════════════════════════════════════════════════
+const SITE_AMENDMENTS = {
+  S01:[{ version:'v2.1a', date:'2026-04-20', summary:'Austin-specific addendum: additional welfare checks for heifer subjects.', impact:'No impact — ongoing subjects unaffected' }],
+  S02:[], S03:[]
+};
+
+function renderSites() {
+  document.getElementById('sites-list').innerHTML = SITES_DATA.map(s=>`
+    <div class="settings-card" style="margin-bottom:var(--space-3)">
+      <div class="settings-card-header">
+        <div>
+          <div class="settings-card-title">${s.name}</div>
+          <div class="settings-card-desc">${s.pi} · ${s.subjects} subjects enrolled</div>
+        </div>
+        <div style="display:flex;gap:var(--space-2);align-items:center">
+          <span class="badge badge-green">Active</span>
+          <button class="btn-icon" onclick="toggleSiteCard('${s.id}')"><i class="ti ti-chevron-down" id="site-chev-${s.id}" style="font-size:14px"></i></button>
+        </div>
+      </div>
+      <div id="site-body-${s.id}" style="display:none;border-top:1px solid var(--color-border);padding:var(--space-4)">
+        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:var(--space-3)">
+          <div style="font-size:var(--text-xs);font-weight:500;text-transform:uppercase;letter-spacing:var(--tracking-caps);color:var(--color-text-tertiary)">Protocol amendments for ${s.name}</div>
+          <button class="btn-secondary" style="height:28px;font-size:var(--text-xs)" onclick="openAmendModal('${s.id}')"><i class="ti ti-plus"></i> Add amendment</button>
+        </div>
+        <div id="site-amendments-${s.id}">
+          ${(SITE_AMENDMENTS[s.id]||[]).length === 0
+            ? '<div style="font-size:var(--text-sm);color:var(--color-text-placeholder)">No site-specific amendments.</div>'
+            : (SITE_AMENDMENTS[s.id]||[]).map(a=>`
+              <div style="display:flex;align-items:flex-start;gap:var(--space-3);padding:var(--space-3) 0;border-bottom:1px solid var(--color-border-subtle)">
+                <span class="badge badge-purple" style="font-family:var(--font-mono);font-size:10px;flex-shrink:0">${a.version}</span>
+                <div style="flex:1">
+                  <div style="font-size:var(--text-xs);color:var(--color-text-tertiary);font-family:var(--font-mono)">${a.date}</div>
+                  <div style="font-size:var(--text-sm);color:var(--color-text-primary);margin-top:1px">${a.summary}</div>
+                  <div style="font-size:var(--text-xs);color:var(--color-text-tertiary);margin-top:2px">${a.impact}</div>
+                </div>
+              </div>`).join('')}
+        </div>
+      </div>
+    </div>`).join('');
+}
+
+function toggleSiteCard(id) {
+  const body = document.getElementById('site-body-'+id);
+  const chev = document.getElementById('site-chev-'+id);
+  const open = body.style.display === 'none';
+  body.style.display = open ? 'block' : 'none';
+  if (chev) chev.className = (open ? 'ti ti-chevron-up' : 'ti ti-chevron-down') + ' site-chev';
+  chev.style.cssText = 'font-size:14px';
+}
+
+// ═══════════════════════════════════════════════════════════
+// ROLES
+// ═══════════════════════════════════════════════════════════
+function renderRoles() {
+  document.getElementById('roles-list').innerHTML = ROLES.map(r => {
+    const color = ROLE_COLORS[r.preset] || 'var(--slate-600)';
+    const bg    = ROLE_BG[r.preset]    || 'var(--slate-50)';
+
+    // ── SECTION 1: Role info ────────────────────────────────────────────
+    const s1 = `
+      <div class="rcs-header">Role info</div>
+      <div style="display:flex;gap:var(--space-5);flex-wrap:wrap">
+        <div class="rcs-field">
+          <div class="rcs-label">Role name</div>
+          <input class="form-input" style="width:200px;height:36px;margin-top:4px" value="${r.name}" onblur="updateRoleName('${r.id}',this.value)">
+        </div>
+        <div class="rcs-field">
+          <div class="rcs-label">Role code</div>
+          <input class="form-input mono" style="width:80px;height:36px;text-align:center;margin-top:4px" value="${r.code||''}" placeholder="e.g. C" maxlength="2" onblur="updateRoleCode('${r.id}',this.value)">
+          <div class="rcs-hint">Single alphanumeric</div>
+        </div>
+        <label class="rcs-toggle-label" style="margin-top:0;padding-bottom:2px">
+          <label class="toggle" style="flex-shrink:0"><input type="checkbox" ${r.allSites?'checked':''} onchange="ROLES.find(x=>x.id==='${r.id}').allSites=this.checked"><span class="toggle-slider"></span></label>
+          <span>Add to all sites</span>
+        </label>
+        <label class="rcs-toggle-label" style="margin-top:0;padding-bottom:2px">
+          <label class="toggle" style="flex-shrink:0"><input type="checkbox" ${r.readOnly?'checked':''} onchange="setRoleReadOnly('${r.id}',this.checked)"><span class="toggle-slider"></span></label>
+          <span>Read-only permissions</span>
+        </label>
+      </div>`;
+
+    // ── SECTION 2: Tasks ────────────────────────────────────────────────
+    const s2 = `
+      <div id="role-tasks-section-${r.id}" style="${r.readOnly?'display:none':''}">
+        <hr class="rcs-divider">
+        <div class="rcs-header">Main tasks
+          <span class="rcs-header-hint">Checking a task auto-sets form and study permissions below</span>
+        </div>
+        <div class="task-cb-row">
+          ${TASKS.map(t=>`<label class="task-label${(r.tasks||[]).includes(t)?' checked':''}" id="task-lbl-${r.id}-${t}">
+            <input type="checkbox" ${(r.tasks||[]).includes(t)?'checked':''} style="accent-color:var(--blue-600)" onchange="onTaskChange('${r.id}','${t}',this.checked)">
+            <span>${TASK_LABELS[t]}</span>
+          </label>`).join('')}
+        </div>
+      </div>`;
+
+    // ── SECTION 3: Form permissions ─────────────────────────────────────
+    const fp = r.formPerms[FORMS[0]?.id] || {};
+    const s3 = `
+      <div id="role-formperm-section-${r.id}" style="${r.readOnly?'display:none':''}">
+        <hr class="rcs-divider">
+        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:var(--space-3)">
+          <div class="rcs-header" style="margin-bottom:0">Form permissions
+            <span class="rcs-header-hint">Applied to all forms by default · customise per-form in Form permissions</span>
+          </div>
+          <button class="reset-tasks-btn" onclick="resetFromTasks('${r.id}')"><i class="ti ti-refresh" style="font-size:11px"></i> Reset</button>
+        </div>
+        <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:var(--space-2)">
+          ${FORM_PERMS_6.map(p=>`
+            <label id="fp-lbl-${r.id}-${p}" style="display:flex;align-items:center;gap:var(--space-2);padding:var(--space-2) var(--space-3);border:1px solid ${fp[p]?'var(--blue-600)':'var(--color-border)'};border-radius:var(--radius-md);background:var(--color-surface);cursor:pointer;transition:border-color 120ms">
+              <input type="checkbox" ${fp[p]?'checked':''} style="accent-color:var(--blue-600)" onchange="onFormPermChange('${r.id}','${p}',this.checked)">
+              <div>
+                <div style="font-size:var(--text-sm);font-weight:500">${FORM_PERM_LABELS_6[p]}</div>
+                <div style="font-size:10px;color:var(--color-text-tertiary)">${FORM_PERM_DESC_6[p]}</div>
+              </div>
+            </label>`).join('')}
+        </div>
+      </div>`;
+
+    // ── SECTION 4: Study access ─────────────────────────────────────────
+    const sp = r.studyPerms || {};
+    const s4 = `
+      <hr class="rcs-divider">
+      <div class="rcs-header">Study access</div>
+      <div style="display:grid;grid-template-columns:repeat(2,1fr);gap:var(--space-2)">
+        ${STUDY_PERMS_4.map(p=>`
+          <label id="sp-lbl-${r.id}-${p}" style="display:flex;align-items:center;gap:var(--space-2);padding:var(--space-2) var(--space-3);border:1px solid ${sp[p]?'var(--blue-600)':'var(--color-border)'};border-radius:var(--radius-md);background:var(--color-surface);cursor:pointer;transition:border-color 120ms">
+            <input type="checkbox" ${sp[p]?'checked':''} style="accent-color:var(--blue-600)" onchange="onStudyPermChange('${r.id}','${p}',this.checked)">
+            <div>
+              <div style="font-size:var(--text-sm);font-weight:500">${STUDY_PERM_LABELS[p]}</div>
+              <div style="font-size:10px;color:var(--color-text-tertiary)">${STUDY_PERM_DESC[p]}</div>
+            </div>
+          </label>`).join('')}
+      </div>`;
+
+    // ── Manage users (only shown for Admin-level roles) ──────────────────
+    const s5 = r.canManageRoles!==undefined ? `
+      <hr class="rcs-divider">
+      <div class="rcs-header">User management
+        <span class="rcs-header-hint">Which roles this role can add/edit users for</span>
+      </div>
+      <div style="display:flex;gap:var(--space-2);flex-wrap:wrap">
+        ${ROLES.filter(x=>x.id!==r.id).map(x=>`
+          <label style="display:flex;align-items:center;gap:6px;padding:4px var(--space-3);border:1px solid var(--color-border);border-radius:var(--radius-full);font-size:var(--text-sm);cursor:pointer">
+            <input type="checkbox" ${(r.canManageRoles||[]).includes(x.name)?'checked':''} style="accent-color:var(--blue-600)" onchange="toggleManagedRole('${r.id}','${x.name}',this.checked)"> ${x.name}
+          </label>`).join('')}
+      </div>` : '';
+
+    return `<div class="role-card" style="margin-bottom:var(--space-3)">
+      <div class="role-card-header" onclick="toggleRole('${r.id}')">
+        <div class="role-icon" style="background:${bg}"><i class="ti ti-user-shield" style="color:${color}"></i></div>
+        <div style="flex:1">
+          <div class="role-name">${r.name}</div>
+          <div class="role-desc">${r.desc}</div>
+        </div>
+        <div style="display:flex;align-items:center;gap:var(--space-2)">
+          <div style="display:flex;gap:4px;flex-wrap:wrap">${(r.tasks||[]).map(t=>`<span class="badge badge-blue" style="font-size:10px">${TASK_LABELS[t]}</span>`).join('')}</div>
+          <i class="ti ti-chevron-down" style="font-size:14px;color:var(--color-text-tertiary)" id="role-chev-${r.id}"></i>
+        </div>
+      </div>
+      <div class="role-body" id="role-body-${r.id}">
+        ${s1}${s2}${s3}${s4}${s5}
+      </div>
+    </div>`;
+  }).join('');
+}
+
+// ── Role helper functions ──────────────────────────────────────────────
+function onFormPermChange(roleId, perm, val) {
+  const r = ROLES.find(x=>x.id===roleId); if(!r) return;
+  FORMS.forEach(f=>{ if(r.formPerms[f.id]) r.formPerms[f.id][perm]=val; });
+  const lbl = document.getElementById('fp-lbl-'+roleId+'-'+perm);
+  if (lbl) lbl.style.borderColor = val ? 'var(--blue-600)' : 'var(--color-border)';
+}
+
+function onStudyPermChange(roleId, perm, val) {
+  const r = ROLES.find(x=>x.id===roleId); if(!r) return;
+  if (!r.studyPerms) r.studyPerms={};
+  r.studyPerms[perm]=val;
+  const lbl = document.getElementById('sp-lbl-'+roleId+'-'+perm);
+  if (lbl) lbl.style.borderColor = val ? 'var(--blue-600)' : 'var(--color-border)';
+}
+
+function onTaskChange(roleId, task, val) {
+  const r = ROLES.find(x=>x.id===roleId); if(!r) return;
+  if(val){ if(!(r.tasks||[]).includes(task)) r.tasks=[...(r.tasks||[]),task]; }
+  else r.tasks=(r.tasks||[]).filter(t=>t!==task);
+  const built = buildRoleFromTasks(r.tasks);
+  FORMS.forEach(f=>{ r.formPerms[f.id]={...built.formPermsDefault}; });
+  r.studyPerms={...built.studyPerms};
+  // Update task label border
+  const lbl = document.getElementById('task-lbl-'+roleId+'-'+task);
+  if (lbl) lbl.classList.toggle('checked', val);
+  // Update form perm borders + checkboxes inline
+  FORM_PERMS_6.forEach(p => {
+    const fl = document.getElementById('fp-lbl-'+roleId+'-'+p);
+    if (!fl) return;
+    const checked = !!built.formPermsDefault[p];
+    fl.style.borderColor = checked ? 'var(--blue-600)' : 'var(--color-border)';
+    const cb = fl.querySelector('input[type=checkbox]'); if(cb) cb.checked = checked;
+  });
+  // Update study perm borders + checkboxes inline
+  STUDY_PERMS_4.forEach(p => {
+    const sl = document.getElementById('sp-lbl-'+roleId+'-'+p);
+    if (!sl) return;
+    const checked = !!built.studyPerms[p];
+    sl.style.borderColor = checked ? 'var(--blue-600)' : 'var(--color-border)';
+    const cb = sl.querySelector('input[type=checkbox]'); if(cb) cb.checked = checked;
+  });
+}
+
+function updateRoleName(id, val) { const r=ROLES.find(x=>x.id===id); if(r&&val.trim()) r.name=val.trim(); }
+function updateRoleCode(id, val) { const r=ROLES.find(x=>x.id===id); if(r) r.code=val.trim().toUpperCase().substring(0,2); }
+
+function setRoleReadOnly(id, val) {
+  const r = ROLES.find(x=>x.id===id); if(!r) return;
+  r.readOnly = val;
+  ['tasks','formperm'].forEach(sec => {
+    const el = document.getElementById('role-'+sec+'-section-'+id);
+    if (el) el.style.display = val ? 'none' : '';
+  });
+}
+
+function resetFromTasks(id) {
+  const r = ROLES.find(x=>x.id===id); if(!r) return;
+  const built = buildRoleFromTasks(r.tasks||[]);
+  FORMS.forEach(f=>{ r.formPerms[f.id]={...built.formPermsDefault}; });
+  r.studyPerms={...built.studyPerms};
+  // Update form perm checkboxes + borders
+  FORM_PERMS_6.forEach(p => {
+    const lbl = document.getElementById('fp-lbl-'+id+'-'+p);
+    if (!lbl) return;
+    const checked = !!built.formPermsDefault[p];
+    lbl.style.borderColor = checked ? 'var(--blue-600)' : 'var(--color-border)';
+    const cb = lbl.querySelector('input[type=checkbox]'); if(cb) cb.checked = checked;
+  });
+  // Update study perm checkboxes + borders
+  STUDY_PERMS_4.forEach(p => {
+    const lbl = document.getElementById('sp-lbl-'+id+'-'+p);
+    if (!lbl) return;
+    const checked = !!built.studyPerms[p];
+    lbl.style.borderColor = checked ? 'var(--blue-600)' : 'var(--color-border)';
+    const cb = lbl.querySelector('input[type=checkbox]'); if(cb) cb.checked = checked;
+  });
+  showToast('Permissions reset from tasks');
+}
+
+function toggleAllFormPerms(roleId, perm, val) {
+  const r=ROLES.find(x=>x.id===roleId); if(!r) return;
+  FORMS.forEach(f=>{ if(r.formPerms[f.id]) r.formPerms[f.id][perm]=val; });
+}
+function setStudyPerm(id, key, val) { const r=ROLES.find(x=>x.id===id); if(r){if(!r.studyPerms)r.studyPerms={};r.studyPerms[key]=val;} }
+function toggleRoleTask(id, task, val) {
+  const r=ROLES.find(x=>x.id===id); if(!r) return;
+  if(val){ if(!(r.tasks||[]).includes(task)) r.tasks=[...(r.tasks||[]),task]; }
+  else r.tasks=(r.tasks||[]).filter(t=>t!==task);
+}
+function toggleManagedRole(id, roleName, val) { const r=ROLES.find(x=>x.id===id); if(!r)return; if(!r.canManageRoles)r.canManageRoles=[]; if(val){if(!r.canManageRoles.includes(roleName))r.canManageRoles.push(roleName);}else r.canManageRoles=r.canManageRoles.filter(x=>x!==roleName); }
+
+function permDesc(p) {
+  return { view:'Read form data', edit:'Enter and modify field values', sign:'Apply electronic signature',
+    review:'Mark records as reviewed (CRA/PI)', query:'Raise and respond to queries',
+    finalize:'Mark form as final/complete', lock:'Lock form against further edits',
+    edit_final:'Edit data after finalization (DM only)' }[p] || '';
+}
+
+function toggleRole(id) {
+  const body = document.getElementById('role-body-'+id);
+  const chev = document.getElementById('role-chev-'+id);
+  const open = body.classList.toggle('open');
+  if (chev) chev.className = open ? 'ti ti-chevron-up' : 'ti ti-chevron-down';
+  chev.style.fontSize = '14px'; chev.style.color = 'var(--color-text-tertiary)';
+}
+
+function toggleRolePerm(roleId, perm, val) {
+  const r = ROLES.find(x=>x.id===roleId);
+  if (r) r.perms[perm] = val;
+}
+
+function editRole(id) {
+  const r = ROLES.find(x=>x.id===id);
+  if (!r) return;
+  document.getElementById('role-modal-title').textContent = 'Edit role — ' + r.name;
+  document.getElementById('role-name').value = r.name;
+  document.getElementById('role-preset').value = r.preset || '';
+  renderRolePermsGrid(r.perms);
+  document.getElementById('role-modal').classList.add('open');
+  document.getElementById('role-modal')._editId = id;
+}
+
+function openRoleModal() {
+  document.getElementById('role-modal-title').textContent = 'Create role';
+  document.getElementById('role-name').value = '';
+  document.getElementById('role-preset').value = '';
+  renderRolePermsGrid({});
+  document.getElementById('role-modal').classList.add('open');
+  document.getElementById('role-modal')._editId = null;
+}
+
+function renderRolePermsGrid(perms) {
+  document.getElementById('role-perms-grid').innerHTML = `
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:var(--space-2)">
+      ${PERMS.map(p=>`
+        <label style="display:flex;align-items:center;gap:var(--space-2);padding:var(--space-2) var(--space-3);background:var(--color-page-bg);border:1px solid var(--color-border);border-radius:var(--radius-md);cursor:pointer">
+          <input type="checkbox" id="mp-${p}" ${perms[p]?'checked':''} style="accent-color:var(--blue-600)">
+          <div>
+            <div style="font-size:var(--text-sm);font-weight:500">${PERM_LABELS[p]}</div>
+            <div style="font-size:10px;color:var(--color-text-tertiary)">${permDesc(p)}</div>
+          </div>
+        </label>`).join('')}
+    </div>`;
+}
+
+function applyPreset() {
+  const preset = document.getElementById('role-preset').value;
+  if (preset && ROLE_PRESETS[preset]) renderRolePermsGrid(ROLE_PRESETS[preset]);
+}
+
+function saveRole() {
+  const name = document.getElementById('role-name').value.trim();
+  if (!name) return;
+  const perms = {};
+  PERMS.forEach(p => { perms[p] = document.getElementById('mp-'+p)?.checked||false; });
+  const modal = document.getElementById('role-modal');
+  const editId = modal._editId;
+  if (editId) {
+    const r = ROLES.find(x=>x.id===editId);
+    if (r) { r.name=name; r.perms=perms; }
+  } else {
+    ROLES.push({ id:'R0'+(ROLES.length+1), name, preset:'', desc:'Custom role', perms,
+      formPerms: Object.fromEntries(FORMS.map(f=>[f.id, {...perms}])) });
+  }
+  closeRoleModal();
+  renderRoles();
+}
+
+function closeRoleModal() { document.getElementById('role-modal').classList.remove('open'); }
+
+// ═══════════════════════════════════════════════════════════
+// FORM PERMISSIONS
+// ═══════════════════════════════════════════════════════════
+function renderFormPerms() {
+  const container = document.getElementById('formperm-list');
+  const sections = {};
+  FORMS.forEach(f => { if (!sections[f.section]) sections[f.section]=[]; sections[f.section].push(f); });
+
+  container.innerHTML = Object.entries(sections).map(([sec, forms]) => `
+    <div style="margin-bottom:var(--space-4)">
+      <div style="font-size:var(--text-xs);font-weight:700;text-transform:uppercase;letter-spacing:var(--tracking-caps);color:var(--color-text-tertiary);margin-bottom:var(--space-2);padding-left:2px">${sec}</div>
+      <div class="fp-grid">
+        ${forms.map(f => `
+          <div class="fp-row">
+            <div class="fp-row-header" onclick="toggleFormPerm('${f.id}')">
+              <div style="flex:1">
+                <div class="fp-form-name">${f.name}</div>
+                <div class="fp-form-section">${f.section}${f.requiresSig?' · <span style="color:var(--blue-600)">Signature required</span>':''}</div>
+              </div>
+              <i class="ti ti-chevron-down" style="font-size:14px;color:var(--color-text-tertiary);flex-shrink:0" id="fp-chev-${f.id}"></i>
+            </div>
+            <div class="fp-table" id="fp-table-${f.id}">
+              <table class="fp-matrix">
+                <thead>
+                  <tr>
+                    <th>Role</th>
+                    ${FORM_PERMS_6.map(p=>`<th>
+                      <div style="display:flex;flex-direction:column;align-items:center;gap:3px">
+                        <span title="${FORM_PERM_DESC_6[p]}">${FORM_PERM_LABELS_6[p]}</span>
+                        <input type="checkbox" class="perm-cb" id="fp-col-all-${f.id}-${p}"
+                          title="Select all / deselect all"
+                          onchange="toggleFormPermCol('${f.id}','${p}',this.checked)"
+                          style="accent-color:var(--blue-600);cursor:pointer">
+                      </div>
+                    </th>`).join('')}
+                  </tr>
+                </thead>
+                <tbody>
+                  ${ROLES.map(r=>`<tr>
+                    <td style="font-weight:500">${r.name}</td>
+                    ${FORM_PERMS_6.map(p=>`<td>
+                      <input type="checkbox" class="perm-cb" id="fp-cb-${r.id}-${f.id}-${p}" ${r.formPerms[f.id]?.[p]?'checked':''}
+                        onchange="toggleFormPerm_cb('${r.id}','${f.id}','${p}',this.checked);updateColAllCheckbox('${f.id}','${p}')">
+                    </td>`).join('')}
+                  </tr>`).join('')}
+                </tbody>
+              </table>
+            </div>
+          </div>`).join('')}
+      </div>
+    </div>`).join('');
+
+  // Update col-all checkboxes state
+  FORMS.forEach(f => FORM_PERMS_6.forEach(p => updateColAllCheckbox(f.id, p)));
+}
+
+function toggleFormPerm(fid) {
+  const table = document.getElementById('fp-table-'+fid);
+  const chev  = document.getElementById('fp-chev-'+fid);
+  const open  = table.classList.toggle('open');
+  if (chev) chev.className = (open?'ti ti-chevron-up':'ti ti-chevron-down') + ' ';
+  chev.style.cssText='font-size:14px;color:var(--color-text-tertiary);flex-shrink:0;margin-left:var(--space-2)';
+}
+
+function toggleFormPerm_cb(roleId, formId, perm, val) {
+  const r = ROLES.find(x=>x.id===roleId);
+  if (r && r.formPerms[formId]) r.formPerms[formId][perm] = val;
+}
+
+let _allFormsExpanded = false;
+function toggleFormPermCol(formId, perm, val) {
+  ROLES.forEach(r => {
+    if (r.formPerms[formId]) r.formPerms[formId][perm] = val;
+    const cb = document.getElementById('fp-cb-'+r.id+'-'+formId+'-'+perm);
+    if (cb) cb.checked = val;
+  });
+}
+
+function updateColAllCheckbox(formId, perm) {
+  const allChecked = ROLES.every(r => r.formPerms[formId]?.[perm]);
+  const anyChecked = ROLES.some(r => r.formPerms[formId]?.[perm]);
+  const colCb = document.getElementById('fp-col-all-'+formId+'-'+perm);
+  if (!colCb) return;
+  colCb.checked = allChecked;
+  colCb.indeterminate = !allChecked && anyChecked;
+}
+
+// ── AI auto-group modal ────────────────────────────────────────────────────
+function openAIGroupModal() {
+  document.getElementById('ai-group-modal').classList.add('open');
+  // Simulate AI response after a short delay
+  setTimeout(simulateAIGrouping, 1200);
+}
+
+function simulateAIGrouping() {
+  const formNames = FORMS.map(f=>f.name);
+  const suggestions = {
+    'Visit forms':      FORMS.filter(f=>['Physical exam','Body weight log','Welfare assessment','Dosing record'].includes(f.name)).map(f=>f.id),
+    'Safety':           FORMS.filter(f=>['Adverse event','Concomitant medications'].includes(f.name)).map(f=>f.id),
+    'Enrollment':       FORMS.filter(f=>['Medical history','Informed consent (ICF)'].includes(f.name)).map(f=>f.id),
+    'Inventory':        FORMS.filter(f=>['Drug return log'].includes(f.name)).map(f=>f.id),
+    'Close-out':        FORMS.filter(f=>['Early termination'].includes(f.name)).map(f=>f.id),
+  };
+  const result = document.getElementById('ai-group-result');
+  result.innerHTML = Object.entries(suggestions).map(([group, ids])=>
+    ids.length===0 ? '' : `<div style="margin-bottom:var(--space-3)">
+      <div style="font-size:var(--text-sm);font-weight:500;margin-bottom:var(--space-2);display:flex;align-items:center;gap:var(--space-2)">
+        <input type="text" value="${group}" style="height:28px;padding:0 var(--space-2);font-size:var(--text-sm);font-weight:500;border:1px solid var(--color-border);border-radius:var(--radius-sm);background:transparent;outline:none;min-width:140px">
+      </div>
+      ${ids.map(id=>{const f=FORMS.find(x=>x.id===id);return f?`<div draggable="true" style="display:flex;align-items:center;gap:var(--space-2);padding:6px var(--space-3);background:var(--color-page-bg);border:1px solid var(--color-border-subtle);border-radius:var(--radius-sm);margin-bottom:4px;font-size:var(--text-sm);cursor:grab" ondragstart="this.style.opacity=0.5" ondragend="this.style.opacity=1"><i class="ti ti-grip-vertical" style="font-size:14px;color:var(--color-text-placeholder);flex-shrink:0"></i><span>${f.name}</span></div>`:''}).join('')}
+    </div>`
+  ).join('');
+  document.getElementById('ai-group-loading').style.display = 'none';
+  document.getElementById('ai-group-result').style.display = 'block';
+  document.getElementById('ai-group-apply-btn').style.display = '';
+}
+
+function closeAIGroupModal() {
+  document.getElementById('ai-group-modal').classList.remove('open');
+  document.getElementById('ai-group-loading').style.display = 'block';
+  document.getElementById('ai-group-result').style.display = 'none';
+  document.getElementById('ai-group-apply-btn').style.display = 'none';
+}
+
+function applyAIGrouping() {
+  closeAIGroupModal();
+  renderFormPerms();
+  showToast('Form groups applied');
+}
+
+
+function toggleExpandAll() {
+  _allFormsExpanded = !_allFormsExpanded;
+  FORMS.forEach(f => {
+    const table = document.getElementById('fp-table-'+f.id);
+    const chev  = document.getElementById('fp-chev-'+f.id);
+    if (table) table.classList.toggle('open', _allFormsExpanded);
+    if (chev) { chev.className='ti ti-chevron-'+(_allFormsExpanded?'up':'down'); chev.style.cssText='font-size:14px;color:var(--color-text-tertiary);flex-shrink:0'; }
+  });
+  const icon  = document.getElementById('expand-all-icon');
+  const label = document.getElementById('expand-all-label');
+  if (icon)  icon.className  = 'ti ti-'+(_allFormsExpanded?'arrows-minimize':'arrows-maximize');
+  if (label) label.textContent = _allFormsExpanded ? 'Collapse all' : 'Expand all';
+}
+
+function expandAllForms() { _allFormsExpanded=false; toggleExpandAll(); }
+
+// ═══════════════════════════════════════════════════════════
+// RANDOMIZATION GROUPS
+// ═══════════════════════════════════════════════════════════
+function renderGroups() {
+  const total = GROUPS.reduce((s,g)=>s+g.ratio,0);
+  const body  = document.getElementById('groups-body');
+  if (!body) return;
+  body.innerHTML = `
+    <div style="margin-bottom:var(--space-3)">
+      <div style="font-size:var(--text-xs);color:var(--color-text-tertiary);margin-bottom:var(--space-2)">Allocation ratio</div>
+      <div class="ratio-bar"><div style="display:flex;height:100%">${GROUPS.map(g=>`
+        <div class="ratio-fill" style="width:${Math.round(g.ratio/total*100)}%;background:${g.color};opacity:0.8" title="${g.name}: ${Math.round(g.ratio/total*100)}%"></div>`).join('')}</div></div>
+      <div style="display:flex;gap:var(--space-3);margin-top:var(--space-2)">
+        ${GROUPS.map(g=>`<span style="display:flex;align-items:center;gap:4px;font-size:var(--text-xs);color:var(--color-text-secondary)">
+          <span style="width:8px;height:8px;border-radius:50%;background:${g.color};display:inline-block"></span>
+          ${g.name} (${Math.round(g.ratio/total*100)}%)</span>`).join('')}
+      </div>
+    </div>
+    ${GROUPS.map(g=>`
+      <div class="group-row">
+        <div class="group-color-dot" style="background:${g.color}"></div>
+        <div style="flex:1">
+          <div style="font-size:var(--text-sm);font-weight:500">${g.name}</div>
+          <div style="font-size:var(--text-xs);color:var(--color-text-tertiary);font-family:var(--font-mono)">${g.code} · Blinded label: ${g.blinded}</div>
+        </div>
+        <div style="font-size:var(--text-sm);color:var(--color-text-secondary)">Ratio: ${g.ratio}</div>
+        <button class="btn-icon" title="Edit"><i class="ti ti-pencil"></i></button>
+        <button class="btn-icon" title="Remove" style="color:var(--red-200)"><i class="ti ti-trash"></i></button>
+      </div>`).join('')}`;
+}
+
+function openGroupModal()  { document.getElementById('group-modal').classList.add('open'); }
+function closeGroupModal() { document.getElementById('group-modal').classList.remove('open'); }
+function saveGroup() {
+  const name = document.getElementById('grp-name').value.trim();
+  if (!name) return;
+  const colors = ['#534AB7','#C94C0C','#8A5C00','#1A6B47'];
+  GROUPS.push({ id:'G0'+(GROUPS.length+1), name, code:document.getElementById('grp-code').value||name.substring(0,4).toUpperCase(), ratio:parseInt(document.getElementById('grp-ratio').value)||1, blinded:document.getElementById('grp-blinded').value||name, color:colors[GROUPS.length%colors.length] });
+  closeGroupModal();
+  renderGroups();
+}
+
+// ═══════════════════════════════════════════════════════════
+// AUDIT — signature forms
+// ═══════════════════════════════════════════════════════════
+function renderSigForms() {
+  const el = document.getElementById('sig-forms-body');
+  if (!el) return;
+  el.innerHTML = FORMS.map(f=>`
+    <div class="settings-row">
+      <div>
+        <div class="settings-row-label">${f.name}</div>
+        <div class="settings-row-desc">${f.section}</div>
+      </div>
+      <label class="toggle"><input type="checkbox" ${f.requiresSig?'checked':''} onchange="toggleSigRequired('${f.id}',this.checked)"><span class="toggle-slider"></span></label>
+    </div>`).join('');
+}
+
+function toggleSigRequired(fid, val) {
+  const f = FORMS.find(x=>x.id===fid);
+  if (f) f.requiresSig = val;
+}
+
+// ═══════════════════════════════════════════════════════════
+// BILLING FEE TABLE
+// ═══════════════════════════════════════════════════════════
+function renderBillingFee() {
+  const table = document.getElementById('billing-fee-table');
+  if (!table) return;
+  const sections = {};
+  FEE_EVENTS.forEach(e => { if (!sections[e.section]) sections[e.section]=[]; sections[e.section].push(e); });
+  let html = `<thead><tr>
+    <th>Event type</th><th>Trigger</th><th style="text-align:right">Default rate (USD)</th><th style="text-align:right"></th>
+  </tr></thead><tbody>`;
+  Object.entries(sections).forEach(([sec,evts])=>{
+    html += `<tr class="section-hdr"><td colspan="4">${sec}</td></tr>`;
+    evts.forEach(e=>{
+      html += `<tr>
+        <td style="font-weight:500">${e.name}</td>
+        <td style="color:var(--color-text-secondary);font-size:var(--text-sm)">${e.trigger}</td>
+        <td style="text-align:right"><input class="fee-input-sm" type="text" value="$${e.rate.toLocaleString('en-US')}"></td>
+        <td style="text-align:right"><button class="btn-icon"><i class="ti ti-pencil"></i></button></td>
+      </tr>`;
+    });
+  });
+  html += '</tbody>';
+  table.innerHTML = html;
+}
+
+// ═══════════════════════════════════════════════════════════
+// CLOSE MODALS ON OVERLAY CLICK
+// ═══════════════════════════════════════════════════════════
+document.querySelectorAll('.modal-overlay').forEach(el => {
+  el.addEventListener('click', e => { if (e.target===el) el.classList.remove('open'); });
+});
+
+
+
+// ═══════════════════════════════════════════════════════════
+// STUDY PREFERENCES
+// ═══════════════════════════════════════════════════════════
+let CHANGE_REASONS = [
+  'Data entry error',
+  'Transcription error from source document',
+  'Protocol deviation correction',
+  'Clarification from investigator',
+  'Lab result correction',
+  'Unit of measure error',
+  'Date/time correction',
+];
+
+let QUERY_TEMPLATES = [
+  { text:'Please clarify this value — it appears inconsistent with other records for this subject.' },
+  { text:'This value is outside the protocol-defined range. Please confirm or correct.' },
+  { text:'Missing data: this field is required for this visit. Please complete.' },
+  { text:'Please confirm the date — it appears to conflict with the visit schedule.' },
+  { text:'Adverse event severity does not match the narrative description. Please reconcile.' },
+];
+
+const SUBJECT_COLS = [
+  { id:'subject_id', label:'Subject ID',  default:true,  removable:false },
+  { id:'age',        label:'Age',          default:true,  removable:true  },
+  { id:'weight',     label:'Weight',       default:true,  removable:true  },
+  { id:'status',     label:'Status',       default:true,  removable:true  },
+  { id:'group',      label:'Group / Arm',  default:true,  removable:true  },
+  { id:'last_visit', label:'Last visit',   default:true,  removable:true  },
+  { id:'forms',      label:'Forms',        default:false, removable:true  },
+  { id:'queries',    label:'Queries',      default:false, removable:true  },
+  { id:'overdue',    label:'Overdue',      default:false, removable:true  },
+];
+
+function renderChangeReasons() {
+  const el = document.getElementById('change-reasons-body');
+  if (!el) return;
+  el.innerHTML = CHANGE_REASONS.map((r,i)=>`
+    <div style="display:flex;align-items:center;gap:var(--space-3);padding:var(--space-2) 0;border-bottom:1px solid var(--color-border-subtle)">
+      <i class="ti ti-grip-vertical" style="font-size:14px;color:var(--color-text-placeholder);cursor:grab"></i>
+      <input class="form-input" style="height:30px;font-size:var(--text-sm)" value="${r}" onblur="CHANGE_REASONS[${i}]=this.value">
+      <button class="btn-icon" onclick="CHANGE_REASONS.splice(${i},1);renderChangeReasons()"><i class="ti ti-trash" style="font-size:14px;color:var(--color-text-placeholder)"></i></button>
+    </div>`).join('') || '<div style="font-size:var(--text-sm);color:var(--color-text-placeholder)">No change reasons defined.</div>';
+}
+
+function addChangeReason() {
+  CHANGE_REASONS.push('New change reason');
+  renderChangeReasons();
+}
+
+function renderQueryTemplates() {
+  const el = document.getElementById('query-templates-body');
+  if (!el) return;
+  el.innerHTML = QUERY_TEMPLATES.map((q,i)=>`
+    <div style="display:flex;align-items:center;gap:var(--space-3);padding:var(--space-2) 0;border-bottom:1px solid var(--color-border-subtle)">
+      <input class="form-input" style="height:30px;font-size:var(--text-sm)" value="${q.text}" onblur="QUERY_TEMPLATES[${i}].text=this.value">
+      <button class="btn-icon" onclick="QUERY_TEMPLATES.splice(${i},1);renderQueryTemplates()"><i class="ti ti-trash" style="font-size:14px;color:var(--color-text-placeholder)"></i></button>
+    </div>`).join('') || '<div style="font-size:var(--text-sm);color:var(--color-text-placeholder)">No query templates defined.</div>';
+}
+
+function addQueryTemplate() {
+  QUERY_TEMPLATES.push({ text:'New query template' });
+  renderQueryTemplates();
+}
+
+function renderSubjectCols() {
+  const el = document.getElementById('subject-cols-body');
+  if (!el) return;
+  const roleNames = ROLES.map(r=>r.name);
+
+  el.innerHTML = `
+    <div style="font-size:var(--text-xs);color:var(--color-text-tertiary);margin-bottom:var(--space-3)">Subject ID is always shown. Toggle other columns, set role visibility, or add custom columns from form fields.</div>
+    <table style="width:100%;border-collapse:collapse;font-size:var(--text-sm)">
+      <thead><tr>
+        <th style="text-align:left;padding:var(--space-2) var(--space-3);font-size:10px;font-weight:500;text-transform:uppercase;letter-spacing:var(--tracking-caps);color:var(--color-text-tertiary);border-bottom:1px solid var(--color-border)">Column</th>
+        <th style="text-align:center;padding:var(--space-2) var(--space-3);font-size:10px;font-weight:500;text-transform:uppercase;letter-spacing:var(--tracking-caps);color:var(--color-text-tertiary);border-bottom:1px solid var(--color-border)">Show</th>
+        <th style="text-align:left;padding:var(--space-2) var(--space-3);font-size:10px;font-weight:500;text-transform:uppercase;letter-spacing:var(--tracking-caps);color:var(--color-text-tertiary);border-bottom:1px solid var(--color-border)">Hidden from roles</th>
+        <th style="padding:var(--space-2) var(--space-3);border-bottom:1px solid var(--color-border)"></th>
+      </tr></thead>
+      <tbody>
+        ${SUBJECT_COLS.map((col,i)=>`<tr style="border-bottom:1px solid var(--color-border-subtle)">
+          <td style="padding:var(--space-2) var(--space-3)">
+            <span style="font-weight:500">${col.label}</span>
+            ${!col.removable?'<span style="font-size:10px;color:var(--color-text-placeholder);margin-left:6px">Required</span>':''}
+          </td>
+          <td style="text-align:center;padding:var(--space-2) var(--space-3)">
+            <input type="checkbox" ${col.default?'checked':''} ${!col.removable?'disabled':''} style="accent-color:var(--blue-600)">
+          </td>
+          <td style="padding:var(--space-2) var(--space-3)">
+            ${col.removable ? `<div style="display:flex;gap:4px;flex-wrap:wrap">
+              ${roleNames.map(r=>`<label style="display:flex;align-items:center;gap:4px;font-size:10px;cursor:pointer;padding:2px 6px;border:1px solid var(--color-border);border-radius:var(--radius-full);background:var(--color-page-bg)">
+                <input type="checkbox" style="width:10px;height:10px;accent-color:var(--orange-600)"> ${r}
+              </label>`).join('')}
+            </div>` : '<span style="color:var(--color-text-placeholder);font-size:var(--text-xs)">—</span>'}
+          </td>
+          <td style="padding:var(--space-2) var(--space-3);text-align:right">
+            ${col.removable ? `<button class="btn-icon" onclick="SUBJECT_COLS.splice(${i},1);renderSubjectCols()" title="Remove"><i class="ti ti-trash" style="font-size:13px;color:var(--color-text-placeholder)"></i></button>` : ''}
+          </td>
+        </tr>`).join('')}
+      </tbody>
+    </table>
+    <div style="margin-top:var(--space-4);padding-top:var(--space-3);border-top:1px solid var(--color-border-subtle)">
+      <div style="font-size:var(--text-xs);font-weight:500;text-transform:uppercase;letter-spacing:var(--tracking-caps);color:var(--color-text-tertiary);margin-bottom:var(--space-3)">Add column from form field</div>
+      <div style="display:grid;grid-template-columns:1fr 1fr 1fr auto;gap:var(--space-3);align-items:end">
+        <div style="display:flex;flex-direction:column;gap:4px">
+          <div style="font-size:var(--text-xs);font-weight:500;color:var(--color-text-secondary)">Column label</div>
+          <input class="form-input" id="add-col-name" placeholder="e.g. Weight" style="height:32px">
+        </div>
+        <div style="display:flex;flex-direction:column;gap:4px">
+          <div style="font-size:var(--text-xs);font-weight:500;color:var(--color-text-secondary)">Form</div>
+          <select class="form-select" id="add-col-form" style="height:32px;width:100%">
+            <option>Physical exam</option><option>Body weight log</option><option>Welfare assessment</option><option>Dosing record</option>
+          </select>
+        </div>
+        <div style="display:flex;flex-direction:column;gap:4px">
+          <div style="font-size:var(--text-xs);font-weight:500;color:var(--color-text-secondary)">Field</div>
+          <select class="form-select" id="add-col-field" style="height:32px;width:100%">
+            <option>Body weight (kg)</option><option>Temperature (°C)</option><option>BCS score</option><option>Heart rate</option>
+          </select>
+        </div>
+        <button class="btn-secondary" style="height:32px" onclick="addFieldColumn()"><i class="ti ti-plus"></i> Add</button>
+      </div>
+    </div>`;
+}
+
+function addFieldColumn() {
+  const name  = document.getElementById('add-col-name')?.value.trim();
+  const form  = document.getElementById('add-col-form')?.value  || '';
+  const field = document.getElementById('add-col-field')?.value || '';
+  if (!field) return;
+  const label = name || field;
+  SUBJECT_COLS.push({ id:'custom_'+Date.now(), label, source:field+' ('+form+')', default:true, removable:true, hiddenFrom:[] });
+  const nameInput = document.getElementById('add-col-name');
+  if (nameInput) nameInput.value = '';
+  renderSubjectCols();
+  showToast('Column added');
+}
+
+// ═══════════════════════════════════════════════════════════
+// PROTOCOL AMENDMENTS
+// ═══════════════════════════════════════════════════════════
+let AMENDMENTS = [
+  { id:'A01', version:'v2.1', date:'2026-03-15', summary:'Added welfare assessment form to all visit windows. Updated dosing calculation formula.', impact:'No impact — ongoing subjects unaffected' },
+];
+
+function renderAmendments() {
+  const el = document.getElementById('amendments-list');
+  if (!el) return;
+  el.innerHTML = AMENDMENTS.length === 0
+    ? `<div style="font-size:var(--text-sm);color:var(--color-text-placeholder)">No amendments recorded.</div>`
+    : AMENDMENTS.map(a => `
+      <div style="display:flex;align-items:flex-start;gap:var(--space-3);padding:var(--space-3) 0;border-bottom:1px solid var(--color-border-subtle)">
+        <div style="flex-shrink:0;margin-top:1px">
+          <span class="badge badge-purple" style="font-family:var(--font-mono);font-size:10px">${a.version}</span>
+        </div>
+        <div style="flex:1;min-width:0">
+          <div style="font-size:var(--text-xs);color:var(--color-text-tertiary);font-family:var(--font-mono);margin-bottom:2px">${a.date}</div>
+          <div style="font-size:var(--text-sm);color:var(--color-text-primary)">${a.summary}</div>
+          <div style="font-size:var(--text-xs);color:var(--color-text-tertiary);margin-top:3px;display:flex;align-items:center;gap:4px"><i class="ti ti-info-circle" style="font-size:10px"></i>${a.impact}</div>
+        </div>
+        <button class="btn-icon" onclick="removeAmendment('${a.id}')"><i class="ti ti-trash" style="font-size:14px;color:var(--color-text-placeholder)"></i></button>
+      </div>`).join('');
+}
+
+let _amendSiteId = null;
+function openAmendModal(siteId) {
+  _amendSiteId = siteId||null;
+  document.getElementById('amend-modal').classList.add('open');
+}
+function closeAmendModal() { document.getElementById('amend-modal').classList.remove('open'); }
+
+function saveAmendment() {
+  const version = document.getElementById('am-version')?.value.trim();
+  const date    = document.getElementById('am-date')?.value.trim();
+  const summary = document.getElementById('am-summary')?.value.trim();
+  if (!version || !summary) return;
+  const newAmend = { version, date:date||'—', summary, impact:document.getElementById('am-impact')?.value||'' };
+  if (_amendSiteId) {
+    if (!SITE_AMENDMENTS[_amendSiteId]) SITE_AMENDMENTS[_amendSiteId]=[];
+    SITE_AMENDMENTS[_amendSiteId].push(newAmend);
+    closeAmendModal();
+    renderSites();
+    // Re-open the site card
+    const body = document.getElementById('site-body-'+_amendSiteId);
+    if (body) body.style.display = 'block';
+  } else {
+    AMENDMENTS.push({ id:'A'+String(AMENDMENTS.length+1).padStart(2,'0'), ...newAmend });
+    closeAmendModal();
+    renderAmendments();
+  }
+  showToast('Amendment saved');
+}
+
+function removeAmendment(id) {
+  AMENDMENTS = AMENDMENTS.filter(a=>a.id!==id);
+  renderAmendments();
+}
+
+// ═══════════════════════════════════════════════════════════
+// STUDY INFO INLINE EDIT
+// ═══════════════════════════════════════════════════════════
+function editStudyInfo() {
+  document.getElementById('study-info-edit').style.display = 'block';
+  document.getElementById('study-info-edit-btn').style.display = 'none';
+}
+function cancelStudyInfo() {
+  document.getElementById('study-info-edit').style.display = 'none';
+  document.getElementById('study-info-edit-btn').style.display = '';
+}
+function saveStudyInfo() {
+  document.getElementById('si-title-view').textContent   = document.getElementById('si-title-inp').value;
+  document.getElementById('si-sponsor-view').textContent = document.getElementById('si-sponsor-inp').value;
+  document.getElementById('si-ind-view').textContent     = document.getElementById('si-ind-inp').value;
+  cancelStudyInfo();
+  showToast('Study information saved');
+}
+
+// ═══════════════════════════════════════════════════════════
+// AUTOSAVE TOAST
+// ═══════════════════════════════════════════════════════════
+let _toastTimer;
+function showToast(msg) {
+  const t = document.getElementById('autosave-toast');
+  if (!t) return;
+  document.getElementById('autosave-toast-text').textContent = msg || 'Saved';
+  t.classList.add('show');
+  clearTimeout(_toastTimer);
+  _toastTimer = setTimeout(()=>t.classList.remove('show'), 2000);
+}
+function autosaveField(el, label) { showToast((label||'Field') + ' saved'); }
+
+// ═══════════════════════════════════════════════════════════
+// STUDY TYPE + HIERARCHY
+// ═══════════════════════════════════════════════════════════
+const HIERARCHY_PRESETS = {
+  livestock: [
+    { fixed:true,  isSubject:false, value:'Site',   options:['Site'] },
+    { fixed:false, isSubject:false, value:'Barn',   options:['Barn','Shed','Paddock','Feedlot','Pasture','Building'] },
+    { fixed:false, isSubject:false, value:'Pen',    options:['Pen','Stall','Lot','Group','Run','Cage'] },
+    { fixed:false, isSubject:true,  value:'Animal', options:['Animal','Bovine','Pig','Sheep','Horse','Individual'] },
+  ],
+  companion: [
+    { fixed:true,  isSubject:false, value:'Site',        options:['Site'] },
+    { fixed:false, isSubject:false, value:'Clinic ward', options:['Clinic ward','Ward','Unit','Department','Building'] },
+    { fixed:false, isSubject:false, value:'Cage',        options:['Cage','Kennel','Run','Room','Crate'], optional:true },
+    { fixed:false, isSubject:true,  value:'Pet',         options:['Pet','Dog','Cat','Rabbit','Patient','Animal'] },
+  ],
+  aquatic: [
+    { fixed:true,  isSubject:false, value:'Site',      options:['Site'] },
+    { fixed:false, isSubject:false, value:'Tank room', options:['Tank room','Facility','Building','Wing'] },
+    { fixed:false, isSubject:false, value:'Tank',      options:['Tank','Pond','Raceway','Aquarium'] },
+    { fixed:false, isSubject:true,  value:'Fish',      options:['Fish','Animal','Individual'] },
+  ],
+  custom: [
+    { fixed:true,  isSubject:false, value:'Site',     options:['Site'] },
+    { fixed:false, isSubject:false, value:'Building', options:['Building','Ward','Barn','Room','Shed','Tank'] },
+    { fixed:false, isSubject:true,  value:'Animal',   options:['Animal','Subject','Patient','Individual','Fish'] },
+  ],
+};
+const ALL_LEVEL_OPTIONS = ['Site','Barn','Shed','Paddock','Feedlot','Pasture','Pen','Stall','Lot','Group','Run','Clinic ward','Ward','Unit','Department','Cage','Kennel','Room','Crate','Tank room','Tank','Pond','Raceway','Aquarium','Building','Wing','Housing unit','Animal','Bovine','Pig','Sheep','Horse','Dog','Cat','Rabbit','Fish','Primate','Patient','Individual','Subject'];
+
+let currentHierarchy = HIERARCHY_PRESETS.livestock.map(l=>({...l}));
+
+function setStudyType(type) {
+  document.querySelectorAll('.study-type-btn').forEach(b=>b.classList.remove('active'));
+  event.currentTarget.classList.add('active');
+  currentHierarchy = HIERARCHY_PRESETS[type].map(l=>({...l}));
+  renderHierarchy();
+}
+
+function renderHierarchy() {
+  const container = document.getElementById('hierarchy-levels');
+  if (!container) return;
+  container.innerHTML = currentHierarchy.map((level, i) => {
+    const opts = [...new Set([...level.options, ...ALL_LEVEL_OPTIONS])].map(o=>
+      `<option value="${o}" ${level.value===o?'selected':''}>${o}</option>`).join('');
+    return `<div class="hierarchy-level">
+      <div class="hier-num">${i+1}</div>
+      <div style="font-size:var(--text-xs);color:var(--color-text-tertiary);min-width:56px">${level.fixed?'Fixed':level.isSubject?'Subject':'Level '+(i+1)}</div>
+      ${level.fixed
+        ? `<span style="font-size:var(--text-sm);font-weight:500">Site</span>`
+        : `<select class="hier-select" onchange="updateHierarchyLevel(${i},this.value)">${opts}</select>`}
+      ${level.isSubject ? `<span class="hier-subject-badge">Subject level</span>` : ''}
+      ${level.optional ? `<span style="font-size:10px;color:var(--color-text-placeholder);font-style:italic">optional</span>` : ''}
+      ${!level.fixed ? `<button class="btn-icon" style="margin-left:auto" onclick="removeHierarchyLevel(${i})" title="Remove"><i class="ti ti-x" style="font-size:13px"></i></button>` : '<div style="margin-left:auto"></div>'}
+    </div>`;
+  }).join('');
+}
+
+function updateHierarchyLevel(i, val) { currentHierarchy[i].value = val; showToast('Hierarchy updated'); }
+
+function addHierarchyLevel() {
+  const subIdx = currentHierarchy.findIndex(l=>l.isSubject);
+  const newLevel = { fixed:false, isSubject:false, value:'Room', options:ALL_LEVEL_OPTIONS };
+  if (subIdx > -1) currentHierarchy.splice(subIdx, 0, newLevel);
+  else currentHierarchy.push(newLevel);
+  renderHierarchy();
+}
+
+function removeHierarchyLevel(i) {
+  if (currentHierarchy[i]?.isSubject || currentHierarchy[i]?.fixed) return;
+  currentHierarchy.splice(i, 1);
+  renderHierarchy();
+}
+
+// ═══════════════════════════════════════════════════════════
+// SAVE MODE
+// ═══════════════════════════════════════════════════════════
+function setSaveMode(mode) {
+  const notes = {
+    field:'Field-level autosave: each field saves individually on blur. Reason for change triggered per field.',
+    form: 'Form-level submit: all fields saved together on submit. CRC reviews the full form before committing.',
+  };
+  const noteEl = document.getElementById('save-mode-note-text');
+  if (noteEl) noteEl.textContent = notes[mode] || '';
+  showToast('Save mode updated');
+}
+
+
+// Boot — render initial section
+renderRoles();
+renderHierarchy();
+renderAmendments();
+renderChangeReasons();
+renderQueryTemplates();
+renderSubjectCols();
+</script>
+
+
+<!-- AI auto-group modal -->
+<div class="modal-overlay" id="ai-group-modal">
+  <div class="modal" style="width:520px">
+    <div class="modal-header">
+      <div>
+        <div class="modal-title" style="display:flex;align-items:center;gap:var(--space-2)">
+          <i class="ti ti-sparkles" style="color:var(--purple-600)"></i> Auto-group forms
+        </div>
+        <div style="font-size:var(--text-xs);color:var(--color-text-tertiary);margin-top:2px">AI analyses your form names and suggests logical groups</div>
+      </div>
+      <button class="modal-close" onclick="closeAIGroupModal()"><i class="ti ti-x"></i></button>
+    </div>
+    <div style="padding:var(--space-5);overflow-y:auto;max-height:460px">
+      <div id="ai-group-loading" style="display:flex;align-items:center;gap:var(--space-3);padding:var(--space-4)">
+        <i class="ti ti-loader-2" style="font-size:20px;color:var(--purple-600);animation:spin 0.8s linear infinite"></i>
+        <span style="font-size:var(--text-sm);color:var(--color-text-secondary)">Analysing form names…</span>
+      </div>
+      <div id="ai-group-result" style="display:none"></div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn-secondary" onclick="closeAIGroupModal()">Cancel</button>
+      <button class="btn-primary" id="ai-group-apply-btn" onclick="applyAIGrouping()" style="display:none"><i class="ti ti-check"></i> Apply grouping</button>
+    </div>
+  </div>
+</div>
+
+<!-- Autosave toast -->
+<div class="autosave-toast" id="autosave-toast">
+  <i class="ti ti-circle-check" style="font-size:14px"></i>
+  <span id="autosave-toast-text">Saved</span>
+</div>
+
+</body>
+</html>
