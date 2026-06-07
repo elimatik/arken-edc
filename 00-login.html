@@ -1,0 +1,596 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Arken EDC — Sign in</title>
+<link href="https://fonts.googleapis.com/css2?family=Roboto:wght@400;500;700&family=Roboto+Mono:wght@400;500&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@tabler/icons-webfont@latest/tabler-icons.min.css">
+<style>
+:root {
+  --color-nav-bg:#1A1F2E; --color-nav-hover:#2C3248;
+  --color-page-bg:#FBFBFB; --color-surface:#FFFFFF;
+  --color-border:#E8E8E6; --color-border-subtle:#F0F0EE;
+  --color-text-primary:#2C2D33; --color-text-secondary:#4F535B;
+  --color-text-tertiary:#6D7480; --color-text-placeholder:#C4C4C2;
+  --color-hover-bg:#F0F0EE; --color-focus-ring:#3D8FE0;
+  --color-cta-bg:#1A1F2E; --color-cta-hover:#2C3248;
+  --red-600:#B52626; --red-50:#FFF0F0; --red-200:#EC8585;
+  --green-50:#EEFAF4; --green-200:#58BC88; --green-600:#1A6B47;
+  --blue-50:#E8F4FF; --blue-200:#7AB8EE; --blue-600:#1760A8;
+  --amber-50:#FFF8E7; --amber-200:#F5B830; --amber-700:#8A5C00;
+  --purple-50:#F0EEFF; --purple-200:#A9A3EC; --purple-600:#534AB7;
+  --slate-50:#EEF1F6; --slate-200:#8AA0B8; --slate-600:#3D5A78;
+  --orange-50:#FFF0E8; --orange-200:#F48E50; --orange-700:#A33A08;
+  --font-sans:'Roboto',system-ui,sans-serif;
+  --font-mono:'Roboto Mono',monospace;
+  --text-xs:11px; --text-sm:12px; --text-base:14px; --text-lg:16px;
+  --text-xl:18px; --text-2xl:20px; --text-3xl:24px;
+  --weight-medium:500; --weight-bold:700;
+  --radius-sm:2px; --radius-md:4px; --radius-lg:6px; --radius-full:9999px;
+  --space-1:4px; --space-2:8px; --space-3:12px; --space-4:16px;
+  --space-5:20px; --space-6:24px; --space-8:32px; --space-10:40px;
+  --duration-fast:120ms; --ease-default:cubic-bezier(0.16,1,0.3,1);
+  --tracking-caps:0.07em;
+}
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+body{font-family:var(--font-sans);font-size:var(--text-base);color:var(--color-text-primary);background:var(--color-page-bg);-webkit-font-smoothing:antialiased;min-height:100vh}
+
+/* ─── SCREENS ── */
+.screen{display:none;min-height:100vh}
+.screen.active{display:flex}
+
+/* ═══════════════════════════════════════════════════════════
+   SCREEN 1 — LOGIN
+   Two-column: left = brand panel, right = form
+═══════════════════════════════════════════════════════════ */
+#screen-login{flex-direction:row}
+
+/* Left brand panel */
+.login-brand{width:420px;flex-shrink:0;background:var(--color-nav-bg);display:flex;flex-direction:column;padding:var(--space-10);position:relative;overflow:hidden}
+.login-brand-top{flex:1;display:flex;flex-direction:column;justify-content:center}
+.brand-logo{display:flex;align-items:center;gap:var(--space-3);margin-bottom:var(--space-8)}
+.brand-logo-mark{width:40px;height:40px;background:#fff;border-radius:var(--radius-md);display:flex;align-items:center;justify-content:center}
+.brand-logo-mark span{font-size:var(--text-lg);font-weight:700;color:var(--color-nav-bg);font-family:var(--font-mono)}
+.brand-logo-name{font-size:var(--text-xl);font-weight:700;color:#fff;letter-spacing:-0.01em}
+.brand-logo-sub{font-size:var(--text-sm);color:rgba(255,255,255,0.45);font-weight:400;margin-left:2px}
+.brand-headline{font-size:28px;font-weight:500;color:#fff;line-height:1.3;margin-bottom:var(--space-4)}
+.brand-desc{font-size:var(--text-sm);color:rgba(255,255,255,0.55);line-height:1.6;max-width:300px}
+.brand-features{margin-top:var(--space-8);display:flex;flex-direction:column;gap:var(--space-3)}
+.brand-feat{display:flex;align-items:center;gap:var(--space-3)}
+.brand-feat-icon{width:28px;height:28px;border-radius:var(--radius-md);background:rgba(255,255,255,0.08);display:flex;align-items:center;justify-content:center;flex-shrink:0}
+.brand-feat-icon i{font-size:14px;color:rgba(255,255,255,0.6)}
+.brand-feat-text{font-size:var(--text-sm);color:rgba(255,255,255,0.5)}
+.brand-bottom{font-size:var(--text-xs);color:rgba(255,255,255,0.25);padding-top:var(--space-6);border-top:1px solid rgba(255,255,255,0.08)}
+
+/* Subtle background grid */
+.brand-grid{position:absolute;inset:0;opacity:0.04;background-image:linear-gradient(rgba(255,255,255,0.5) 1px,transparent 1px),linear-gradient(90deg,rgba(255,255,255,0.5) 1px,transparent 1px);background-size:32px 32px;pointer-events:none}
+
+/* Right form panel */
+.login-form-panel{flex:1;display:flex;align-items:center;justify-content:center;padding:var(--space-8)}
+.login-form-box{width:100%;max-width:400px}
+.login-form-title{font-size:var(--text-3xl);font-weight:500;color:var(--color-text-primary);margin-bottom:var(--space-1)}
+.login-form-sub{font-size:var(--text-sm);color:var(--color-text-tertiary);margin-bottom:var(--space-8)}
+
+/* Form fields */
+.field-group{display:flex;flex-direction:column;gap:var(--space-2);margin-bottom:var(--space-5)}
+.field-label{font-size:var(--text-sm);font-weight:500;color:var(--color-text-primary)}
+.field-input-wrap{position:relative}
+.field-input{width:100%;height:42px;padding:0 var(--space-3);font-size:var(--text-base);font-family:var(--font-sans);border:1px solid var(--color-border);border-radius:var(--radius-md);background:var(--color-surface);color:var(--color-text-primary);outline:none;transition:border-color var(--duration-fast),box-shadow var(--duration-fast)}
+.field-input:focus{border-color:var(--color-focus-ring);box-shadow:0 0 0 3px rgba(61,143,224,0.15)}
+.field-input.has-icon{padding-right:40px}
+.field-input.error{border-color:var(--red-600)}
+.field-input.error:focus{box-shadow:0 0 0 3px rgba(181,38,38,0.12)}
+.field-icon-btn{position:absolute;right:0;top:0;bottom:0;width:40px;display:flex;align-items:center;justify-content:center;background:none;border:none;cursor:pointer;color:var(--color-text-placeholder)}
+.field-icon-btn:hover{color:var(--color-text-secondary)}
+.field-icon-btn i{font-size:16px}
+.field-error{font-size:var(--text-xs);color:var(--red-600);display:none}
+.field-error.visible{display:block}
+.field-hint-row{display:flex;justify-content:space-between;align-items:center}
+.field-forgot{font-size:var(--text-xs);color:var(--color-link);background:none;border:none;cursor:pointer;font-family:var(--font-sans);text-decoration:underline;text-underline-offset:2px}
+.field-forgot:hover{color:var(--color-text-primary)}
+
+/* Sign in button */
+.btn-signin{width:100%;height:44px;border:none;border-radius:var(--radius-md);background:var(--color-cta-bg);color:#fff;font-size:var(--text-base);font-weight:500;font-family:var(--font-sans);cursor:pointer;transition:background var(--duration-fast);display:flex;align-items:center;justify-content:center;gap:var(--space-2);margin-top:var(--space-6)}
+.btn-signin:hover{background:var(--color-cta-hover)}
+.btn-signin:disabled{opacity:0.5;cursor:not-allowed}
+.btn-signin i{font-size:16px}
+
+/* Error callout */
+.login-error{display:none;background:var(--red-50);border:1px solid var(--red-200);border-radius:var(--radius-md);padding:var(--space-3) var(--space-4);font-size:var(--text-sm);color:var(--red-600);margin-bottom:var(--space-4);align-items:center;gap:var(--space-2)}
+.login-error.visible{display:flex}
+.login-error i{font-size:15px;flex-shrink:0}
+
+/* Divider */
+.login-divider{display:flex;align-items:center;gap:var(--space-3);margin:var(--space-6) 0}
+.login-divider-line{flex:1;height:1px;background:var(--color-border)}
+.login-divider-text{font-size:var(--text-xs);color:var(--color-text-placeholder);white-space:nowrap}
+
+/* SSO button */
+.btn-sso{width:100%;height:42px;border:1px solid var(--color-border);border-radius:var(--radius-md);background:var(--color-surface);color:var(--color-text-primary);font-size:var(--text-sm);font-weight:500;font-family:var(--font-sans);cursor:pointer;transition:background var(--duration-fast);display:flex;align-items:center;justify-content:center;gap:var(--space-2)}
+.btn-sso:hover{background:var(--color-hover-bg)}
+.btn-sso i{font-size:16px;color:var(--color-text-secondary)}
+
+/* Footer */
+.login-footer{margin-top:var(--space-8);font-size:var(--text-xs);color:var(--color-text-placeholder);text-align:center;line-height:1.6}
+.login-footer a{color:var(--color-text-tertiary);text-decoration:underline;cursor:pointer}
+
+/* ═══════════════════════════════════════════════════════════
+   SCREEN 2 — STUDY SELECTOR
+═══════════════════════════════════════════════════════════ */
+#screen-studies{flex-direction:column;background:var(--color-page-bg)}
+
+.studies-topbar{height:56px;background:var(--color-nav-bg);display:flex;align-items:center;padding:0 var(--space-6);gap:var(--space-4);flex-shrink:0}
+.studies-logo{display:flex;align-items:center;gap:var(--space-2)}
+.studies-logo-mark{width:28px;height:28px;background:var(--color-nav-hover);border-radius:var(--radius-md);display:flex;align-items:center;justify-content:center}
+.studies-logo-mark span{font-size:var(--text-sm);font-weight:700;color:#fff;font-family:var(--font-mono)}
+.studies-logo-name{font-size:var(--text-base);font-weight:700;color:#fff}
+.studies-topbar-right{margin-left:auto;display:flex;align-items:center;gap:var(--space-4)}
+.studies-user{display:flex;align-items:center;gap:var(--space-2);font-size:var(--text-sm);color:rgba(255,255,255,0.7)}
+.studies-user-avatar{width:30px;height:30px;border-radius:50%;background:#3D5A78;color:#EEF1F6;font-size:12px;font-weight:500;display:flex;align-items:center;justify-content:center;flex-shrink:0}
+.studies-signout{font-size:var(--text-xs);color:rgba(255,255,255,0.4);background:none;border:none;cursor:pointer;font-family:var(--font-sans);text-decoration:underline;text-underline-offset:2px}
+.studies-signout:hover{color:rgba(255,255,255,0.7)}
+
+.studies-body{flex:1;overflow-y:auto;padding:var(--space-10) var(--space-6)}
+.studies-content{max-width:900px;margin:0 auto}
+.studies-heading{font-size:var(--text-3xl);font-weight:500;color:var(--color-text-primary);margin-bottom:var(--space-2)}
+.studies-sub{font-size:var(--text-sm);color:var(--color-text-tertiary);margin-bottom:var(--space-6)}
+
+/* Toolbar */
+.studies-toolbar{display:flex;align-items:center;gap:var(--space-3);margin-bottom:var(--space-5)}
+.studies-search{display:flex;align-items:center;gap:var(--space-2);height:36px;padding:0 var(--space-3);border:1px solid var(--color-border);border-radius:var(--radius-md);background:var(--color-surface);min-width:260px;transition:border-color var(--duration-fast)}
+.studies-search:focus-within{border-color:var(--color-focus-ring)}
+.studies-search i{font-size:14px;color:var(--color-text-placeholder);flex-shrink:0}
+.studies-search input{border:none;outline:none;font-size:var(--text-sm);font-family:var(--font-sans);color:var(--color-text-primary);background:transparent;flex:1}
+.studies-search input::placeholder{color:var(--color-text-placeholder)}
+.studies-filter{height:36px;padding:0 24px 0 var(--space-3);font-size:var(--text-sm);font-family:var(--font-sans);border:1px solid var(--color-border);border-radius:var(--radius-md);background:var(--color-surface);color:var(--color-text-primary);cursor:pointer;appearance:none;background-image:url("data:image/svg+xml,%3Csvg width='8' height='12' viewBox='0 0 8 12' fill='none'%3E%3Cpath d='M1 1L6 6L1 11' stroke='%236D7480' stroke-width='1.5' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E");background-repeat:no-repeat;background-position:right 8px center;outline:none}
+.studies-count{font-size:var(--text-sm);color:var(--color-text-tertiary);margin-left:auto}
+
+/* Study cards grid */
+.studies-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(400px,1fr));gap:var(--space-4)}
+
+/* Study card */
+.study-card{background:var(--color-surface);border:1px solid var(--color-border);border-radius:var(--radius-lg);cursor:pointer;transition:box-shadow var(--duration-fast),border-color var(--duration-fast);display:flex;flex-direction:column;overflow:hidden}
+.study-card:hover{box-shadow:0 4px 16px rgba(14,18,28,0.10);border-color:#d0d0cd}
+.study-card.inactive{opacity:0.65}
+.study-card-top{padding:var(--space-4) var(--space-5);display:flex;align-items:flex-start;gap:var(--space-3);border-bottom:1px solid var(--color-border-subtle)}
+.study-card-icon{width:40px;height:40px;border-radius:var(--radius-md);display:flex;align-items:center;justify-content:center;flex-shrink:0;font-size:20px}
+.study-card-icon.cattle{background:#FFF8E7}
+.study-card-icon.swine{background:#FFF0E8}
+.study-card-icon.canine{background:#E8F4FF}
+.study-card-icon.aquatic{background:#EEFAF4}
+.study-card-icon.feline{background:#F0EEFF}
+.study-card-main{flex:1;min-width:0}
+.study-card-id{font-size:var(--text-xs);font-family:var(--font-mono);color:var(--color-text-tertiary);margin-bottom:3px}
+.study-card-name{font-size:var(--text-base);font-weight:500;color:var(--color-text-primary);line-height:1.3;margin-bottom:var(--space-1)}
+.study-card-sponsor{font-size:var(--text-xs);color:var(--color-text-tertiary)}
+.study-card-status{flex-shrink:0;margin-top:2px}
+.status-badge{display:inline-flex;align-items:center;gap:4px;padding:3px var(--space-2);border-radius:var(--radius-full);font-size:var(--text-xs);font-weight:500;border:1px solid;white-space:nowrap}
+.sb-active  {background:var(--green-50);border-color:var(--green-200);color:var(--green-600)}
+.sb-setup   {background:var(--blue-50);border-color:var(--blue-200);color:var(--blue-600)}
+.sb-closed  {background:var(--slate-50);border-color:var(--slate-200);color:var(--slate-600)}
+.sb-paused  {background:var(--amber-50);border-color:var(--amber-200);color:var(--amber-700)}
+
+/* Card body — study details */
+.study-card-body{padding:var(--space-3) var(--space-5)}
+.study-card-meta{display:flex;gap:var(--space-5);flex-wrap:wrap}
+.study-meta-item{display:flex;flex-direction:column;gap:2px}
+.study-meta-val{font-size:var(--text-sm);font-weight:500;font-family:var(--font-mono);color:var(--color-text-primary)}
+.study-meta-val.warn{color:var(--amber-700)}
+.study-meta-lbl{font-size:var(--text-xs);color:var(--color-text-tertiary)}
+
+/* Enrollment bar inline */
+.study-enroll-bar{margin-top:var(--space-3)}
+.study-enroll-track{width:100%;height:4px;background:var(--color-border);border-radius:var(--radius-full);overflow:hidden}
+.study-enroll-fill{height:100%;border-radius:var(--radius-full);background:var(--blue-600)}
+.study-enroll-label{display:flex;justify-content:space-between;font-size:var(--text-xs);color:var(--color-text-tertiary);margin-top:4px;font-family:var(--font-mono)}
+
+/* Card footer — role chip + enter arrow */
+.study-card-footer{padding:var(--space-3) var(--space-5);border-top:1px solid var(--color-border-subtle);display:flex;align-items:center;justify-content:space-between;background:var(--color-page-bg)}
+.study-role-chip{display:inline-flex;align-items:center;gap:var(--space-1);padding:2px var(--space-2);border-radius:var(--radius-full);font-size:var(--text-xs);font-weight:500;border:1px solid}
+.rc-crc   {background:var(--blue-50);border-color:var(--blue-200);color:var(--blue-600)}
+.rc-cra   {background:var(--purple-50);border-color:var(--purple-200);color:var(--purple-600)}
+.rc-pi    {background:var(--green-50);border-color:var(--green-200);color:var(--green-600)}
+.rc-dm    {background:var(--slate-50);border-color:var(--slate-200);color:var(--slate-600)}
+.rc-pm    {background:var(--amber-50);border-color:var(--amber-200);color:var(--amber-700)}
+.rc-admin {background:var(--red-50);border-color:var(--red-200);color:var(--red-600)}
+.study-card-enter{font-size:var(--text-xs);color:var(--color-text-placeholder);display:flex;align-items:center;gap:4px;transition:color var(--duration-fast)}
+.study-card:hover .study-card-enter{color:var(--blue-600)}
+.study-card-enter i{font-size:14px}
+
+/* Empty state */
+.studies-empty{text-align:center;padding:var(--space-10) 0;color:var(--color-text-tertiary)}
+.studies-empty i{font-size:40px;display:block;margin-bottom:var(--space-4);color:var(--color-border)}
+.studies-empty-title{font-size:var(--text-lg);font-weight:500;color:var(--color-text-secondary);margin-bottom:var(--space-2)}
+
+/* ─── Shared button ── */
+.btn-primary{display:inline-flex;align-items:center;gap:4px;height:36px;padding:0 var(--space-4);font-size:var(--text-sm);font-weight:500;font-family:var(--font-sans);border:none;border-radius:var(--radius-md);background:var(--color-cta-bg);color:#fff;cursor:pointer;transition:background var(--duration-fast)}
+.btn-primary:hover{background:var(--color-cta-hover)}
+.btn-primary i{font-size:14px}
+</style>
+</head>
+<body>
+
+<!-- ═══════════════════════════════════════════════════════════
+     SCREEN 1 — LOGIN
+═══════════════════════════════════════════════════════════ -->
+<div class="screen active" id="screen-login">
+
+  <!-- Left brand panel -->
+  <div class="login-brand">
+    <div class="brand-grid"></div>
+    <div class="login-brand-top">
+      <div class="brand-logo">
+        <div class="brand-logo-mark"><span>Ar</span></div>
+        <div>
+          <div class="brand-logo-name">Arken EDC</div>
+          <div class="brand-logo-sub">Veterinary clinical trials</div>
+        </div>
+      </div>
+      <div class="brand-headline">Clinical data,<br>built for veterinary research</div>
+      <div class="brand-desc">Purpose-built EDC for USDA, VICH, and NADA veterinary trials. GCP-compliant from the ground up.</div>
+      <div class="brand-features">
+        <div class="brand-feat">
+          <div class="brand-feat-icon"><i class="ti ti-shield-check"></i></div>
+          <span class="brand-feat-text">21 CFR Part 11 compliant audit trail</span>
+        </div>
+        <div class="brand-feat">
+          <div class="brand-feat-icon"><i class="ti ti-paw"></i></div>
+          <span class="brand-feat-text">Multi-species, multi-level hierarchy</span>
+        </div>
+        <div class="brand-feat">
+          <div class="brand-feat-icon"><i class="ti ti-building-hospital"></i></div>
+          <span class="brand-feat-text">Multi-site, role-based data access</span>
+        </div>
+        <div class="brand-feat">
+          <div class="brand-feat-icon"><i class="ti ti-table-export"></i></div>
+          <span class="brand-feat-text">CDISC SEND export ready</span>
+        </div>
+      </div>
+    </div>
+    <div class="brand-bottom">© 2026 Arken EDC · All rights reserved</div>
+  </div>
+
+  <!-- Right form panel -->
+  <div class="login-form-panel">
+    <div class="login-form-box">
+      <div class="login-form-title">Sign in</div>
+      <div class="login-form-sub">Welcome back. Enter your credentials to continue.</div>
+
+      <!-- Error callout -->
+      <div class="login-error" id="login-error">
+        <i class="ti ti-alert-circle"></i>
+        <span>Incorrect email or password. Please try again.</span>
+      </div>
+
+      <!-- Email -->
+      <div class="field-group">
+        <label class="field-label" for="login-email">Email address</label>
+        <div class="field-input-wrap">
+          <input class="field-input" id="login-email" type="email" placeholder="you@organization.com" autocomplete="email" onkeydown="onLoginKey(event)">
+        </div>
+      </div>
+
+      <!-- Password -->
+      <div class="field-group" style="margin-bottom:var(--space-2)">
+        <div class="field-hint-row">
+          <label class="field-label" for="login-password">Password</label>
+          <button class="field-forgot" tabindex="-1">Forgot password?</button>
+        </div>
+        <div class="field-input-wrap">
+          <input class="field-input has-icon" id="login-password" type="password" placeholder="••••••••" autocomplete="current-password" onkeydown="onLoginKey(event)">
+          <button class="field-icon-btn" onclick="togglePassword()" tabindex="-1" id="pw-toggle" title="Show password">
+            <i class="ti ti-eye" id="pw-icon"></i>
+          </button>
+        </div>
+        <div class="field-error" id="login-error-inline">Please enter your password.</div>
+      </div>
+
+      <!-- Sign in -->
+      <button class="btn-signin" id="btn-signin" onclick="attemptLogin()">
+        <i class="ti ti-login"></i> Sign in
+      </button>
+
+      <!-- SSO divider -->
+      <div class="login-divider">
+        <div class="login-divider-line"></div>
+        <span class="login-divider-text">or continue with</span>
+        <div class="login-divider-line"></div>
+      </div>
+
+      <!-- SSO -->
+      <button class="btn-sso">
+        <i class="ti ti-building-skyscraper"></i>
+        Sign in with organization SSO
+      </button>
+
+      <!-- Footer -->
+      <div class="login-footer">
+        Having trouble signing in? <a>Contact your system administrator</a>
+        <br>or reach <a>Arken EDC support</a>
+      </div>
+    </div>
+  </div>
+
+</div><!-- /screen-login -->
+
+
+<!-- ═══════════════════════════════════════════════════════════
+     SCREEN 2 — STUDY SELECTOR
+═══════════════════════════════════════════════════════════ -->
+<div class="screen" id="screen-studies">
+
+  <!-- Topbar -->
+  <header class="studies-topbar">
+    <div class="studies-logo">
+      <div class="studies-logo-mark"><span>Ar</span></div>
+      <span class="studies-logo-name">Arken EDC</span>
+    </div>
+    <div class="studies-topbar-right">
+      <div class="studies-user">
+        <div class="studies-user-avatar">ET</div>
+        <span>Elisa Tron</span>
+      </div>
+      <button class="studies-signout" onclick="signOut()">Sign out</button>
+    </div>
+  </header>
+
+  <!-- Body -->
+  <div class="studies-body">
+    <div class="studies-content">
+      <div class="studies-heading">Your studies</div>
+      <div class="studies-sub">Select a study to continue. Your role and data access are configured per study.</div>
+
+      <!-- Toolbar -->
+      <div class="studies-toolbar">
+        <div class="studies-search">
+          <i class="ti ti-search"></i>
+          <input type="search" placeholder="Search studies…" id="study-search" oninput="filterStudies()">
+        </div>
+        <select class="studies-filter" id="study-filter-status" onchange="filterStudies()">
+          <option value="">All statuses</option>
+          <option value="active">Active</option>
+          <option value="setup">In setup</option>
+          <option value="paused">Paused</option>
+          <option value="closed">Closed</option>
+        </select>
+        <select class="studies-filter" id="study-filter-species" onchange="filterStudies()">
+          <option value="">All species</option>
+          <option value="Cattle">Cattle</option>
+          <option value="Swine">Swine</option>
+          <option value="Canine">Canine</option>
+          <option value="Aquatic">Aquatic</option>
+          <option value="Feline">Feline</option>
+        </select>
+        <span class="studies-count" id="study-count">— studies</span>
+      </div>
+
+      <!-- Grid -->
+      <div class="studies-grid" id="studies-grid"></div>
+    </div>
+  </div>
+
+</div><!-- /screen-studies -->
+
+<script>
+/* ══════════════════════════════════════════════════════════════════════════
+   STUDY DATA
+══════════════════════════════════════════════════════════════════════════ */
+var STUDIES = [
+  {
+    id:'AK-2401', name:'BRD Cattle Phase II Efficacy Trial',
+    sponsor:'AgriVet Sciences', phase:'Phase II',
+    species:'Cattle', icon:'🐄', iconCls:'cattle',
+    status:'active', statusLabel:'Active',
+    role:'CRC', roleCls:'rc-crc',
+    enrolled:89, target:120,
+    sites:3, openQueries:11, lastEntry:'Today',
+    desc:'Bovine respiratory disease — efficacy and safety of AV-2201'
+  },
+  {
+    id:'AK-2209', name:'PRRS Swine USDA Vaccine Efficacy Study',
+    sponsor:'AgriVet Sciences', phase:'Phase III',
+    species:'Swine', icon:'🐷', iconCls:'swine',
+    status:'active', statusLabel:'Active',
+    role:'CRC', roleCls:'rc-crc',
+    enrolled:156, target:200,
+    sites:4, openQueries:6, lastEntry:'Jun 06',
+    desc:'Porcine reproductive and respiratory syndrome — USDA conditional license study'
+  },
+  {
+    id:'AK-2312', name:'Canine Analgesia Study — Velafen',
+    sponsor:'PharmaVet Inc.', phase:'Phase II',
+    species:'Canine', icon:'🐕', iconCls:'canine',
+    status:'setup', statusLabel:'In setup',
+    role:'CRC', roleCls:'rc-crc',
+    enrolled:0, target:80,
+    sites:2, openQueries:0, lastEntry:'—',
+    desc:'Pain management efficacy — post-operative canine analgesia'
+  },
+  {
+    id:'AK-2318', name:'Aquatic Species NADA Residue Study',
+    sponsor:'AquaPharm LLC', phase:'Phase I',
+    species:'Aquatic', icon:'🐟', iconCls:'aquatic',
+    status:'active', statusLabel:'Active',
+    role:'PI', roleCls:'rc-pi',
+    enrolled:240, target:300,
+    sites:2, openQueries:3, lastEntry:'Jun 07',
+    desc:'Tissue residue depletion study in rainbow trout — NADA submission'
+  },
+  {
+    id:'AK-2205', name:'Feline Hypertension Long-Term Safety',
+    sponsor:'VetPharm Europe', phase:'Phase III',
+    species:'Feline', icon:'🐈', iconCls:'feline',
+    status:'closed', statusLabel:'Closed',
+    role:'CRC', roleCls:'rc-crc',
+    enrolled:120, target:120,
+    sites:3, openQueries:0, lastEntry:'Dec 2025',
+    desc:'Long-term safety of FH-301 in hypertensive cats — study completed'
+  },
+  {
+    id:'AK-2407', name:'BRD Cattle Phase III — Multi-region',
+    sponsor:'AgriVet Sciences', phase:'Phase III',
+    species:'Cattle', icon:'🐄', iconCls:'cattle',
+    status:'setup', statusLabel:'In setup',
+    role:'Admin', roleCls:'rc-admin',
+    enrolled:0, target:360,
+    sites:8, openQueries:0, lastEntry:'—',
+    desc:'Phase III efficacy — 8-site expansion across US and Canada'
+  },
+];
+
+/* ══════════════════════════════════════════════════════════════════════════
+   LOGIN LOGIC
+══════════════════════════════════════════════════════════════════════════ */
+/* Demo credentials */
+var DEMO_CREDS = { email:'elisa@arken.io', password:'demo1234' };
+
+function onLoginKey(e) {
+  if (e.key === 'Enter') attemptLogin();
+}
+
+function togglePassword() {
+  var input = document.getElementById('login-password');
+  var icon  = document.getElementById('pw-icon');
+  if (input.type === 'password') {
+    input.type = 'text';
+    icon.className = 'ti ti-eye-off';
+  } else {
+    input.type = 'password';
+    icon.className = 'ti ti-eye';
+  }
+}
+
+function attemptLogin() {
+  var email = document.getElementById('login-email').value.trim();
+  var pw    = document.getElementById('login-password').value;
+  var errorBox = document.getElementById('login-error');
+
+  /* Clear previous errors */
+  errorBox.classList.remove('visible');
+  document.getElementById('login-email').classList.remove('error');
+  document.getElementById('login-password').classList.remove('error');
+
+  /* Basic validation */
+  if (!email || !pw) {
+    document.getElementById('login-error-inline').classList.add('visible');
+    document.getElementById('login-password').classList.add('error');
+    return;
+  }
+  document.getElementById('login-error-inline').classList.remove('visible');
+
+  /* Simulate loading state */
+  var btn = document.getElementById('btn-signin');
+  btn.disabled = true;
+  btn.innerHTML = '<i class="ti ti-loader-2" style="animation:spin 1s linear infinite"></i> Signing in…';
+
+  setTimeout(function() {
+    btn.disabled = false;
+    btn.innerHTML = '<i class="ti ti-login"></i> Sign in';
+
+    /* Accept any non-empty credentials for demo, or check DEMO_CREDS */
+    if (email && pw) {
+      goToStudies();
+    } else {
+      errorBox.classList.add('visible');
+      document.getElementById('login-email').classList.add('error');
+      document.getElementById('login-password').classList.add('error');
+    }
+  }, 1100);
+}
+
+var spinStyle = document.createElement('style');
+spinStyle.textContent = '@keyframes spin{from{transform:rotate(0deg)}to{transform:rotate(360deg)}}';
+document.head.appendChild(spinStyle);
+
+function goToStudies() {
+  document.getElementById('screen-login').classList.remove('active');
+  document.getElementById('screen-studies').classList.add('active');
+  renderStudies(STUDIES);
+}
+
+function signOut() {
+  document.getElementById('screen-studies').classList.remove('active');
+  document.getElementById('screen-login').classList.add('active');
+  document.getElementById('login-email').value = '';
+  document.getElementById('login-password').value = '';
+  document.getElementById('login-error').classList.remove('visible');
+}
+
+/* ══════════════════════════════════════════════════════════════════════════
+   STUDY SELECTOR
+══════════════════════════════════════════════════════════════════════════ */
+function filterStudies() {
+  var q       = (document.getElementById('study-search').value || '').toLowerCase().trim();
+  var status  = document.getElementById('study-filter-status').value;
+  var species = document.getElementById('study-filter-species').value;
+
+  var filtered = STUDIES.filter(function(s) {
+    var matchQ = !q || s.name.toLowerCase().includes(q) || s.id.toLowerCase().includes(q) || s.sponsor.toLowerCase().includes(q);
+    var matchStatus  = !status  || s.status === status;
+    var matchSpecies = !species || s.species === species;
+    return matchQ && matchStatus && matchSpecies;
+  });
+
+  renderStudies(filtered);
+}
+
+function renderStudies(list) {
+  var grid = document.getElementById('studies-grid');
+  document.getElementById('study-count').textContent = list.length + ' ' + (list.length === 1 ? 'study' : 'studies');
+
+  if (list.length === 0) {
+    grid.innerHTML = '<div class="studies-empty" style="grid-column:1/-1"><i class="ti ti-microscope"></i><div class="studies-empty-title">No studies match your filters</div><div>Try adjusting the search or status filter</div></div>';
+    return;
+  }
+
+  grid.innerHTML = list.map(function(s) {
+    var pct = s.target > 0 ? Math.round(s.enrolled / s.target * 100) : 0;
+    var statusCls = {active:'sb-active', setup:'sb-setup', closed:'sb-closed', paused:'sb-paused'}[s.status] || 'sb-setup';
+    var inactive = s.status === 'closed' ? ' inactive' : '';
+
+    return '<div class="study-card' + inactive + '" onclick="enterStudy(\'' + s.id + '\')">' +
+      /* Top */
+      '<div class="study-card-top">' +
+        '<div class="study-card-icon ' + s.iconCls + '">' + s.icon + '</div>' +
+        '<div class="study-card-main">' +
+          '<div class="study-card-id">' + s.id + ' · ' + s.phase + ' · ' + s.species + '</div>' +
+          '<div class="study-card-name">' + s.name + '</div>' +
+          '<div class="study-card-sponsor">' + s.sponsor + '</div>' +
+        '</div>' +
+        '<div class="study-card-status"><span class="status-badge ' + statusCls + '">' + s.statusLabel + '</span></div>' +
+      '</div>' +
+      /* Body */
+      '<div class="study-card-body">' +
+        '<div class="study-card-meta">' +
+          '<div class="study-meta-item"><div class="study-meta-val">' + s.enrolled + ' <span style="font-size:var(--text-xs);color:var(--color-text-tertiary);font-family:var(--font-sans)">/ ' + s.target + '</span></div><div class="study-meta-lbl">Subjects enrolled</div></div>' +
+          '<div class="study-meta-item"><div class="study-meta-val">' + s.sites + '</div><div class="study-meta-lbl">Sites</div></div>' +
+          '<div class="study-meta-item"><div class="study-meta-val' + (s.openQueries > 0 ? ' warn' : '') + '">' + (s.openQueries > 0 ? s.openQueries : '—') + '</div><div class="study-meta-lbl">Open queries</div></div>' +
+          '<div class="study-meta-item"><div class="study-meta-val" style="font-size:var(--text-sm)">' + s.lastEntry + '</div><div class="study-meta-lbl">Last entry</div></div>' +
+        '</div>' +
+        (s.target > 0 ?
+          '<div class="study-enroll-bar"><div class="study-enroll-track"><div class="study-enroll-fill" style="width:' + pct + '%"></div></div><div class="study-enroll-label"><span>Enrollment</span><span>' + pct + '% complete</span></div></div>'
+          : '') +
+      '</div>' +
+      /* Footer */
+      '<div class="study-card-footer">' +
+        '<span class="study-role-chip ' + s.roleCls + '"><i class="ti ti-user-circle" style="font-size:11px"></i> ' + s.role + '</span>' +
+        '<span class="study-card-enter">Open study <i class="ti ti-arrow-right"></i></span>' +
+      '</div>' +
+    '</div>';
+  }).join('');
+}
+
+function enterStudy(id) {
+  var study = STUDIES.find(function(s){ return s.id === id; });
+  if (!study) return;
+  /* In production: navigate to app. For prototype: show confirmation. */
+  alert('Entering ' + study.id + ' — ' + study.name + '\n\nIn production this would load the full EDC shell for this study with role: ' + study.role);
+}
+
+/* ── Pre-fill demo credentials for easy testing ── */
+document.getElementById('login-email').value = 'elisa@arken.io';
+document.getElementById('login-password').value = 'demo1234';
+</script>
+</body>
+</html>

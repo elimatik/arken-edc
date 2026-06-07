@@ -1,0 +1,1083 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Arken EDC — Data Entry</title>
+<link href="https://fonts.googleapis.com/css2?family=Roboto:wght@400;500;700&family=Roboto+Mono:wght@400;500&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@tabler/icons-webfont@latest/tabler-icons.min.css">
+<style>
+/* ─── Tokens (exact from 24-inventory) ──────────────────────────────────── */
+:root {
+  --color-nav-bg:#1A1F2E;--color-nav-hover:#2C3248;--color-nav-icon:#8aafc8;
+  --color-page-bg:#FBFBFB;--color-surface:#FFFFFF;
+  --color-border:#E8E8E6;--color-border-subtle:#F0F0EE;
+  --color-text-primary:#2C2D33;--color-text-secondary:#4F535B;
+  --color-text-tertiary:#6D7480;--color-text-placeholder:#C4C4C2;
+  --color-hover-bg:#F0F0EE;--color-cta-bg:#1A1F2E;--color-cta-hover:#2C3248;
+  --color-link:#3D4A5C;--color-focus-ring:#3D8FE0;
+  --amber-50:#FFF8E7;--amber-200:#F5B830;--amber-700:#8A5C00;
+  --orange-50:#FFF0E8;--orange-200:#F48E50;--orange-600:#C94C0C;
+  --red-50:#FFF0F0;--red-200:#EC8585;--red-600:#B52626;
+  --green-50:#EEFAF4;--green-200:#58BC88;--green-600:#1A6B47;
+  --blue-50:#E8F4FF;--blue-200:#7AB8EE;--blue-600:#1760A8;
+  --slate-50:#EEF1F6;--slate-200:#8AA0B8;--slate-600:#3D5A78;
+  --purple-50:#F0EEFF;--purple-200:#A9A3EC;--purple-600:#534AB7;
+  --font-sans:'Roboto',system-ui,sans-serif;--font-mono:'Roboto Mono',monospace;
+  --text-xs:11px;--text-sm:12px;--text-base:14px;--text-lg:16px;--text-3xl:24px;
+  --weight-medium:500;--weight-bold:700;
+  --radius-sm:2px;--radius-md:4px;--radius-lg:6px;--radius-full:9999px;
+  --space-1:4px;--space-2:8px;--space-3:12px;--space-4:16px;--space-5:20px;--space-6:24px;
+  --duration-fast:120ms;--ease-default:cubic-bezier(0.16,1,0.3,1);
+  --tracking-caps:0.07em;
+}
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+body{font-family:var(--font-sans);font-size:var(--text-base);color:var(--color-text-primary);background:var(--color-page-bg);-webkit-font-smoothing:antialiased}
+
+/* ─── Shell ── */
+.shell{display:flex;height:100vh;overflow:hidden}
+.sidenav{width:74px;background:var(--color-nav-bg);display:flex;flex-direction:column;align-items:center;padding:var(--space-3) 0;gap:2px;flex-shrink:0}
+.nav-logo{width:30px;height:30px;border-radius:var(--radius-md);background:var(--color-nav-hover);display:flex;align-items:center;justify-content:center;margin-bottom:var(--space-3)}
+.nav-logo span{font-size:var(--text-base);font-weight:700;color:#fff}
+.nav-item{width:100%;min-height:50px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:3px;border:none;background:transparent;color:var(--color-nav-icon);cursor:pointer;transition:background var(--duration-fast);padding:4px 0;position:relative}
+.nav-item:hover,.nav-item.active{background:var(--color-nav-hover);color:#fff}
+.nav-item i{font-size:20px}.nav-label{font-size:11px;font-weight:500;color:inherit;text-align:center}
+.nav-badge{position:absolute;top:6px;right:18px;min-width:14px;height:14px;padding:0 3px;border-radius:var(--radius-full);background:var(--red-600);color:#fff;font-size:9px;font-weight:700;font-family:var(--font-mono);display:flex;align-items:center;justify-content:center}
+.nav-spacer{flex:1}
+.nav-sep{width:100%;height:1px;background:rgba(255,255,255,0.08);margin:var(--space-2) 0}
+.main{flex:1;display:flex;flex-direction:column;min-width:0;overflow:hidden}
+
+/* ─── Topbar (exact from 24-inventory) ── */
+.topbar{height:56px;background:var(--color-nav-bg);display:flex;align-items:center;padding:0 var(--space-5);gap:var(--space-3);flex-shrink:0}
+.tb-study{background:var(--color-nav-hover);color:#fff;font-size:var(--text-base);font-weight:500;padding:7px var(--space-4);border-radius:var(--radius-md);border:1px solid #525D73;display:flex;align-items:center;gap:4px;cursor:pointer}
+.tb-study i{font-size:11px;opacity:0.7}
+.tb-right{margin-left:auto;display:flex;align-items:center;gap:var(--space-3)}
+.tb-icon{width:28px;height:28px;display:flex;align-items:center;justify-content:center;border-radius:var(--radius-md);border:none;background:transparent;color:#fff;cursor:pointer}
+.tb-icon:hover{background:var(--color-nav-hover)}
+.tb-icon i{font-size:20px}
+.tb-role{background:var(--color-nav-hover);color:#fff;font-size:var(--text-sm);font-weight:500;padding:3px var(--space-2);border-radius:var(--radius-md);border:1px solid #525D73;cursor:pointer;display:flex;align-items:center;gap:4px}
+.tb-avatar{width:30px;height:30px;border-radius:50%;background:#3D5A78;color:#EEF1F6;font-size:12px;font-weight:500;display:flex;align-items:center;justify-content:center}
+
+/* Site dropdown (exact from 24-inventory) */
+.tb-site{color:#fff;font-size:var(--text-base);display:flex;align-items:center;gap:3px;cursor:pointer;white-space:nowrap;border:none;background:none;font-family:var(--font-sans);font-weight:500}
+.tb-site:hover{color:rgba(255,255,255,0.7)}
+.site-dd-item{display:flex;align-items:center;width:100%;padding:var(--space-2) var(--space-4);font-size:var(--text-sm);font-family:var(--font-sans);color:var(--color-text-primary);background:none;border:none;cursor:pointer;text-align:left;transition:background var(--duration-fast)}
+.site-dd-item:hover{background:var(--color-hover-bg)}
+.site-dd-item.active{color:var(--blue-600);font-weight:500;background:var(--blue-50)}
+
+/* ─── Demo bar ── */
+.demo-bar{height:32px;background:var(--color-border-subtle);border-bottom:1px solid var(--color-border);display:flex;align-items:center;padding:0 var(--space-5);gap:var(--space-2);flex-shrink:0}
+.demo-label-txt{font-size:var(--text-xs);color:var(--color-text-tertiary);text-transform:uppercase;letter-spacing:var(--tracking-caps);margin-right:var(--space-1);white-space:nowrap}
+.demo-btn{height:22px;padding:0 var(--space-3);border:1px solid var(--color-border);border-radius:var(--radius-md);background:var(--color-surface);font-size:var(--text-xs);font-family:var(--font-sans);color:var(--color-text-secondary);cursor:pointer;transition:all var(--duration-fast);white-space:nowrap}
+.demo-btn:hover{border-color:var(--blue-200);color:var(--blue-600)}
+.demo-btn.active{background:var(--color-cta-bg);border-color:var(--color-cta-bg);color:#fff;font-weight:500}
+
+/* ─── Page wrap ── */
+.page-wrap{flex:1;display:flex;flex-direction:column;overflow:hidden}
+
+/* ─── Shared buttons ── */
+.btn-primary{display:inline-flex;align-items:center;gap:4px;height:32px;padding:0 var(--space-3);font-size:var(--text-sm);font-weight:500;font-family:var(--font-sans);border:none;border-radius:var(--radius-md);background:var(--color-cta-bg);color:#fff;cursor:pointer;white-space:nowrap;transition:background var(--duration-fast)}
+.btn-primary:hover{background:var(--color-cta-hover)}
+.btn-primary i{font-size:14px}
+.btn-secondary{display:inline-flex;align-items:center;gap:4px;height:32px;padding:0 var(--space-3);font-size:var(--text-sm);font-weight:500;font-family:var(--font-sans);border:1px solid var(--color-border);border-radius:var(--radius-md);background:var(--color-surface);color:var(--color-text-primary);cursor:pointer;white-space:nowrap;transition:background var(--duration-fast)}
+.btn-secondary:hover{background:var(--color-hover-bg)}
+.btn-secondary i{font-size:14px}
+.btn-icon{display:inline-flex;align-items:center;justify-content:center;width:28px;height:28px;border:none;background:none;border-radius:var(--radius-md);color:var(--color-text-tertiary);cursor:pointer;transition:background var(--duration-fast),color var(--duration-fast)}
+.btn-icon:hover{background:var(--color-hover-bg);color:var(--color-text-primary)}
+.btn-icon i{font-size:15px}
+
+/* ─── Page header ── */
+.page-header{padding:var(--space-4) var(--space-5);border-bottom:1px solid var(--color-border);background:var(--color-surface);flex-shrink:0}
+.breadcrumb{display:flex;align-items:center;gap:var(--space-1);font-size:var(--text-sm);color:var(--color-text-tertiary);margin-bottom:var(--space-3)}
+.bc-btn{color:var(--color-link);background:none;border:none;font-size:var(--text-sm);cursor:pointer;padding:0;font-family:var(--font-sans)}
+.bc-btn span{text-decoration:underline;text-underline-offset:2px}
+.bc-btn:hover{color:var(--color-text-primary)}
+.bc-sep{color:var(--color-text-placeholder);font-size:11px}
+.page-title-row{display:flex;align-items:flex-start;justify-content:space-between;gap:var(--space-4)}
+.page-title{font-size:var(--text-3xl);font-weight:500;line-height:1.2}
+.page-title-sub{font-size:var(--text-sm);color:var(--color-text-tertiary);font-family:var(--font-mono);margin-top:3px}
+.page-actions{display:flex;align-items:center;gap:var(--space-2);flex-shrink:0;margin-top:2px}
+
+/* ─── Badges ── */
+.badge{display:inline-flex;align-items:center;gap:3px;padding:2px var(--space-2);border-radius:var(--radius-full);font-size:var(--text-xs);font-weight:500;border:1px solid;white-space:nowrap}
+.badge-active  {background:var(--blue-50);border-color:var(--blue-200);color:var(--blue-600)}
+.badge-pending {background:var(--purple-50);border-color:var(--purple-200);color:var(--purple-600)}
+.badge-success {background:var(--green-50);border-color:var(--green-200);color:var(--green-600)}
+.badge-warning {background:var(--amber-50);border-color:var(--amber-200);color:var(--amber-700)}
+.badge-closed  {background:var(--slate-50);border-color:var(--slate-200);color:var(--slate-600)}
+.badge-hold    {background:var(--amber-50);border-color:var(--amber-200);color:var(--amber-700)}
+
+/* Level tag — small rectangular, not pill */
+.level-tag{display:inline-flex;align-items:center;height:16px;padding:0 var(--space-2);border-radius:var(--radius-sm);font-size:9px;font-weight:700;letter-spacing:0.05em;text-transform:uppercase;border:1px solid}
+.level-tag-site{background:var(--blue-50);border-color:var(--blue-200);color:var(--blue-600)}
+.level-tag-mid {background:var(--slate-50);border-color:var(--slate-200);color:var(--slate-600)}
+.level-tag-subj{background:var(--green-50);border-color:var(--green-200);color:var(--green-600)}
+
+/* ─── Filter bar ── */
+.filter-bar{padding:var(--space-3) var(--space-5);background:var(--color-surface);border-bottom:1px solid var(--color-border);display:flex;align-items:center;gap:var(--space-3);flex-shrink:0}
+.search-input{height:32px;padding:0 var(--space-3) 0 32px;font-size:var(--text-sm);font-family:var(--font-sans);border:1px solid var(--color-border);border-radius:var(--radius-md);background:var(--color-surface);color:var(--color-text-primary);outline:none;min-width:200px;background-image:url("data:image/svg+xml,%3Csvg width='14' height='14' viewBox='0 0 14 14' fill='none' xmlns='http://www.w3.org/2000/svg'%3E%3Ccircle cx='6' cy='6' r='4.5' stroke='%23C4C4C2' stroke-width='1.5'/%3E%3Cpath d='M9.5 9.5L12 12' stroke='%23C4C4C2' stroke-width='1.5' stroke-linecap='round'/%3E%3C/svg%3E");background-repeat:no-repeat;background-position:10px center}
+.filter-select{height:32px;padding:0 24px 0 var(--space-2);font-size:var(--text-sm);font-family:var(--font-sans);border:1px solid var(--color-border);border-radius:var(--radius-md);background:var(--color-surface);color:var(--color-text-primary);cursor:pointer;appearance:none;background-image:url("data:image/svg+xml,%3Csvg width='8' height='12' viewBox='0 0 8 12' fill='none'%3E%3Cpath d='M1 1L6 6L1 11' stroke='%236D7480' stroke-width='1.5' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E");background-repeat:no-repeat;background-position:right 8px center;outline:none}
+.toolbar-count{font-size:var(--text-xs);color:var(--color-text-tertiary);margin-left:auto;white-space:nowrap}
+
+/* ─── List table (exact from 24-inventory) ── */
+.table-wrap{flex:1;overflow-y:auto}
+.list-table{width:100%;border-collapse:collapse;font-size:var(--text-sm)}
+.list-table thead th{position:sticky;top:0;z-index:5;background:var(--color-surface);padding:var(--space-2) var(--space-3);text-align:left;font-size:var(--text-xs);font-weight:500;text-transform:uppercase;letter-spacing:var(--tracking-caps);color:var(--color-text-tertiary);border-bottom:1px solid var(--color-border);white-space:nowrap}
+.list-table thead th:first-child{padding-left:var(--space-5)}
+.list-table thead th:last-child{padding-right:var(--space-5)}
+.list-table tbody tr{border-bottom:1px solid var(--color-border-subtle);transition:background var(--duration-fast)}
+.list-table tbody tr:hover{background:var(--color-hover-bg);cursor:pointer}
+.list-table tbody td{padding:var(--space-2) var(--space-3);vertical-align:middle}
+.list-table tbody td:first-child{padding-left:var(--space-5)}
+.list-table tbody td:last-child{padding-right:var(--space-5)}
+.mono{font-family:var(--font-mono);font-size:var(--text-sm)}
+.muted{color:var(--color-text-secondary)}
+.cell-link{color:var(--color-link);font-weight:500;cursor:pointer}
+.cell-link:hover{color:var(--color-text-primary);text-decoration:underline;text-underline-offset:2px}
+
+/* Row actions — hidden until hover */
+.row-actions{display:flex;align-items:center;gap:2px;opacity:0;transition:opacity var(--duration-fast);justify-content:flex-end}
+.list-table tbody tr:hover .row-actions{opacity:1}
+
+/* Progress bar */
+.progress-cell{display:flex;align-items:center;gap:var(--space-2)}
+.progress-track{width:80px;height:4px;background:var(--color-border);border-radius:var(--radius-full)}
+.progress-fill{height:100%;border-radius:var(--radius-full);background:var(--blue-600)}
+.progress-fill.low{background:var(--orange-600)}
+.progress-label{font-family:var(--font-mono);font-size:var(--text-xs);color:var(--color-text-secondary);white-space:nowrap}
+
+/* ─── Summary bar (exact from 24-inventory) ── */
+.summary-bar{padding:var(--space-2) var(--space-5);background:var(--color-surface);border-top:1px solid var(--color-border);display:flex;align-items:center;gap:var(--space-4);font-size:var(--text-xs);color:var(--color-text-tertiary);flex-shrink:0}
+.sv{font-weight:500;color:var(--color-text-primary);font-family:var(--font-mono)}
+.sv.warn{color:var(--amber-700)}
+
+/* ─── Node info strip (below page header, above table) ── */
+.node-info-strip{padding:var(--space-3) var(--space-5);background:var(--color-surface);border-bottom:1px solid var(--color-border);display:flex;align-items:stretch;gap:var(--space-5);flex-shrink:0;flex-wrap:wrap}
+.nis-stat{display:flex;flex-direction:column;gap:2px}
+.nis-val{font-size:var(--text-lg);font-weight:500;font-family:var(--font-mono);color:var(--color-text-primary)}
+.nis-val.warn{color:var(--amber-700)}
+.nis-lbl{font-size:var(--text-xs);color:var(--color-text-tertiary)}
+.nis-sep{width:1px;background:var(--color-border);align-self:stretch;flex-shrink:0}
+
+/* ─── Forms card (shown when node has forms) ── */
+.forms-section{padding:var(--space-4) var(--space-5);background:var(--color-surface);border-bottom:1px solid var(--color-border);flex-shrink:0}
+.forms-section-head{font-size:var(--text-xs);font-weight:500;text-transform:uppercase;letter-spacing:var(--tracking-caps);color:var(--color-text-tertiary);margin-bottom:var(--space-3);display:flex;align-items:center;justify-content:space-between}
+.form-cards{display:flex;gap:var(--space-3);flex-wrap:wrap}
+.form-card{display:flex;align-items:center;gap:var(--space-3);padding:var(--space-3);border:1px solid var(--color-border);border-radius:var(--radius-md);background:var(--color-page-bg);min-width:220px;flex:1;cursor:pointer;transition:background var(--duration-fast),border-color var(--duration-fast)}
+.form-card:hover{background:var(--color-hover-bg);border-color:var(--color-text-tertiary)}
+.form-card-icon{width:32px;height:32px;border:1px solid var(--color-border);border-radius:var(--radius-md);display:flex;align-items:center;justify-content:center;background:var(--color-surface);flex-shrink:0}
+.form-card-icon i{font-size:16px;color:var(--color-text-tertiary)}
+.form-card-body{flex:1;min-width:0}
+.form-card-name{font-size:var(--text-sm);font-weight:500;color:var(--color-text-primary);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.form-card-status{font-size:var(--text-xs);margin-top:2px}
+.fcs-complete{color:var(--green-600)}
+.fcs-incomplete{color:var(--amber-700)}
+.fcs-notstarted{color:var(--color-text-placeholder)}
+.form-card-btn{height:26px;padding:0 var(--space-3);border:1px solid var(--color-border);border-radius:var(--radius-md);background:var(--color-surface);font-size:var(--text-xs);font-weight:500;font-family:var(--font-sans);color:var(--color-text-secondary);cursor:pointer;white-space:nowrap;display:flex;align-items:center;gap:3px;flex-shrink:0}
+.form-card-btn:hover{background:var(--color-hover-bg)}
+.form-card-btn i{font-size:12px}
+
+/* ─── Children section label ── */
+.section-label{padding:var(--space-3) var(--space-5) var(--space-2);font-size:var(--text-xs);font-weight:500;text-transform:uppercase;letter-spacing:var(--tracking-caps);color:var(--color-text-tertiary);background:var(--color-surface);flex-shrink:0;border-bottom:1px solid var(--color-border-subtle)}
+/* ─── Group filter tabs (pen level) ── */
+.filter-tabs{display:flex;gap:0;border-bottom:1px solid var(--color-border);background:var(--color-surface);flex-shrink:0;padding:0 var(--space-5)}
+.filter-tab{height:36px;padding:0 var(--space-4);font-size:var(--text-sm);font-weight:500;color:var(--color-text-tertiary);background:none;border:none;border-bottom:2px solid transparent;cursor:pointer;white-space:nowrap;transition:color var(--duration-fast)}
+.filter-tab:hover{color:var(--color-text-primary)}
+.filter-tab.active{color:var(--color-text-primary);border-bottom-color:var(--color-text-primary)}
+/* Critical row */
+.row-critical td{background:var(--red-50) !important}
+.row-critical:hover td{background:#FDEAEA !important}
+</style>
+</head>
+<body>
+<div class="shell">
+
+  <!-- ── Side nav ── -->
+  <nav class="sidenav">
+    <div class="nav-logo"><span>Ar</span></div>
+    <button class="nav-item" title="Dashboard"><i class="ti ti-layout-dashboard"></i><span class="nav-label">Dashboard</span></button>
+    <button class="nav-item active" title="Data Entry"><i class="ti ti-database-import"></i><span class="nav-label">Data Entry</span></button>
+    <button class="nav-item" title="Animals"><i class="ti ti-paw"></i><span class="nav-label">Animals</span></button>
+    <button class="nav-item" title="Queries"><i class="ti ti-help-circle"></i><span class="nav-label">Queries</span><span class="nav-badge">4</span></button>
+    <button class="nav-item" title="Visits"><i class="ti ti-calendar-event"></i><span class="nav-label">Visits</span></button>
+    <button class="nav-item" title="Reports"><i class="ti ti-chart-bar"></i><span class="nav-label">Reports</span></button>
+    <button class="nav-item" title="Invoices"><i class="ti ti-receipt"></i><span class="nav-label">Invoices</span></button>
+    <div class="nav-spacer"></div>
+    <div class="nav-sep"></div>
+    <button class="nav-item" title="Audit trail"><i class="ti ti-clipboard-list"></i><span class="nav-label">Audit</span></button>
+  </nav>
+
+  <!-- ── Main ── -->
+  <div class="main">
+
+    <!-- Topbar (from 24-inventory) -->
+    <header class="topbar">
+      <button class="tb-study" id="tb-study-btn">
+        <span id="tb-study-label">AK-2401 — BRD Cattle Phase II</span>
+        <i class="ti ti-chevron-right" style="font-size:11px;opacity:0.7"></i>
+      </button>
+
+      <!-- Site dropdown (exact pattern from 24-inventory) -->
+      <div style="position:relative" id="site-dropdown-wrap">
+        <button class="tb-site" onclick="toggleSiteDropdown()" id="tb-site-btn">
+          <span id="tb-site-label">All sites</span>
+          <i class="ti ti-chevron-down" id="tb-site-chevron" style="font-size:11px;opacity:0.7"></i>
+        </button>
+        <div id="site-dropdown" style="display:none;position:absolute;top:calc(100% + 6px);left:0;background:var(--color-surface);border:1px solid var(--color-border);border-radius:var(--radius-lg);box-shadow:0 8px 24px rgba(14,18,28,0.14);min-width:200px;z-index:200;overflow:hidden">
+          <button class="site-dd-item active" onclick="setSiteFilter('')">All sites</button>
+          <button class="site-dd-item" onclick="setSiteFilter('aus')">Austin Research Center</button>
+          <button class="site-dd-item" onclick="setSiteFilter('dal')">Dallas Vet Clinic</button>
+          <button class="site-dd-item" onclick="setSiteFilter('hou')">Houston Animal Hospital</button>
+        </div>
+      </div>
+
+      <div class="tb-right">
+        <button class="tb-icon"><i class="ti ti-bell"></i></button>
+        <button class="tb-role">CRC <i class="ti ti-chevron-right" style="font-size:10px"></i></button>
+        <div class="tb-avatar">ET</div>
+      </div>
+    </header>
+
+    <!-- Demo bar -->
+    <div class="demo-bar">
+      <span class="demo-label-txt">Study type:</span>
+      <button class="demo-btn active" onclick="setStudyType('livestock')">Livestock (Site → Barn → Pen → Animal)</button>
+      <button class="demo-btn" onclick="setStudyType('companion')">Companion (Site → Animal)</button>
+      <button class="demo-btn" onclick="setStudyType('aquatic')">Aquatic (Site → Tank room → Tank)</button>
+    </div>
+
+    <!-- Page content — rendered by JS -->
+    <div class="page-wrap" id="page-wrap"></div>
+
+  </div>
+</div>
+
+
+<script>
+/* ══════════════════════════════════════════════════════════════════════════
+   CONFIG — study types
+══════════════════════════════════════════════════════════════════════════ */
+const CONFIGS = {
+  livestock: {
+    levels:     ['Site','Barn','Pen','Animal'],
+    subjectIdx: 3,
+    icons:      ['ti-building-hospital','ti-home-2','ti-square-rotated','ti-paw'],
+    studyLabel: 'AK-2401 — BRD Cattle Phase II',
+  },
+  companion: {
+    levels:     ['Site','Animal'],
+    subjectIdx: 1,
+    icons:      ['ti-building-hospital','ti-paw'],
+    studyLabel: 'AK-2312 — Canine Lymphoma CHOP',
+  },
+  aquatic: {
+    levels:     ['Site','Tank room','Tank'],
+    subjectIdx: 2,
+    icons:      ['ti-building-hospital','ti-droplet','ti-fish'],
+    studyLabel: 'AK-2187 — Atlantic Salmon ISA Vaccine',
+  }
+};
+
+/* ══════════════════════════════════════════════════════════════════════════
+   DATA — flat lookup by parentId key
+   Each node stores: id, label, level, status, parentId?,
+     stats (for container nodes), forms[], subjectId?, meta?, queries?, critical?
+   Subject nodes have full forms list; containers have node-level forms.
+   'hasRecord' = true means node forms were set up in builder (shows pencil + secondary btn)
+══════════════════════════════════════════════════════════════════════════ */
+const NODES = {
+  livestock: {
+    root: [
+      { id:'aus', label:'Austin Research Center', level:0, status:'active', hasRecord:true,
+        stats:{ barns:2, subjects:89, target:120, forms:156, queries:4, overdue:2 },
+        forms:[
+          { name:'Site Initiation Checklist', status:'complete' },
+          { name:'Staff Delegation Log',      status:'complete' },
+          { name:'Equipment Calibration',     status:'incomplete' },
+        ]},
+      { id:'dal', label:'Dallas Vet Clinic',       level:0, status:'active', hasRecord:true,
+        stats:{ barns:1, subjects:54, target:80,  forms:148, queries:7, overdue:1 },
+        forms:[
+          { name:'Site Initiation Checklist', status:'complete' },
+          { name:'Staff Delegation Log',      status:'incomplete' },
+        ]},
+      { id:'hou', label:'Houston Animal Hospital', level:0, status:'pending', hasRecord:false,
+        stats:{ barns:0, subjects:0,  target:40,  forms:0,   queries:0, overdue:0 },
+        forms:[]},
+    ],
+    aus: [
+      { id:'aus-ba', label:'Barn A', level:1, status:'active', parentId:'aus', hasRecord:true,
+        stats:{ pens:3, subjects:44, forms:62, queries:2, overdue:1 },
+        forms:[{ name:'Barn Temperature Log', status:'incomplete' }]},
+      { id:'aus-bb', label:'Barn B', level:1, status:'active', parentId:'aus', hasRecord:true,
+        stats:{ pens:2, subjects:45, forms:94, queries:2, overdue:1 },
+        forms:[{ name:'Barn Temperature Log', status:'complete' }]},
+    ],
+    dal: [
+      { id:'dal-bc', label:'Barn C', level:1, status:'active', parentId:'dal', hasRecord:true,
+        stats:{ pens:2, subjects:54, forms:148, queries:7, overdue:1 },
+        forms:[{ name:'Barn Temperature Log', status:'complete' }]},
+    ],
+    hou: [],
+    'aus-ba': [
+      { id:'aus-ba-p1', label:'Pen 1', level:2, status:'active', parentId:'aus-ba', hasRecord:true,
+        stats:{ animals:4, forms:22, queries:1, sdv:3 },
+        forms:[{ name:'Pen Welfare Observation', status:'complete' }]},
+      { id:'aus-ba-p2', label:'Pen 2', level:2, status:'active', parentId:'aus-ba', hasRecord:true,
+        stats:{ animals:4, forms:21, queries:0, sdv:2 },
+        forms:[{ name:'Pen Welfare Observation', status:'complete' }]},
+      { id:'aus-ba-p3', label:'Pen 3', level:2, status:'hold',   parentId:'aus-ba', hasRecord:false,
+        stats:{ animals:2, forms:10, queries:1, sdv:0 }, forms:[]},
+    ],
+    'aus-bb': [
+      { id:'aus-bb-p4', label:'Pen 4', level:2, status:'active', parentId:'aus-bb', hasRecord:false,
+        stats:{ animals:2, forms:14, queries:0, sdv:1 }, forms:[]},
+      { id:'aus-bb-p5', label:'Pen 5', level:2, status:'closed', parentId:'aus-bb', hasRecord:true,
+        stats:{ animals:2, forms:18, queries:0, sdv:0 },
+        forms:[{ name:'Pen Welfare Observation', status:'complete' }]},
+    ],
+    'dal-bc': [
+      { id:'dal-bc-p6', label:'Pen 6', level:2, status:'active', parentId:'dal-bc', hasRecord:false,
+        stats:{ animals:2, forms:12, queries:0, sdv:2 }, forms:[]},
+      { id:'dal-bc-p7', label:'Pen 7', level:2, status:'pending',parentId:'dal-bc', hasRecord:false,
+        stats:{ animals:0, forms:0,  queries:0, sdv:0 }, forms:[]},
+    ],
+    /* Animal rows — subject level */
+    'aus-ba-p1': [
+      { id:'a-001', label:'Bovine #A-001', level:3, status:'randomized', parentId:'aus-ba-p1',
+        subjectId:'AUSB1P1-01', sex:'F', age:'4yr', breed:'Hereford', weight:'400 kg',
+        groupArm:'Group A — Dose', lastVisit:'May 09 2026', meta:'3/5 forms', queries:1, critical:true,
+        forms:[
+          { name:'Enrollment & Baseline',  status:'complete' },
+          { name:'Week 2 Assessment',       status:'complete' },
+          { name:'Week 4 Assessment',       status:'incomplete' },
+          { name:'Week 8 Assessment',       status:'not-started' },
+          { name:'Adverse Event Report',    status:'not-started' },
+        ]},
+      { id:'a-002', label:'Bovine #A-002', level:3, status:'randomized', parentId:'aus-ba-p1',
+        subjectId:'AUSB1P1-02', sex:'M', age:'3yr', breed:'Angus',    weight:'380 kg',
+        groupArm:'Group B — Control', lastVisit:'May 08 2026', meta:'2/5 forms', queries:0,
+        forms:[
+          { name:'Enrollment & Baseline',  status:'complete' },
+          { name:'Week 2 Assessment',       status:'complete' },
+          { name:'Week 4 Assessment',       status:'not-started' },
+          { name:'Week 8 Assessment',       status:'not-started' },
+          { name:'Adverse Event Report',    status:'not-started' },
+        ]},
+      { id:'a-003', label:'Bovine #A-003', level:3, status:'randomized', parentId:'aus-ba-p1',
+        subjectId:'AUSB1P1-03', sex:'F', age:'5yr', breed:'Hereford', weight:'415 kg',
+        groupArm:'Group A — Dose', lastVisit:'May 08 2026', meta:'2/5 forms', queries:0,
+        forms:[
+          { name:'Enrollment & Baseline',  status:'complete' },
+          { name:'Week 2 Assessment',       status:'complete' },
+          { name:'Week 4 Assessment',       status:'not-started' },
+          { name:'Week 8 Assessment',       status:'not-started' },
+          { name:'Adverse Event Report',    status:'not-started' },
+        ]},
+      { id:'a-004', label:'Bovine #A-004', level:3, status:'completed',  parentId:'aus-ba-p1',
+        subjectId:'AUSB1P1-04', sex:'M', age:'2yr', breed:'Angus',    weight:'340 kg',
+        groupArm:'Group B — Control', lastVisit:'May 05 2026', meta:'5/5 forms', queries:0,
+        forms:[
+          { name:'Enrollment & Baseline',  status:'complete' },
+          { name:'Week 2 Assessment',       status:'complete' },
+          { name:'Week 4 Assessment',       status:'complete' },
+          { name:'Week 8 Assessment',       status:'complete' },
+          { name:'Adverse Event Report',    status:'complete' },
+        ]},
+    ],
+    'aus-ba-p2': [
+      { id:'a-005', label:'Bovine #A-005', level:3, status:'randomized', parentId:'aus-ba-p2',
+        subjectId:'AUSB1P2-01', sex:'F', age:'3yr', breed:'Hereford', weight:'390 kg',
+        groupArm:'Group A — Dose', lastVisit:'May 09 2026', meta:'4/5 forms', queries:0,
+        forms:[{name:'Enrollment & Baseline',status:'complete'},{name:'Week 2 Assessment',status:'complete'},{name:'Week 4 Assessment',status:'complete'},{name:'Week 8 Assessment',status:'complete'},{name:'Adverse Event Report',status:'not-started'}]},
+      { id:'a-006', label:'Bovine #A-006', level:3, status:'randomized', parentId:'aus-ba-p2',
+        subjectId:'AUSB1P2-02', sex:'M', age:'4yr', breed:'Angus',    weight:'410 kg',
+        groupArm:'Group B — Control', lastVisit:'May 07 2026', meta:'3/5 forms', queries:0,
+        forms:[{name:'Enrollment & Baseline',status:'complete'},{name:'Week 2 Assessment',status:'complete'},{name:'Week 4 Assessment',status:'complete'},{name:'Week 8 Assessment',status:'not-started'},{name:'Adverse Event Report',status:'not-started'}]},
+    ],
+    'aus-ba-p3': [
+      { id:'a-007', label:'Bovine #A-007', level:3, status:'on-hold', parentId:'aus-ba-p3',
+        subjectId:'AUSB1P3-01', sex:'F', age:'4yr', breed:'Hereford', weight:'400 kg',
+        groupArm:'Group A — Dose', lastVisit:'Apr 28 2026', meta:'2/5 forms · 1 query', queries:1,
+        forms:[{name:'Enrollment & Baseline',status:'complete'},{name:'Week 2 Assessment',status:'complete'},{name:'Week 4 Assessment',status:'not-started'},{name:'Week 8 Assessment',status:'not-started'},{name:'Adverse Event Report',status:'not-started'}]},
+      { id:'a-008', label:'Bovine #A-008', level:3, status:'on-hold', parentId:'aus-ba-p3',
+        subjectId:'AUSB1P3-02', sex:'M', age:'3yr', breed:'Angus',    weight:'360 kg',
+        groupArm:'Group B — Control', lastVisit:'Apr 28 2026', meta:'2/5 forms', queries:0,
+        forms:[{name:'Enrollment & Baseline',status:'complete'},{name:'Week 2 Assessment',status:'complete'},{name:'Week 4 Assessment',status:'not-started'},{name:'Week 8 Assessment',status:'not-started'},{name:'Adverse Event Report',status:'not-started'}]},
+    ],
+    'aus-bb-p4': [
+      { id:'a-010', label:'Bovine #B-001', level:3, status:'randomized', parentId:'aus-bb-p4',
+        subjectId:'AUSB2P4-01', sex:'M', age:'3yr', breed:'Angus', weight:'370 kg',
+        groupArm:'Group A — Dose', lastVisit:'May 09 2026', meta:'4/5 forms', queries:0,
+        forms:[{name:'Enrollment & Baseline',status:'complete'},{name:'Week 2 Assessment',status:'complete'},{name:'Week 4 Assessment',status:'complete'},{name:'Week 8 Assessment',status:'complete'},{name:'Adverse Event Report',status:'not-started'}]},
+    ],
+    'aus-bb-p5': [
+      { id:'a-012', label:'Bovine #B-003', level:3, status:'completed', parentId:'aus-bb-p5',
+        subjectId:'AUSB2P5-01', sex:'F', age:'5yr', breed:'Hereford', weight:'420 kg',
+        groupArm:'Group B — Control', lastVisit:'May 01 2026', meta:'5/5 forms', queries:0,
+        forms:[{name:'Enrollment & Baseline',status:'complete'},{name:'Week 2 Assessment',status:'complete'},{name:'Week 4 Assessment',status:'complete'},{name:'Week 8 Assessment',status:'complete'},{name:'Adverse Event Report',status:'complete'}]},
+    ],
+    'dal-bc-p6': [
+      { id:'d-001', label:'Bovine #D-001', level:3, status:'randomized', parentId:'dal-bc-p6',
+        subjectId:'DALB1P6-01', sex:'M', age:'3yr', breed:'Angus', weight:'380 kg',
+        groupArm:'Group A — Dose', lastVisit:'May 08 2026', meta:'3/5 forms', queries:0,
+        forms:[{name:'Enrollment & Baseline',status:'complete'},{name:'Week 2 Assessment',status:'complete'},{name:'Week 4 Assessment',status:'complete'},{name:'Week 8 Assessment',status:'not-started'},{name:'Adverse Event Report',status:'not-started'}]},
+    ],
+    'dal-bc-p7': [],
+  },
+
+  companion: {
+    root: [
+      { id:'c-aus', label:'Austin Research Center', level:0, status:'active', hasRecord:true,
+        stats:{ animals:4, subjects:4, target:8, forms:18, queries:1, overdue:0 },
+        forms:[{ name:'Site Initiation Checklist', status:'complete' },{ name:'Staff Delegation Log', status:'complete' }]},
+      { id:'c-dal', label:'Dallas Vet Clinic',       level:0, status:'active', hasRecord:true,
+        stats:{ animals:2, subjects:2, target:6, forms:8,  queries:0, overdue:0 },
+        forms:[{ name:'Site Initiation Checklist', status:'complete' }]},
+    ],
+    'c-aus': [
+      { id:'c-001', label:'Luna',  level:1, status:'active', parentId:'c-aus', subjectId:'C-001',
+        sex:'F', age:'4yr', breed:'Labrador', weight:'28 kg',
+        groupArm:'Treatment', lastVisit:'May 09 2026', meta:'3/4 forms · 1 query', queries:1,
+        forms:[{name:'Enrollment & Consent',status:'complete'},{name:'Baseline Physical Exam',status:'complete'},{name:'Week 4 Follow-up',status:'incomplete'},{name:'End of Study',status:'not-started'}]},
+      { id:'c-002', label:'Max',   level:1, status:'active', parentId:'c-aus', subjectId:'C-002',
+        sex:'M', age:'6yr', breed:'Golden Retriever', weight:'32 kg',
+        groupArm:'Control', lastVisit:'May 08 2026', meta:'2/4 forms', queries:0,
+        forms:[{name:'Enrollment & Consent',status:'complete'},{name:'Baseline Physical Exam',status:'complete'},{name:'Week 4 Follow-up',status:'not-started'},{name:'End of Study',status:'not-started'}]},
+      { id:'c-003', label:'Bella', level:1, status:'active', parentId:'c-aus', subjectId:'C-003',
+        sex:'F', age:'3yr', breed:'Beagle', weight:'12 kg',
+        groupArm:'Treatment', lastVisit:'May 07 2026', meta:'1/4 forms', queries:0,
+        forms:[{name:'Enrollment & Consent',status:'complete'},{name:'Baseline Physical Exam',status:'not-started'},{name:'Week 4 Follow-up',status:'not-started'},{name:'End of Study',status:'not-started'}]},
+      { id:'c-004', label:'Rocky', level:1, status:'completed', parentId:'c-aus', subjectId:'C-004',
+        sex:'M', age:'5yr', breed:'Boxer', weight:'26 kg',
+        groupArm:'Control', lastVisit:'Apr 30 2026', meta:'4/4 forms', queries:0,
+        forms:[{name:'Enrollment & Consent',status:'complete'},{name:'Baseline Physical Exam',status:'complete'},{name:'Week 4 Follow-up',status:'complete'},{name:'End of Study',status:'complete'}]},
+    ],
+    'c-dal': [
+      { id:'c-005', label:'Milo',  level:1, status:'active', parentId:'c-dal', subjectId:'C-005',
+        sex:'M', age:'4yr', breed:'Dachshund', weight:'10 kg',
+        groupArm:'Treatment', lastVisit:'May 06 2026', meta:'2/4 forms', queries:0,
+        forms:[{name:'Enrollment & Consent',status:'complete'},{name:'Baseline Physical Exam',status:'complete'},{name:'Week 4 Follow-up',status:'not-started'},{name:'End of Study',status:'not-started'}]},
+      { id:'c-006', label:'Daisy', level:1, status:'active', parentId:'c-dal', subjectId:'C-006',
+        sex:'F', age:'2yr', breed:'Poodle', weight:'8 kg',
+        groupArm:'Control', lastVisit:'May 05 2026', meta:'1/4 forms', queries:0,
+        forms:[{name:'Enrollment & Consent',status:'complete'},{name:'Baseline Physical Exam',status:'not-started'},{name:'Week 4 Follow-up',status:'not-started'},{name:'End of Study',status:'not-started'}]},
+    ],
+  },
+
+  aquatic: {
+    root: [
+      { id:'aq-aus', label:'Austin Research Center', level:0, status:'active', hasRecord:true,
+        stats:{ tankRooms:2, subjects:6, target:10, forms:22, queries:1, overdue:0 },
+        forms:[{ name:'Site Initiation Checklist', status:'complete' },{ name:'Water Quality Baseline', status:'complete' }]},
+    ],
+    'aq-aus': [
+      { id:'aq-tra', label:'Tank Room A', level:1, status:'active', parentId:'aq-aus', hasRecord:true,
+        stats:{ tanks:3, subjects:3, forms:14, queries:1, sdv:2 },
+        forms:[{ name:'Room Temperature Log', status:'incomplete' },{ name:'Lighting Schedule', status:'complete' }]},
+      { id:'aq-trb', label:'Tank Room B', level:1, status:'pending', parentId:'aq-aus', hasRecord:false,
+        stats:{ tanks:2, subjects:2, forms:0, queries:0, sdv:0 }, forms:[]},
+    ],
+    'aq-tra': [
+      { id:'t-001', label:'Tank 1', level:2, status:'active', parentId:'aq-tra', subjectId:'T-001',
+        meta:'2/3 forms · 1 query', queries:1,
+        forms:[{name:'Tank Setup & Baseline',status:'complete'},{name:'Week 2 Water Sample',status:'complete'},{name:'Week 4 Mortality Count',status:'incomplete'}]},
+      { id:'t-002', label:'Tank 2', level:2, status:'active', parentId:'aq-tra', subjectId:'T-002',
+        meta:'2/3 forms',
+        forms:[{name:'Tank Setup & Baseline',status:'complete'},{name:'Week 2 Water Sample',status:'complete'},{name:'Week 4 Mortality Count',status:'not-started'}]},
+      { id:'t-003', label:'Tank 3', level:2, status:'active', parentId:'aq-tra', subjectId:'T-003',
+        meta:'1/3 forms',
+        forms:[{name:'Tank Setup & Baseline',status:'complete'},{name:'Week 2 Water Sample',status:'not-started'},{name:'Week 4 Mortality Count',status:'not-started'}]},
+    ],
+    'aq-trb': [
+      { id:'t-004', label:'Tank 4', level:2, status:'pending', parentId:'aq-trb', subjectId:'T-004',
+        meta:'0/3 forms',
+        forms:[{name:'Tank Setup & Baseline',status:'not-started'},{name:'Week 2 Water Sample',status:'not-started'},{name:'Week 4 Mortality Count',status:'not-started'}]},
+      { id:'t-005', label:'Tank 5', level:2, status:'pending', parentId:'aq-trb', subjectId:'T-005',
+        meta:'0/3 forms',
+        forms:[{name:'Tank Setup & Baseline',status:'not-started'},{name:'Week 2 Water Sample',status:'not-started'},{name:'Week 4 Mortality Count',status:'not-started'}]},
+    ],
+  }
+};
+
+/* ══════════════════════════════════════════════════════════════════════════
+   STATE
+══════════════════════════════════════════════════════════════════════════ */
+let studyType     = 'livestock';
+let ACTIVE_SITE   = '';          // '' = all sites; 'aus'|'dal'|'hou' = scoped
+let currentKey    = 'root';      // which list we are showing
+let navStack      = [];          // [{key, label}, …] breadcrumb history
+let groupFilter   = 'all';       // pen-level group tab filter
+
+/* ══════════════════════════════════════════════════════════════════════════
+   HELPERS
+══════════════════════════════════════════════════════════════════════════ */
+function cfg()  { return CONFIGS[studyType]; }
+function list(key) { return (NODES[studyType][key] || []); }
+function isSubject(n) { return n.level === cfg().subjectIdx; }
+
+function findNode(id) {
+  const keys = Object.keys(NODES[studyType]);
+  for (var k = 0; k < keys.length; k++) {
+    var arr = NODES[studyType][keys[k]];
+    for (var i = 0; i < arr.length; i++) {
+      if (arr[i].id === id) return arr[i];
+    }
+  }
+  return null;
+}
+
+function statusBadge(s) {
+  var map = {
+    active:      '<span class="badge badge-active">Active</span>',
+    pending:     '<span class="badge badge-pending">Pending</span>',
+    closed:      '<span class="badge badge-closed">Closed</span>',
+    hold:        '<span class="badge badge-hold">On hold</span>',
+    randomized:  '<span class="badge badge-active">Randomized</span>',
+    completed:   '<span class="badge badge-success">Completed</span>',
+    'on-hold':   '<span class="badge badge-hold">On hold</span>',
+    screened:    '<span class="badge badge-pending">Screened</span>',
+    withdrawn:   '<span class="badge badge-closed">Withdrawn</span>',
+  };
+  return map[s] || '<span class="badge badge-pending">' + s + '</span>';
+}
+
+function formBtn(s) {
+  var label = { complete:'Review', incomplete:'Continue', 'not-started':'Start' }[s] || 'Open';
+  var icon  = { complete:'ti-eye', incomplete:'ti-pencil', 'not-started':'ti-pencil' }[s] || 'ti-pencil';
+  return { label:label, icon:icon };
+}
+function formStatusLabel(s) { return { complete:'Complete', incomplete:'In progress', 'not-started':'Not started' }[s] || s; }
+function formStatusClass(s) { return { complete:'fcs-complete', incomplete:'fcs-incomplete', 'not-started':'fcs-notstarted' }[s] || ''; }
+
+/* ══════════════════════════════════════════════════════════════════════════
+   BREADCRUMB
+══════════════════════════════════════════════════════════════════════════ */
+function buildBreadcrumb() {
+  var html = '<button class="bc-btn" onclick="goRoot()"><span>Data Entry</span></button>';
+  for (var i = 0; i < navStack.length; i++) {
+    html += '<span class="bc-sep"><i class="ti ti-chevron-right" style="font-size:11px"></i></span>';
+    var item = navStack[i];
+    if (i < navStack.length - 1) {
+      html += '<button class="bc-btn" onclick="goStackDepth(' + i + ')"><span>' + item.label + '</span></button>';
+    } else {
+      html += '<span>' + item.label + '</span>';
+    }
+  }
+  return html;
+}
+
+/* ══════════════════════════════════════════════════════════════════════════
+   RENDER — main entry point
+══════════════════════════════════════════════════════════════════════════ */
+function render() {
+  var wrap = document.getElementById('page-wrap');
+  var config = cfg();
+  var isRoot = currentKey === 'root';
+
+  // What we are currently showing
+  var items = list(currentKey);
+
+  // Filter by site scope at root level
+  if (isRoot && ACTIVE_SITE) {
+    items = items.filter(function(n) {
+      return n.id === ACTIVE_SITE || n.id === 'c-' + ACTIVE_SITE || n.id === 'aq-' + ACTIVE_SITE;
+    });
+  }
+
+  // Parent node (the thing we drilled INTO to get here)
+  var parentNode = navStack.length > 0 ? findNode(navStack[navStack.length - 1].key) : null;
+  var isSub = parentNode && isSubject(parentNode);
+
+  // Determine the level name we are listing
+  var listLevelName;
+  if (isRoot) {
+    listLevelName = config.levels[0]; // 'Site'
+  } else if (parentNode) {
+    listLevelName = config.levels[parentNode.level + 1] || config.levels[config.subjectIdx];
+  } else {
+    listLevelName = config.levels[0];
+  }
+
+  var parentLevelName = parentNode ? config.levels[parentNode.level] : '';
+
+  var html = '';
+
+  /* ── Page header ── */
+  html += '<div class="page-header">';
+  html += '<nav class="breadcrumb">' + buildBreadcrumb() + '</nav>';
+  html += '<div class="page-title-row">';
+
+  /* Title */
+  html += '<div>';
+  if (parentNode) {
+    html += '<div class="page-title">' + parentNode.label + '</div>';
+    if (parentNode.subjectId) html += '<div class="page-title-sub">' + parentNode.subjectId + '</div>';
+  } else {
+    html += '<div class="page-title">' + config.studyLabel.split(' — ')[1] + '</div>';
+  }
+  html += '</div>';
+
+  /* Page actions — right side:
+     [Export] [Open {level} record — secondary, only if hasRecord] [Add {childLevel} — primary] */
+  html += '<div class="page-actions">';
+  html += '<button class="btn-secondary"><i class="ti ti-download"></i> Export</button>';
+
+  if (parentNode && !isSub) {
+    if (parentNode.hasRecord) {
+      html += '<button class="btn-secondary" onclick="openRecord(\'' + parentNode.id + '\')"><i class="ti ti-file-description"></i> Open ' + parentLevelName.toLowerCase() + ' record</button>';
+    }
+    html += '<button class="btn-primary"><i class="ti ti-plus"></i> Add ' + listLevelName.toLowerCase() + '</button>';
+  } else if (isRoot) {
+    html += '<button class="btn-primary"><i class="ti ti-plus"></i> Add site</button>';
+  }
+
+  if (isSub) {
+    if (parentNode && parentNode.hasRecord) {
+      html += '<button class="btn-secondary" onclick="openRecord(\'' + parentNode.id + '\')"><i class="ti ti-file-description"></i> Open ' + parentLevelName.toLowerCase() + ' record</button>';
+    }
+    html += '<button class="btn-secondary"><i class="ti ti-stack-2"></i> Batch entry</button>';
+    html += '<button class="btn-primary"><i class="ti ti-plus"></i> Add ' + listLevelName.toLowerCase() + '</button>';
+  }
+
+  html += '</div>';
+  html += '</div></div>'; // page-title-row, page-header
+
+  /* ── Subject level: form list ── */
+  if (isSub && parentNode) {
+    html += renderSubjectForms(parentNode);
+    wrap.innerHTML = html;
+    return;
+  }
+
+  /* ── Children table ── */
+  html += renderChildrenTable(items, listLevelName, parentNode, config);
+
+  wrap.innerHTML = html;
+}
+
+/* ── Level tag CSS class ── */
+function levelTagClass(level) {
+  if (level === 0) return 'level-tag-site';
+  if (level === cfg().subjectIdx) return 'level-tag-subj';
+  return 'level-tag-mid';
+}
+
+/* ── Node-level forms strip (above children table) ── */
+function renderNodeForms(node, levelName) {
+  var html = '<div class="forms-section">';
+  html += '<div class="forms-section-head"><span>' + levelName + ' forms</span></div>';
+  html += '<div class="form-cards">';
+  node.forms.forEach(function(f) {
+    var btn = formBtn(f.status);
+    html += '<div class="form-card">';
+    html += '<div class="form-card-icon"><i class="ti ti-clipboard-list"></i></div>';
+    html += '<div class="form-card-body">';
+    html += '<div class="form-card-name">' + f.name + '</div>';
+    html += '<div class="form-card-status ' + formStatusClass(f.status) + '">' + formStatusLabel(f.status) + '</div>';
+    html += '</div>';
+    html += '<button class="form-card-btn"><i class="ti ' + btn.icon + '"></i>' + btn.label + '</button>';
+    html += '</div>';
+  });
+  html += '</div></div>';
+  return html;
+}
+
+/* ── Children table — columns differ per level ── */
+function renderChildrenTable(items, listLevelName, parentNode, config) {
+  var html = '';
+  var isRootLevel = !parentNode;
+  var isAtSubjectLevel = items.length > 0 && isSubject(items[0]);
+
+  /* Determine level index of children */
+  var childLevel = parentNode ? parentNode.level + 1 : 0;
+  var isPreSubject = childLevel < config.subjectIdx;  // still container levels
+
+  /* ── Filter bar — same pattern at every level ── */
+  var searchPlaceholder = isAtSubjectLevel ? 'Search animals…' : 'Search ' + listLevelName.toLowerCase() + 's…';
+  var statusOptions = isAtSubjectLevel
+    ? '<option value="">All statuses</option><option>Randomized</option><option>Screened</option><option>Completed</option><option>On hold</option><option>Withdrawn</option>'
+    : '<option value="">All statuses</option><option>Active</option><option>Pending</option><option>On hold</option><option>Closed</option>';
+  var groupOptions = '';
+  if (isAtSubjectLevel) {
+    var groups = [];
+    items.forEach(function(a) { if (a.groupArm && groups.indexOf(a.groupArm) === -1) groups.push(a.groupArm); });
+    if (groups.length > 0) {
+      groupOptions = '<select class="filter-select" id="group-filter" onchange="filterRows(document.getElementById(\'search-input\').value)"><option value="">All groups</option>';
+      groups.forEach(function(g) { groupOptions += '<option>' + g + '</option>'; });
+      groupOptions += '</select>';
+    }
+  }
+  var countLabel = isAtSubjectLevel ? items.length + ' animals' : items.length + ' ' + listLevelName.toLowerCase() + 's';
+  html += '<div class="filter-bar">';
+  html += '<input class="search-input" type="search" placeholder="' + searchPlaceholder + '" id="search-input" oninput="filterRows(this.value)">';
+  html += '<select class="filter-select" id="status-filter" onchange="filterRows(document.getElementById(\'search-input\').value)">' + statusOptions + '</select>';
+  html += groupOptions;
+  html += '<span class="toolbar-count" id="row-count">' + countLabel + '</span>';
+  html += '</div>';
+
+  html += '<div class="table-wrap"><table class="list-table" id="main-table"><thead><tr>';
+
+  if (isRootLevel) {
+    /* Panel 1 — Site list: Site ID · Site name · [L2]s · Enrollment · Forms · Open queries · Overdue */
+    var l2 = config.levels[1] || 'Locations';
+    html += '<th>' + config.levels[0] + ' ID</th>';
+    html += '<th>' + config.levels[0] + ' name</th>';
+    html += '<th>' + l2 + 's</th>';
+    html += '<th>Enrollment</th>';
+    html += '<th>Forms</th>';
+    html += '<th>Open queries</th>';
+    html += '<th>Overdue</th>';
+    html += '<th></th>';
+  } else if (isPreSubject && childLevel === 1) {
+    /* Panel 2 — Barn list: Barn ID · Barn name · [L3]s · Forms · Queries · Overdue · (more) */
+    var l3 = config.levels[2] || 'Sub-groups';
+    html += '<th>' + listLevelName + ' ID</th>';
+    html += '<th>' + listLevelName + ' name</th>';
+    html += '<th>' + l3 + 's</th>';
+    html += '<th>Subjects</th>';
+    html += '<th>Forms</th>';
+    html += '<th>Open queries</th>';
+    html += '<th>Overdue</th>';
+    html += '<th></th>';
+  } else if (isPreSubject && childLevel >= 2) {
+    /* Panel 3 — Pen list: Pen ID · Pen name · Animals · Forms · Queries · SDV queries · (more) */
+    html += '<th>' + listLevelName + ' ID</th>';
+    html += '<th>' + listLevelName + ' name</th>';
+    html += '<th>Animals</th>';
+    html += '<th>Forms</th>';
+    html += '<th>Open queries</th>';
+    html += '<th>Pending SDV</th>';
+    html += '<th></th>';
+  } else if (isAtSubjectLevel) {
+    /* Panel 4 — Animal list: Animal ID · Sex · Age · Breed · Status · Group/Arm · Forms · Last visit · Queries */
+    html += '<th>Animal ID</th>';
+    html += '<th>Sex</th>';
+    html += '<th>Age</th>';
+    html += '<th>Breed</th>';
+    html += '<th>Status</th>';
+    html += '<th>Group / Arm</th>';
+    html += '<th>Forms</th>';
+    html += '<th>Last visit</th>';
+    html += '<th>Queries</th>';
+    html += '<th></th>';
+  } else {
+    /* Generic subject level (companion, aquatic) */
+    html += '<th>' + listLevelName + ' ID</th>';
+    html += '<th>Name</th>';
+    html += '<th>Status</th>';
+    html += '<th>Forms</th>';
+    html += '<th>Open queries</th>';
+    html += '<th>Last visit</th>';
+    html += '<th></th>';
+  }
+  html += '</tr></thead><tbody id="main-tbody">';
+
+  /* ── Rows ── */
+  var visibleItems = items;
+  if (isAtSubjectLevel && groupFilter !== 'all') {
+    visibleItems = items.filter(function(a) { return a.groupArm === groupFilter; });
+  }
+
+  if (visibleItems.length === 0) {
+    html += '<tr><td colspan="10" style="padding:var(--space-8);text-align:center;color:var(--color-text-tertiary);font-size:var(--text-sm)"><i class="ti ' + (config.icons[childLevel] || 'ti-database') + '" style="font-size:24px;display:block;margin-bottom:var(--space-3);color:var(--color-border)"></i>Nothing here yet</td></tr>';
+  } else {
+    visibleItems.forEach(function(node) {
+      var nid  = node.id;
+      var crit = node.critical ? ' class="row-critical"' : '';
+      var dataAttrs = ' data-label="' + node.label.toLowerCase() + '" data-status="' + node.status + '" data-group="' + (node.groupArm || '') + '"';
+
+      if (isRootLevel) {
+        /* Site rows */
+        var s = node.stats || {};
+        var enrolled = s.subjects || 0, target = s.target || 0;
+        var pct = target > 0 ? Math.round(enrolled / target * 100) : 0;
+        var l2count = s.barns !== undefined ? s.barns : (s.tankRooms !== undefined ? s.tankRooms : (s.animals !== undefined ? s.animals : '—'));
+        html += '<tr' + crit + dataAttrs + ' onclick="drillInto(\'' + nid + '\')" style="cursor:pointer">';
+        html += '<td><span class="mono cell-link">' + nid.toUpperCase() + '</span></td>';
+        html += '<td><span class="cell-link">' + node.label + '</span></td>';
+        html += '<td><span class="mono">' + l2count + '</span></td>';
+        html += '<td><div class="progress-cell"><div class="progress-track"><div class="progress-fill' + (pct < 50 ? ' low' : '') + '" style="width:' + Math.min(pct,100) + '%"></div></div><span class="progress-label">' + enrolled + '/' + target + '</span></div></td>';
+        html += '<td><span class="mono">' + (s.forms || 0) + '</span></td>';
+        html += '<td><span class="mono"' + (s.queries > 0 ? ' style="color:var(--amber-700);font-weight:500"' : '') + '>' + (s.queries > 0 ? s.queries : '—') + '</span></td>';
+        html += '<td><span class="mono"' + (s.overdue > 0 ? ' style="color:var(--red-600);font-weight:500"'  : '') + '>' + (s.overdue > 0 ? s.overdue  : '—') + '</span></td>';
+        html += '<td><div class="row-actions">';
+        if (node.hasRecord) html += '<button class="btn-icon" title="Open site record" onclick="event.stopPropagation();openRecord(\'' + nid + '\')"><i class="ti ti-pencil"></i></button>';
+        html += '</div></td>';
+        html += '</tr>';
+
+      } else if (isPreSubject && childLevel === 1) {
+        /* Barn rows */
+        var s = node.stats || {};
+        var l3count = s.pens !== undefined ? s.pens : (s.tanks !== undefined ? s.tanks : '—');
+        html += '<tr' + crit + dataAttrs + ' onclick="drillInto(\'' + nid + '\')" style="cursor:pointer">';
+        html += '<td><span class="mono cell-link">' + nid.split('-').pop().toUpperCase() + '</span></td>';
+        html += '<td><span class="cell-link"><i class="ti ' + config.icons[1] + '" style="font-size:13px;color:var(--color-text-tertiary);margin-right:6px;vertical-align:middle"></i>' + node.label + '</span></td>';
+        html += '<td><span class="mono">' + l3count + '</span></td>';
+        html += '<td><span class="mono">' + (s.subjects || 0) + '</span></td>';
+        html += '<td><span class="mono">' + (s.forms || 0) + '</span></td>';
+        html += '<td><span class="mono"' + (s.queries > 0 ? ' style="color:var(--amber-700);font-weight:500"' : '') + '>' + (s.queries > 0 ? s.queries : '—') + '</span></td>';
+        html += '<td><span class="mono"' + (s.overdue > 0 ? ' style="color:var(--red-600);font-weight:500"' : '') + '>' + (s.overdue > 0 ? s.overdue : '—') + '</span></td>';
+        html += '<td><div class="row-actions">';
+        if (node.hasRecord) html += '<button class="btn-icon" title="Open ' + listLevelName.toLowerCase() + ' record" onclick="event.stopPropagation();openRecord(\'' + nid + '\')"><i class="ti ti-pencil"></i></button>';
+        html += '</div></td>';
+        html += '</tr>';
+
+      } else if (isPreSubject && childLevel >= 2) {
+        /* Pen rows */
+        var s = node.stats || {};
+        html += '<tr' + crit + dataAttrs + ' onclick="drillInto(\'' + nid + '\')" style="cursor:pointer">';
+        html += '<td><span class="mono cell-link">' + nid.split('-').pop().toUpperCase() + '</span></td>';
+        html += '<td><span class="cell-link"><i class="ti ' + config.icons[childLevel] + '" style="font-size:13px;color:var(--color-text-tertiary);margin-right:6px;vertical-align:middle"></i>' + node.label + '</span></td>';
+        html += '<td><span class="mono">' + (s.animals || 0) + '</span></td>';
+        html += '<td><span class="mono">' + (s.forms || 0) + '</span></td>';
+        html += '<td><span class="mono"' + (s.queries > 0 ? ' style="color:var(--amber-700);font-weight:500"' : '') + '>' + (s.queries > 0 ? s.queries : '—') + '</span></td>';
+        html += '<td><span class="mono"' + (s.sdv > 0 ? ' style="color:var(--blue-600)"' : '') + '>' + (s.sdv > 0 ? s.sdv : '—') + '</span></td>';
+        html += '<td><div class="row-actions">';
+        if (node.hasRecord) html += '<button class="btn-icon" title="Open ' + listLevelName.toLowerCase() + ' record" onclick="event.stopPropagation();openRecord(\'' + nid + '\')"><i class="ti ti-pencil"></i></button>';
+        html += '</div></td>';
+        html += '</tr>';
+
+      } else if (isAtSubjectLevel) {
+        /* Animal rows — Panel 4 columns */
+        var formsDone  = node.forms ? node.forms.filter(function(f){ return f.status === 'complete'; }).length : 0;
+        var formsTotal = node.forms ? node.forms.length : 0;
+        var formsPct   = formsTotal > 0 ? Math.round(formsDone / formsTotal * 100) : 0;
+        var q = node.queries || 0;
+        html += '<tr' + crit + dataAttrs + ' onclick="drillInto(\'' + nid + '\')" style="cursor:pointer">';
+        html += '<td><span class="mono cell-link">' + (node.subjectId || node.id.toUpperCase()) + '</span></td>';
+        html += '<td><span class="muted">' + (node.sex || '—') + '</span></td>';
+        html += '<td><span class="muted">' + (node.age || '—') + '</span></td>';
+        html += '<td><span class="muted">' + (node.breed || '—') + '</span></td>';
+        html += '<td>' + statusBadge(node.status) + '</td>';
+        html += '<td><span class="muted" style="font-size:var(--text-xs)">' + (node.groupArm || '—') + '</span></td>';
+        html += '<td><div class="progress-cell"><div class="progress-track"><div class="progress-fill' + (formsPct < 40 ? ' low' : '') + '" style="width:' + formsPct + '%"></div></div><span class="progress-label">' + formsDone + '/' + formsTotal + '</span></div></td>';
+        html += '<td><span class="mono muted" style="font-size:var(--text-xs)">' + (node.lastVisit || '—') + '</span></td>';
+        html += '<td><span class="mono"' + (q > 0 ? ' style="color:var(--amber-700);font-weight:500"' : '') + '>' + (q > 0 ? q : '—') + '</span></td>';
+        html += '<td><div class="row-actions"><button class="btn-icon" title="Open subject record" onclick="event.stopPropagation();drillInto(\'' + nid + '\')"><i class="ti ti-pencil"></i></button></div></td>';
+        html += '</tr>';
+
+      } else {
+        /* Generic subject (companion, aquatic tanks) */
+        var formsDone  = node.forms ? node.forms.filter(function(f){ return f.status === 'complete'; }).length : 0;
+        var formsTotal = node.forms ? node.forms.length : 0;
+        var formsPct   = formsTotal > 0 ? Math.round(formsDone / formsTotal * 100) : 0;
+        var q = node.queries || 0;
+        html += '<tr' + crit + dataAttrs + ' onclick="drillInto(\'' + nid + '\')" style="cursor:pointer">';
+        html += '<td><span class="mono cell-link">' + (node.subjectId || nid.toUpperCase()) + '</span></td>';
+        html += '<td><span class="cell-link">' + node.label + '</span></td>';
+        html += '<td>' + statusBadge(node.status) + '</td>';
+        html += '<td><div class="progress-cell"><div class="progress-track"><div class="progress-fill' + (formsPct < 40 ? ' low' : '') + '" style="width:' + formsPct + '%"></div></div><span class="progress-label">' + formsDone + '/' + formsTotal + '</span></div></td>';
+        html += '<td><span class="mono"' + (q > 0 ? ' style="color:var(--amber-700);font-weight:500"' : '') + '>' + (q > 0 ? q : '—') + '</span></td>';
+        html += '<td><span class="mono muted" style="font-size:var(--text-xs)">' + (node.lastVisit || '—') + '</span></td>';
+        html += '<td><div class="row-actions"><button class="btn-icon" title="Open record" onclick="event.stopPropagation();drillInto(\'' + nid + '\')"><i class="ti ti-pencil"></i></button></div></td>';
+        html += '</tr>';
+      }
+    });
+  }
+
+  html += '</tbody></table></div>';
+
+  /* Summary bar */
+  var totalQ = visibleItems.reduce(function(a,n){ return a + (n.queries || (n.stats && n.stats.queries) || 0); }, 0);
+  var totalS = isRootLevel ? visibleItems.reduce(function(a,n){ return a + ((n.stats && n.stats.subjects) || 0); }, 0) : 0;
+  html += '<div class="summary-bar">';
+  html += '<div style="display:flex;align-items:center;gap:var(--space-1)"><span>' + listLevelName + 's:</span><span class="sv">' + visibleItems.length + '</span></div>';
+  if (isRootLevel && totalS > 0) html += '<div style="display:flex;align-items:center;gap:var(--space-1)"><span>Subjects enrolled:</span><span class="sv">' + totalS + '</span></div>';
+  html += '<div style="display:flex;align-items:center;gap:var(--space-1)"><span>Open queries:</span><span class="sv' + (totalQ > 0 ? ' warn' : '') + '">' + totalQ + '</span></div>';
+  html += '</div>';
+
+  return html;
+}
+
+/* ── Subject form list ── */
+function renderSubjectForms(node) {
+  var html = '<div style="flex:1;overflow-y:auto;padding:var(--space-5)">';
+  html += '<div style="max-width:680px;display:flex;flex-direction:column;gap:var(--space-2)">';
+  if (!node.forms || node.forms.length === 0) {
+    html += '<div style="padding:var(--space-8);text-align:center;color:var(--color-text-tertiary)"><i class="ti ti-forms" style="font-size:32px;display:block;margin-bottom:var(--space-3);color:var(--color-border)"></i>No forms assigned</div>';
+  } else {
+    node.forms.forEach(function(f) {
+      var btn = formBtn(f.status);
+      html += '<div style="display:flex;align-items:center;gap:var(--space-3);padding:var(--space-3) var(--space-4);border:1px solid var(--color-border);border-radius:var(--radius-md);background:var(--color-surface);cursor:pointer;transition:background var(--duration-fast)" onmouseover="this.style.background=\'var(--color-hover-bg)\'" onmouseout="this.style.background=\'var(--color-surface)\'">';
+      html += '<div style="width:30px;height:30px;border:1px solid var(--color-border);border-radius:var(--radius-md);display:flex;align-items:center;justify-content:center;background:var(--color-page-bg);flex-shrink:0"><i class="ti ti-clipboard-list" style="font-size:14px;color:var(--color-text-tertiary)"></i></div>';
+      html += '<div style="flex:1">';
+      html += '<div style="font-size:var(--text-sm);font-weight:500">' + f.name + '</div>';
+      html += '<div class="' + formStatusClass(f.status) + '" style="font-size:var(--text-xs);margin-top:2px">' + formStatusLabel(f.status) + '</div>';
+      html += '</div>';
+      html += '<button style="height:28px;padding:0 var(--space-3);border:1px solid var(--color-border);border-radius:var(--radius-md);background:var(--color-surface);font-size:var(--text-xs);font-weight:500;font-family:var(--font-sans);color:var(--color-text-secondary);cursor:pointer;display:inline-flex;align-items:center;gap:4px;white-space:nowrap"><i class="ti ' + btn.icon + '" style="font-size:12px"></i>' + btn.label + '</button>';
+      html += '</div>';
+    });
+  }
+  html += '</div></div>';
+  return html;
+}
+
+/* ══════════════════════════════════════════════════════════════════════════
+   NAVIGATION
+══════════════════════════════════════════════════════════════════════════ */
+function drillInto(id) {
+  var node = findNode(id);
+  if (!node) return;
+  groupFilter = 'all';
+  navStack.push({ key: id, label: node.label });
+  currentKey = id;
+  render();
+}
+
+function goRoot() {
+  navStack    = [];
+  currentKey  = 'root';
+  groupFilter = 'all';
+  // If site scoped, jump directly into that site
+  if (ACTIVE_SITE) {
+    var siteNode = (NODES[studyType].root || []).find(function(n) {
+      return n.id === ACTIVE_SITE || n.id === 'c-' + ACTIVE_SITE || n.id === 'aq-' + ACTIVE_SITE;
+    });
+    if (siteNode) {
+      navStack = [{ key: siteNode.id, label: siteNode.label }];
+      currentKey = siteNode.id;
+    }
+  }
+  render();
+}
+
+function goStackDepth(idx) {
+  var item = navStack[idx];
+  if (!item) return;
+  navStack    = navStack.slice(0, idx + 1);
+  currentKey  = item.key;
+  groupFilter = 'all';
+  render();
+}
+
+function setGroupFilter(g) {
+  groupFilter = g;
+  render();
+}
+
+function openRecord(id) {
+  var node = findNode(id);
+  if (!node) return;
+  var levelName = CONFIGS[studyType].levels[node.level];
+  // Placeholder: in production this opens a slide panel or navigates to the record
+  alert('Opening ' + levelName + ' record: ' + node.label);
+}
+
+/* ══════════════════════════════════════════════════════════════════════════
+   FILTER (search + status)
+══════════════════════════════════════════════════════════════════════════ */
+function filterRows(q) {
+  var tbody = document.getElementById('main-tbody');
+  if (!tbody) return;
+  var statusFilter = (document.getElementById('status-filter') || {}).value || '';
+  var groupFilter  = (document.getElementById('group-filter')  || {}).value || '';
+  q = (q || '').toLowerCase().trim();
+  var rows = tbody.querySelectorAll('tr[data-label]');
+  var visible = 0;
+  rows.forEach(function(r) {
+    var labelMatch  = !q            || r.dataset.label.includes(q);
+    var statusMatch = !statusFilter || r.dataset.status === statusFilter.toLowerCase().replace(/ /g,'-');
+    var groupMatch  = !groupFilter  || (r.dataset.group || '') === groupFilter;
+    var show = labelMatch && statusMatch && groupMatch;
+    r.style.display = show ? '' : 'none';
+    if (show) visible++;
+  });
+  var countEl = document.getElementById('row-count');
+  if (countEl) countEl.textContent = visible + ' items';
+}
+
+/* ══════════════════════════════════════════════════════════════════════════
+   SITE DROPDOWN (exact from 24-inventory)
+══════════════════════════════════════════════════════════════════════════ */
+function toggleSiteDropdown() {
+  var dd   = document.getElementById('site-dropdown');
+  var chev = document.getElementById('tb-site-chevron');
+  if (!dd) return;
+  var isOpen = dd.style.display !== 'none';
+  dd.style.display = isOpen ? 'none' : 'block';
+  if (chev) chev.className = isOpen ? 'ti ti-chevron-down' : 'ti ti-chevron-up';
+}
+
+document.addEventListener('click', function(e) {
+  var wrap = document.getElementById('site-dropdown-wrap');
+  if (wrap && !wrap.contains(e.target)) {
+    var dd   = document.getElementById('site-dropdown');
+    var chev = document.getElementById('tb-site-chevron');
+    if (dd)   dd.style.display = 'none';
+    if (chev) chev.className = 'ti ti-chevron-down';
+  }
+});
+
+var SITE_LABELS = { '':'All sites', aus:'Austin Research Center', dal:'Dallas Vet Clinic', hou:'Houston Animal Hospital' };
+
+function setSiteFilter(site) {
+  ACTIVE_SITE = site;
+
+  // Active state on dropdown items
+  document.querySelectorAll('.site-dd-item').forEach(function(b) {
+    var m = b.getAttribute('onclick') && b.getAttribute('onclick').match(/setSiteFilter\(['"]([^'"]*)['"]\)/);
+    b.classList.toggle('active', m ? m[1] === site : false);
+  });
+
+  // Update label
+  var btn = document.getElementById('tb-site-btn');
+  if (btn) btn.innerHTML = (SITE_LABELS[site] || site) + ' <i class="ti ti-chevron-down" id="tb-site-chevron" style="font-size:11px;opacity:0.7"></i>';
+
+  // Close dropdown
+  var dd = document.getElementById('site-dropdown');
+  if (dd) dd.style.display = 'none';
+
+  // Reset nav & jump into site if one selected
+  navStack    = [];
+  groupFilter = 'all';
+  if (site) {
+    var siteNode = (NODES[studyType].root || []).find(function(n) {
+      return n.id === site || n.id === 'c-' + site || n.id === 'aq-' + site;
+    });
+    if (siteNode) {
+      navStack   = [{ key: siteNode.id, label: siteNode.label }];
+      currentKey = siteNode.id;
+    } else {
+      currentKey = 'root';
+    }
+  } else {
+    currentKey = 'root';
+  }
+  render();
+}
+
+/* ══════════════════════════════════════════════════════════════════════════
+   STUDY TYPE
+══════════════════════════════════════════════════════════════════════════ */
+function setStudyType(type) {
+  studyType   = type;
+  ACTIVE_SITE = '';
+  navStack    = [];
+  currentKey  = 'root';
+  groupFilter = 'all';
+
+  document.querySelectorAll('.demo-btn').forEach(function(b, i) {
+    b.classList.toggle('active', ['livestock','companion','aquatic'][i] === type);
+  });
+
+  // Reset site dropdown
+  document.querySelectorAll('.site-dd-item').forEach(function(b, i) {
+    b.classList.toggle('active', i === 0);
+  });
+  var siteBtn = document.getElementById('tb-site-btn');
+  if (siteBtn) siteBtn.innerHTML = 'All sites <i class="ti ti-chevron-down" id="tb-site-chevron" style="font-size:11px;opacity:0.7"></i>';
+
+  var studyLabelEl = document.getElementById('tb-study-label');
+  if (studyLabelEl) studyLabelEl.textContent = CONFIGS[type].studyLabel;
+
+  render();
+}
+
+/* ══════════════════════════════════════════════════════════════════════════
+   BOOT
+══════════════════════════════════════════════════════════════════════════ */
+render();
+</script>
+</body>
+</html>

@@ -1,0 +1,989 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Arken EDC — Animals</title>
+<link href="https://fonts.googleapis.com/css2?family=Roboto:wght@400;500;700&family=Roboto+Mono:wght@400;500&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@tabler/icons-webfont@latest/tabler-icons.min.css">
+<style>
+:root {
+  --color-nav-bg:#1A1F2E; --color-nav-hover:#2C3248; --color-nav-icon:#8aafc8;
+  --color-nav-separator:rgba(255,255,255,0.08);
+  --color-page-bg:#FBFBFB; --color-surface:#FFFFFF;
+  --color-border:#E8E8E6; --color-border-subtle:#F0F0EE;
+  --color-text-primary:#2C2D33; --color-text-secondary:#4F535B;
+  --color-text-tertiary:#6D7480; --color-text-placeholder:#C4C4C2;
+  --color-link:#3D4A5C; --color-hover-bg:#F0F0EE;
+  --color-cta-bg:#1A1F2E; --color-cta-hover:#2C3248; --color-focus-ring:#3D8FE0;
+  --amber-50:#FFF8E7; --amber-200:#F5B830; --amber-700:#8A5C00;
+  --orange-50:#FFF0E8; --orange-200:#F48E50; --orange-700:#A33A08;
+  --red-50:#FFF0F0; --red-200:#EC8585; --red-600:#B52626;
+  --green-50:#EEFAF4; --green-200:#58BC88; --green-600:#1A6B47;
+  --blue-50:#E8F4FF; --blue-200:#7AB8EE; --blue-600:#1760A8;
+  --purple-50:#F0EEFF; --purple-200:#A9A3EC; --purple-600:#534AB7;
+  --slate-50:#EEF1F6; --slate-200:#8AA0B8; --slate-600:#3D5A78;
+  --font-sans:'Roboto',system-ui,sans-serif; --font-mono:'Roboto Mono',monospace;
+  --text-xs:11px; --text-sm:12px; --text-base:14px; --text-lg:16px; --text-3xl:24px;
+  --weight-regular:400; --weight-medium:500; --weight-bold:700;
+  --radius-sm:2px; --radius-md:4px; --radius-lg:6px; --radius-full:9999px;
+  --space-1:4px; --space-2:8px; --space-3:12px; --space-4:16px;
+  --space-5:20px; --space-6:24px; --space-8:32px;
+  --duration-fast:120ms; --ease-default:cubic-bezier(0.16,1,0.3,1);
+  --tracking-caps:0.07em;
+}
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+body{font-family:var(--font-sans);font-size:var(--text-base);color:var(--color-text-primary);background:var(--color-page-bg);-webkit-font-smoothing:antialiased}
+
+/* ─── Shell ── */
+.shell{display:flex;height:100vh;overflow:hidden}
+.sidenav{width:74px;background:var(--color-nav-bg);display:flex;flex-direction:column;align-items:center;padding:var(--space-3) 0;gap:2px;flex-shrink:0}
+.nav-logo{width:30px;height:30px;border-radius:var(--radius-md);background:var(--color-nav-hover);display:flex;align-items:center;justify-content:center;margin-bottom:var(--space-3)}
+.nav-logo span{font-size:var(--text-base);font-weight:700;color:#fff}
+.nav-item{width:100%;min-height:50px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:3px;border:none;background:transparent;color:var(--color-nav-icon);cursor:pointer;transition:background var(--duration-fast);padding:4px 0;position:relative}
+.nav-item:hover,.nav-item.active{background:var(--color-nav-hover);color:#fff}
+.nav-item i{font-size:20px} .nav-label{font-size:11px;font-weight:500;color:inherit;text-align:center}
+.nav-badge{position:absolute;top:6px;right:18px;min-width:14px;height:14px;padding:0 3px;border-radius:var(--radius-full);background:var(--red-600);color:#fff;font-size:9px;font-weight:700;font-family:var(--font-mono);display:flex;align-items:center;justify-content:center}
+.nav-spacer{flex:1} .nav-sep{width:100%;height:1px;background:var(--color-nav-separator);margin:var(--space-2) 0}
+.main{flex:1;display:flex;flex-direction:column;min-width:0;overflow:hidden}
+
+/* ─── Topbar ── */
+.topbar{height:56px;background:var(--color-nav-bg);display:flex;align-items:center;padding:0 var(--space-5);gap:var(--space-3);flex-shrink:0}
+.tb-study{background:var(--color-nav-hover);color:#fff;font-size:var(--text-base);font-weight:500;padding:7px var(--space-4);border-radius:var(--radius-md);border:1px solid #525D73;display:flex;align-items:center;gap:4px;cursor:pointer}
+.tb-study i{font-size:11px;opacity:0.7}
+.site-dd-item{display:flex;align-items:center;width:100%;padding:var(--space-2) var(--space-4);font-size:var(--text-sm);font-family:var(--font-sans);color:var(--color-text-primary);background:none;border:none;cursor:pointer;text-align:left;transition:background var(--duration-fast)}
+.site-dd-item:hover{background:var(--color-hover-bg)}
+.site-dd-item.active{color:var(--blue-600);font-weight:500;background:var(--blue-50)}
+.tb-site{color:#fff;font-size:var(--text-base);display:flex;align-items:center;gap:3px;cursor:pointer;border:none;background:none;font-family:var(--font-sans);font-weight:500}
+.tb-site:hover{color:rgba(255,255,255,0.7)}
+.tb-right{margin-left:auto;display:flex;align-items:center;gap:var(--space-3)}
+.tb-icon{width:28px;height:28px;display:flex;align-items:center;justify-content:center;border-radius:var(--radius-md);border:none;background:transparent;color:#fff;cursor:pointer}
+.tb-icon:hover{background:var(--color-nav-hover)} .tb-icon i{font-size:20px}
+.tb-role{background:var(--color-nav-hover);color:#fff;font-size:var(--text-sm);font-weight:500;padding:3px var(--space-2);border-radius:var(--radius-md);border:1px solid #525D73;cursor:pointer;display:flex;align-items:center;gap:4px}
+.tb-avatar{width:30px;height:30px;border-radius:50%;background:#3D5A78;color:#EEF1F6;font-size:12px;font-weight:500;display:flex;align-items:center;justify-content:center}
+
+/* ─── Page layout ── */
+.page-wrap{flex:1;display:flex;flex-direction:column;overflow:hidden}
+.page-header{padding:var(--space-4) var(--space-5);border-bottom:1px solid var(--color-border);background:var(--color-surface);flex-shrink:0}
+.page-title-row{display:flex;align-items:center;justify-content:space-between;gap:var(--space-4)}
+.page-title{font-size:var(--text-3xl);font-weight:var(--weight-medium)}
+.page-title-sub{font-size:var(--text-sm);color:var(--color-text-tertiary);margin-top:3px;font-family:var(--font-mono)}
+.page-actions{display:flex;align-items:center;gap:var(--space-2)}
+
+/* ─── Stat strip ── */
+.stat-strip{display:flex;gap:0;border-bottom:1px solid var(--color-border);background:var(--color-surface);flex-shrink:0}
+.stat-item{flex:1;padding:var(--space-3) var(--space-5);border-right:1px solid var(--color-border)}
+.stat-item:last-child{border-right:none}
+.stat-val{font-size:var(--text-lg);font-weight:500;font-family:var(--font-mono);color:var(--color-text-primary)}
+.stat-val.warn{color:var(--amber-700)} .stat-val.good{color:var(--green-600)} .stat-val.alert{color:var(--orange-700)}
+.stat-lbl{font-size:var(--text-xs);color:var(--color-text-tertiary);margin-top:2px}
+
+/* ─── Toolbar ── */
+.list-toolbar{padding:var(--space-3) var(--space-5);background:var(--color-surface);border-bottom:1px solid var(--color-border);display:flex;align-items:center;gap:var(--space-3);flex-shrink:0;flex-wrap:wrap}
+.search-box{display:flex;align-items:center;gap:var(--space-2);height:32px;padding:0 var(--space-3);border:1px solid var(--color-border);border-radius:var(--radius-md);background:var(--color-surface);min-width:200px;transition:border-color var(--duration-fast)}
+.search-box:focus-within{border-color:var(--color-focus-ring)}
+.search-box i{font-size:14px;color:var(--color-text-placeholder);flex-shrink:0}
+.search-box input{border:none;outline:none;font-size:var(--text-sm);font-family:var(--font-sans);color:var(--color-text-primary);background:transparent;flex:1;min-width:0}
+.search-box input::placeholder{color:var(--color-text-placeholder)}
+.filter-select{height:32px;padding:0 24px 0 var(--space-2);font-size:var(--text-sm);font-family:var(--font-sans);border:1px solid var(--color-border);border-radius:var(--radius-md);background:var(--color-surface);color:var(--color-text-primary);cursor:pointer;appearance:none;background-image:url("data:image/svg+xml,%3Csvg width='8' height='12' viewBox='0 0 8 12' fill='none'%3E%3Cpath d='M1 1L6 6L1 11' stroke='%236D7480' stroke-width='1.5' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E");background-repeat:no-repeat;background-position:right 8px center;outline:none;transition:border-color var(--duration-fast)}
+.filter-select:focus{border-color:var(--color-focus-ring)}
+.toolbar-sep{width:1px;height:20px;background:var(--color-border);flex-shrink:0}
+.toolbar-count{font-size:var(--text-xs);color:var(--color-text-tertiary);margin-left:auto;white-space:nowrap}
+
+/* ─── Column chooser chip ── */
+.col-chip{height:32px;padding:0 var(--space-3);font-size:var(--text-sm);font-family:var(--font-sans);border:1px solid var(--color-border);border-radius:var(--radius-md);background:var(--color-surface);color:var(--color-text-secondary);cursor:pointer;display:flex;align-items:center;gap:4px;transition:background var(--duration-fast)}
+.col-chip:hover{background:var(--color-hover-bg)}
+.col-chip i{font-size:14px}
+
+/* ─── Buttons ── */
+.btn-primary{display:inline-flex;align-items:center;gap:4px;height:32px;padding:0 var(--space-3);font-size:var(--text-sm);font-weight:var(--weight-medium);font-family:var(--font-sans);border:none;border-radius:var(--radius-md);background:var(--color-cta-bg);color:#fff;cursor:pointer;white-space:nowrap;transition:background var(--duration-fast)}
+.btn-primary:hover{background:var(--color-cta-hover)} .btn-primary i{font-size:14px}
+.btn-secondary{display:inline-flex;align-items:center;gap:4px;height:32px;padding:0 var(--space-3);font-size:var(--text-sm);font-weight:var(--weight-medium);font-family:var(--font-sans);border:1px solid var(--color-border);border-radius:var(--radius-md);background:var(--color-surface);color:var(--color-text-primary);cursor:pointer;white-space:nowrap;transition:background var(--duration-fast)}
+.btn-secondary:hover{background:var(--color-hover-bg)} .btn-secondary i{font-size:14px}
+.btn-icon{display:inline-flex;align-items:center;justify-content:center;width:28px;height:28px;border:none;background:none;border-radius:var(--radius-md);color:var(--color-text-tertiary);cursor:pointer;transition:background var(--duration-fast),color var(--duration-fast)}
+.btn-icon:hover{background:var(--color-hover-bg);color:var(--color-text-primary)}
+.btn-icon i{font-size:15px}
+
+/* ─── Table ── */
+.table-wrap{flex:1;overflow-y:auto}
+.table-wrap::-webkit-scrollbar{width:4px}
+.table-wrap::-webkit-scrollbar-thumb{background:var(--color-border);border-radius:2px}
+.list-table{width:100%;border-collapse:collapse;font-size:var(--text-sm)}
+.list-table thead th{position:sticky;top:0;z-index:5;background:var(--color-surface);padding:var(--space-2) var(--space-3);text-align:left;font-size:var(--text-xs);font-weight:var(--weight-medium);text-transform:uppercase;letter-spacing:var(--tracking-caps);color:var(--color-text-tertiary);border-bottom:1px solid var(--color-border);white-space:nowrap;cursor:pointer;user-select:none}
+.list-table thead th:first-child{padding-left:var(--space-5)}
+.list-table thead th:last-child{padding-right:var(--space-5)}
+.list-table thead th:hover{color:var(--color-text-primary)}
+.list-table thead th .sort-icon{margin-left:3px;font-size:12px;color:transparent;transition:color var(--duration-fast);vertical-align:middle}
+.list-table thead th:hover .sort-icon{color:var(--color-text-placeholder)}
+.list-table thead th.sort-asc .sort-icon,.list-table thead th.sort-desc .sort-icon{color:var(--blue-600)}
+.list-table thead th.sort-asc{color:var(--color-text-primary)}
+.list-table thead th.sort-desc{color:var(--color-text-primary)}
+.list-table tbody tr{border-bottom:1px solid var(--color-border-subtle);transition:background var(--duration-fast)}
+.list-table tbody tr:hover{background:var(--color-hover-bg);cursor:pointer}
+.list-table tbody tr.row-critical{background:var(--red-50)}
+.list-table tbody tr.row-critical:hover{background:#fce9e9}
+.list-table tbody td{padding:var(--space-2) var(--space-3);vertical-align:middle}
+.list-table tbody td:first-child{padding-left:var(--space-5)}
+.list-table tbody td:last-child{padding-right:var(--space-5)}
+
+/* Cell types */
+.cell-id{font-family:var(--font-mono);font-weight:var(--weight-medium);font-size:var(--text-sm)}
+.cell-link{color:var(--color-link);cursor:pointer;font-weight:var(--weight-medium)}
+.cell-link:hover{text-decoration:underline;text-underline-offset:2px}
+.cell-mono{font-family:var(--font-mono);font-size:var(--text-sm);color:var(--color-text-secondary)}
+.cell-muted{color:var(--color-text-secondary);font-size:var(--text-sm)}
+.cell-num{font-family:var(--font-mono);font-size:var(--text-sm)}
+.cell-num.warn{color:var(--amber-700);font-weight:var(--weight-medium)}
+.cell-num.alert{color:var(--orange-700);font-weight:var(--weight-medium)}
+
+/* Badges */
+.badge{display:inline-flex;align-items:center;padding:2px var(--space-2);border-radius:var(--radius-full);font-size:var(--text-xs);font-weight:var(--weight-medium);border:1px solid;white-space:nowrap}
+.badge-randomized{background:var(--blue-50);border-color:var(--blue-200);color:var(--blue-600)}
+.badge-screened  {background:var(--purple-50);border-color:var(--purple-200);color:var(--purple-600)}
+.badge-completed {background:var(--green-50);border-color:var(--green-200);color:var(--green-600)}
+.badge-onhold    {background:var(--amber-50);border-color:var(--amber-200);color:var(--amber-700)}
+.badge-withdrawn {background:var(--slate-50);border-color:var(--slate-200);color:var(--slate-600)}
+.badge-enrolled  {background:var(--green-50);border-color:var(--green-200);color:var(--green-600)}
+
+/* Progress bar */
+.progress-cell{display:flex;align-items:center;gap:var(--space-2)}
+.progress-track{width:72px;height:4px;background:var(--color-border);border-radius:var(--radius-full);flex-shrink:0}
+.progress-fill{height:100%;border-radius:var(--radius-full);background:var(--blue-600)}
+.progress-fill.low{background:var(--orange-700)}
+.progress-label{font-family:var(--font-mono);font-size:var(--text-xs);color:var(--color-text-secondary);white-space:nowrap}
+
+/* Location breadcrumb cell */
+.loc-cell{display:flex;align-items:center;gap:3px;font-size:var(--text-xs);color:var(--color-text-secondary);white-space:nowrap}
+.loc-sep{color:var(--color-text-placeholder);font-size:10px}
+
+/* Row actions */
+.row-actions{display:flex;align-items:center;gap:2px;opacity:0;transition:opacity var(--duration-fast);justify-content:flex-end}
+.list-table tbody tr:hover .row-actions{opacity:1}
+.list-table tbody tr.row-critical:hover .row-actions{opacity:1}
+
+/* Summary bar */
+.summary-bar{padding:var(--space-2) var(--space-5);background:var(--color-surface);border-top:1px solid var(--color-border);display:flex;align-items:center;gap:var(--space-4);font-size:var(--text-xs);color:var(--color-text-tertiary);flex-shrink:0;flex-wrap:wrap}
+.summary-stat{display:flex;align-items:center;gap:var(--space-1)}
+.summary-val{font-weight:var(--weight-medium);color:var(--color-text-primary);font-family:var(--font-mono)}
+.summary-val.warn{color:var(--amber-700)}
+.summary-val.alert{color:var(--orange-700)}
+.summary-val.good{color:var(--green-600)}
+.summary-sep{width:1px;height:12px;background:var(--color-border);flex-shrink:0}
+
+/* ─── Column chooser panel ── */
+.col-panel{display:none;position:absolute;top:calc(100% + 4px);right:0;width:260px;background:var(--color-surface);border:1px solid var(--color-border);border-radius:var(--radius-lg);box-shadow:0 8px 24px rgba(14,18,28,0.13);z-index:200;overflow:hidden}
+.col-panel.open{display:block}
+.col-panel-header{padding:var(--space-3) var(--space-4);border-bottom:1px solid var(--color-border-subtle);font-size:var(--text-xs);font-weight:500;text-transform:uppercase;letter-spacing:var(--tracking-caps);color:var(--color-text-tertiary);display:flex;align-items:center;justify-content:space-between}
+.col-panel-header button{font-size:var(--text-xs);color:var(--color-link);background:none;border:none;cursor:pointer;font-family:var(--font-sans)}
+.col-panel-body{padding:var(--space-2) 0;max-height:320px;overflow-y:auto}
+.col-row{display:flex;align-items:center;gap:var(--space-3);padding:var(--space-2) var(--space-4);cursor:pointer;transition:background var(--duration-fast)}
+.col-row:hover{background:var(--color-hover-bg)}
+.col-row input[type=checkbox]{width:14px;height:14px;cursor:pointer;accent-color:var(--blue-600);flex-shrink:0}
+.col-row-label{font-size:var(--text-sm);color:var(--color-text-primary);flex:1}
+.col-row-drag{color:var(--color-text-placeholder);font-size:14px;cursor:grab}
+.col-panel-footer{padding:var(--space-3) var(--space-4);border-top:1px solid var(--color-border-subtle);display:flex;justify-content:flex-end;gap:var(--space-2)}
+
+
+/* Checkbox */
+.row-check{width:14px;height:14px;cursor:pointer;accent-color:var(--blue-600);flex-shrink:0}
+.bulk-bar{height:40px;background:var(--color-cta-bg);display:none;align-items:center;padding:0 var(--space-5);gap:var(--space-3);flex-shrink:0}
+.bulk-bar.visible{display:flex}
+.bulk-bar-msg{font-size:var(--text-sm);color:#fff;flex:1}
+.bulk-btn{height:28px;padding:0 var(--space-3);font-size:var(--text-xs);font-weight:500;font-family:var(--font-sans);border:1px solid rgba(255,255,255,0.25);border-radius:var(--radius-md);background:rgba(255,255,255,0.12);color:#fff;cursor:pointer;display:inline-flex;align-items:center;gap:4px;transition:background var(--duration-fast)}
+.bulk-btn:hover{background:rgba(255,255,255,0.2)}
+.bulk-btn i{font-size:13px}
+/* ─── Query raise panel (slide-in from right) ── */
+.query-overlay{display:none;position:fixed;inset:0;background:rgba(0,0,0,0.18);z-index:400}
+.query-overlay.open{display:block}
+.query-panel{position:fixed;top:0;right:0;bottom:0;width:420px;background:var(--color-surface);border-left:1px solid var(--color-border);display:flex;flex-direction:column;z-index:401;transform:translateX(100%);transition:transform 0.22s var(--ease-default);box-shadow:-8px 0 32px rgba(14,18,28,0.1)}
+.query-panel.open{transform:translateX(0)}
+.qp-header{padding:var(--space-4) var(--space-5);border-bottom:1px solid var(--color-border);display:flex;align-items:flex-start;gap:var(--space-3);flex-shrink:0}
+.qp-header-text{flex:1}
+.qp-title{font-size:var(--text-lg);font-weight:500;color:var(--color-text-primary)}
+.qp-sub{font-size:var(--text-xs);font-family:var(--font-mono);color:var(--color-text-tertiary);margin-top:3px}
+.qp-close{width:28px;height:28px;display:flex;align-items:center;justify-content:center;border:none;background:none;border-radius:var(--radius-md);color:var(--color-text-tertiary);cursor:pointer;flex-shrink:0}
+.qp-close:hover{background:var(--color-hover-bg);color:var(--color-text-primary)}
+.qp-close i{font-size:16px}
+.qp-body{flex:1;overflow-y:auto;padding:var(--space-5)}
+.qp-section-title{font-size:var(--text-xs);font-weight:500;text-transform:uppercase;letter-spacing:var(--tracking-caps);color:var(--color-text-tertiary);margin-bottom:var(--space-3)}
+.qp-field{display:flex;flex-direction:column;gap:var(--space-1);margin-bottom:var(--space-4)}
+.qp-label{font-size:var(--text-sm);font-weight:500;color:var(--color-text-primary)}
+.qp-label .req{color:var(--red-600);margin-left:2px}
+.qp-select{height:36px;padding:0 28px 0 var(--space-3);font-size:var(--text-sm);font-family:var(--font-sans);border:1px solid var(--color-border);border-radius:var(--radius-md);background:var(--color-surface);color:var(--color-text-primary);cursor:pointer;appearance:none;background-image:url("data:image/svg+xml,%3Csvg width='8' height='12' viewBox='0 0 8 12' fill='none'%3E%3Cpath d='M1 1L6 6L1 11' stroke='%236D7480' stroke-width='1.5' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E");background-repeat:no-repeat;background-position:right 10px center;outline:none;width:100%}
+.qp-input{height:36px;padding:0 var(--space-3);font-size:var(--text-sm);font-family:var(--font-sans);border:1px solid var(--color-border);border-radius:var(--radius-md);background:var(--color-surface);color:var(--color-text-primary);outline:none;width:100%}
+.qp-input:focus,.qp-select:focus,.qp-textarea:focus{border-color:var(--color-focus-ring)}
+.qp-textarea{padding:var(--space-2) var(--space-3);font-size:var(--text-sm);font-family:var(--font-sans);border:1px solid var(--color-border);border-radius:var(--radius-md);background:var(--color-surface);color:var(--color-text-primary);outline:none;width:100%;resize:vertical;min-height:100px;line-height:1.5}
+.qp-hint{font-size:var(--text-xs);color:var(--color-text-tertiary)}
+/* Animal context chip */
+.qp-context{display:flex;align-items:center;gap:var(--space-2);padding:var(--space-3);background:var(--color-page-bg);border:1px solid var(--color-border);border-radius:var(--radius-md);margin-bottom:var(--space-5)}
+.qp-context-id{font-family:var(--font-mono);font-size:var(--text-sm);font-weight:500;color:var(--color-text-primary)}
+.qp-context-meta{font-size:var(--text-xs);color:var(--color-text-tertiary)}
+/* Existing queries list */
+.qp-query-item{padding:var(--space-3);border:1px solid var(--color-border);border-radius:var(--radius-md);margin-bottom:var(--space-2);background:var(--color-surface)}
+.qp-query-item.open-q{border-left:3px solid var(--amber-700)}
+.qp-query-top{display:flex;align-items:center;gap:var(--space-2);margin-bottom:var(--space-1)}
+.qp-query-category{font-size:var(--text-xs);font-weight:500;color:var(--color-text-secondary)}
+.qp-query-date{font-size:var(--text-xs);font-family:var(--font-mono);color:var(--color-text-tertiary);margin-left:auto}
+.qp-query-text{font-size:var(--text-sm);color:var(--color-text-primary);line-height:1.4}
+.qp-query-by{font-size:var(--text-xs);color:var(--color-text-tertiary);margin-top:var(--space-1)}
+/* Footer */
+.qp-footer{padding:var(--space-4) var(--space-5);border-top:1px solid var(--color-border);display:flex;gap:var(--space-2);justify-content:flex-end;flex-shrink:0;background:var(--color-page-bg)}
+</style>
+</head>
+<body>
+<div class="shell">
+
+  <!-- ── Sidenav ── -->
+  <nav class="sidenav">
+    <div class="nav-logo"><span>Ar</span></div>
+    <button class="nav-item" title="Dashboard"><i class="ti ti-layout-dashboard"></i><span class="nav-label">Dashboard</span></button>
+    <button class="nav-item" title="Data Entry"><i class="ti ti-database-import"></i><span class="nav-label">Data Entry</span></button>
+    <button class="nav-item active" title="Animals"><i class="ti ti-paw"></i><span class="nav-label">Animals</span></button>
+    <button class="nav-item" title="Queries"><i class="ti ti-help-circle"></i><span class="nav-label">Queries</span><span class="nav-badge">4</span></button>
+    <button class="nav-item" title="Visits"><i class="ti ti-calendar-event"></i><span class="nav-label">Visits</span></button>
+    <button class="nav-item" title="Reports"><i class="ti ti-chart-bar"></i><span class="nav-label">Reports</span></button>
+    <div class="nav-spacer"></div>
+    <div class="nav-sep"></div>
+    <button class="nav-item" title="Audit trail"><i class="ti ti-clipboard-list"></i><span class="nav-label">Audit</span></button>
+  </nav>
+
+  <!-- ── Main ── -->
+  <div class="main">
+
+    <!-- Topbar -->
+    <header class="topbar">
+      <button class="tb-study">AK-2401 — BRD Cattle Phase II <i class="ti ti-chevron-right"></i></button>
+
+      <!-- Site dropdown -->
+      <div style="position:relative" id="site-dd-wrap">
+        <button class="tb-site" onclick="toggleSiteDropdown()" id="tb-site-btn">
+          <span id="tb-site-label">All sites</span>
+          <i class="ti ti-chevron-down" id="tb-site-chev" style="font-size:11px;opacity:0.7"></i>
+        </button>
+        <div id="site-dropdown" style="display:none;position:absolute;top:calc(100% + 6px);left:0;background:var(--color-surface);border:1px solid var(--color-border);border-radius:var(--radius-lg);box-shadow:0 8px 24px rgba(14,18,28,0.14);min-width:200px;z-index:200;overflow:hidden">
+          <button class="site-dd-item active" onclick="setSiteFilter('')">All sites</button>
+          <button class="site-dd-item" onclick="setSiteFilter('AUS')">Austin Research Center</button>
+          <button class="site-dd-item" onclick="setSiteFilter('DAL')">Dallas Vet Clinic</button>
+          <button class="site-dd-item" onclick="setSiteFilter('HOU')">Houston Animal Hospital</button>
+        </div>
+      </div>
+
+      <div class="tb-right">
+        <button class="tb-icon"><i class="ti ti-bell"></i></button>
+        <button class="tb-role">CRC <i class="ti ti-chevron-right" style="font-size:10px"></i></button>
+        <div class="tb-avatar">ET</div>
+      </div>
+    </header>
+
+    <div class="page-wrap">
+
+      <!-- Page header -->
+      <div class="page-header">
+        <div class="page-title-row">
+          <div>
+            <h1 class="page-title" id="page-title">Animals</h1>
+            <div class="page-title-sub" id="page-title-sub">AK-2401 · All sites · 89 subjects enrolled</div>
+          </div>
+          <div class="page-actions">
+            <button class="btn-secondary"><i class="ti ti-download"></i> Export</button>
+            <button class="btn-secondary"><i class="ti ti-table-export"></i> SEND export</button>
+            <button class="btn-primary"><i class="ti ti-plus"></i> Add animal</button>
+          </div>
+        </div>
+      </div>
+
+      <!-- Stat strip -->
+      <div class="stat-strip" id="stat-strip">
+        <!-- rendered by JS -->
+      </div>
+
+      <!-- Bulk action bar -->
+      <div class="bulk-bar" id="bulk-bar">
+        <span class="bulk-bar-msg" id="bulk-msg">0 selected</span>
+        <button class="bulk-btn"><i class="ti ti-message-report"></i> Raise query</button>
+        <button class="bulk-btn"><i class="ti ti-lock"></i> Lock records</button>
+        <button class="bulk-btn"><i class="ti ti-lock-open"></i> Unlock records</button>
+        <button class="bulk-btn"><i class="ti ti-writing-sign"></i> Bulk sign-off</button>
+        <button class="bulk-btn"><i class="ti ti-download"></i> Export selected</button>
+        <button class="bulk-btn" style="margin-left:auto" onclick="clearSelection()"><i class="ti ti-x"></i> Clear</button>
+      </div>
+
+      <!-- Toolbar -->
+      <div class="list-toolbar">
+        <div class="search-box">
+          <i class="ti ti-search"></i>
+          <input type="search" id="search-input" placeholder="Search by ID, breed, group…" oninput="applyFilters()">
+        </div>
+        <select class="filter-select" id="filter-status" onchange="applyFilters()">
+          <option value="">All statuses</option>
+          <option>Randomized</option>
+          <option>Screened</option>
+          <option>Enrolled</option>
+          <option>Completed</option>
+          <option>On hold</option>
+          <option>Withdrawn</option>
+        </select>
+        <select class="filter-select" id="filter-group" onchange="applyFilters()">
+          <option value="">All groups</option>
+          <option>Group A — Dose</option>
+          <option>Group B — Control</option>
+        </select>
+        <select class="filter-select" id="filter-site" onchange="onSiteFilterChange(this.value)">
+          <option value="">All sites</option>
+          <option value="AUS">Austin</option>
+          <option value="DAL">Dallas</option>
+          <option value="HOU">Houston</option>
+        </select>
+        <select class="filter-select" id="filter-barn" onchange="onBarnFilterChange(this.value)">
+          <option value="">All barns</option>
+        </select>
+        <select class="filter-select" id="filter-pen" onchange="applyFilters()">
+          <option value="">All pens</option>
+        </select>
+        <div class="toolbar-sep"></div>
+        <!-- Column chooser -->
+        <div style="position:relative" id="col-chooser-wrap">
+          <button class="col-chip" onclick="toggleColPanel()" id="col-chip-btn">
+            <i class="ti ti-columns"></i> Columns <i class="ti ti-chevron-down" style="font-size:11px;opacity:0.6"></i>
+          </button>
+          <div class="col-panel" id="col-panel">
+            <div class="col-panel-header">
+              <span>Visible columns</span>
+              <button onclick="resetColumns()">Reset to default</button>
+            </div>
+            <div class="col-panel-body" id="col-panel-body">
+              <!-- rendered by JS -->
+            </div>
+            <div class="col-panel-footer">
+              <button class="btn-secondary" style="height:28px;font-size:var(--text-xs)" onclick="closeColPanel()">Done</button>
+            </div>
+          </div>
+        </div>
+        <span class="toolbar-count" id="row-count">— animals</span>
+      </div>
+
+      <!-- Table -->
+      <div class="table-wrap">
+        <table class="list-table" id="main-table">
+          <thead><tr></tr></thead>
+          <tbody id="main-tbody"></tbody>
+        </table>
+      </div>
+
+      <!-- Summary bar -->
+      <div class="summary-bar" id="summary-bar">
+        <!-- rendered by JS -->
+      </div>
+
+    </div><!-- /page-wrap -->
+  </div><!-- /main -->
+<!-- ── Query raise overlay + panel ── -->
+<div class="query-overlay" id="query-overlay" onclick="closeQueryPanel()"></div>
+<div class="query-panel" id="query-panel">
+  <div class="qp-header">
+    <div class="qp-header-text">
+      <div class="qp-title">Raise query</div>
+      <div class="qp-sub" id="qp-sub">—</div>
+    </div>
+    <button class="qp-close" onclick="closeQueryPanel()"><i class="ti ti-x"></i></button>
+  </div>
+  <div class="qp-body">
+
+    <!-- Animal context -->
+    <div class="qp-context" id="qp-context">
+      <i class="ti ti-paw" style="font-size:16px;color:var(--color-text-tertiary)"></i>
+      <div>
+        <div class="qp-context-id" id="qp-animal-id">—</div>
+        <div class="qp-context-meta" id="qp-animal-meta">—</div>
+      </div>
+    </div>
+
+    <!-- New query form -->
+    <div class="qp-section-title">New query</div>
+
+    <div class="qp-field">
+      <label class="qp-label">Category <span class="req">*</span></label>
+      <select class="qp-select">
+        <option value="">Select category…</option>
+        <option>Data entry error</option>
+        <option>Missing data</option>
+        <option>Out of range value</option>
+        <option>Protocol deviation</option>
+        <option>Source data discrepancy</option>
+        <option>Adverse event</option>
+        <option>Other</option>
+      </select>
+    </div>
+
+    <div class="qp-field">
+      <label class="qp-label">Field reference</label>
+      <input class="qp-input" type="text" placeholder="e.g. Week 4 Assessment → Body weight">
+      <span class="qp-hint">Optional — identify the specific form and field</span>
+    </div>
+
+    <div class="qp-field">
+      <label class="qp-label">Query text <span class="req">*</span></label>
+      <textarea class="qp-textarea" placeholder="Describe the issue clearly. Include expected value or correction needed…"></textarea>
+    </div>
+
+    <div class="qp-field">
+      <label class="qp-label">Assign to</label>
+      <select class="qp-select">
+        <option value="">Site team (auto-assign)</option>
+        <option>Sarah Kim (CRC · Austin)</option>
+        <option>Lisa Torres (CRC · Austin)</option>
+        <option>Dallas Vet Clinic team</option>
+        <option>Houston Animal Hospital team</option>
+      </select>
+    </div>
+
+    <div class="qp-field">
+      <label class="qp-label">Priority</label>
+      <select class="qp-select">
+        <option>Normal</option>
+        <option>High — resolve within 48h</option>
+        <option>Critical — resolve immediately</option>
+      </select>
+    </div>
+
+    <!-- Separator -->
+    <div style="height:1px;background:var(--color-border-subtle);margin:var(--space-5) 0"></div>
+
+    <!-- Existing open queries on this animal -->
+    <div class="qp-section-title" id="qp-existing-title">Open queries on this animal</div>
+    <div id="qp-existing-list">
+      <div class="qp-query-item open-q">
+        <div class="qp-query-top">
+          <span class="qp-query-category">Out of range value</span>
+          <span class="badge badge-warning" style="font-size:10px">Open</span>
+          <span class="qp-query-date">May 04 2026</span>
+        </div>
+        <div class="qp-query-text">Week 4 body weight recorded as 312 kg — significantly below baseline of 400 kg. Please verify and correct or provide clinical explanation.</div>
+        <div class="qp-query-by">Raised by James Hollis (CRA)</div>
+      </div>
+    </div>
+
+  </div>
+  <div class="qp-footer">
+    <button class="btn-secondary" onclick="closeQueryPanel()">Cancel</button>
+    <button class="btn-primary"><i class="ti ti-send"></i> Send query</button>
+  </div>
+</div>
+
+</div><!-- /shell -->
+
+<script>
+/* ══════════════════════════════════════════════════════════════════════════
+   DATA
+══════════════════════════════════════════════════════════════════════════ */
+var ANIMALS = [
+  /* Austin — Barn A — Pen 1 */
+  { id:'AUSB1P1-01', sex:'F', age:'4yr', breed:'Hereford', weight:'400 kg', status:'randomized', group:'Group A — Dose',    site:'AUS', siteName:'Austin', barn:'Barn A', pen:'Pen 1', formsDone:3, formsTotal:5, lastVisit:'2026-05-09', queries:1, overdue:1, critical:true },
+  { id:'AUSB1P1-02', sex:'M', age:'3yr', breed:'Angus',    weight:'380 kg', status:'randomized', group:'Group B — Control', site:'AUS', siteName:'Austin', barn:'Barn A', pen:'Pen 1', formsDone:2, formsTotal:5, lastVisit:'2026-05-08', queries:0, overdue:0, critical:false },
+  { id:'AUSB1P1-03', sex:'F', age:'5yr', breed:'Hereford', weight:'415 kg', status:'randomized', group:'Group A — Dose',    site:'AUS', siteName:'Austin', barn:'Barn A', pen:'Pen 1', formsDone:2, formsTotal:5, lastVisit:'2026-05-08', queries:0, overdue:0, critical:false },
+  { id:'AUSB1P1-04', sex:'M', age:'2yr', breed:'Angus',    weight:'340 kg', status:'completed',  group:'Group B — Control', site:'AUS', siteName:'Austin', barn:'Barn A', pen:'Pen 1', formsDone:5, formsTotal:5, lastVisit:'2026-05-05', queries:0, overdue:0, critical:false },
+  /* Austin — Barn A — Pen 2 */
+  { id:'AUSB1P2-01', sex:'F', age:'3yr', breed:'Hereford', weight:'390 kg', status:'randomized', group:'Group A — Dose',    site:'AUS', siteName:'Austin', barn:'Barn A', pen:'Pen 2', formsDone:4, formsTotal:5, lastVisit:'2026-05-09', queries:0, overdue:0, critical:false },
+  { id:'AUSB1P2-02', sex:'M', age:'4yr', breed:'Angus',    weight:'410 kg', status:'randomized', group:'Group B — Control', site:'AUS', siteName:'Austin', barn:'Barn A', pen:'Pen 2', formsDone:3, formsTotal:5, lastVisit:'2026-05-07', queries:0, overdue:0, critical:false },
+  /* Austin — Barn A — Pen 3 (on hold) */
+  { id:'AUSB1P3-01', sex:'F', age:'4yr', breed:'Hereford', weight:'400 kg', status:'onhold',     group:'Group A — Dose',    site:'AUS', siteName:'Austin', barn:'Barn A', pen:'Pen 3', formsDone:2, formsTotal:5, lastVisit:'2026-04-28', queries:1, overdue:1, critical:false },
+  { id:'AUSB1P3-02', sex:'M', age:'3yr', breed:'Angus',    weight:'360 kg', status:'onhold',     group:'Group B — Control', site:'AUS', siteName:'Austin', barn:'Barn A', pen:'Pen 3', formsDone:2, formsTotal:5, lastVisit:'2026-04-28', queries:0, overdue:0, critical:false },
+  /* Austin — Barn B — Pen 4 */
+  { id:'AUSB2P4-01', sex:'M', age:'3yr', breed:'Angus',    weight:'370 kg', status:'randomized', group:'Group A — Dose',    site:'AUS', siteName:'Austin', barn:'Barn B', pen:'Pen 4', formsDone:4, formsTotal:5, lastVisit:'2026-05-09', queries:0, overdue:0, critical:false },
+  { id:'AUSB2P4-02', sex:'F', age:'4yr', breed:'Hereford', weight:'395 kg', status:'randomized', group:'Group B — Control', site:'AUS', siteName:'Austin', barn:'Barn B', pen:'Pen 4', formsDone:2, formsTotal:5, lastVisit:'2026-05-06', queries:0, overdue:0, critical:false },
+  /* Austin — Barn B — Pen 5 (closed) */
+  { id:'AUSB2P5-01', sex:'F', age:'5yr', breed:'Hereford', weight:'420 kg', status:'completed',  group:'Group B — Control', site:'AUS', siteName:'Austin', barn:'Barn B', pen:'Pen 5', formsDone:5, formsTotal:5, lastVisit:'2026-05-01', queries:0, overdue:0, critical:false },
+  /* Dallas — Barn C — Pen 6 */
+  { id:'DALB1P6-01', sex:'M', age:'3yr', breed:'Angus',    weight:'380 kg', status:'randomized', group:'Group A — Dose',    site:'DAL', siteName:'Dallas', barn:'Barn C', pen:'Pen 6', formsDone:3, formsTotal:5, lastVisit:'2026-05-08', queries:0, overdue:0, critical:false },
+  { id:'DALB1P6-02', sex:'F', age:'4yr', breed:'Hereford', weight:'400 kg', status:'randomized', group:'Group B — Control', site:'DAL', siteName:'Dallas', barn:'Barn C', pen:'Pen 6', formsDone:2, formsTotal:5, lastVisit:'2026-05-07', queries:0, overdue:0, critical:false },
+  { id:'DALB1P6-03', sex:'M', age:'2yr', breed:'Angus',    weight:'350 kg', status:'screened',   group:'Group A — Dose',    site:'DAL', siteName:'Dallas', barn:'Barn C', pen:'Pen 6', formsDone:1, formsTotal:5, lastVisit:'2026-05-06', queries:1, overdue:0, critical:false },
+  /* Dallas — Barn C — Pen 7 */
+  { id:'DALB1P7-01', sex:'F', age:'3yr', breed:'Hereford', weight:'385 kg', status:'randomized', group:'Group B — Control', site:'DAL', siteName:'Dallas', barn:'Barn C', pen:'Pen 7', formsDone:3, formsTotal:5, lastVisit:'2026-05-08', queries:0, overdue:0, critical:false },
+  { id:'DALB1P7-02', sex:'M', age:'4yr', breed:'Angus',    weight:'405 kg', status:'randomized', group:'Group A — Dose',    site:'DAL', siteName:'Dallas', barn:'Barn C', pen:'Pen 7', formsDone:3, formsTotal:5, lastVisit:'2026-05-07', queries:2, overdue:1, critical:false },
+  /* Houston — Barn D */
+  { id:'HOUB1P1-01', sex:'F', age:'3yr', breed:'Hereford', weight:'390 kg', status:'randomized', group:'Group A — Dose',    site:'HOU', siteName:'Houston', barn:'Barn D', pen:'Pen 1', formsDone:3, formsTotal:5, lastVisit:'2026-05-07', queries:0, overdue:0, critical:false },
+  { id:'HOUB1P1-02', sex:'M', age:'5yr', breed:'Angus',    weight:'430 kg', status:'randomized', group:'Group B — Control', site:'HOU', siteName:'Houston', barn:'Barn D', pen:'Pen 1', formsDone:2, formsTotal:5, lastVisit:'2026-05-06', queries:1, overdue:0, critical:false },
+  { id:'HOUB1P2-01', sex:'F', age:'4yr', breed:'Hereford', weight:'400 kg', status:'completed',  group:'Group A — Dose',    site:'HOU', siteName:'Houston', barn:'Barn D', pen:'Pen 2', formsDone:5, formsTotal:5, lastVisit:'2026-04-30', queries:0, overdue:0, critical:false },
+  { id:'HOUB1P2-02', sex:'M', age:'3yr', breed:'Angus',    weight:'365 kg', status:'withdrawn',  group:'Group B — Control', site:'HOU', siteName:'Houston', barn:'Barn D', pen:'Pen 2', formsDone:2, formsTotal:5, lastVisit:'2026-04-22', queries:0, overdue:0, critical:false },
+];
+
+/* ══════════════════════════════════════════════════════════════════════════
+   COLUMNS — ordered, togglable
+══════════════════════════════════════════════════════════════════════════ */
+var COLUMNS = [
+  { key:'id',        label:'Animal ID',    visible:true,  required:true  },
+  { key:'sex',       label:'Sex',          visible:true,  required:false },
+  { key:'age',       label:'Age',          visible:true,  required:false },
+  { key:'breed',     label:'Breed',        visible:true,  required:false },
+  { key:'weight',    label:'Weight',       visible:true,  required:false },
+  { key:'status',    label:'Status',       visible:true,  required:false },
+  { key:'group',     label:'Group / Arm',  visible:true,  required:false },
+  { key:'location',  label:'Location',     visible:true,  required:false },
+  { key:'forms',     label:'Forms',        visible:true,  required:false },
+  { key:'lastVisit', label:'Last visit',   visible:true,  required:false },
+  { key:'queries',   label:'Queries',      visible:true,  required:false },
+  { key:'overdue',   label:'Overdue',      visible:false, required:false },
+  { key:'lock',      label:'Lock status',  visible:false, required:false },
+  { key:'signoff',   label:'Sign-off',     visible:false, required:false },
+];
+
+/* Barn / pen lookup from animal data */
+var BARN_BY_SITE = {};
+var PEN_BY_BARN  = {};
+
+function buildLocationLookups() {
+  ANIMALS.forEach(function(a) {
+    if (!BARN_BY_SITE[a.site]) BARN_BY_SITE[a.site] = new Set();
+    BARN_BY_SITE[a.site].add(a.barn);
+    var barnKey = a.site + '|' + a.barn;
+    if (!PEN_BY_BARN[barnKey]) PEN_BY_BARN[barnKey] = new Set();
+    PEN_BY_BARN[barnKey].add(a.pen);
+  });
+}
+
+function populateBarnSelect(site) {
+  var sel = document.getElementById('filter-barn');
+  sel.innerHTML = '<option value="">All barns</option>';
+  var barns = site ? Array.from(BARN_BY_SITE[site] || []).sort() :
+    Object.values(BARN_BY_SITE).reduce(function(acc, s) {
+      s.forEach(function(b) { acc.add(b); }); return acc;
+    }, new Set());
+  Array.from(barns).sort().forEach(function(b) {
+    var o = document.createElement('option'); o.value = b; o.textContent = b; sel.appendChild(o);
+  });
+}
+
+function populatePenSelect(site, barn) {
+  var sel = document.getElementById('filter-pen');
+  sel.innerHTML = '<option value="">All pens</option>';
+  var pens;
+  if (barn) {
+    var key = (site || '') + '|' + barn;
+    pens = Array.from(PEN_BY_BARN[key] || []);
+  } else {
+    var allPens = new Set();
+    Object.entries(PEN_BY_BARN).forEach(function(e) {
+      if (!site || e[0].startsWith(site + '|')) e[1].forEach(function(p) { allPens.add(p); });
+    });
+    pens = Array.from(allPens);
+  }
+  pens.sort().forEach(function(p) {
+    var o = document.createElement('option'); o.value = p; o.textContent = p; sel.appendChild(o);
+  });
+}
+
+function onSiteFilterChange(site) {
+  ACTIVE_SITE = site;
+  /* sync topbar */
+  var btn = document.getElementById('tb-site-btn');
+  btn.innerHTML = (SITE_LABELS[site] || 'All sites') + ' <i class="ti ti-chevron-down" id="tb-site-chev" style="font-size:11px;opacity:0.7"></i>';
+  document.querySelectorAll('.site-dd-item').forEach(function(b) {
+    var m = b.getAttribute('onclick') && b.getAttribute('onclick').match(/setSiteFilter\(['"]([^'"]*)['"]\)/);
+    b.classList.toggle('active', m ? m[1] === site : false);
+  });
+  /* reset barn + pen */
+  document.getElementById('filter-barn').value = '';
+  document.getElementById('filter-pen').value  = '';
+  populateBarnSelect(site);
+  populatePenSelect(site, '');
+  applyFilters();
+}
+
+function onBarnFilterChange(barn) {
+  var site = document.getElementById('filter-site').value;
+  document.getElementById('filter-pen').value = '';
+  populatePenSelect(site, barn);
+  applyFilters();
+}
+
+/* ══════════════════════════════════════════════════════════════════════════
+   COLUMN CHOOSER
+══════════════════════════════════════════════════════════════════════════ */
+function renderColPanel() {
+  var body = document.getElementById('col-panel-body');
+  body.innerHTML = COLUMNS.map(function(c, i) {
+    var disabled = c.required ? 'disabled' : '';
+    return '<label class="col-row"><input type="checkbox" ' + (c.visible ? 'checked' : '') + ' ' + disabled + ' onchange="toggleCol(' + i + ',this.checked)"><span class="col-row-label">' + c.label + (c.required ? ' <span style="font-size:10px;color:var(--color-text-placeholder)">(required)</span>' : '') + '</span><i class="ti ti-grip-vertical col-row-drag"></i></label>';
+  }).join('');
+}
+
+function toggleCol(idx, checked) {
+  COLUMNS[idx].visible = checked;
+  applyFilters(); /* re-render table with new column set */
+}
+
+function resetColumns() {
+  COLUMNS.forEach(function(c) {
+    if (!c.required) c.visible = ['sex','age','breed','weight','status','group','location','forms','lastVisit','queries'].indexOf(c.key) >= 0;
+  });
+  renderColPanel();
+  applyFilters();
+}
+
+function toggleColPanel() {
+  var panel = document.getElementById('col-panel');
+  var isOpen = panel.classList.contains('open');
+  if (!isOpen) renderColPanel();
+  panel.classList.toggle('open', !isOpen);
+}
+
+function closeColPanel() {
+  document.getElementById('col-panel').classList.remove('open');
+}
+
+document.addEventListener('click', function(e) {
+  var wrap = document.getElementById('col-chooser-wrap');
+  if (wrap && !wrap.contains(e.target)) closeColPanel();
+});
+var sortCol     = 'id';
+var sortDir     = 'asc';
+var selected    = new Set();
+
+/* ══════════════════════════════════════════════════════════════════════════
+   HELPERS
+══════════════════════════════════════════════════════════════════════════ */
+function statusBadge(s) {
+  var map = {
+    randomized: '<span class="badge badge-randomized">Randomized</span>',
+    screened:   '<span class="badge badge-screened">Screened</span>',
+    enrolled:   '<span class="badge badge-enrolled">Enrolled</span>',
+    completed:  '<span class="badge badge-completed">Completed</span>',
+    onhold:     '<span class="badge badge-onhold">On hold</span>',
+    withdrawn:  '<span class="badge badge-withdrawn">Withdrawn</span>',
+  };
+  return map[s] || '<span class="badge">' + s + '</span>';
+}
+
+function fmtDate(d) {
+  if (!d) return '—';
+  var months = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+  var parts = d.split('-');
+  return months[parseInt(parts[1],10)-1] + ' ' + parseInt(parts[2],10) + ' ' + parts[0];
+}
+
+/* ══════════════════════════════════════════════════════════════════════════
+   FILTER + SORT
+══════════════════════════════════════════════════════════════════════════ */
+function getFiltered() {
+  var q      = (document.getElementById('search-input').value || '').toLowerCase().trim();
+  var status = (document.getElementById('filter-status').value || '').toLowerCase().replace(' ','').replace('onhold','onhold');
+  var group  = document.getElementById('filter-group').value || '';
+  var site   = document.getElementById('filter-site').value  || ACTIVE_SITE;
+  var barn   = document.getElementById('filter-barn').value  || '';
+  var pen    = document.getElementById('filter-pen').value   || '';
+
+  return ANIMALS.filter(function(a) {
+    var matchQ      = !q      || a.id.toLowerCase().includes(q) || a.breed.toLowerCase().includes(q) || a.group.toLowerCase().includes(q) || a.pen.toLowerCase().includes(q) || a.barn.toLowerCase().includes(q);
+    var matchStatus = !status || a.status === status.replace(/ /g,'');
+    var matchGroup  = !group  || a.group === group;
+    var matchSite   = !site   || a.site  === site;
+    var matchBarn   = !barn   || a.barn  === barn;
+    var matchPen    = !pen    || a.pen   === pen;
+    return matchQ && matchStatus && matchGroup && matchSite && matchBarn && matchPen;
+  }).sort(function(a, b) {
+    var av, bv;
+    switch(sortCol) {
+      case 'id':        av = a.id;        bv = b.id;        break;
+      case 'sex':       av = a.sex;       bv = b.sex;       break;
+      case 'age':       av = a.age;       bv = b.age;       break;
+      case 'breed':     av = a.breed;     bv = b.breed;     break;
+      case 'weight':    av = parseInt(a.weight);  bv = parseInt(b.weight);  break;
+      case 'status':    av = a.status;    bv = b.status;    break;
+      case 'group':     av = a.group;     bv = b.group;     break;
+      case 'forms':     av = a.formsDone; bv = b.formsDone; break;
+      case 'lastVisit': av = a.lastVisit; bv = b.lastVisit; break;
+      case 'queries':   av = a.queries;   bv = b.queries;   break;
+      default:          av = a.id;        bv = b.id;
+    }
+    if (av < bv) return sortDir === 'asc' ? -1 : 1;
+    if (av > bv) return sortDir === 'asc' ?  1 : -1;
+    return 0;
+  });
+}
+
+/* Sort state per column — three-state: none → desc → asc */
+var sortState = {};
+
+function sortBy(col) {
+  var prev = sortState[col] || 'none';
+  var next = prev === 'none' ? 'desc' : prev === 'desc' ? 'asc' : 'none';
+  sortState[col] = next;
+
+  if (next === 'none') {
+    sortCol = 'id'; sortDir = 'asc';
+  } else {
+    sortCol = col; sortDir = next;
+  }
+
+  applyFilters();
+
+  /* Update th classes and icon after re-render */
+  document.querySelectorAll('#main-table thead th').forEach(function(th) {
+    th.classList.remove('sort-asc','sort-desc');
+    var icon = th.querySelector('.sort-icon');
+    if (icon) icon.className = 'ti ti-arrows-sort sort-icon';
+  });
+  if (next !== 'none') {
+    document.querySelectorAll('#main-table thead th').forEach(function(th) {
+      if (th.getAttribute('onclick') && th.getAttribute('onclick').includes("'" + col + "'")) {
+        th.classList.add(next === 'asc' ? 'sort-asc' : 'sort-desc');
+        var icon = th.querySelector('.sort-icon');
+        if (icon) icon.className = (next === 'asc' ? 'ti ti-arrow-up' : 'ti ti-arrow-down') + ' sort-icon';
+      }
+    });
+  }
+}
+
+/* ══════════════════════════════════════════════════════════════════════════
+   RENDER
+══════════════════════════════════════════════════════════════════════════ */
+function applyFilters() {
+  var rows = getFiltered();
+  renderRows(rows);
+  renderSummary(rows);
+  renderStats(rows);
+  updatePageTitle(rows);
+  document.getElementById('row-count').textContent = rows.length + ' animal' + (rows.length !== 1 ? 's' : '');
+}
+
+function renderRows(rows) {
+  /* Re-render thead from COLUMNS */
+  var vis = COLUMNS.filter(function(c){ return c.visible; });
+  var thead = document.querySelector('#main-table thead tr');
+  thead.innerHTML = '<th style="width:32px"><input type="checkbox" class="row-check" id="check-all" onchange="toggleAllRows(this.checked)"></th>' +
+    vis.map(function(c) {
+      var sortable = ['id','sex','age','breed','weight','status','group','forms','lastVisit','queries','overdue'].indexOf(c.key) >= 0;
+      return '<th' + (sortable ? ' onclick="sortBy(\'' + c.key + '\')" style="cursor:pointer"' : '') + '>' + c.label + (sortable ? ' <i class="ti ti-arrows-sort sort-icon"></i>' : '') + '</th>';
+    }).join('') + '<th></th>';
+
+  var tbody = document.getElementById('main-tbody');
+  if (rows.length === 0) {
+    tbody.innerHTML = '<tr><td colspan="' + (vis.length + 2) + '" style="padding:var(--space-8);text-align:center;color:var(--color-text-tertiary)"><i class="ti ti-paw" style="font-size:28px;display:block;margin-bottom:var(--space-3);color:var(--color-border)"></i>No animals match the current filters</td></tr>';
+    return;
+  }
+
+  tbody.innerHTML = rows.map(function(a) {
+    var pct    = Math.round(a.formsDone / a.formsTotal * 100);
+    var isSel  = selected.has(a.id);
+    var rowCls = a.critical ? ' class="row-critical"' : (isSel ? ' class="selected"' : '');
+
+    var cells = vis.map(function(c) {
+      switch(c.key) {
+        case 'id':
+          return '<td><span class="cell-id cell-link">' + a.id + '</span></td>';
+        case 'sex':
+          return '<td><span class="cell-mono">' + a.sex + '</span></td>';
+        case 'age':
+          return '<td><span class="cell-mono">' + a.age + '</span></td>';
+        case 'breed':
+          return '<td><span class="cell-muted">' + a.breed + '</span></td>';
+        case 'weight':
+          return '<td><span class="cell-mono">' + a.weight + '</span></td>';
+        case 'status':
+          return '<td>' + statusBadge(a.status) + '</td>';
+        case 'group':
+          return '<td><span class="cell-muted" style="font-size:var(--text-xs)">' + a.group + '</span></td>';
+        case 'location':
+          return '<td><div class="loc-cell"><span>' + a.siteName + '</span><span class="loc-sep">›</span><span>' + a.barn + '</span><span class="loc-sep">›</span><span>' + a.pen + '</span></div></td>';
+        case 'forms':
+          return '<td><div class="progress-cell"><div class="progress-track"><div class="progress-fill' + (pct < 40 ? ' low' : '') + '" style="width:' + pct + '%"></div></div><span class="progress-label">' + a.formsDone + '/' + a.formsTotal + '</span></div></td>';
+        case 'lastVisit':
+          return '<td><span class="cell-mono" style="font-size:var(--text-xs)">' + fmtDate(a.lastVisit) + '</span></td>';
+        case 'queries':
+          return '<td><span class="cell-num' + (a.queries > 0 ? (a.overdue > 0 ? ' alert' : ' warn') : '') + '">' + (a.queries > 0 ? a.queries : '—') + '</span></td>';
+        case 'overdue':
+          return '<td><span class="cell-num' + (a.overdue > 0 ? ' alert' : '') + '">' + (a.overdue > 0 ? a.overdue : '—') + '</span></td>';
+        case 'lock':
+          return '<td><span style="font-size:var(--text-xs);color:var(--color-text-tertiary)"><i class="ti ti-lock-open" style="font-size:13px;vertical-align:-2px"></i> Unlocked</span></td>';
+        case 'signoff':
+          return '<td><span style="font-size:var(--text-xs);color:var(--color-text-tertiary)">—</span></td>';
+        default:
+          return '<td>—</td>';
+      }
+    }).join('');
+
+    return '<tr' + rowCls + '>' +
+      '<td><input type="checkbox" class="row-check" ' + (isSel ? 'checked' : '') + ' onchange="toggleRow(\'' + a.id + '\',this.checked)" onclick="event.stopPropagation()"></td>' +
+      cells +
+      '<td><div class="row-actions">' +
+        '<button class="btn-icon" title="Open subject record" onclick="event.stopPropagation()"><i class="ti ti-clipboard-list"></i></button>' +
+        '<button class="btn-icon" title="Raise query" onclick="event.stopPropagation();openQueryPanel(\'' + a.id + '\')"><i class="ti ti-message-report"></i></button>' +
+      '</div></td>' +
+    '</tr>';
+  }).join('');
+}
+
+function renderSummary(rows) {
+  var totalQ    = rows.reduce(function(a,r){ return a + r.queries; }, 0);
+  var totalOD   = rows.reduce(function(a,r){ return a + r.overdue; }, 0);
+  var completed = rows.filter(function(r){ return r.status === 'completed'; }).length;
+  var onhold    = rows.filter(function(r){ return r.status === 'onhold'; }).length;
+
+  document.getElementById('summary-bar').innerHTML =
+    '<div class="summary-stat"><span>Animals:</span><span class="summary-val">' + rows.length + '</span></div>' +
+    '<div class="summary-sep"></div>' +
+    '<div class="summary-stat"><span>Completed:</span><span class="summary-val good">' + completed + '</span></div>' +
+    '<div class="summary-sep"></div>' +
+    (onhold > 0 ? '<div class="summary-stat"><span>On hold:</span><span class="summary-val warn">' + onhold + '</span></div><div class="summary-sep"></div>' : '') +
+    '<div class="summary-stat"><span>Open queries:</span><span class="summary-val' + (totalQ > 0 ? ' warn' : '') + '">' + totalQ + '</span></div>' +
+    '<div class="summary-sep"></div>' +
+    '<div class="summary-stat"><span>Overdue:</span><span class="summary-val' + (totalOD > 0 ? ' alert' : '') + '">' + totalOD + '</span></div>';
+}
+
+function renderStats(rows) {
+  var total     = rows.length;
+  var randomized= rows.filter(function(r){ return r.status === 'randomized'; }).length;
+  var completed = rows.filter(function(r){ return r.status === 'completed'; }).length;
+  var totalQ    = rows.reduce(function(a,r){ return a + r.queries; }, 0);
+  var totalOD   = rows.reduce(function(a,r){ return a + r.overdue; }, 0);
+  var formsPct  = total > 0 ? Math.round(rows.reduce(function(a,r){ return a + (r.formsDone/r.formsTotal); },0)/total*100) : 0;
+
+  document.getElementById('stat-strip').innerHTML =
+    '<div class="stat-item"><div class="stat-val">' + total + '</div><div class="stat-lbl">Animals</div></div>' +
+    '<div class="stat-item"><div class="stat-val good">' + randomized + '</div><div class="stat-lbl">Active / randomized</div></div>' +
+    '<div class="stat-item"><div class="stat-val">' + completed + '</div><div class="stat-lbl">Completed</div></div>' +
+    '<div class="stat-item"><div class="stat-val' + (totalQ > 0 ? ' warn' : '') + '">' + totalQ + '</div><div class="stat-lbl">Open queries</div></div>' +
+    '<div class="stat-item"><div class="stat-val' + (totalOD > 0 ? ' alert' : '') + '">' + totalOD + '</div><div class="stat-lbl">Overdue</div></div>' +
+    '<div class="stat-item"><div class="stat-val">' + formsPct + '%</div><div class="stat-lbl">Avg forms complete</div></div>';
+}
+
+function updatePageTitle(rows) {
+  var siteLabel = ACTIVE_SITE
+    ? { AUS:'Austin Research Center', DAL:'Dallas Vet Clinic', HOU:'Houston Animal Hospital' }[ACTIVE_SITE]
+    : 'All sites';
+  document.getElementById('page-title-sub').textContent = 'AK-2401 · ' + siteLabel + ' · ' + rows.length + ' animals';
+}
+
+/* ══════════════════════════════════════════════════════════════════════════
+   SELECTION
+══════════════════════════════════════════════════════════════════════════ */
+function toggleRow(id, checked) {
+  if (checked) { selected.add(id); } else { selected.delete(id); }
+  updateBulkBar();
+}
+
+function toggleAllRows(checked) {
+  var rows = getFiltered();
+  rows.forEach(function(a) { if (checked) { selected.add(a.id); } else { selected.delete(a.id); } });
+  applyFilters(); /* re-render to show checked state */
+  updateBulkBar();
+}
+
+function clearSelection() {
+  selected.clear();
+  document.getElementById('check-all').checked = false;
+  applyFilters();
+  updateBulkBar();
+}
+
+function updateBulkBar() {
+  var bar   = document.getElementById('bulk-bar');
+  var n     = selected.size;
+  var total = getFiltered().length;
+  var chkAll = document.getElementById('check-all');
+
+  if (chkAll) {
+    chkAll.checked       = n > 0 && n === total;
+    chkAll.indeterminate = n > 0 && n < total;
+  }
+
+  if (n > 0) {
+    bar.classList.add('visible');
+    document.getElementById('bulk-msg').textContent = n + ' animal' + (n !== 1 ? 's' : '') + ' selected';
+  } else {
+    bar.classList.remove('visible');
+  }
+}
+
+/* ══════════════════════════════════════════════════════════════════════════
+   SITE DROPDOWN (same pattern as 24-inventory / 26-data-entry)
+══════════════════════════════════════════════════════════════════════════ */
+var SITE_LABELS = { '':'All sites', AUS:'Austin Research Center', DAL:'Dallas Vet Clinic', HOU:'Houston Animal Hospital' };
+
+function toggleSiteDropdown() {
+  var dd   = document.getElementById('site-dropdown');
+  var chev = document.getElementById('tb-site-chev');
+  var open = dd.style.display !== 'none';
+  dd.style.display = open ? 'none' : 'block';
+  chev.className   = open ? 'ti ti-chevron-down' : 'ti ti-chevron-up';
+  chev.style.fontSize = '11px'; chev.style.opacity = '0.7';
+}
+
+document.addEventListener('click', function(e) {
+  var wrap = document.getElementById('site-dd-wrap');
+  if (wrap && !wrap.contains(e.target)) {
+    var dd   = document.getElementById('site-dropdown');
+    var chev = document.getElementById('tb-site-chev');
+    if (dd)   dd.style.display = 'none';
+    if (chev) { chev.className = 'ti ti-chevron-down'; chev.style.fontSize = '11px'; chev.style.opacity = '0.7'; }
+  }
+});
+
+function setSiteFilter(site) {
+  ACTIVE_SITE = site;
+
+  /* Update dropdown active states */
+  document.querySelectorAll('.site-dd-item').forEach(function(b) {
+    var m = b.getAttribute('onclick') && b.getAttribute('onclick').match(/setSiteFilter\(['"]([^'"]*)['"]\)/);
+    b.classList.toggle('active', m ? m[1] === site : false);
+  });
+
+  /* Update topbar label */
+  var btn = document.getElementById('tb-site-btn');
+  btn.innerHTML = (SITE_LABELS[site] || 'All sites') + ' <i class="ti ti-chevron-down" id="tb-site-chev" style="font-size:11px;opacity:0.7"></i>';
+
+  /* Sync the in-toolbar site filter select */
+  var sel = document.getElementById('filter-site');
+  if (sel) sel.value = site;
+
+  /* Close dropdown */
+  var dd = document.getElementById('site-dropdown');
+  if (dd) dd.style.display = 'none';
+
+  selected.clear();
+  updateBulkBar();
+  applyFilters();
+}
+
+/* ══════════════════════════════════════════════════════════════════════════
+   QUERY PANEL
+══════════════════════════════════════════════════════════════════════════ */
+function openQueryPanel(animalId) {
+  var animal = ANIMALS.find(function(a){ return a.id === animalId; });
+  if (!animal) return;
+
+  document.getElementById('qp-sub').textContent         = animalId;
+  document.getElementById('qp-animal-id').textContent   = animalId;
+  document.getElementById('qp-animal-meta').textContent = animal.breed + ' · ' + animal.sex + ' · ' + animal.age + ' · ' + animal.siteName + ' › ' + animal.barn + ' › ' + animal.pen;
+
+  /* Show/hide existing queries section based on whether animal has queries */
+  var existingTitle = document.getElementById('qp-existing-title');
+  var existingList  = document.getElementById('qp-existing-list');
+  if (animal.queries === 0) {
+    existingTitle.style.display = 'none';
+    existingList.style.display  = 'none';
+  } else {
+    existingTitle.style.display = '';
+    existingList.style.display  = '';
+    existingTitle.textContent   = 'Open queries on this animal (' + animal.queries + ')';
+  }
+
+  document.getElementById('query-overlay').classList.add('open');
+  document.getElementById('query-panel').classList.add('open');
+}
+
+function closeQueryPanel() {
+  document.getElementById('query-overlay').classList.remove('open');
+  document.getElementById('query-panel').classList.remove('open');
+}
+
+/* ══════════════════════════════════════════════════════════════════════════
+   BOOT
+══════════════════════════════════════════════════════════════════════════ */
+buildLocationLookups();
+populateBarnSelect('');
+populatePenSelect('', '');
+applyFilters();
+</script>
+</body>
+</html>
