@@ -1,6 +1,6 @@
 # Arken EDC — Session Handoff
 **Paste this entire file at the start of a new conversation.**
-Last updated: 2026-06-07 | Session 16 — Living style guide
+Last updated: 2026-06-08 | Session 16 COMPLETE → Session 17 — Claude Code build begins
 
 ---
 
@@ -20,22 +20,29 @@ Paste the full content of this file as your first message. It contains everythin
 
 ---
 
-## What we're doing in this session
+## Where we are now
 
-**Building the living style guide on GitHub Pages.**
+**Design phase is fully complete. Production stack is initialized and live. Session 17 begins the Claude Code build.**
 
-This is the last item in the design phase before moving to Claude Code. The style guide is a static site (GitHub Pages, no build step) that documents the full Arken design system — every token, every component, every pattern — in a single browseable reference.
+### Session 16 — COMPLETE ✅
+- **Living style guide built and published.** Single static page at `docs/index.html`, served on GitHub Pages (no build step). Documents the full Arken design system — every token, component, and pattern — in one browseable reference. Sticky sidebar nav, anchor-linked sections.
+- **Production stack initialized:**
+  - Next.js 14 + TypeScript + Tailwind CSS in the `/app` folder (App Router, no src dir, `@/*` alias)
+  - Supabase client configured at `app/lib/supabase.ts` (`@supabase/supabase-js`)
+  - Environment variables set in `app/.env.local` (local) **and** in Vercel (production)
+  - **Deployed live at https://arken-edc.vercel.app**
 
-**Purpose:**
-- Portfolio artifact: shows design system thinking at a senior level
-- Developer handoff: Claude Code starts here to understand tokens and component anatomy before coding React components
-- Living document: updates as the system evolves
+### Session 17 — NEXT (Claude Code build begins) ▶
+First task: **build the login screen and app shell**, based on the `00-login.html` prototype.
+- Translate the static prototype into React/Next.js components using the design tokens (see token block below) mapped into Tailwind config.
+- Login + study selector flow, then the app shell (sidenav + topbar) that wraps the authenticated app.
+- Wire Supabase auth via the configured client.
 
 ---
 
 ## Design phase status — COMPLETE
 
-All 33 prototype files exist locally. The style guide will reference and showcase the patterns they contain.
+All 33 prototype files exist locally and are documented in the published style guide. They are the source of truth Claude Code translates into React components.
 
 | File | Screen |
 |---|---|
@@ -51,7 +58,9 @@ All 33 prototype files exist locally. The style guide will reference and showcas
 
 ---
 
-## Style guide — what it should cover
+## Style guide — published contents (docs/index.html)
+
+The published style guide covers the following. Use it as the canonical reference when building React components.
 
 ### 1. Foundations
 - Color system (full token set with swatches + hex + variable name)
@@ -129,17 +138,9 @@ All 33 prototype files exist locally. The style guide will reference and showcas
 
 ---
 
-## GitHub Pages setup
+## GitHub Pages setup — DONE ✅
 
-The style guide should be a single index.html (or a small set of linked pages) at the repo root or in a /docs folder. GitHub Pages serves /docs from the main branch automatically with no build step needed.
-
-**Structure options:**
-- A. Single-page with anchor navigation (simplest, works great for a component library)
-- B. Multi-page (index → foundations → components → patterns) with a shared nav
-
-Recommendation: single-page with sticky left sidebar nav and anchor-linked sections. Mirrors the settings hub pattern we already designed.
-
-**No frameworks needed.** Pure HTML + CSS, same token stack as the prototype files. Copy tokens from any prototype file's :root block.
+The style guide is a single `docs/index.html`, served by GitHub Pages from the `/docs` folder on the main branch (no build step). Single-page with sticky left sidebar nav and anchor-linked sections — mirrors the settings hub pattern. Pure HTML + CSS, same token stack as the prototype files.
 
 ---
 
@@ -187,4 +188,4 @@ Recommendation: single-page with sticky left sidebar nav and anchor-linked secti
 
 Paste this file and say:
 
-> "This is the handoff doc for Arken EDC. We're in session 16. The design phase is complete. Now we're building the living style guide on GitHub Pages. Read the handoff fully, then let's plan and build the style guide — single HTML page, sticky sidebar nav, covers all the sections listed in the handoff. Start with the page structure and foundations."
+> "This is the handoff doc for Arken EDC. We're in session 17. The design phase is complete, the style guide is published (docs/index.html), and the production stack is live (Next.js 14 + TypeScript + Tailwind in /app, Supabase configured, deployed at arken-edc.vercel.app). Read the handoff fully, then let's start the Claude Code build. First task: build the login screen and app shell as React/Next.js components based on the 00-login.html prototype — using the design tokens mapped into the Tailwind config. Start by reading 00-login.html and the style guide, then plan the component structure."
