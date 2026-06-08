@@ -1,0 +1,2356 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Arken EDC — Design System</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Roboto:wght@400;500;700&family=Roboto+Mono:wght@400;500&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@tabler/icons-webfont@3.31.0/dist/tabler-icons.min.css">
+
+<style>
+/* ─── TOKENS ──────────────────────────────────────────────── */
+:root {
+  --color-nav-bg:#1A1F2E; --color-nav-hover:#2C3248; --color-nav-icon:#8aafc8;
+  --color-page-bg:#FBFBFB; --color-surface:#FFFFFF;
+  --color-border:#E8E8E6; --color-border-subtle:#F0F0EE;
+  --color-text-primary:#2C2D33; --color-text-secondary:#4F535B;
+  --color-text-tertiary:#6D7480; --color-text-placeholder:#C4C4C2;
+  --color-link:#3D4A5C; --color-hover-bg:#F0F0EE;
+  --color-cta-bg:#1A1F2E; --color-cta-hover:#2C3248; --color-focus-ring:#3D8FE0;
+  --amber-50:#FFF8E7; --amber-200:#F5B830; --amber-700:#8A5C00;
+  --orange-50:#FFF0E8; --orange-200:#F48E50; --orange-600:#C94C0C;
+  --red-50:#FFF0F0; --red-200:#EC8585; --red-600:#B52626;
+  --green-50:#EEFAF4; --green-200:#58BC88; --green-600:#1A6B47;
+  --blue-50:#E8F4FF; --blue-200:#7AB8EE; --blue-600:#1760A8;
+  --purple-50:#F0EEFF; --purple-200:#A9A3EC; --purple-600:#534AB7;
+  --slate-50:#EEF1F6; --slate-200:#8AA0B8; --slate-600:#3D5A78;
+  --font-sans:'Roboto',system-ui,sans-serif;
+  --font-mono:'Roboto Mono',monospace;
+  --text-xs:11px; --text-sm:12px; --text-base:14px; --text-lg:16px;
+  --text-xl:18px; --text-3xl:24px;
+  --weight-medium:500; --weight-bold:700;
+  --radius-sm:2px; --radius-md:4px; --radius-lg:6px; --radius-full:9999px;
+  --space-1:4px; --space-2:8px; --space-3:12px; --space-4:16px;
+  --space-5:20px; --space-6:24px; --space-8:32px;
+  --tracking-caps:0.07em;
+  --duration-fast:120ms; --ease-default:cubic-bezier(0.16,1,0.3,1);
+}
+
+/* ─── RESET ───────────────────────────────────────────────── */
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+body{font-family:var(--font-sans);font-size:var(--text-base);color:var(--color-text-primary);background:var(--color-page-bg);-webkit-font-smoothing:antialiased;display:flex;min-height:100vh}
+
+/* ─── LAYOUT ──────────────────────────────────────────────── */
+.sg-shell{display:flex;width:100%;min-height:100vh}
+
+/* Left nav */
+.sg-nav{width:220px;flex-shrink:0;background:var(--color-nav-bg);position:sticky;top:0;height:100vh;overflow-y:auto;display:flex;flex-direction:column}
+.sg-nav::-webkit-scrollbar{width:4px}
+.sg-nav::-webkit-scrollbar-track{background:transparent}
+.sg-nav::-webkit-scrollbar-thumb{background:rgba(255,255,255,0.1);border-radius:2px}
+
+.sg-logo{padding:var(--space-5) var(--space-4) var(--space-4);border-bottom:1px solid rgba(255,255,255,0.08)}
+.sg-logo-mark{display:flex;align-items:center;gap:var(--space-2);margin-bottom:var(--space-2)}
+.sg-logo-icon{width:26px;height:26px;background:rgba(255,255,255,0.1);border-radius:var(--radius-md);display:flex;align-items:center;justify-content:center;font-weight:700;color:#fff;font-size:13px}
+.sg-logo-name{font-size:var(--text-base);font-weight:700;color:#fff;letter-spacing:0.03em}
+.sg-logo-sub{font-size:var(--text-xs);color:var(--color-nav-icon);letter-spacing:var(--tracking-caps);text-transform:uppercase}
+
+.sg-nav-section{padding:var(--space-4) 0 var(--space-2)}
+.sg-nav-group{font-size:10px;font-weight:700;color:rgba(255,255,255,0.3);letter-spacing:0.1em;text-transform:uppercase;padding:0 var(--space-4) var(--space-1)}
+.sg-nav-item{display:flex;align-items:center;gap:var(--space-2);padding:6px var(--space-4);font-size:var(--text-sm);color:rgba(255,255,255,0.6);cursor:pointer;transition:all var(--duration-fast);text-decoration:none;border-left:2px solid transparent}
+.sg-nav-item:hover{color:#fff;background:rgba(255,255,255,0.05)}
+.sg-nav-item.active{color:#fff;background:rgba(255,255,255,0.08);border-left-color:var(--blue-200)}
+.sg-nav-item i{font-size:14px;flex-shrink:0;opacity:0.7}
+.sg-nav-item.active i{opacity:1}
+.sg-nav-spacer{flex:1}
+.sg-nav-footer{padding:var(--space-4);border-top:1px solid rgba(255,255,255,0.08)}
+.sg-nav-ver{font-size:var(--text-xs);color:rgba(255,255,255,0.25);font-family:var(--font-mono)}
+
+/* Content area */
+.sg-content{flex:1;min-width:0;padding:var(--space-8) 64px;max-width:1080px}
+
+/* ─── SECTION STRUCTURE ───────────────────────────────────── */
+.sg-section{margin-bottom:72px}
+.sg-section-header{margin-bottom:var(--space-6);padding-bottom:var(--space-4);border-bottom:1px solid var(--color-border)}
+.sg-section-num{font-size:var(--text-xs);font-weight:700;color:var(--color-text-tertiary);text-transform:uppercase;letter-spacing:var(--tracking-caps);font-family:var(--font-mono);margin-bottom:var(--space-2)}
+.sg-section-title{font-size:22px;font-weight:700;color:var(--color-text-primary);letter-spacing:-0.02em;margin-bottom:var(--space-2)}
+.sg-section-desc{font-size:var(--text-base);color:var(--color-text-secondary);line-height:1.6}
+
+.sg-subsection{margin-bottom:var(--space-8)}
+.sg-sub-title{font-size:var(--text-lg);font-weight:700;color:var(--color-text-primary);margin-bottom:var(--space-4)}
+.sg-sub-desc{font-size:var(--text-sm);color:var(--color-text-secondary);margin-bottom:var(--space-4);line-height:1.6}
+
+/* ─── CANVAS / DEMO AREA ──────────────────────────────────── */
+.sg-canvas{background:var(--color-surface);border:1px solid var(--color-border);border-radius:var(--radius-lg);padding:var(--space-6);margin-bottom:var(--space-3)}
+.sg-canvas-dark{background:var(--color-nav-bg);border:1px solid rgba(255,255,255,0.08)}
+.sg-canvas-muted{background:var(--color-page-bg)}
+
+.sg-code{background:#1E2235;border-radius:var(--radius-lg);padding:var(--space-4) var(--space-5);margin-bottom:var(--space-4);overflow-x:auto}
+.sg-code pre{font-family:var(--font-mono);font-size:var(--text-sm);color:#B0C4DE;line-height:1.7;white-space:pre}
+.sg-code .tok-var{color:#7AB8EE}
+.sg-code .tok-val{color:#F5B830}
+.sg-code .tok-comment{color:#4F6080;font-style:italic}
+
+/* ─── RULE CHIP ───────────────────────────────────────────── */
+.rule-row{display:flex;flex-direction:column;gap:var(--space-3);margin-bottom:var(--space-6)}
+.rule-item{display:flex;align-items:flex-start;gap:var(--space-3);padding:var(--space-3) var(--space-4);background:var(--color-surface);border:1px solid var(--color-border);border-radius:var(--radius-lg)}
+.rule-num{min-width:24px;height:24px;border-radius:var(--radius-full);background:var(--color-cta-bg);color:#fff;font-size:var(--text-xs);font-weight:700;font-family:var(--font-mono);display:flex;align-items:center;justify-content:center;flex-shrink:0;margin-top:1px}
+.rule-text{font-size:var(--text-sm);color:var(--color-text-secondary);line-height:1.55}
+.rule-text strong{color:var(--color-text-primary);font-weight:500}
+
+/* ─── COLOR SYSTEM ────────────────────────────────────────── */
+.color-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(160px,1fr));gap:var(--space-3)}
+.color-swatch{border-radius:var(--radius-lg);overflow:hidden;border:1px solid var(--color-border)}
+.color-swatch-bar{height:56px}
+.color-swatch-info{padding:var(--space-3) var(--space-3) var(--space-3)}
+.color-swatch-name{font-size:var(--text-xs);font-weight:500;color:var(--color-text-primary);margin-bottom:2px}
+.color-swatch-var{font-size:10px;font-family:var(--font-mono);color:var(--color-text-tertiary)}
+.color-swatch-hex{font-size:10px;font-family:var(--font-mono);color:var(--color-text-secondary);margin-top:2px}
+
+.color-row{display:flex;gap:var(--space-2);flex-wrap:wrap;align-items:center}
+.color-chip{border-radius:var(--radius-md);width:32px;height:32px;flex-shrink:0;border:1px solid var(--color-border)}
+.color-chip-lg{width:48px;height:48px;border-radius:var(--radius-md);border:1px solid var(--color-border)}
+
+.severity-row{display:flex;gap:var(--space-3)}
+.severity-block{flex:1;border-radius:var(--radius-lg);padding:var(--space-4);border:1px solid var(--color-border)}
+
+/* ─── TYPOGRAPHY ──────────────────────────────────────────── */
+.type-scale-row{display:flex;flex-direction:column;gap:0;border:1px solid var(--color-border);border-radius:var(--radius-lg);overflow:hidden}
+.type-scale-item{display:grid;grid-template-columns:200px 1fr 120px;align-items:center;gap:var(--space-4);padding:var(--space-3) var(--space-5);border-bottom:1px solid var(--color-border-subtle)}
+.type-scale-item:last-child{border-bottom:none}
+.type-scale-meta{font-size:var(--text-xs);font-family:var(--font-mono);color:var(--color-text-tertiary)}
+.type-scale-var{font-size:10px;font-family:var(--font-mono);color:var(--color-text-placeholder)}
+.type-scale-usage{font-size:var(--text-xs);color:var(--color-text-tertiary);text-align:right}
+
+.type-pair{display:grid;grid-template-columns:1fr 1fr;gap:var(--space-4)}
+.type-block{padding:var(--space-5);background:var(--color-surface);border:1px solid var(--color-border);border-radius:var(--radius-lg)}
+.type-block-label{font-size:var(--text-xs);text-transform:uppercase;letter-spacing:var(--tracking-caps);color:var(--color-text-tertiary);font-weight:700;margin-bottom:var(--space-3)}
+
+/* ─── SPACING ─────────────────────────────────────────────── */
+.space-grid{display:flex;flex-direction:column;gap:var(--space-2)}
+.space-row{display:flex;align-items:center;gap:var(--space-4)}
+.space-bar-wrap{flex:1;height:32px;background:var(--color-border-subtle);border-radius:var(--radius-sm);display:flex;align-items:center;position:relative;overflow:hidden}
+.space-bar{height:100%;background:var(--blue-200);opacity:0.5;border-radius:var(--radius-sm)}
+.space-label{min-width:80px;font-size:var(--text-xs);font-family:var(--font-mono);color:var(--color-text-secondary)}
+.space-value{min-width:48px;font-size:var(--text-xs);font-family:var(--font-mono);color:var(--color-text-tertiary);text-align:right}
+
+/* ─── RADIUS ──────────────────────────────────────────────── */
+.radius-row{display:flex;gap:var(--space-4);align-items:flex-end;flex-wrap:wrap}
+.radius-item{display:flex;flex-direction:column;align-items:center;gap:var(--space-2)}
+.radius-box{width:56px;height:56px;background:var(--slate-200);border:1px solid var(--color-border)}
+.radius-meta{font-size:10px;font-family:var(--font-mono);color:var(--color-text-tertiary);text-align:center}
+.radius-name{font-size:var(--text-xs);color:var(--color-text-secondary);font-weight:500}
+
+/* ─── BADGES ──────────────────────────────────────────────── */
+/* No dots, no uppercase — sentence/title case only */
+.badge{display:inline-flex;align-items:center;height:20px;padding:0 var(--space-2);border-radius:var(--radius-full);font-size:var(--text-xs);font-weight:500;line-height:1;border:1px solid transparent}
+/* Status badges */
+.badge-active{background:var(--green-50);color:var(--green-600);border-color:var(--green-200)}
+.badge-queried{background:var(--amber-50);color:var(--amber-700);border-color:var(--amber-200)}
+.badge-locked{background:var(--slate-50);color:var(--slate-600);border-color:var(--slate-200)}
+.badge-reviewed{background:var(--blue-50);color:var(--blue-600);border-color:var(--blue-200)}
+.badge-critical{background:var(--red-50);color:var(--red-600);border-color:var(--red-200)}
+.badge-warning{background:var(--orange-50);color:var(--orange-600);border-color:var(--orange-200)}
+/* Role badges */
+.badge-role{background:var(--slate-50);color:var(--slate-600);border-radius:var(--radius-md);font-size:var(--text-xs);font-weight:600;height:18px;padding:0 6px;border:1px solid var(--slate-200)}
+.badge-admin{background:var(--purple-50);color:var(--purple-600);border-color:var(--purple-200)}
+.badge-pi{background:var(--blue-50);color:var(--blue-600);border-color:var(--blue-200)}
+
+.badge-row{display:flex;flex-wrap:wrap;gap:var(--space-2);align-items:center}
+
+/* ─── BUTTONS ─────────────────────────────────────────────── */
+/* 32px everywhere — settings forms included */
+.btn-primary{display:inline-flex;align-items:center;gap:4px;height:32px;padding:0 var(--space-3);font-size:var(--text-sm);font-weight:var(--weight-medium);font-family:var(--font-sans);border:none;border-radius:var(--radius-md);background:var(--color-cta-bg);color:#fff;cursor:pointer;transition:background var(--duration-fast)}
+.btn-primary:hover{background:var(--color-cta-hover)}
+.btn-primary i{font-size:14px}
+.btn-secondary{display:inline-flex;align-items:center;gap:4px;height:32px;padding:0 var(--space-3);font-size:var(--text-sm);font-weight:var(--weight-medium);font-family:var(--font-sans);border:1px solid var(--color-border);border-radius:var(--radius-md);background:var(--color-surface);color:var(--color-text-primary);cursor:pointer;transition:background var(--duration-fast)}
+.btn-secondary:hover{background:var(--color-hover-bg)}
+.btn-secondary i{font-size:14px}
+/* Danger: only for critical/irreversible actions (delete, hard lock) */
+.btn-danger{display:inline-flex;align-items:center;gap:4px;height:32px;padding:0 var(--space-3);font-size:var(--text-sm);font-weight:var(--weight-medium);font-family:var(--font-sans);border:none;border-radius:var(--radius-md);background:var(--red-600);color:#fff;cursor:pointer;transition:opacity var(--duration-fast)}
+.btn-danger:hover{opacity:0.85}
+.btn-icon{display:inline-flex;align-items:center;justify-content:center;width:28px;height:28px;border:none;background:none;border-radius:var(--radius-md);color:var(--color-text-tertiary);cursor:pointer;transition:background var(--duration-fast),color var(--duration-fast)}
+.btn-icon:hover{background:var(--color-hover-bg);color:var(--color-text-primary)}
+.btn-icon i{font-size:15px}
+.btn-row{display:flex;gap:var(--space-3);align-items:center;flex-wrap:wrap}
+/* No "lg" variant — 32px is universal per Rule 7 */
+.btn-primary-lg{height:32px;padding:0 var(--space-4);font-size:var(--text-base)}
+.btn-secondary-lg{height:32px;padding:0 var(--space-4);font-size:var(--text-base)}
+
+/* ─── FORM FIELDS ─────────────────────────────────────────── */
+.field-wrap{display:flex;flex-direction:column;gap:var(--space-1)}
+.field-label{font-size:var(--text-sm);font-weight:var(--weight-medium);color:var(--color-text-primary)}
+.field-hint{font-size:var(--text-xs);color:var(--color-text-tertiary)}
+.field-error-msg{font-size:var(--text-xs);color:var(--red-600)}
+.field-input{height:32px;padding:0 var(--space-3);border:1px solid var(--color-border);border-radius:var(--radius-md);font-size:var(--text-base);font-family:var(--font-sans);color:var(--color-text-primary);background:var(--color-surface);outline:none;transition:border-color var(--duration-fast);width:100%}
+.field-input::placeholder{color:var(--color-text-placeholder)}
+.field-input:focus{border-color:var(--blue-600)}
+/* Query states: raised=amber bg+border, responded/resolved=default field */
+.field-input.state-queried{border-color:var(--amber-200);background:var(--amber-50)}
+/* SDV: default colors, no background change — shield-check-filled icon is the only cue */
+.field-input.state-verified{border-color:var(--color-border);background:var(--color-surface)}
+/* Locked = read-only: muted bg, accessible text color (--color-text-secondary not tertiary) */
+.field-input.state-locked{border-color:var(--color-border);background:var(--color-border-subtle);color:var(--color-text-secondary);pointer-events:none}
+.field-input.state-error{border-color:var(--red-200)}
+/* Change reason: field is always default style — only the Δ button changes state */
+/* Δ button base */
+.delta-btn{width:22px;height:22px;flex-shrink:0;border:2px solid;background:none;cursor:pointer;border-radius:var(--radius-sm);display:flex;align-items:center;justify-content:center;font-size:16px;font-weight:700;font-family:var(--font-mono);line-height:1;transition:all var(--duration-fast)}
+.delta-btn-required{border-style:dashed;border-color:var(--red-600);color:var(--red-600);background:transparent}
+.delta-btn-responded{border-style:solid;border-color:var(--blue-600);color:var(--blue-600);background:transparent}
+.delta-btn-reviewed{border-style:solid;border-color:var(--green-600);color:#fff;background:var(--green-600)}
+/* Select: right-padding 32px gives 8px gap between arrow and border */
+.field-select{height:32px;padding:0 32px 0 var(--space-3);border:1px solid var(--color-border);border-radius:var(--radius-md);font-size:var(--text-base);font-family:var(--font-sans);color:var(--color-text-primary);background:var(--color-surface);outline:none;cursor:pointer;width:100%;appearance:none;-webkit-appearance:none;background-image:url("data:image/svg+xml,%3Csvg width='10' height='6' viewBox='0 0 10 6' fill='none' xmlns='http://www.w3.org/2000/svg'%3E%3Cpath d='M1 1L5 5L9 1' stroke='%236D7480' stroke-width='1.5' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E");background-repeat:no-repeat;background-position:right 8px center}
+.field-select:focus{border-color:var(--blue-600)}
+.field-textarea{padding:var(--space-2) var(--space-3);border:1px solid var(--color-border);border-radius:var(--radius-md);font-size:var(--text-base);font-family:var(--font-sans);color:var(--color-text-primary);background:var(--color-surface);outline:none;resize:vertical;width:100%}
+.field-textarea:focus{border-color:var(--blue-600)}
+.field-grid{display:grid;grid-template-columns:1fr 1fr;gap:var(--space-4)}
+
+/* field state indicators */
+.field-state-bar{display:flex;align-items:center;gap:var(--space-1);margin-top:var(--space-1)}
+.field-state-icon{font-size:12px}
+.field-state-label{font-size:var(--text-xs)}
+
+/* ─── TOGGLE ──────────────────────────────────────────────── */
+/* Switch is LEFT of text — toggle-left pattern from 25-settings */
+.toggle-row{display:flex;align-items:center;gap:var(--space-3);padding:var(--space-3) var(--space-4);border:1px solid var(--color-border);border-radius:var(--radius-lg);background:var(--color-surface)}
+.toggle-switch{position:relative;width:36px;height:20px;flex-shrink:0}
+.toggle-switch input{opacity:0;width:0;height:0;position:absolute}
+.toggle-track{position:absolute;inset:0;background:var(--color-border);border-radius:var(--radius-full);cursor:pointer;transition:background var(--duration-fast)}
+.toggle-thumb{position:absolute;top:2px;left:2px;width:16px;height:16px;background:#fff;border-radius:50%;transition:transform var(--duration-fast);pointer-events:none}
+.toggle-switch input:checked ~ .toggle-track{background:var(--blue-600)}
+.toggle-switch input:checked ~ .toggle-thumb{transform:translateX(16px)}
+.toggle-left{display:flex;flex-direction:column;gap:2px;flex:1}
+.toggle-title{font-size:var(--text-base);font-weight:var(--weight-medium);color:var(--color-text-primary)}
+.toggle-desc{font-size:var(--text-sm);color:var(--color-text-tertiary)}
+.toggle-right{display:flex;align-items:center;gap:var(--space-3)}
+.toggle-expand-btn{display:flex;align-items:center;gap:3px;font-size:var(--text-xs);color:var(--color-text-tertiary);background:none;border:none;cursor:pointer;padding:0}
+.toggle-expand-btn i{font-size:12px;transition:transform var(--duration-fast)}
+.toggle-expand-btn.open i{transform:rotate(180deg)}
+
+/* ─── STATUS ICONS ────────────────────────────────────────── */
+/* 5-state system matching file 09:
+   Empty     → dashed circle (placeholder)
+   In-Work   → half-filled blue (SVG)
+   In-Review → half-filled amber (SVG)
+   Reviewed  → half-filled purple (SVG)
+   Finalized → green circle + check
+   Locked    → slate circle + lock (post-finalized) */
+.status-icon-wrap{width:16px;height:16px;flex-shrink:0;display:inline-flex;align-items:center;justify-content:center}
+.si-empty{width:16px;height:16px;border-radius:50%;border:1.5px dashed var(--color-text-placeholder);flex-shrink:0;display:inline-block}
+.si-finalized{width:16px;height:16px;border-radius:50%;background:var(--green-50);border:1.5px solid var(--green-600);color:var(--green-600);display:inline-flex;align-items:center;justify-content:center;flex-shrink:0}
+.si-finalized i{font-size:10px}
+.si-locked{width:16px;height:16px;border-radius:50%;background:var(--slate-50);border:1.5px solid var(--slate-200);color:var(--slate-600);display:inline-flex;align-items:center;justify-content:center;flex-shrink:0}
+.si-locked i{font-size:8px}
+/* SVG-based half-moon icons */
+.si-inwork,.si-inreview,.si-reviewed-icon{width:16px;height:16px;flex-shrink:0;display:block}
+
+/* flag icons — 16px per spec */
+.flag-icon{display:inline-flex;align-items:center;justify-content:center;width:16px;height:16px;flex-shrink:0}
+.fi-none i{color:var(--color-text-placeholder);font-size:16px}
+.fi-open i{color:var(--amber-700);font-size:16px}
+.fi-resolved i{color:var(--green-600);font-size:16px}
+
+.icon-row{display:flex;gap:var(--space-4);flex-wrap:wrap;align-items:center}
+.icon-item{display:flex;flex-direction:column;align-items:center;gap:var(--space-2)}
+.icon-label{font-size:10px;font-family:var(--font-mono);color:var(--color-text-tertiary);text-align:center}
+
+/* ─── SORTABLE TABLE (from 14-list-pages) ─────────────────── */
+.sg-table thead th{position:sticky;top:0;z-index:5;background:var(--color-surface);padding:var(--space-2) var(--space-4);text-align:left;font-size:var(--text-xs);font-weight:var(--weight-medium);text-transform:uppercase;letter-spacing:var(--tracking-caps);color:var(--color-text-tertiary);border-bottom:1px solid var(--color-border);white-space:nowrap;cursor:pointer;user-select:none;transition:color var(--duration-fast)}
+.sg-table thead th:hover{color:var(--color-text-primary)}
+.sg-table thead th .sort-icon{margin-left:3px;font-size:11px;color:transparent;transition:color var(--duration-fast)}
+.sg-table thead th:hover .sort-icon{color:var(--color-text-placeholder)}
+.sg-table thead th.sort-asc .sort-icon,.sg-table thead th.sort-desc .sort-icon{color:var(--blue-600)}
+.sg-table thead th.sort-asc .sort-icon::before{content:'\ea78'}/* ti-chevron-up */
+.sg-table thead th.sort-desc .sort-icon::before{content:'\ea79'}/* ti-chevron-down */
+
+/* ─── SLIDE-IN PANELS (from 13, 22, 23) ──────────────────── */
+.panel-overlay{display:none;position:fixed;inset:0;background:rgba(14,18,28,0.32);z-index:200;backdrop-filter:blur(1px)}
+.panel-overlay.open{display:block}
+/* Query thread: 480px */
+.slide-panel{position:fixed;top:0;right:0;bottom:0;width:480px;background:var(--color-surface);border-left:1px solid var(--color-border);display:flex;flex-direction:column;z-index:201;transform:translateX(100%);transition:transform 300ms var(--ease-default);box-shadow:-8px 0 24px rgba(14,18,28,0.10)}
+.slide-panel.open{transform:translateX(0)}
+/* Coding panel: 520px */
+.slide-panel-lg{width:520px}
+/* Invoice panel: 500px */
+.slide-panel-invoice{width:500px}
+/* Delta/raise query: 420px */
+.slide-panel-sm{width:420px}
+
+.sp-header{display:flex;align-items:flex-start;justify-content:space-between;padding:var(--space-4) var(--space-5);border-bottom:1px solid var(--color-border);flex-shrink:0;gap:var(--space-3)}
+.sp-header-left{flex:1;min-width:0}
+.sp-title{font-size:var(--text-lg);font-weight:var(--weight-medium);color:var(--color-text-primary);margin-bottom:3px}
+.sp-meta{display:flex;align-items:center;gap:var(--space-2);flex-wrap:wrap;font-size:var(--text-xs);color:var(--color-text-tertiary)}
+.sp-close{display:flex;align-items:center;justify-content:center;width:32px;height:32px;border-radius:var(--radius-md);border:none;background:none;cursor:pointer;color:var(--color-text-tertiary);flex-shrink:0;transition:background var(--duration-fast)}
+.sp-close:hover{background:var(--color-hover-bg);color:var(--color-text-primary)}
+.sp-close i{font-size:18px}
+.sp-context{padding:var(--space-3) var(--space-5);background:var(--color-page-bg);border-bottom:1px solid var(--color-border);flex-shrink:0}
+.sp-body{flex:1;overflow-y:auto;padding:var(--space-5)}
+.sp-footer{border-top:1px solid var(--color-border);padding:var(--space-4) var(--space-5);display:flex;align-items:center;justify-content:space-between;gap:var(--space-3);flex-shrink:0;background:var(--color-surface)}
+
+/* Query status pill (from 13) */
+.qs-pill{display:inline-flex;align-items:center;padding:2px var(--space-2);border-radius:var(--radius-full);font-size:var(--text-xs);font-weight:var(--weight-medium);border:1px solid;white-space:nowrap}
+.qs-raised   {background:var(--orange-50);border-color:var(--orange-200);color:var(--orange-600)}
+.qs-responded{background:var(--amber-50);border-color:var(--amber-200);color:var(--amber-700)}
+.qs-resolved {background:var(--green-50);border-color:var(--green-200);color:var(--green-600)}
+
+/* Message bubble (query thread) */
+.msg-bubble{background:var(--color-page-bg);border:1px solid var(--color-border);border-radius:var(--radius-lg);border-top-left-radius:var(--radius-sm);padding:var(--space-3);font-size:var(--text-sm);line-height:1.5;color:var(--color-text-primary)}
+.msg-bubble.auto{background:var(--orange-50);border-color:var(--orange-200)}
+.msg-bubble.responded{background:var(--amber-50);border-color:var(--amber-200)}
+.msg-bubble.resolved{background:var(--green-50);border-color:var(--green-200)}
+
+/* ─── NAVIGATION PATTERNS ─────────────────────────────────── */
+/* Sidenav demo */
+.demo-sidenav{width:74px;background:var(--color-nav-bg);border-radius:var(--radius-lg);padding:var(--space-3) 0;display:flex;flex-direction:column;align-items:center;gap:2px;min-height:280px}
+.demo-nav-logo{width:30px;height:30px;border-radius:var(--radius-md);background:var(--color-nav-hover);display:flex;align-items:center;justify-content:center;margin-bottom:var(--space-3);font-weight:700;color:#fff;font-size:var(--text-sm)}
+.demo-nav-item{width:100%;min-height:50px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:3px;border:none;background:transparent;color:var(--color-nav-icon);cursor:pointer;padding:4px 0;position:relative}
+.demo-nav-item:hover,.demo-nav-item.active{background:var(--color-nav-hover);color:#fff}
+.demo-nav-item i{font-size:20px}
+.demo-nav-label{font-size:11px;font-weight:500;color:inherit;text-align:center}
+.demo-nav-badge{position:absolute;top:6px;right:18px;min-width:14px;height:14px;padding:0 3px;border-radius:var(--radius-full);background:var(--red-600);color:#fff;font-size:9px;font-weight:700;font-family:var(--font-mono);display:flex;align-items:center;justify-content:center}
+
+/* Topbar demo */
+.demo-topbar{height:56px;background:var(--color-nav-bg);border-radius:var(--radius-lg);display:flex;align-items:center;padding:0 var(--space-5);gap:var(--space-3)}
+.demo-tb-study{background:var(--color-nav-hover);color:#fff;font-size:var(--text-base);font-weight:500;padding:7px var(--space-4);border-radius:var(--radius-md);border:1px solid #525D73;display:flex;align-items:center;gap:4px;cursor:pointer}
+.demo-tb-study i{font-size:11px;opacity:0.7}
+.demo-tb-site{color:#fff;font-size:var(--text-base);display:flex;align-items:center;gap:3px;cursor:pointer;white-space:nowrap;border:none;background:none;font-family:var(--font-sans);font-weight:500}
+.demo-tb-right{margin-left:auto;display:flex;align-items:center;gap:var(--space-3)}
+.demo-tb-icon{width:28px;height:28px;display:flex;align-items:center;justify-content:center;border-radius:var(--radius-md);border:none;background:transparent;color:#fff;cursor:pointer}
+.demo-tb-icon:hover{background:var(--color-nav-hover)}
+.demo-tb-icon i{font-size:20px}
+.demo-tb-role{background:var(--color-nav-hover);color:#fff;font-size:var(--text-sm);font-weight:500;padding:3px var(--space-2);border-radius:var(--radius-md);border:1px solid #525D73}
+.demo-tb-avatar{width:30px;height:30px;border-radius:50%;background:var(--slate-600);color:var(--slate-50);font-size:12px;font-weight:500;display:flex;align-items:center;justify-content:center}
+.demo-tb-sep{width:1px;height:20px;background:rgba(255,255,255,0.15)}
+
+/* Breadcrumb */
+.breadcrumb{display:flex;align-items:center;gap:var(--space-1);font-size:var(--text-sm);color:var(--color-text-tertiary)}
+.breadcrumb a{color:var(--color-link);text-decoration:underline}
+.breadcrumb a:hover{color:var(--color-text-primary)}
+.breadcrumb i{font-size:12px;color:var(--color-text-placeholder)}
+.breadcrumb span{color:var(--color-text-tertiary)}
+
+/* Form sidebar */
+.demo-form-sidebar{width:220px;background:var(--color-surface);border:1px solid var(--color-border);border-radius:var(--radius-lg);padding:var(--space-3) 0;display:flex;flex-direction:column;gap:0}
+.fsb-section{padding:var(--space-1) var(--space-3) var(--space-1)}
+.fsb-section-label{font-size:10px;text-transform:uppercase;letter-spacing:var(--tracking-caps);color:var(--color-text-tertiary);font-weight:700;padding:var(--space-2) var(--space-3) var(--space-1)}
+.fsb-item{display:flex;align-items:center;gap:var(--space-2);padding:5px var(--space-3);border-radius:var(--radius-md);cursor:pointer;color:var(--color-text-secondary);font-size:var(--text-sm);transition:background var(--duration-fast)}
+.fsb-item:hover{background:var(--color-hover-bg)}
+.fsb-item.active{background:var(--blue-50);color:var(--blue-600)}
+.fsb-item .fsb-name{flex:1}
+.fsb-sub{padding-left:var(--space-5)}
+
+/* ─── DATA DISPLAY ────────────────────────────────────────── */
+/* Table */
+.sg-table{width:100%;border-collapse:collapse;font-size:var(--text-sm)}
+.sg-table thead tr{background:var(--color-border-subtle)}
+.sg-table th{padding:var(--space-2) var(--space-4);text-align:left;font-size:var(--text-xs);font-weight:700;color:var(--color-text-tertiary);text-transform:uppercase;letter-spacing:var(--tracking-caps);border-bottom:1px solid var(--color-border);white-space:nowrap}
+.sg-table td{padding:var(--space-3) var(--space-4);border-bottom:1px solid var(--color-border-subtle);color:var(--color-text-primary);vertical-align:middle}
+.sg-table tbody tr:hover{background:var(--color-hover-bg)}
+.sg-table tbody tr:last-child td{border-bottom:none}
+.sg-table .mono{font-family:var(--font-mono);font-size:var(--text-sm)}
+.sg-table .secondary{color:var(--color-text-secondary)}
+
+/* Stat chip */
+.stat-chip{display:inline-flex;flex-direction:column;gap:2px;padding:var(--space-3) var(--space-4);background:var(--color-surface);border:1px solid var(--color-border);border-radius:var(--radius-lg);min-width:80px}
+.stat-val{font-family:var(--font-mono);font-size:var(--text-xl);font-weight:700;color:var(--color-text-primary);line-height:1}
+.stat-val.accent-blue{color:var(--blue-600)}
+.stat-val.accent-green{color:var(--green-600)}
+.stat-val.accent-amber{color:var(--amber-700)}
+.stat-val.accent-red{color:var(--red-600)}
+.stat-label{font-size:var(--text-xs);color:var(--color-text-tertiary)}
+.stat-trend{font-size:var(--text-xs);font-family:var(--font-mono);color:var(--green-600)}
+.stat-row{display:flex;gap:var(--space-3);flex-wrap:wrap}
+
+/* Card */
+.sg-card{background:var(--color-surface);border:1px solid var(--color-border);border-radius:var(--radius-lg);overflow:hidden}
+.sg-card-header{padding:var(--space-4) var(--space-5);border-bottom:1px solid var(--color-border);display:flex;align-items:center;justify-content:space-between}
+.sg-card-title{font-size:var(--text-base);font-weight:700;color:var(--color-text-primary)}
+.sg-card-body{padding:var(--space-4) var(--space-5)}
+.sg-card-footer{padding:var(--space-3) var(--space-5);border-top:1px solid var(--color-border-subtle);background:var(--color-page-bg)}
+
+/* Enrollment / progress bar */
+.enroll-bar-wrap{display:flex;flex-direction:column;gap:var(--space-2)}
+.enroll-bar-track{height:6px;background:var(--color-border-subtle);border-radius:var(--radius-full);overflow:hidden}
+.enroll-bar-fill{height:100%;background:var(--blue-200);border-radius:var(--radius-full)}
+.enroll-bar-fill.fill-green{background:var(--green-200)}
+.enroll-bar-fill.fill-amber{background:var(--amber-200)}
+.enroll-bar-row{display:flex;justify-content:space-between;align-items:center}
+.enroll-bar-label{font-size:var(--text-xs);color:var(--color-text-secondary)}
+.enroll-bar-val{font-size:var(--text-xs);font-family:var(--font-mono);color:var(--color-text-primary);font-weight:500}
+
+/* Query row */
+.query-row{display:flex;align-items:flex-start;gap:var(--space-3);padding:var(--space-3) var(--space-4);border-bottom:1px solid var(--color-border-subtle)}
+.query-row:last-child{border-bottom:none}
+.query-row-left{display:flex;flex-direction:column;flex:1;gap:3px}
+.query-row-field{font-size:var(--text-xs);font-weight:700;color:var(--color-text-tertiary);text-transform:uppercase;letter-spacing:var(--tracking-caps)}
+.query-row-text{font-size:var(--text-sm);color:var(--color-text-primary)}
+.query-row-meta{font-size:var(--text-xs);font-family:var(--font-mono);color:var(--color-text-tertiary)}
+.query-row-right{display:flex;flex-direction:column;align-items:flex-end;gap:3px;flex-shrink:0}
+
+/* Activity row */
+.activity-row{display:flex;align-items:flex-start;gap:var(--space-3);padding:var(--space-3) 0;border-bottom:1px solid var(--color-border-subtle)}
+.activity-row:last-child{border-bottom:none}
+.activity-dot{width:8px;height:8px;border-radius:50%;background:var(--blue-200);flex-shrink:0;margin-top:4px}
+.activity-left{flex:1}
+.activity-action{font-size:var(--text-sm);color:var(--color-text-primary)}
+.activity-action strong{font-weight:500}
+.activity-meta{font-size:var(--text-xs);font-family:var(--font-mono);color:var(--color-text-tertiary);margin-top:2px}
+
+/* ─── CLINICAL PATTERNS ───────────────────────────────────── */
+/* Query lifecycle */
+.lifecycle-row{display:flex;align-items:center;gap:0;margin-bottom:var(--space-4)}
+.lifecycle-step{flex:1;display:flex;flex-direction:column;align-items:center;position:relative}
+.lifecycle-step::after{content:'';position:absolute;top:12px;left:50%;width:100%;height:2px;background:var(--color-border)}
+.lifecycle-step:last-child::after{display:none}
+.lifecycle-dot{width:24px;height:24px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:700;font-family:var(--font-mono);z-index:1;position:relative}
+.lc-raised{background:var(--orange-50);color:var(--orange-600);border:2px solid var(--orange-200)}
+.lc-responded{background:var(--amber-50);color:var(--amber-700);border:2px solid var(--amber-200)}
+.lc-resolved{background:var(--blue-50);color:var(--blue-600);border:2px solid var(--blue-200)}
+.lc-closed{background:var(--green-50);color:var(--green-600);border:2px solid var(--green-200)}
+.lifecycle-label{font-size:var(--text-xs);color:var(--color-text-secondary);margin-top:var(--space-2);font-weight:500;text-align:center}
+.lifecycle-sub{font-size:10px;color:var(--color-text-tertiary);text-align:center;font-family:var(--font-mono)}
+
+/* Delta change reason */
+.delta-row{display:flex;align-items:center;gap:var(--space-2);padding:var(--space-3) var(--space-4);border:1px solid var(--color-border);border-radius:var(--radius-lg);background:var(--color-surface)}
+.delta-symbol{font-size:var(--text-base);font-weight:700;color:var(--color-text-tertiary);font-family:var(--font-mono);width:20px}
+.delta-old{font-family:var(--font-mono);font-size:var(--text-sm);color:var(--color-text-tertiary);text-decoration:line-through}
+.delta-arrow{color:var(--color-text-placeholder);font-size:12px}
+.delta-new{font-family:var(--font-mono);font-size:var(--text-sm);color:var(--color-text-primary);font-weight:500}
+.delta-reason{font-size:var(--text-xs);color:var(--color-text-tertiary);margin-left:auto;font-style:italic}
+
+/* ─── PANELS ──────────────────────────────────────────────── */
+.panel-demo{border:1px solid var(--color-border);border-radius:var(--radius-lg);overflow:hidden;background:var(--color-surface)}
+.panel-header{padding:var(--space-4) var(--space-5);border-bottom:1px solid var(--color-border);display:flex;align-items:center;justify-content:space-between;background:var(--color-surface)}
+.panel-title{font-size:var(--text-base);font-weight:700;color:var(--color-text-primary)}
+.panel-subtitle{font-size:var(--text-sm);color:var(--color-text-tertiary);margin-top:2px}
+.panel-body{padding:var(--space-5)}
+.panel-footer{padding:var(--space-4) var(--space-5);border-top:1px solid var(--color-border);display:flex;align-items:center;gap:var(--space-3);justify-content:flex-end;background:var(--color-page-bg)}
+.panel-width-note{font-size:10px;font-family:var(--font-mono);color:var(--color-text-placeholder);text-align:right;margin-top:var(--space-1)}
+
+/* ─── TOKENS BLOCK ────────────────────────────────────────── */
+.token-full-block{background:#1E2235;border-radius:var(--radius-lg);padding:var(--space-5) var(--space-6);overflow-x:auto}
+.token-full-block pre{font-family:var(--font-mono);font-size:12px;color:#B0C4DE;line-height:1.65;white-space:pre}
+
+/* ─── RULE GRID ───────────────────────────────────────────── */
+.rules-grid{display:grid;grid-template-columns:1fr 1fr;gap:var(--space-3)}
+
+/* ─── UTILITIES ───────────────────────────────────────────── */
+.label-caps{font-size:var(--text-xs);text-transform:uppercase;letter-spacing:var(--tracking-caps);font-weight:700;color:var(--color-text-tertiary);margin-bottom:var(--space-3)}
+.divider{height:1px;background:var(--color-border);margin:var(--space-4) 0}
+.row-flex{display:flex;gap:var(--space-4);flex-wrap:wrap}
+.col-flex{display:flex;flex-direction:column;gap:var(--space-3)}
+.mono{font-family:var(--font-mono)}
+.text-tertiary{color:var(--color-text-tertiary)}
+
+/* ─── SCROLLSPY ACTIVE ────────────────────────────────────── */
+.sg-section[data-section]{scroll-margin-top:32px}
+</style>
+</head>
+
+<body>
+<div class="sg-shell">
+
+<!-- ════ LEFT NAV ════ -->
+<nav class="sg-nav">
+  <div class="sg-logo">
+    <div class="sg-logo-mark">
+      <div class="sg-logo-icon">A</div>
+      <span class="sg-logo-name">Arken EDC</span>
+    </div>
+    <div class="sg-logo-sub">Design System</div>
+  </div>
+
+  <div class="sg-nav-section">
+    <div class="sg-nav-group">Foundations</div>
+    <a class="sg-nav-item active" href="#foundations">
+      <i class="ti ti-palette"></i>Overview
+    </a>
+    <a class="sg-nav-item" href="#colors">
+      <i class="ti ti-circle-half-2"></i>Colors
+    </a>
+    <a class="sg-nav-item" href="#typography">
+      <i class="ti ti-typography"></i>Typography
+    </a>
+    <a class="sg-nav-item" href="#spacing">
+      <i class="ti ti-spacing-horizontal"></i>Spacing &amp; Radius
+    </a>
+    <a class="sg-nav-item" href="#iconography">
+      <i class="ti ti-icons"></i>Iconography
+    </a>
+  </div>
+
+  <div class="sg-nav-section">
+    <div class="sg-nav-group">Components</div>
+    <a class="sg-nav-item" href="#badges">
+      <i class="ti ti-tag"></i>Badges
+    </a>
+    <a class="sg-nav-item" href="#buttons">
+      <i class="ti ti-cursor"></i>Buttons
+    </a>
+    <a class="sg-nav-item" href="#form-fields">
+      <i class="ti ti-forms"></i>Form Fields
+    </a>
+    <a class="sg-nav-item" href="#toggles">
+      <i class="ti ti-toggle-left"></i>Toggles
+    </a>
+    <a class="sg-nav-item" href="#status-icons">
+      <i class="ti ti-circle-dot"></i>Status Icons
+    </a>
+  </div>
+
+  <div class="sg-nav-section">
+    <div class="sg-nav-group">Navigation</div>
+    <a class="sg-nav-item" href="#sidenav">
+      <i class="ti ti-layout-sidebar"></i>Sidenav
+    </a>
+    <a class="sg-nav-item" href="#topbar">
+      <i class="ti ti-layout-navbar"></i>Topbar
+    </a>
+    <a class="sg-nav-item" href="#breadcrumb">
+      <i class="ti ti-arrow-right"></i>Breadcrumb
+    </a>
+    <a class="sg-nav-item" href="#form-sidebar">
+      <i class="ti ti-list"></i>Form Sidebar
+    </a>
+  </div>
+
+  <div class="sg-nav-section">
+    <div class="sg-nav-group">Data Display</div>
+    <a class="sg-nav-item" href="#tables">
+      <i class="ti ti-table"></i>Tables
+    </a>
+    <a class="sg-nav-item" href="#cards">
+      <i class="ti ti-layout-cards"></i>Cards &amp; Stats
+    </a>
+    <a class="sg-nav-item" href="#progress">
+      <i class="ti ti-progress"></i>Progress Bars
+    </a>
+    <a class="sg-nav-item" href="#data-rows">
+      <i class="ti ti-rows"></i>Rows
+    </a>
+  </div>
+
+  <div class="sg-nav-section">
+    <div class="sg-nav-group">Panels</div>
+    <a class="sg-nav-item" href="#slide-panels">
+      <i class="ti ti-layout-sidebar-right"></i>Slide-in Panels
+    </a>
+    <a class="sg-nav-item" href="#modals">
+      <i class="ti ti-box"></i>Modals
+    </a>
+  </div>
+
+  <div class="sg-nav-section">
+    <div class="sg-nav-group">Clinical</div>
+    <a class="sg-nav-item" href="#query-lifecycle">
+      <i class="ti ti-git-branch"></i>Query Lifecycle
+    </a>
+    <a class="sg-nav-item" href="#delta">
+      <i class="ti ti-delta"></i>Change Reason (Δ)
+    </a>
+    <a class="sg-nav-item" href="#sdv">
+      <i class="ti ti-shield-check"></i>SDV Pattern
+    </a>
+    <a class="sg-nav-item" href="#hierarchy">
+      <i class="ti ti-hierarchy-2"></i>Hierarchy Drill-down
+    </a>
+  </div>
+
+  <div class="sg-nav-section">
+    <div class="sg-nav-group">Reference</div>
+    <a class="sg-nav-item" href="#design-rules">
+      <i class="ti ti-checklist"></i>10 Design Rules
+    </a>
+    <a class="sg-nav-item" href="#tokens">
+      <i class="ti ti-braces"></i>Full Token Set
+    </a>
+  </div>
+
+  <div class="sg-nav-spacer"></div>
+  <div class="sg-nav-footer">
+    <div class="sg-nav-ver">v1.0 · Session 16</div>
+  </div>
+</nav>
+
+<!-- ════ CONTENT ════ -->
+<main class="sg-content">
+
+<!-- ══ 0. FOUNDATIONS OVERVIEW ══════════════════════════════ -->
+<section class="sg-section" id="foundations" data-section>
+  <div class="sg-section-header">
+    <div class="sg-section-num">00 — Foundations</div>
+    <h1 class="sg-section-title">Arken Design System</h1>
+    <p class="sg-section-desc">A purpose-built design language for veterinary clinical trial data management. Every decision is grounded in GCP compliance, EDC usability, and the cognitive demands of field data capture — from research sites to barn environments.</p>
+  </div>
+
+  <div class="sg-subsection">
+    <div class="label-caps">Design principles</div>
+    <div class="rules-grid">
+      <div class="rule-item" style="border-left:3px solid var(--blue-200)">
+        <div style="font-size:20px;flex-shrink:0">🔬</div>
+        <div><strong style="display:block;font-weight:600;margin-bottom:4px;color:var(--color-text-primary)">Clinical precision</strong><span style="font-size:var(--text-sm);color:var(--color-text-secondary)">Data integrity over aesthetics. Every UI pattern is designed to reduce transcription error and support 21 CFR Part 11 audit requirements.</span></div>
+      </div>
+      <div class="rule-item" style="border-left:3px solid var(--green-200)">
+        <div style="font-size:20px;flex-shrink:0">⚡</div>
+        <div><strong style="display:block;font-weight:600;margin-bottom:4px;color:var(--color-text-primary)">Role-aware density</strong><span style="font-size:var(--text-sm);color:var(--color-text-secondary)">CRC in a barn needs different information density than a Data Manager reviewing clean queries. Role context shapes layout, not just permissions.</span></div>
+      </div>
+      <div class="rule-item" style="border-left:3px solid var(--amber-200)">
+        <div style="font-size:20px;flex-shrink:0">🎯</div>
+        <div><strong style="display:block;font-weight:600;margin-bottom:4px;color:var(--color-text-primary)">Severity clarity</strong><span style="font-size:var(--text-sm);color:var(--color-text-secondary)">Three distinct severity levels — amber / orange / red — are never merged. A protocol deviation is never visually equivalent to a welfare alert.</span></div>
+      </div>
+      <div class="rule-item" style="border-left:3px solid var(--purple-200)">
+        <div style="font-size:20px;flex-shrink:0">🔗</div>
+        <div><strong style="display:block;font-weight:600;margin-bottom:4px;color:var(--color-text-primary)">Audit-first</strong><span style="font-size:var(--text-sm);color:var(--color-text-secondary)">Every change carries identity, timestamp, and reason. The system is designed to expose provenance, not hide it.</span></div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ══ 1. COLORS ─────────────────────────────────────────── -->
+<section class="sg-section" id="colors" data-section>
+  <div class="sg-section-header">
+    <div class="sg-section-num">01 — Colors</div>
+    <h2 class="sg-section-title">Color System</h2>
+    <p class="sg-section-desc">Semantic-first color architecture. Every token has a defined purpose — no raw hex values in component CSS.</p>
+  </div>
+
+  <!-- Surface hierarchy -->
+  <div class="sg-subsection">
+    <div class="sg-sub-title">Surface hierarchy</div>
+    <div class="sg-sub-desc">Four surface levels define the depth stack. nav-bg is reserved for navigation chrome; never used as a content background.</div>
+    <div class="sg-canvas" style="padding:var(--space-4);display:flex;gap:0;border-radius:var(--radius-lg);overflow:hidden">
+      <div style="flex:1;background:var(--color-nav-bg);padding:var(--space-4);display:flex;flex-direction:column;gap:var(--space-2)">
+        <div class="label-caps" style="color:var(--color-nav-icon)">Nav bg</div>
+        <div style="font-family:var(--font-mono);font-size:var(--text-xs);color:rgba(255,255,255,0.4)">--color-nav-bg</div>
+        <div style="font-family:var(--font-mono);font-size:var(--text-xs);color:rgba(255,255,255,0.3)">#1A1F2E</div>
+      </div>
+      <div style="flex:1;background:var(--color-page-bg);padding:var(--space-4);border:1px solid var(--color-border);display:flex;flex-direction:column;gap:var(--space-2)">
+        <div class="label-caps">Page bg</div>
+        <div style="font-family:var(--font-mono);font-size:var(--text-xs);color:var(--color-text-tertiary)">--color-page-bg</div>
+        <div style="font-family:var(--font-mono);font-size:var(--text-xs);color:var(--color-text-placeholder)">#FBFBFB</div>
+      </div>
+      <div style="flex:1;background:var(--color-surface);padding:var(--space-4);border:1px solid var(--color-border);display:flex;flex-direction:column;gap:var(--space-2)">
+        <div class="label-caps">Surface</div>
+        <div style="font-family:var(--font-mono);font-size:var(--text-xs);color:var(--color-text-tertiary)">--color-surface</div>
+        <div style="font-family:var(--font-mono);font-size:var(--text-xs);color:var(--color-text-placeholder)">#FFFFFF</div>
+      </div>
+      <div style="flex:1;background:var(--color-hover-bg);padding:var(--space-4);border:1px solid var(--color-border);display:flex;flex-direction:column;gap:var(--space-2)">
+        <div class="label-caps">Hover bg</div>
+        <div style="font-family:var(--font-mono);font-size:var(--text-xs);color:var(--color-text-tertiary)">--color-hover-bg</div>
+        <div style="font-family:var(--font-mono);font-size:var(--text-xs);color:var(--color-text-placeholder)">#F0F0EE</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Text hierarchy -->
+  <div class="sg-subsection">
+    <div class="sg-sub-title">Text hierarchy</div>
+    <div class="sg-canvas">
+      <div style="display:flex;flex-direction:column;gap:var(--space-3)">
+        <div style="display:flex;align-items:baseline;gap:var(--space-4)">
+          <span style="color:var(--color-text-primary);font-size:var(--text-lg);font-weight:500">Primary text</span>
+          <code style="font-family:var(--font-mono);font-size:10px;color:var(--color-text-placeholder)">--color-text-primary · #2C2D33</code>
+        </div>
+        <div style="display:flex;align-items:baseline;gap:var(--space-4)">
+          <span style="color:var(--color-text-secondary);font-size:var(--text-lg)">Secondary text</span>
+          <code style="font-family:var(--font-mono);font-size:10px;color:var(--color-text-placeholder)">--color-text-secondary · #4F535B</code>
+        </div>
+        <div style="display:flex;align-items:baseline;gap:var(--space-4)">
+          <span style="color:var(--color-text-tertiary);font-size:var(--text-lg)">Tertiary / labels</span>
+          <code style="font-family:var(--font-mono);font-size:10px;color:var(--color-text-placeholder)">--color-text-tertiary · #6D7480</code>
+        </div>
+        <div style="display:flex;align-items:baseline;gap:var(--space-4)">
+          <span style="color:var(--color-text-placeholder);font-size:var(--text-lg)">Placeholder</span>
+          <code style="font-family:var(--font-mono);font-size:10px;color:var(--color-text-placeholder)">--color-text-placeholder · #C4C4C2</code>
+        </div>
+        <div style="display:flex;align-items:baseline;gap:var(--space-4)">
+          <a href="#" style="color:var(--color-link);font-size:var(--text-lg);text-decoration:underline" onclick="return false">Link text</a>
+          <code style="font-family:var(--font-mono);font-size:10px;color:var(--color-text-placeholder)">--color-link · #3D4A5C · always underlined</code>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Three severity levels -->
+  <div class="sg-subsection">
+    <div class="sg-sub-title">Three-severity system</div>
+    <div class="sg-sub-desc">Amber, orange, and red are semantically distinct. They must never be merged or used interchangeably. Each has a 50 (background), 200 (border/accent), and 600/700 (text) stop.</div>
+    <div class="severity-row">
+      <div class="severity-block" style="border-color:var(--amber-200);background:var(--amber-50)">
+        <div style="font-size:var(--text-xs);font-weight:700;text-transform:uppercase;letter-spacing:var(--tracking-caps);color:var(--amber-700);margin-bottom:var(--space-3)">⚠ Amber — Query / Warning</div>
+        <div style="display:flex;gap:var(--space-2);margin-bottom:var(--space-3)">
+          <div style="width:32px;height:32px;background:var(--amber-50);border:1px solid var(--color-border);border-radius:var(--radius-sm)"></div>
+          <div style="width:32px;height:32px;background:var(--amber-200);border-radius:var(--radius-sm)"></div>
+          <div style="width:32px;height:32px;background:var(--amber-700);border-radius:var(--radius-sm)"></div>
+        </div>
+        <div style="font-size:var(--text-xs);color:var(--color-text-tertiary);line-height:1.5">Use for: open queries, data entry warnings, fields needing attention. Never for life-threatening situations.</div>
+      </div>
+      <div class="severity-block" style="border-color:var(--orange-200);background:var(--orange-50)">
+        <div style="font-size:var(--text-xs);font-weight:700;text-transform:uppercase;letter-spacing:var(--tracking-caps);color:var(--orange-600);margin-bottom:var(--space-3)">🔶 Orange — Protocol / Raised Query</div>
+        <div style="display:flex;gap:var(--space-2);margin-bottom:var(--space-3)">
+          <div style="width:32px;height:32px;background:var(--orange-50);border:1px solid var(--color-border);border-radius:var(--radius-sm)"></div>
+          <div style="width:32px;height:32px;background:var(--orange-200);border-radius:var(--radius-sm)"></div>
+          <div style="width:32px;height:32px;background:var(--orange-600);border-radius:var(--radius-sm)"></div>
+        </div>
+        <div style="font-size:var(--text-xs);color:var(--color-text-tertiary);line-height:1.5">Use for: raised/active queries, protocol deviations, actionable items requiring site response.</div>
+      </div>
+      <div class="severity-block" style="border-color:var(--red-200);background:var(--red-50)">
+        <div style="font-size:var(--text-xs);font-weight:700;text-transform:uppercase;letter-spacing:var(--tracking-caps);color:var(--red-600);margin-bottom:var(--space-3)">🔴 Red — Critical / Error</div>
+        <div style="display:flex;gap:var(--space-2);margin-bottom:var(--space-3)">
+          <div style="width:32px;height:32px;background:var(--red-50);border:1px solid var(--color-border);border-radius:var(--radius-sm)"></div>
+          <div style="width:32px;height:32px;background:var(--red-200);border-radius:var(--radius-sm)"></div>
+          <div style="width:32px;height:32px;background:var(--red-600);border-radius:var(--radius-sm)"></div>
+        </div>
+        <div style="font-size:var(--text-xs);color:var(--color-text-tertiary);line-height:1.5">Use for: validation errors, critical welfare alerts, destructive actions, SAE flags. Highest severity only.</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Full color palette -->
+  <div class="sg-subsection">
+    <div class="sg-sub-title">Full semantic palette</div>
+    <div style="display:flex;flex-direction:column;gap:var(--space-2)">
+
+      <!-- Blue row -->
+      <div style="display:flex;align-items:stretch;border:1px solid var(--color-border);border-radius:var(--radius-lg);overflow:hidden">
+        <div style="width:80px;flex-shrink:0;background:var(--color-border-subtle);display:flex;align-items:center;padding:0 var(--space-3);font-size:var(--text-xs);font-weight:700;color:var(--color-text-tertiary);text-transform:uppercase;letter-spacing:var(--tracking-caps)">Blue</div>
+        <div style="flex:1;display:flex">
+          <div style="flex:1;display:flex;align-items:center;gap:var(--space-3);padding:var(--space-3) var(--space-4);border-left:1px solid var(--color-border)">
+            <div style="width:40px;height:40px;background:var(--blue-50);border:1px solid var(--color-border);border-radius:var(--radius-md);flex-shrink:0"></div>
+            <div><div style="font-size:var(--text-xs);font-weight:500;color:var(--color-text-primary)">Blue 50</div><div style="font-family:var(--font-mono);font-size:10px;color:var(--color-text-tertiary)">--blue-50</div><div style="font-family:var(--font-mono);font-size:10px;color:var(--color-text-placeholder)">#E8F4FF</div></div>
+          </div>
+          <div style="flex:1;display:flex;align-items:center;gap:var(--space-3);padding:var(--space-3) var(--space-4);border-left:1px solid var(--color-border)">
+            <div style="width:40px;height:40px;background:var(--blue-200);border-radius:var(--radius-md);flex-shrink:0"></div>
+            <div><div style="font-size:var(--text-xs);font-weight:500;color:var(--color-text-primary)">Blue 200</div><div style="font-family:var(--font-mono);font-size:10px;color:var(--color-text-tertiary)">--blue-200</div><div style="font-family:var(--font-mono);font-size:10px;color:var(--color-text-placeholder)">#7AB8EE</div></div>
+          </div>
+          <div style="flex:1;display:flex;align-items:center;gap:var(--space-3);padding:var(--space-3) var(--space-4);border-left:1px solid var(--color-border)">
+            <div style="width:40px;height:40px;background:var(--blue-600);border-radius:var(--radius-md);flex-shrink:0"></div>
+            <div><div style="font-size:var(--text-xs);font-weight:500;color:var(--color-text-primary)">Blue 600</div><div style="font-family:var(--font-mono);font-size:10px;color:var(--color-text-tertiary)">--blue-600</div><div style="font-family:var(--font-mono);font-size:10px;color:var(--color-text-placeholder)">#1760A8</div></div>
+          </div>
+          <div style="flex:2;display:flex;align-items:center;padding:var(--space-3) var(--space-4);border-left:1px solid var(--color-border)"><span style="font-size:var(--text-xs);color:var(--color-text-tertiary)">Reviewed, SDV verified, active links, focus ring</span></div>
+        </div>
+      </div>
+
+      <!-- Green row -->
+      <div style="display:flex;align-items:stretch;border:1px solid var(--color-border);border-radius:var(--radius-lg);overflow:hidden">
+        <div style="width:80px;flex-shrink:0;background:var(--color-border-subtle);display:flex;align-items:center;padding:0 var(--space-3);font-size:var(--text-xs);font-weight:700;color:var(--color-text-tertiary);text-transform:uppercase;letter-spacing:var(--tracking-caps)">Green</div>
+        <div style="flex:1;display:flex">
+          <div style="flex:1;display:flex;align-items:center;gap:var(--space-3);padding:var(--space-3) var(--space-4);border-left:1px solid var(--color-border)">
+            <div style="width:40px;height:40px;background:var(--green-50);border:1px solid var(--color-border);border-radius:var(--radius-md);flex-shrink:0"></div>
+            <div><div style="font-size:var(--text-xs);font-weight:500;color:var(--color-text-primary)">Green 50</div><div style="font-family:var(--font-mono);font-size:10px;color:var(--color-text-tertiary)">--green-50</div><div style="font-family:var(--font-mono);font-size:10px;color:var(--color-text-placeholder)">#EEFAF4</div></div>
+          </div>
+          <div style="flex:1;display:flex;align-items:center;gap:var(--space-3);padding:var(--space-3) var(--space-4);border-left:1px solid var(--color-border)">
+            <div style="width:40px;height:40px;background:var(--green-200);border-radius:var(--radius-md);flex-shrink:0"></div>
+            <div><div style="font-size:var(--text-xs);font-weight:500;color:var(--color-text-primary)">Green 200</div><div style="font-family:var(--font-mono);font-size:10px;color:var(--color-text-tertiary)">--green-200</div><div style="font-family:var(--font-mono);font-size:10px;color:var(--color-text-placeholder)">#58BC88</div></div>
+          </div>
+          <div style="flex:1;display:flex;align-items:center;gap:var(--space-3);padding:var(--space-3) var(--space-4);border-left:1px solid var(--color-border)">
+            <div style="width:40px;height:40px;background:var(--green-600);border-radius:var(--radius-md);flex-shrink:0"></div>
+            <div><div style="font-size:var(--text-xs);font-weight:500;color:var(--color-text-primary)">Green 600</div><div style="font-family:var(--font-mono);font-size:10px;color:var(--color-text-tertiary)">--green-600</div><div style="font-family:var(--font-mono);font-size:10px;color:var(--color-text-placeholder)">#1A6B47</div></div>
+          </div>
+          <div style="flex:2;display:flex;align-items:center;padding:var(--space-3) var(--space-4);border-left:1px solid var(--color-border)"><span style="font-size:var(--text-xs);color:var(--color-text-tertiary)">Enrolled, finalized, SDV complete, resolved query, toggle on</span></div>
+        </div>
+      </div>
+
+      <!-- Amber row -->
+      <div style="display:flex;align-items:stretch;border:1px solid var(--color-border);border-radius:var(--radius-lg);overflow:hidden">
+        <div style="width:80px;flex-shrink:0;background:var(--color-border-subtle);display:flex;align-items:center;padding:0 var(--space-3);font-size:var(--text-xs);font-weight:700;color:var(--color-text-tertiary);text-transform:uppercase;letter-spacing:var(--tracking-caps)">Amber</div>
+        <div style="flex:1;display:flex">
+          <div style="flex:1;display:flex;align-items:center;gap:var(--space-3);padding:var(--space-3) var(--space-4);border-left:1px solid var(--color-border)">
+            <div style="width:40px;height:40px;background:var(--amber-50);border:1px solid var(--color-border);border-radius:var(--radius-md);flex-shrink:0"></div>
+            <div><div style="font-size:var(--text-xs);font-weight:500;color:var(--color-text-primary)">Amber 50</div><div style="font-family:var(--font-mono);font-size:10px;color:var(--color-text-tertiary)">--amber-50</div><div style="font-family:var(--font-mono);font-size:10px;color:var(--color-text-placeholder)">#FFF8E7</div></div>
+          </div>
+          <div style="flex:1;display:flex;align-items:center;gap:var(--space-3);padding:var(--space-3) var(--space-4);border-left:1px solid var(--color-border)">
+            <div style="width:40px;height:40px;background:var(--amber-200);border-radius:var(--radius-md);flex-shrink:0"></div>
+            <div><div style="font-size:var(--text-xs);font-weight:500;color:var(--color-text-primary)">Amber 200</div><div style="font-family:var(--font-mono);font-size:10px;color:var(--color-text-tertiary)">--amber-200</div><div style="font-family:var(--font-mono);font-size:10px;color:var(--color-text-placeholder)">#F5B830</div></div>
+          </div>
+          <div style="flex:1;display:flex;align-items:center;gap:var(--space-3);padding:var(--space-3) var(--space-4);border-left:1px solid var(--color-border)">
+            <div style="width:40px;height:40px;background:var(--amber-700);border-radius:var(--radius-md);flex-shrink:0"></div>
+            <div><div style="font-size:var(--text-xs);font-weight:500;color:var(--color-text-primary)">Amber 700</div><div style="font-family:var(--font-mono);font-size:10px;color:var(--color-text-tertiary)">--amber-700</div><div style="font-family:var(--font-mono);font-size:10px;color:var(--color-text-placeholder)">#8A5C00</div></div>
+          </div>
+          <div style="flex:2;display:flex;align-items:center;padding:var(--space-3) var(--space-4);border-left:1px solid var(--color-border)"><span style="font-size:var(--text-xs);color:var(--color-text-tertiary)">Open queries, queried fields, data warnings, in-work status</span></div>
+        </div>
+      </div>
+
+      <!-- Orange row -->
+      <div style="display:flex;align-items:stretch;border:1px solid var(--color-border);border-radius:var(--radius-lg);overflow:hidden">
+        <div style="width:80px;flex-shrink:0;background:var(--color-border-subtle);display:flex;align-items:center;padding:0 var(--space-3);font-size:var(--text-xs);font-weight:700;color:var(--color-text-tertiary);text-transform:uppercase;letter-spacing:var(--tracking-caps)">Orange</div>
+        <div style="flex:1;display:flex">
+          <div style="flex:1;display:flex;align-items:center;gap:var(--space-3);padding:var(--space-3) var(--space-4);border-left:1px solid var(--color-border)">
+            <div style="width:40px;height:40px;background:var(--orange-50);border:1px solid var(--color-border);border-radius:var(--radius-md);flex-shrink:0"></div>
+            <div><div style="font-size:var(--text-xs);font-weight:500;color:var(--color-text-primary)">Orange 50</div><div style="font-family:var(--font-mono);font-size:10px;color:var(--color-text-tertiary)">--orange-50</div><div style="font-family:var(--font-mono);font-size:10px;color:var(--color-text-placeholder)">#FFF0E8</div></div>
+          </div>
+          <div style="flex:1;display:flex;align-items:center;gap:var(--space-3);padding:var(--space-3) var(--space-4);border-left:1px solid var(--color-border)">
+            <div style="width:40px;height:40px;background:var(--orange-200);border-radius:var(--radius-md);flex-shrink:0"></div>
+            <div><div style="font-size:var(--text-xs);font-weight:500;color:var(--color-text-primary)">Orange 200</div><div style="font-family:var(--font-mono);font-size:10px;color:var(--color-text-tertiary)">--orange-200</div><div style="font-family:var(--font-mono);font-size:10px;color:var(--color-text-placeholder)">#F48E50</div></div>
+          </div>
+          <div style="flex:1;display:flex;align-items:center;gap:var(--space-3);padding:var(--space-3) var(--space-4);border-left:1px solid var(--color-border)">
+            <div style="width:40px;height:40px;background:var(--orange-600);border-radius:var(--radius-md);flex-shrink:0"></div>
+            <div><div style="font-size:var(--text-xs);font-weight:500;color:var(--color-text-primary)">Orange 600</div><div style="font-family:var(--font-mono);font-size:10px;color:var(--color-text-tertiary)">--orange-600</div><div style="font-family:var(--font-mono);font-size:10px;color:var(--color-text-placeholder)">#C94C0C</div></div>
+          </div>
+          <div style="flex:2;display:flex;align-items:center;padding:var(--space-3) var(--space-4);border-left:1px solid var(--color-border)"><span style="font-size:var(--text-xs);color:var(--color-text-tertiary)">Raised queries, protocol deviations, actionable items requiring site response</span></div>
+        </div>
+      </div>
+
+      <!-- Red row -->
+      <div style="display:flex;align-items:stretch;border:1px solid var(--color-border);border-radius:var(--radius-lg);overflow:hidden">
+        <div style="width:80px;flex-shrink:0;background:var(--color-border-subtle);display:flex;align-items:center;padding:0 var(--space-3);font-size:var(--text-xs);font-weight:700;color:var(--color-text-tertiary);text-transform:uppercase;letter-spacing:var(--tracking-caps)">Red</div>
+        <div style="flex:1;display:flex">
+          <div style="flex:1;display:flex;align-items:center;gap:var(--space-3);padding:var(--space-3) var(--space-4);border-left:1px solid var(--color-border)">
+            <div style="width:40px;height:40px;background:var(--red-50);border:1px solid var(--color-border);border-radius:var(--radius-md);flex-shrink:0"></div>
+            <div><div style="font-size:var(--text-xs);font-weight:500;color:var(--color-text-primary)">Red 50</div><div style="font-family:var(--font-mono);font-size:10px;color:var(--color-text-tertiary)">--red-50</div><div style="font-family:var(--font-mono);font-size:10px;color:var(--color-text-placeholder)">#FFF0F0</div></div>
+          </div>
+          <div style="flex:1;display:flex;align-items:center;gap:var(--space-3);padding:var(--space-3) var(--space-4);border-left:1px solid var(--color-border)">
+            <div style="width:40px;height:40px;background:var(--red-200);border-radius:var(--radius-md);flex-shrink:0"></div>
+            <div><div style="font-size:var(--text-xs);font-weight:500;color:var(--color-text-primary)">Red 200</div><div style="font-family:var(--font-mono);font-size:10px;color:var(--color-text-tertiary)">--red-200</div><div style="font-family:var(--font-mono);font-size:10px;color:var(--color-text-placeholder)">#EC8585</div></div>
+          </div>
+          <div style="flex:1;display:flex;align-items:center;gap:var(--space-3);padding:var(--space-3) var(--space-4);border-left:1px solid var(--color-border)">
+            <div style="width:40px;height:40px;background:var(--red-600);border-radius:var(--radius-md);flex-shrink:0"></div>
+            <div><div style="font-size:var(--text-xs);font-weight:500;color:var(--color-text-primary)">Red 600</div><div style="font-family:var(--font-mono);font-size:10px;color:var(--color-text-tertiary)">--red-600</div><div style="font-family:var(--font-mono);font-size:10px;color:var(--color-text-placeholder)">#B52626</div></div>
+          </div>
+          <div style="flex:2;display:flex;align-items:center;padding:var(--space-3) var(--space-4);border-left:1px solid var(--color-border)"><span style="font-size:var(--text-xs);color:var(--color-text-tertiary)">Critical errors, SAE flags, welfare alerts, destructive actions, nav badges</span></div>
+        </div>
+      </div>
+
+      <!-- Slate row -->
+      <div style="display:flex;align-items:stretch;border:1px solid var(--color-border);border-radius:var(--radius-lg);overflow:hidden">
+        <div style="width:80px;flex-shrink:0;background:var(--color-border-subtle);display:flex;align-items:center;padding:0 var(--space-3);font-size:var(--text-xs);font-weight:700;color:var(--color-text-tertiary);text-transform:uppercase;letter-spacing:var(--tracking-caps)">Slate</div>
+        <div style="flex:1;display:flex">
+          <div style="flex:1;display:flex;align-items:center;gap:var(--space-3);padding:var(--space-3) var(--space-4);border-left:1px solid var(--color-border)">
+            <div style="width:40px;height:40px;background:var(--slate-50);border:1px solid var(--color-border);border-radius:var(--radius-md);flex-shrink:0"></div>
+            <div><div style="font-size:var(--text-xs);font-weight:500;color:var(--color-text-primary)">Slate 50</div><div style="font-family:var(--font-mono);font-size:10px;color:var(--color-text-tertiary)">--slate-50</div><div style="font-family:var(--font-mono);font-size:10px;color:var(--color-text-placeholder)">#EEF1F6</div></div>
+          </div>
+          <div style="flex:1;display:flex;align-items:center;gap:var(--space-3);padding:var(--space-3) var(--space-4);border-left:1px solid var(--color-border)">
+            <div style="width:40px;height:40px;background:var(--slate-200);border-radius:var(--radius-md);flex-shrink:0"></div>
+            <div><div style="font-size:var(--text-xs);font-weight:500;color:var(--color-text-primary)">Slate 200</div><div style="font-family:var(--font-mono);font-size:10px;color:var(--color-text-tertiary)">--slate-200</div><div style="font-family:var(--font-mono);font-size:10px;color:var(--color-text-placeholder)">#8AA0B8</div></div>
+          </div>
+          <div style="flex:1;display:flex;align-items:center;gap:var(--space-3);padding:var(--space-3) var(--space-4);border-left:1px solid var(--color-border)">
+            <div style="width:40px;height:40px;background:var(--slate-600);border-radius:var(--radius-md);flex-shrink:0"></div>
+            <div><div style="font-size:var(--text-xs);font-weight:500;color:var(--color-text-primary)">Slate 600</div><div style="font-family:var(--font-mono);font-size:10px;color:var(--color-text-tertiary)">--slate-600</div><div style="font-family:var(--font-mono);font-size:10px;color:var(--color-text-placeholder)">#3D5A78</div></div>
+          </div>
+          <div style="flex:2;display:flex;align-items:center;padding:var(--space-3) var(--space-4);border-left:1px solid var(--color-border)"><span style="font-size:var(--text-xs);color:var(--color-text-tertiary)">Locked/finalized/inactive states, role badges, SDV mode toggles</span></div>
+        </div>
+      </div>
+
+      <!-- Purple row -->
+      <div style="display:flex;align-items:stretch;border:1px solid var(--color-border);border-radius:var(--radius-lg);overflow:hidden">
+        <div style="width:80px;flex-shrink:0;background:var(--color-border-subtle);display:flex;align-items:center;padding:0 var(--space-3);font-size:var(--text-xs);font-weight:700;color:var(--color-text-tertiary);text-transform:uppercase;letter-spacing:var(--tracking-caps)">Purple</div>
+        <div style="flex:1;display:flex">
+          <div style="flex:1;display:flex;align-items:center;gap:var(--space-3);padding:var(--space-3) var(--space-4);border-left:1px solid var(--color-border)">
+            <div style="width:40px;height:40px;background:var(--purple-50);border:1px solid var(--color-border);border-radius:var(--radius-md);flex-shrink:0"></div>
+            <div><div style="font-size:var(--text-xs);font-weight:500;color:var(--color-text-primary)">Purple 50</div><div style="font-family:var(--font-mono);font-size:10px;color:var(--color-text-tertiary)">--purple-50</div><div style="font-family:var(--font-mono);font-size:10px;color:var(--color-text-placeholder)">#F0EEFF</div></div>
+          </div>
+          <div style="flex:1;display:flex;align-items:center;gap:var(--space-3);padding:var(--space-3) var(--space-4);border-left:1px solid var(--color-border)">
+            <div style="width:40px;height:40px;background:var(--purple-200);border-radius:var(--radius-md);flex-shrink:0"></div>
+            <div><div style="font-size:var(--text-xs);font-weight:500;color:var(--color-text-primary)">Purple 200</div><div style="font-family:var(--font-mono);font-size:10px;color:var(--color-text-tertiary)">--purple-200</div><div style="font-family:var(--font-mono);font-size:10px;color:var(--color-text-placeholder)">#A9A3EC</div></div>
+          </div>
+          <div style="flex:1;display:flex;align-items:center;gap:var(--space-3);padding:var(--space-3) var(--space-4);border-left:1px solid var(--color-border)">
+            <div style="width:40px;height:40px;background:var(--purple-600);border-radius:var(--radius-md);flex-shrink:0"></div>
+            <div><div style="font-size:var(--text-xs);font-weight:500;color:var(--color-text-primary)">Purple 600</div><div style="font-family:var(--font-mono);font-size:10px;color:var(--color-text-tertiary)">--purple-600</div><div style="font-family:var(--font-mono);font-size:10px;color:var(--color-text-placeholder)">#534AB7</div></div>
+          </div>
+          <div style="flex:2;display:flex;align-items:center;padding:var(--space-3) var(--space-4);border-left:1px solid var(--color-border)"><span style="font-size:var(--text-xs);color:var(--color-text-tertiary)">Admin role badge, Data Manager badge, AI-powered features</span></div>
+        </div>
+      </div>
+
+    </div>
+  </div>
+
+  <!-- Status color map -->
+  <div class="sg-subsection">
+    <div class="sg-sub-title">Status color map</div>
+    <div class="sg-canvas">
+      <table class="sg-table">
+        <thead><tr><th>Status <i class="sort-icon ti ti-selector"></i></th><th>Background <i class="sort-icon ti ti-selector"></i></th><th>Border/Accent <i class="sort-icon ti ti-selector"></i></th><th>Text <i class="sort-icon ti ti-selector"></i></th><th>Context</th></tr></thead>
+        <tbody>
+          <tr><td><span class="badge badge-active">Active</span></td><td class="mono secondary">--green-50</td><td class="mono secondary">--green-200</td><td class="mono secondary">--green-600</td><td class="secondary">Enrolled, open, verified</td></tr>
+          <tr><td><span class="badge badge-reviewed">Reviewed</span></td><td class="mono secondary">--blue-50</td><td class="mono secondary">--blue-200</td><td class="mono secondary">--blue-600</td><td class="secondary">SDV reviewed, submitted</td></tr>
+          <tr><td><span class="badge badge-queried">Queried</span></td><td class="mono secondary">--amber-50</td><td class="mono secondary">--amber-200</td><td class="mono secondary">--amber-700</td><td class="secondary">Open query, data warning</td></tr>
+          <tr><td><span class="badge badge-warning">Raised</span></td><td class="mono secondary">--orange-50</td><td class="mono secondary">--orange-200</td><td class="mono secondary">--orange-600</td><td class="secondary">Active query raised by CRA</td></tr>
+          <tr><td><span class="badge badge-critical">Critical</span></td><td class="mono secondary">--red-50</td><td class="mono secondary">--red-200</td><td class="mono secondary">--red-600</td><td class="secondary">SAE, validation error, welfare alert</td></tr>
+          <tr><td><span class="badge badge-locked">Locked</span></td><td class="mono secondary">--slate-50</td><td class="mono secondary">--slate-200</td><td class="mono secondary">--slate-600</td><td class="secondary">Finalized, locked, inactive</td></tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+</section>
+
+<!-- ══ 2. TYPOGRAPHY ─────────────────────────────────────── -->
+<section class="sg-section" id="typography" data-section>
+  <div class="sg-section-header">
+    <div class="sg-section-num">02 — Typography</div>
+    <h2 class="sg-section-title">Typography</h2>
+    <p class="sg-section-desc">Two typefaces. Roboto for all UI text. Roboto Mono for all data values — IDs, timestamps, measurements, counts. Never swap them.</p>
+  </div>
+
+  <!-- Type pair -->
+  <div class="sg-subsection">
+    <div class="type-pair">
+      <div class="type-block">
+        <div class="type-block-label">UI Font — Roboto</div>
+        <div style="font-family:var(--font-sans);font-size:28px;font-weight:700;color:var(--color-text-primary);line-height:1.2;margin-bottom:var(--space-3)">Labels, headings, body copy</div>
+        <div style="font-family:var(--font-sans);font-size:var(--text-base);color:var(--color-text-secondary);line-height:1.6;margin-bottom:var(--space-3)">Used for all UI text: navigation labels, button text, form labels, body descriptions, section titles, and any narrative or instructional content.</div>
+        <div style="font-family:var(--font-sans);font-size:var(--text-xs);font-weight:700;text-transform:uppercase;letter-spacing:var(--tracking-caps);color:var(--color-text-tertiary)">CAPS LABEL TRACKING: 0.07em</div>
+      </div>
+      <div class="type-block" style="background:var(--color-nav-bg);border-color:rgba(255,255,255,0.08)">
+        <div class="type-block-label" style="color:var(--color-nav-icon)">Data Font — Roboto Mono</div>
+        <div style="font-family:var(--font-mono);font-size:28px;font-weight:500;color:#fff;line-height:1.2;margin-bottom:var(--space-3)">A-4471-23 · 14.2 kg</div>
+        <div style="font-family:var(--font-mono);font-size:var(--text-sm);color:rgba(255,255,255,0.5);line-height:1.6;margin-bottom:var(--space-3)">Used exclusively for: subject IDs, animal IDs, timestamps, dose values, measurement readings, record counts, and all tabular data values.</div>
+        <div style="font-family:var(--font-mono);font-size:var(--text-xs);color:rgba(255,255,255,0.3)">2026-03-14 09:42:11 UTC</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Type scale -->
+  <div class="sg-subsection">
+    <div class="sg-sub-title">Type scale</div>
+    <div class="type-scale-row">
+      <div class="type-scale-item">
+        <div><div class="type-scale-meta">--text-xs · 11px</div><div class="type-scale-var">caps labels, badges, micro</div></div>
+        <div style="font-size:11px;font-family:var(--font-sans);color:var(--color-text-primary)">PROTOCOL AMENDMENT · STATUS · CAPS LABEL</div>
+        <div class="type-scale-usage">11px</div>
+      </div>
+      <div class="type-scale-item">
+        <div><div class="type-scale-meta">--text-sm · 12px</div><div class="type-scale-var">table cells, hints, metadata</div></div>
+        <div style="font-size:12px;font-family:var(--font-sans);color:var(--color-text-primary)">Secondary body text — table cells, form hints, metadata lines</div>
+        <div class="type-scale-usage">12px</div>
+      </div>
+      <div class="type-scale-item">
+        <div><div class="type-scale-meta">--text-base · 14px</div><div class="type-scale-var">body, inputs, buttons</div></div>
+        <div style="font-size:14px;font-family:var(--font-sans);color:var(--color-text-primary)">Primary body text — form inputs, button labels, nav items, default reading size</div>
+        <div class="type-scale-usage">14px</div>
+      </div>
+      <div class="type-scale-item">
+        <div><div class="type-scale-meta">--text-lg · 16px</div><div class="type-scale-var">page titles, card heads</div></div>
+        <div style="font-size:16px;font-family:var(--font-sans);font-weight:700;color:var(--color-text-primary)">Section heading — card title, page name</div>
+        <div class="type-scale-usage">16px</div>
+      </div>
+      <div class="type-scale-item">
+        <div><div class="type-scale-meta">--text-xl · 18px</div><div class="type-scale-var">stat values, large headers</div></div>
+        <div style="font-size:18px;font-family:var(--font-mono);font-weight:700;color:var(--color-text-primary)">24 / 48</div>
+        <div class="type-scale-usage">18px · mono</div>
+      </div>
+      <div class="type-scale-item">
+        <div><div class="type-scale-meta">--text-3xl · 24px</div><div class="type-scale-var">hero stats, enrollment counts</div></div>
+        <div style="font-size:24px;font-family:var(--font-mono);font-weight:700;color:var(--color-text-primary)">147</div>
+        <div class="type-scale-usage">24px · mono</div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ══ 3. SPACING & RADIUS ────────────────────────────────── -->
+<section class="sg-section" id="spacing" data-section>
+  <div class="sg-section-header">
+    <div class="sg-section-num">03 — Spacing &amp; Radius</div>
+    <h2 class="sg-section-title">Spacing &amp; Border Radius</h2>
+    <p class="sg-section-desc">4px base unit. All spacing is a multiple of 4px. No arbitrary values — always reference a token.</p>
+  </div>
+
+  <div class="sg-subsection">
+    <div class="sg-sub-title">Spacing scale</div>
+    <div class="space-grid">
+      <div class="space-row"><div class="space-label mono">--space-1</div><div class="space-bar-wrap"><div class="space-bar" style="width:4px"></div></div><div class="space-value mono">4px</div></div>
+      <div class="space-row"><div class="space-label mono">--space-2</div><div class="space-bar-wrap"><div class="space-bar" style="width:8px"></div></div><div class="space-value mono">8px</div></div>
+      <div class="space-row"><div class="space-label mono">--space-3</div><div class="space-bar-wrap"><div class="space-bar" style="width:12px"></div></div><div class="space-value mono">12px</div></div>
+      <div class="space-row"><div class="space-label mono">--space-4</div><div class="space-bar-wrap"><div class="space-bar" style="width:16px"></div></div><div class="space-value mono">16px</div></div>
+      <div class="space-row"><div class="space-label mono">--space-5</div><div class="space-bar-wrap"><div class="space-bar" style="width:20px"></div></div><div class="space-value mono">20px</div></div>
+      <div class="space-row"><div class="space-label mono">--space-6</div><div class="space-bar-wrap"><div class="space-bar" style="width:24px"></div></div><div class="space-value mono">24px</div></div>
+      <div class="space-row"><div class="space-label mono">--space-8</div><div class="space-bar-wrap"><div class="space-bar" style="width:32px"></div></div><div class="space-value mono">32px</div></div>
+    </div>
+  </div>
+
+  <div class="sg-subsection">
+    <div class="sg-sub-title">Border radius</div>
+    <div class="sg-canvas">
+      <div class="radius-row">
+        <div class="radius-item">
+          <div class="radius-box" style="border-radius:var(--radius-sm)"></div>
+          <div class="radius-name">sm</div>
+          <div class="radius-meta">--radius-sm<br>2px</div>
+          <div style="font-size:10px;color:var(--color-text-placeholder);text-align:center;margin-top:2px">dividers, bars</div>
+        </div>
+        <div class="radius-item">
+          <div class="radius-box" style="border-radius:var(--radius-md)"></div>
+          <div class="radius-name">md</div>
+          <div class="radius-meta">--radius-md<br>4px</div>
+          <div style="font-size:10px;color:var(--color-text-placeholder);text-align:center;margin-top:2px">buttons, inputs, nav items</div>
+        </div>
+        <div class="radius-item">
+          <div class="radius-box" style="border-radius:var(--radius-lg)"></div>
+          <div class="radius-name">lg</div>
+          <div class="radius-meta">--radius-lg<br>6px</div>
+          <div style="font-size:10px;color:var(--color-text-placeholder);text-align:center;margin-top:2px">cards, panels, canvases</div>
+        </div>
+        <div class="radius-item">
+          <div class="radius-box" style="border-radius:var(--radius-full)"></div>
+          <div class="radius-name">full</div>
+          <div class="radius-meta">--radius-full<br>9999px</div>
+          <div style="font-size:10px;color:var(--color-text-placeholder);text-align:center;margin-top:2px">badges, pills, dots</div>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ══ 4. ICONOGRAPHY ────────────────────────────────────── -->
+<section class="sg-section" id="iconography" data-section>
+  <div class="sg-section-header">
+    <div class="sg-section-num">04 — Iconography</div>
+    <h2 class="sg-section-title">Iconography</h2>
+    <p class="sg-section-desc">Tabler Icons CDN. Stroke-based, consistent weight. Never fill icons. Size is context-dependent — use the sizing guide below.</p>
+  </div>
+  <div class="sg-subsection">
+    <div class="sg-sub-title">Usage guidelines</div>
+    <div class="sg-canvas">
+      <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:var(--space-4)">
+        <div style="text-align:center;padding:var(--space-4);border:1px solid var(--color-border);border-radius:var(--radius-lg)">
+          <i class="ti ti-stethoscope" style="font-size:24px;color:var(--color-text-secondary);display:block;margin-bottom:var(--space-2)"></i>
+          <div style="font-family:var(--font-mono);font-size:10px;color:var(--color-text-tertiary)">20–24px</div>
+          <div style="font-size:var(--text-xs);color:var(--color-text-secondary);margin-top:4px">Sidenav icons</div>
+        </div>
+        <div style="text-align:center;padding:var(--space-4);border:1px solid var(--color-border);border-radius:var(--radius-lg)">
+          <i class="ti ti-edit" style="font-size:16px;color:var(--color-text-secondary);display:block;margin-bottom:var(--space-2)"></i>
+          <div style="font-family:var(--font-mono);font-size:10px;color:var(--color-text-tertiary)">14–16px</div>
+          <div style="font-size:var(--text-xs);color:var(--color-text-secondary);margin-top:4px">Button icons, inline</div>
+        </div>
+        <div style="text-align:center;padding:var(--space-4);border:1px solid var(--color-border);border-radius:var(--radius-lg)">
+          <i class="ti ti-chevron-down" style="font-size:11px;color:var(--color-text-secondary);display:block;margin-bottom:var(--space-2)"></i>
+          <div style="font-family:var(--font-mono);font-size:10px;color:var(--color-text-tertiary)">11–12px</div>
+          <div style="font-size:var(--text-xs);color:var(--color-text-secondary);margin-top:4px">Chevrons, indicators</div>
+        </div>
+      </div>
+    </div>
+    <div class="sg-sub-title" style="margin-top:var(--space-6)">Clinical icon set</div>
+    <div class="sg-canvas">
+      <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(80px,1fr));gap:var(--space-3)">
+        <div style="text-align:center;padding:var(--space-3)"><i class="ti ti-report-medical" style="font-size:20px;color:var(--color-text-secondary)"></i><div style="font-size:10px;font-family:var(--font-mono);color:var(--color-text-tertiary);margin-top:4px">report</div></div>
+        <div style="text-align:center;padding:var(--space-3)"><i class="ti ti-pill" style="font-size:20px;color:var(--color-text-secondary)"></i><div style="font-size:10px;font-family:var(--font-mono);color:var(--color-text-tertiary);margin-top:4px">pill</div></div>
+        <div style="text-align:center;padding:var(--space-3)"><i class="ti ti-vaccine" style="font-size:20px;color:var(--color-text-secondary)"></i><div style="font-size:10px;font-family:var(--font-mono);color:var(--color-text-tertiary);margin-top:4px">vaccine</div></div>
+        <div style="text-align:center;padding:var(--space-3)"><i class="ti ti-clipboard-list" style="font-size:20px;color:var(--color-text-secondary)"></i><div style="font-size:10px;font-family:var(--font-mono);color:var(--color-text-tertiary);margin-top:4px">form</div></div>
+        <div style="text-align:center;padding:var(--space-3)"><i class="ti ti-database" style="font-size:20px;color:var(--color-text-secondary)"></i><div style="font-size:10px;font-family:var(--font-mono);color:var(--color-text-tertiary);margin-top:4px">data</div></div>
+        <div style="text-align:center;padding:var(--space-3)"><i class="ti ti-shield-check" style="font-size:20px;color:var(--color-text-secondary)"></i><div style="font-size:10px;font-family:var(--font-mono);color:var(--color-text-tertiary);margin-top:4px">sdv</div></div>
+        <div style="text-align:center;padding:var(--space-3)"><i class="ti ti-lock" style="font-size:20px;color:var(--color-text-secondary)"></i><div style="font-size:10px;font-family:var(--font-mono);color:var(--color-text-tertiary);margin-top:4px">lock</div></div>
+        <div style="text-align:center;padding:var(--space-3)"><i class="ti ti-message-report" style="font-size:20px;color:var(--color-text-secondary)"></i><div style="font-size:10px;font-family:var(--font-mono);color:var(--color-text-tertiary);margin-top:4px">query</div></div>
+        <div style="text-align:center;padding:var(--space-3)"><i class="ti ti-notes" style="font-size:20px;color:var(--color-text-secondary)"></i><div style="font-size:10px;font-family:var(--font-mono);color:var(--color-text-tertiary);margin-top:4px">notes</div></div>
+        <div style="text-align:center;padding:var(--space-3)"><i class="ti ti-calendar-event" style="font-size:20px;color:var(--color-text-secondary)"></i><div style="font-size:10px;font-family:var(--font-mono);color:var(--color-text-tertiary);margin-top:4px">visit</div></div>
+        <div style="text-align:center;padding:var(--space-3)"><i class="ti ti-chart-bar" style="font-size:20px;color:var(--color-text-secondary)"></i><div style="font-size:10px;font-family:var(--font-mono);color:var(--color-text-tertiary);margin-top:4px">chart</div></div>
+        <div style="text-align:center;padding:var(--space-3)"><i class="ti ti-users" style="font-size:20px;color:var(--color-text-secondary)"></i><div style="font-size:10px;font-family:var(--font-mono);color:var(--color-text-tertiary);margin-top:4px">team</div></div>
+        <div style="text-align:center;padding:var(--space-3)"><i class="ti ti-alert-triangle" style="font-size:20px;color:var(--amber-700)"></i><div style="font-size:10px;font-family:var(--font-mono);color:var(--color-text-tertiary);margin-top:4px">warning</div></div>
+        <div style="text-align:center;padding:var(--space-3)"><i class="ti ti-alert-circle" style="font-size:20px;color:var(--red-600)"></i><div style="font-size:10px;font-family:var(--font-mono);color:var(--color-text-tertiary);margin-top:4px">critical</div></div>
+        <div style="text-align:center;padding:var(--space-3)"><i class="ti ti-check" style="font-size:20px;color:var(--green-600)"></i><div style="font-size:10px;font-family:var(--font-mono);color:var(--color-text-tertiary);margin-top:4px">check</div></div>
+        <div style="text-align:center;padding:var(--space-3)"><i class="ti ti-history" style="font-size:20px;color:var(--color-text-secondary)"></i><div style="font-size:10px;font-family:var(--font-mono);color:var(--color-text-tertiary);margin-top:4px">audit</div></div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ══ 5. BADGES ─────────────────────────────────────────── -->
+<section class="sg-section" id="badges" data-section>
+  <div class="sg-section-header">
+    <div class="sg-section-num">05 — Badges</div>
+    <h2 class="sg-section-title">Badges</h2>
+    <p class="sg-section-desc">Status, role, and severity badges. Always pill-shaped (radius-full). Font: text-xs, weight-medium, sentence/title case. Height: 20px. 1px border. No uppercase, no letter-spacing, never font-variant: small-caps.</p>
+  </div>
+  <div class="sg-subsection">
+    <div class="sg-sub-title">Status badges</div>
+    <div class="sg-canvas">
+      <div class="badge-row">
+        <span class="badge badge-active">Enrolled</span>
+        <span class="badge badge-active">Active</span>
+        <span class="badge badge-reviewed">Reviewed</span>
+        <span class="badge badge-reviewed">SDV Verified</span>
+        <span class="badge badge-queried">Open Query</span>
+        <span class="badge badge-queried">Data Warning</span>
+        <span class="badge badge-warning">Query Raised</span>
+        <span class="badge badge-critical">SAE</span>
+        <span class="badge badge-critical">Welfare Alert</span>
+        <span class="badge badge-locked">Locked</span>
+        <span class="badge badge-locked">Finalized</span>
+        <span class="badge badge-locked">Inactive</span>
+      </div>
+    </div>
+  </div>
+  <div class="sg-subsection">
+    <div class="sg-sub-title">Role badges</div>
+    <div class="sg-canvas">
+      <div class="badge-row">
+        <span class="badge badge-role badge-admin">Admin</span>
+        <span class="badge badge-role badge-pi">PI</span>
+        <span class="badge badge-role">CRC</span>
+        <span class="badge badge-role">CRA</span>
+        <span class="badge badge-role" style="background:var(--purple-50);color:var(--purple-600)">DM</span>
+        <span class="badge badge-role" style="background:var(--green-50);color:var(--green-600)">Sponsor</span>
+        <span class="badge badge-role" style="background:var(--orange-50);color:var(--orange-600)">Veterinarian</span>
+      </div>
+    </div>
+  </div>
+  <div class="sg-code">
+    <pre><span class="tok-comment">/* Status badge anatomy — no uppercase, no letter-spacing */</span>
+.<span class="tok-var">badge</span> {
+  display: inline-flex; align-items: center;
+  height: <span class="tok-val">20px</span>; padding: 0 <span class="tok-var">var(--space-2)</span>;
+  border-radius: <span class="tok-var">var(--radius-full)</span>;
+  font-size: <span class="tok-var">var(--text-xs)</span>; font-weight: <span class="tok-val">500</span>;
+  border: 1px solid transparent;
+  <span class="tok-comment">/* NEVER: text-transform, font-variant: small-caps */</span>
+}</pre>
+  </div>
+</section>
+
+<!-- ══ 6. BUTTONS ────────────────────────────────────────── -->
+<section class="sg-section" id="buttons" data-section>
+  <div class="sg-section-header">
+    <div class="sg-section-num">06 — Buttons</div>
+    <h2 class="sg-section-title">Buttons</h2>
+    <p class="sg-section-desc">Height: 32px standard, 36px in settings forms. Font: text-sm, weight-medium, font-sans. Radius: radius-md. No box-shadow on buttons.</p>
+  </div>
+  <div class="sg-subsection">
+    <div class="sg-sub-title">Button variants</div>
+    <div class="sg-canvas">
+      <div class="btn-row">
+        <button class="btn-primary"><i class="ti ti-plus"></i>Primary</button>
+        <button class="btn-primary"><i class="ti ti-device-floppy"></i>Save Changes</button>
+        <button class="btn-secondary"><i class="ti ti-edit"></i>Secondary</button>
+        <button class="btn-secondary">Cancel</button>
+        <button class="btn-danger"><i class="ti ti-trash"></i>Destructive</button>
+        <button class="btn-icon"><i class="ti ti-dots-vertical"></i></button>
+        <button class="btn-icon"><i class="ti ti-filter"></i></button>
+        <button class="btn-icon"><i class="ti ti-refresh"></i></button>
+      </div>
+    </div>
+  </div>
+  <div class="sg-subsection">
+    <div class="sg-sub-title">All contexts — 32px (no exceptions)</div>
+    <div class="sg-canvas">
+      <div class="btn-row">
+        <button class="btn-primary btn-primary-lg"><i class="ti ti-device-floppy"></i>Save Changes</button>
+        <button class="btn-secondary btn-secondary-lg">Cancel</button>
+        <span style="font-size:var(--text-xs);color:var(--color-text-tertiary)">← Same 32px height applies in settings forms, modals, and all contexts</span>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ══ 7. FORM FIELDS ────────────────────────────────────── -->
+<section class="sg-section" id="form-fields" data-section>
+  <div class="sg-section-header">
+    <div class="sg-section-num">07 — Form Fields</div>
+    <h2 class="sg-section-title">Form Fields</h2>
+    <p class="sg-section-desc">1px border only — no shadow. Height 32px. Focus ring: border-color blue-600. EDC-specific states: queried (amber), SDV-verified (green), locked (disabled). Never a shadow state.</p>
+  </div>
+  <div class="sg-subsection">
+    <div class="sg-sub-title">Field anatomy</div>
+    <div class="sg-canvas">
+      <div class="field-grid">
+        <div class="field-wrap">
+          <label class="field-label">Subject ID</label>
+          <input class="field-input" type="text" placeholder="e.g. K9-001-A">
+          <span class="field-hint">Unique identifier within the site</span>
+        </div>
+        <div class="field-wrap">
+          <label class="field-label">Study Site</label>
+          <select class="field-select">
+            <option>Clearwater Veterinary — Site 02</option>
+            <option>Maplewood Animal Hospital — Site 01</option>
+          </select>
+        </div>
+        <div class="field-wrap">
+          <label class="field-label">Clinical Notes</label>
+          <textarea class="field-textarea" rows="3" placeholder="Enter clinical observations…"></textarea>
+        </div>
+        <div class="field-wrap">
+          <label class="field-label">Weight (kg)</label>
+          <input class="field-input" type="text" placeholder="0.0">
+          <span class="field-hint">Measured to one decimal place</span>
+        </div>
+      </div>
+    </div>
+  </div>
+  <div class="sg-subsection">
+    <div class="sg-sub-title">EDC field states</div>
+    <div class="sg-sub-desc">Nine distinct field states across three remark modes. The flag icon (query mode) and shield icon (SDV mode) and delta icon (change reason mode) are anchored to the right of the field — they are the only visual cue, the field itself does not change color (except for Raised Query which gets amber bg).</div>
+
+    <!-- ROW 1: Query states -->
+    <div style="margin-bottom:var(--space-2);font-size:var(--text-xs);font-weight:700;text-transform:uppercase;letter-spacing:var(--tracking-caps);color:var(--color-text-tertiary)">Remarks: Queries mode</div>
+    <div class="sg-canvas" style="margin-bottom:var(--space-4)">
+      <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:var(--space-5)">
+
+        <!-- Default — queries remark on, no query -->
+        <div class="field-wrap">
+          <label class="field-label" style="font-size:var(--text-xs);font-weight:700;color:var(--color-text-tertiary);text-transform:uppercase;letter-spacing:var(--tracking-caps);margin-bottom:var(--space-2)">Default field</label>
+          <label class="field-label">Heart rate <span style="color:var(--red-600)">*</span></label>
+          <div style="display:flex;align-items:center;gap:var(--space-2)">
+            <input class="field-input" type="text" value="64" style="flex:1">
+            <button style="width:24px;height:24px;border:none;background:none;cursor:pointer;color:var(--color-text-placeholder);display:flex;align-items:center;justify-content:center;flex-shrink:0;border-radius:var(--radius-md)"><i class="ti ti-flag" style="font-size:16px"></i></button>
+          </div>
+          <span class="field-hint">Normal: 50–80 bpm</span>
+        </div>
+
+        <!-- Raised query -->
+        <div class="field-wrap">
+          <label class="field-label" style="font-size:var(--text-xs);font-weight:700;color:var(--color-text-tertiary);text-transform:uppercase;letter-spacing:var(--tracking-caps);margin-bottom:var(--space-2)">Raised query</label>
+          <label class="field-label">Rectal temperature <span style="color:var(--red-600)">*</span></label>
+          <div style="display:flex;align-items:center;gap:var(--space-2)">
+            <input class="field-input state-queried" type="text" value="28.5" style="flex:1">
+            <button style="width:24px;height:24px;border:none;background:none;cursor:pointer;color:var(--orange-600);display:flex;align-items:center;justify-content:center;flex-shrink:0;border-radius:var(--radius-md)"><i class="ti ti-flag-filled" style="font-size:16px"></i></button>
+          </div>
+          <div style="display:flex;align-items:flex-start;gap:4px;margin-top:var(--space-1)">
+            <i class="ti ti-alert-circle" style="font-size:12px;color:var(--amber-700);flex-shrink:0;margin-top:1px"></i>
+            <a href="#" style="font-size:var(--text-xs);color:var(--amber-700);text-decoration:underline" onclick="return false">Q-001: Value appears too low (Normal: 38–39°C). Verify and correct.</a>
+          </div>
+        </div>
+
+        <!-- Responded query -->
+        <div class="field-wrap">
+          <label class="field-label" style="font-size:var(--text-xs);font-weight:700;color:var(--color-text-tertiary);text-transform:uppercase;letter-spacing:var(--tracking-caps);margin-bottom:var(--space-2)">Responded query</label>
+          <label class="field-label">Rectal temperature <span style="color:var(--red-600)">*</span></label>
+          <div style="display:flex;align-items:center;gap:var(--space-2)">
+            <input class="field-input" type="text" value="28.5" style="flex:1">
+            <button style="width:24px;height:24px;border:none;background:none;cursor:pointer;color:var(--orange-600);display:flex;align-items:center;justify-content:center;flex-shrink:0;border-radius:var(--radius-md)"><i class="ti ti-flag-filled" style="font-size:16px"></i></button>
+          </div>
+          <div style="display:flex;align-items:flex-start;gap:4px;margin-top:var(--space-1)">
+            <i class="ti ti-alert-circle" style="font-size:12px;color:var(--amber-700);flex-shrink:0;margin-top:1px"></i>
+            <a href="#" style="font-size:var(--text-xs);color:var(--amber-700);text-decoration:underline" onclick="return false">Q-001 open — view thread</a>
+          </div>
+        </div>
+
+        <!-- Resolved query -->
+        <div class="field-wrap">
+          <label class="field-label" style="font-size:var(--text-xs);font-weight:700;color:var(--color-text-tertiary);text-transform:uppercase;letter-spacing:var(--tracking-caps);margin-bottom:var(--space-2)">Resolved query</label>
+          <label class="field-label">Rectal temperature <span style="color:var(--red-600)">*</span></label>
+          <div style="display:flex;align-items:center;gap:var(--space-2)">
+            <input class="field-input" type="text" value="38.4" style="flex:1">
+            <button style="width:24px;height:24px;border:none;background:none;cursor:pointer;color:var(--green-600);display:flex;align-items:center;justify-content:center;flex-shrink:0;border-radius:var(--radius-md)"><i class="ti ti-flag-check" style="font-size:16px"></i></button>
+          </div>
+          <div style="display:flex;align-items:flex-start;gap:4px;margin-top:var(--space-1)">
+            <i class="ti ti-circle-check" style="font-size:12px;color:var(--green-600);flex-shrink:0;margin-top:1px"></i>
+            <a href="#" style="font-size:var(--text-xs);color:var(--green-600);text-decoration:underline" onclick="return false">Q-001: Corrected — query resolved</a>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ROW 2: SDV states -->
+    <div style="margin-bottom:var(--space-2);font-size:var(--text-xs);font-weight:700;text-transform:uppercase;letter-spacing:var(--tracking-caps);color:var(--color-text-tertiary)">Remarks: SDV mode</div>
+    <div class="sg-canvas" style="margin-bottom:var(--space-4)">
+      <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:var(--space-5)">
+
+        <!-- SDV mode active, field not yet verified -->
+        <div class="field-wrap">
+          <label class="field-label" style="font-size:var(--text-xs);font-weight:700;color:var(--color-text-tertiary);text-transform:uppercase;letter-spacing:var(--tracking-caps);margin-bottom:var(--space-2)">SDV remark on — not verified</label>
+          <label class="field-label">Rectal temperature <span style="color:var(--red-600)">*</span></label>
+          <div style="display:flex;align-items:center;gap:var(--space-2)">
+            <input class="field-input" type="text" value="28.5" style="flex:1">
+            <button style="width:24px;height:24px;border:none;background:none;cursor:pointer;color:var(--color-text-placeholder);display:flex;align-items:center;justify-content:center;flex-shrink:0;border-radius:var(--radius-md)" title="Click to verify"><i class="ti ti-shield" style="font-size:16px"></i></button>
+          </div>
+        </div>
+
+        <!-- SDV verified — remark SDV active -->
+        <div class="field-wrap">
+          <label class="field-label" style="font-size:var(--text-xs);font-weight:700;color:var(--color-text-tertiary);text-transform:uppercase;letter-spacing:var(--tracking-caps);margin-bottom:var(--space-2)">SDV verified — remark SDV active</label>
+          <label class="field-label">Rectal temperature <span style="color:var(--red-600)">*</span></label>
+          <div style="display:flex;align-items:center;gap:var(--space-2)">
+            <input class="field-input" type="text" value="28.5" style="flex:1">
+            <button style="width:24px;height:24px;border:none;background:none;cursor:pointer;color:var(--blue-600);display:flex;align-items:center;justify-content:center;flex-shrink:0;border-radius:var(--radius-md)" title="SDV Verified — click to unverify"><i class="ti ti-shield-check-filled" style="font-size:16px"></i></button>
+          </div>
+          <div style="font-size:var(--text-xs);color:var(--blue-600);margin-top:var(--space-1)">Verified by E. Marinetti · 2026-03-14</div>
+        </div>
+
+        <!-- SDV verified — remark SDV off (queries mode) -->
+        <div class="field-wrap">
+          <label class="field-label" style="font-size:var(--text-xs);font-weight:700;color:var(--color-text-tertiary);text-transform:uppercase;letter-spacing:var(--tracking-caps);margin-bottom:var(--space-2)">SDV verified — remark SDV off</label>
+          <label class="field-label">Rectal temperature <span style="color:var(--red-600)">*</span></label>
+          <div style="display:flex;align-items:center;gap:var(--space-2)">
+            <input class="field-input" type="text" value="28.5" style="flex:1">
+            <i class="ti ti-shield-check-filled" style="font-size:16px;color:var(--blue-600);flex-shrink:0" title="SDV Verified (read-only in this mode)"></i>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ROW 3: Change reason states -->
+    <div style="margin-bottom:var(--space-2);font-size:var(--text-xs);font-weight:700;text-transform:uppercase;letter-spacing:var(--tracking-caps);color:var(--color-text-tertiary)">Change reason (Δ) states</div>
+    <div class="sg-canvas">
+      <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:var(--space-5)">
+
+        <!-- Change reason required — field is default, only delta btn changes -->
+        <div class="field-wrap">
+          <label class="field-label" style="font-size:var(--text-xs);font-weight:700;color:var(--color-text-tertiary);text-transform:uppercase;letter-spacing:var(--tracking-caps);margin-bottom:var(--space-2)">Change reason required</label>
+          <label class="field-label">Heart rate <span style="color:var(--red-600)">*</span></label>
+          <div style="display:flex;align-items:center;gap:var(--space-2)">
+            <input class="field-input" type="text" value="64a" style="flex:1">
+            <button style="width:22px;height:22px;flex-shrink:0;border:2px dashed var(--red-600);background:transparent;cursor:pointer;border-radius:var(--radius-sm);display:flex;align-items:center;justify-content:center;font-size:16px;font-weight:700;font-family:var(--font-mono);line-height:1;color:var(--red-600);transition:all var(--duration-fast)">Δ</button>
+          </div>
+          <span class="field-hint">Normal: 50–80 bpm</span>
+        </div>
+
+        <!-- Change reason responded -->
+        <div class="field-wrap">
+          <label class="field-label" style="font-size:var(--text-xs);font-weight:700;color:var(--color-text-tertiary);text-transform:uppercase;letter-spacing:var(--tracking-caps);margin-bottom:var(--space-2)">Change reason responded</label>
+          <label class="field-label">Heart rate <span style="color:var(--red-600)">*</span></label>
+          <div style="display:flex;align-items:center;gap:var(--space-2)">
+            <input class="field-input" type="text" value="64a" style="flex:1">
+            <button style="width:22px;height:22px;flex-shrink:0;border:2px solid var(--blue-600);background:transparent;cursor:pointer;border-radius:var(--radius-sm);display:flex;align-items:center;justify-content:center;font-size:16px;font-weight:700;font-family:var(--font-mono);line-height:1;color:var(--blue-600);transition:all var(--duration-fast)">Δ</button>
+          </div>
+          <span class="field-hint">Normal: 50–80 bpm</span>
+        </div>
+
+        <!-- Change reason reviewed and approved -->
+        <div class="field-wrap">
+          <label class="field-label" style="font-size:var(--text-xs);font-weight:700;color:var(--color-text-tertiary);text-transform:uppercase;letter-spacing:var(--tracking-caps);margin-bottom:var(--space-2)">Change reason reviewed &amp; approved</label>
+          <label class="field-label">Heart rate <span style="color:var(--red-600)">*</span></label>
+          <div style="display:flex;align-items:center;gap:var(--space-2)">
+            <input class="field-input" type="text" value="64a" style="flex:1">
+            <button style="width:22px;height:22px;flex-shrink:0;border:2px solid var(--green-600);background:var(--green-600);cursor:pointer;border-radius:var(--radius-sm);display:flex;align-items:center;justify-content:center;font-size:16px;font-weight:700;font-family:var(--font-mono);line-height:1;color:#fff;transition:all var(--duration-fast)">Δ</button>
+          </div>
+          <span class="field-hint">Normal: 50–80 bpm</span>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ══ 8. TOGGLES ────────────────────────────────────────── -->
+<section class="sg-section" id="toggles" data-section>
+  <div class="sg-section-header">
+    <div class="sg-section-num">08 — Toggles</div>
+    <h2 class="sg-section-title">Toggles</h2>
+    <p class="sg-section-desc">The toggle-left pattern: label and description on the left, switch control on the right. Optionally includes an expand/collapse chevron for revealing conditional settings.</p>
+  </div>
+  <div class="sg-subsection">
+    <div class="sg-sub-title">Toggle variants</div>
+    <div class="sg-canvas">
+      <div style="display:flex;flex-direction:column;gap:var(--space-3)">
+        <div class="toggle-row">
+          <div class="toggle-switch">
+            <input type="checkbox" id="tgl1" checked>
+            <div class="toggle-track"></div>
+            <div class="toggle-thumb"></div>
+          </div>
+          <div class="toggle-left">
+            <div class="toggle-title">Require Signature on Lock</div>
+            <div class="toggle-desc">Electronic signature required before form can be finalized (21 CFR Part 11)</div>
+          </div>
+        </div>
+        <div class="toggle-row">
+          <div class="toggle-switch">
+            <input type="checkbox" id="tgl2">
+            <div class="toggle-track"></div>
+            <div class="toggle-thumb"></div>
+          </div>
+          <div class="toggle-left">
+            <div class="toggle-title">Auto-query on Range Violation</div>
+            <div class="toggle-desc">System automatically raises a query when a value falls outside defined clinical ranges</div>
+          </div>
+          <div class="toggle-right">
+            <button class="toggle-expand-btn" id="expandBtn"><span style="font-size:var(--text-xs);color:var(--color-text-tertiary)">Configure</span><i class="ti ti-chevron-down"></i></button>
+          </div>
+        </div>
+        <div class="toggle-row">
+          <div class="toggle-switch">
+            <input type="checkbox" id="tgl3" checked>
+            <div class="toggle-track"></div>
+            <div class="toggle-thumb"></div>
+          </div>
+          <div class="toggle-left">
+            <div class="toggle-title">Offline Data Capture</div>
+            <div class="toggle-desc">Enable offline form submission for field sites with intermittent connectivity</div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ══ 9. STATUS ICONS ───────────────────────────────────── -->
+<section class="sg-section" id="status-icons" data-section>
+  <div class="sg-section-header">
+    <div class="sg-section-num">09 — Status Icons</div>
+    <h2 class="sg-section-title">Status Icons &amp; Flags</h2>
+    <p class="sg-section-desc">Small 16px circular indicators used in form sidebars, data entry lists, and subject tables to communicate form completion and query state at a glance.</p>
+  </div>
+  <div class="sg-subsection">
+    <div class="sg-sub-title">Form completion states</div>
+    <div class="sg-sub-desc">Five states for form progress. Icons are SVG-based half-moon circles — not CSS border tricks. Empty uses a dashed circle. Locked is post-Finalized (locked record).</div>
+    <div class="sg-canvas">
+      <div class="icon-row">
+        <div class="icon-item">
+          <div class="si-empty"></div>
+          <div class="icon-label">Empty</div>
+        </div>
+        <div class="icon-item">
+          <!-- In-Work: blue left-half fill -->
+          <svg class="si-inwork" width="16" height="16" viewBox="2 2 16 16" fill="none" xmlns="http://www.w3.org/2000/svg"><path fill-rule="evenodd" clip-rule="evenodd" d="M11.1423 17.9188C15.0196 17.3647 18.0003 14.0303 18.0003 9.99983C18.0003 5.58165 14.4186 2 10.0004 2C6.30023 2 3.18677 4.51215 2.27257 7.92394C2.0948 8.58662 2 9.28327 2 10.0021C2 14.4202 5.58165 18.0019 9.99983 18.0019C10.3887 18.0019 10.7712 17.9741 11.1452 17.9205L11.1423 17.9188ZM16.8574 9.99983C16.8574 6.21282 13.7874 3.14283 10.0004 3.14283C9.88547 3.14283 9.77117 3.14566 9.6576 3.15125C7.76505 4.82631 6.57193 7.27373 6.57193 9.99983C6.57193 12.7259 7.76505 15.1734 9.65759 16.8484C9.77117 16.854 9.88547 16.8568 10.0004 16.8568C13.7874 16.8568 16.8574 13.7868 16.8574 9.99983Z" fill="#4492CB"/></svg>
+          <div class="icon-label">In-Work</div>
+        </div>
+        <div class="icon-item">
+          <!-- In-Review: amber right-half fill -->
+          <svg class="si-inreview" width="16" height="16" viewBox="2 2 16 16" fill="none" xmlns="http://www.w3.org/2000/svg"><path fill-rule="evenodd" clip-rule="evenodd" d="M10 16.8574C13.7871 16.8574 16.8574 13.7871 16.8574 10C16.8574 6.2129 13.7871 3.14258 10 3.14258V10.0022V16.8574ZM7.60632 17.6357C8.37406 17.8765 9.18055 18.0022 10 18.0022V18C14.4183 18 18 14.4183 18 10C18 5.58172 14.4183 2 10 2C5.58172 2 2 5.58172 2 10C2 10.0004 2 10.0007 2 10.0011C2 10.0015 2 10.0019 2 10.0022C2 10.083 2.00122 10.1637 2.00366 10.2442C2.04632 11.6675 2.46075 12.9973 3.15316 14.14C3.48435 14.6881 3.8828 15.1987 4.34315 15.6591C5.07028 16.3862 5.92297 16.9589 6.85027 17.3561C7.09618 17.4615 7.34844 17.555 7.60632 17.6357Z" fill="#CF811E"/></svg>
+          <div class="icon-label">In-Review</div>
+        </div>
+        <div class="icon-item">
+          <!-- Reviewed: purple partial fill -->
+          <svg class="si-reviewed-icon" width="16" height="16" viewBox="2 2 16 16" fill="none" xmlns="http://www.w3.org/2000/svg"><path fill-rule="evenodd" clip-rule="evenodd" d="M10.3522 16.8489C13.9788 16.6689 16.8641 13.6712 16.8641 10C16.8641 6.32673 13.9756 3.32779 10.3462 3.15084C12.2407 4.826 13.4353 7.27477 13.4353 10.0025C13.4353 12.7274 12.2433 15.1738 10.3522 16.8489ZM7.16743 2.51848C4.14722 3.66218 2 6.58161 2 10.0025C2 14.035 4.9835 17.3706 8.86352 17.9224C9.24018 17.9726 9.62024 18 10.0067 18C14.425 18 18.0067 14.4183 18.0067 10C18.0067 5.58172 14.425 2 10.0067 2C9.00682 2 8.0498 2.18343 7.16743 2.51848Z" fill="#BF65D5"/></svg>
+          <div class="icon-label">Reviewed</div>
+        </div>
+        <div class="icon-item">
+          <div class="si-finalized"><i class="ti ti-check"></i></div>
+          <div class="icon-label">Finalized</div>
+        </div>
+        <div class="icon-item">
+          <div class="si-locked"><i class="ti ti-lock" style="font-size:8px"></i></div>
+          <div class="icon-label">Locked</div>
+        </div>
+      </div>
+    </div>
+    <div class="sg-code">
+      <pre><span class="tok-comment">/* Empty — dashed circle */</span>
+.si-empty { border: 1.5px dashed var(--color-text-placeholder); border-radius: 50%; }
+
+<span class="tok-comment">/* In-Work / In-Review / Reviewed — SVG half-moon (not CSS) */</span>
+<span class="tok-comment">/* Finalized — green circle + check icon */</span>
+<span class="tok-comment">/* Locked — slate circle + lock icon (post-finalized only) */</span></pre>
+    </div>
+  </div>
+  <div class="sg-subsection">
+    <div class="sg-sub-title">Query flag icons (inline, table cells)</div>
+    <div class="sg-sub-desc">16px flag icons in data cells and form sidebar. Three states only: no query (placeholder), open (amber), resolved (green). Resolved = closed in Arken — no separate closed state.</div>
+    <div class="sg-canvas">
+      <div class="icon-row">
+        <div class="icon-item">
+          <div class="flag-icon fi-none"><i class="ti ti-flag"></i></div>
+          <div class="icon-label">No query</div>
+        </div>
+        <div class="icon-item">
+          <div class="flag-icon fi-open"><i class="ti ti-flag-filled"></i></div>
+          <div class="icon-label">Open query</div>
+        </div>
+        <div class="icon-item">
+          <div class="flag-icon fi-resolved"><i class="ti ti-flag-check"></i></div>
+          <div class="icon-label">Resolved</div>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ══ 10. SIDENAV ──────────────────────────────────────── -->
+<section class="sg-section" id="sidenav" data-section>
+  <div class="sg-section-header">
+    <div class="sg-section-num">10 — Navigation · Sidenav</div>
+    <h2 class="sg-section-title">Sidenav</h2>
+    <p class="sg-section-desc">74px wide. Icon + label stacked. Active state: nav-hover background + white color. Badge: red-600, monospace, 9px. Bottom section for settings/profile.</p>
+  </div>
+  <div class="sg-canvas sg-canvas-muted" style="display:flex;gap:var(--space-6);align-items:flex-start;padding:var(--space-6)">
+    <div class="demo-sidenav">
+      <div class="demo-nav-logo">A</div>
+      <button class="demo-nav-item active"><i class="ti ti-layout-dashboard"></i><span class="demo-nav-label">Dashboard</span></button>
+      <button class="demo-nav-item" style="position:relative"><i class="ti ti-clipboard-list"></i><span class="demo-nav-label">Data Entry</span><span class="demo-nav-badge">3</span></button>
+      <button class="demo-nav-item"><i class="ti ti-paw"></i><span class="demo-nav-label">Animals</span></button>
+      <button class="demo-nav-item"><i class="ti ti-message-report"></i><span class="demo-nav-label">Queries</span></button>
+      <button class="demo-nav-item"><i class="ti ti-box"></i><span class="demo-nav-label">Inventory</span></button>
+      <div style="flex:1"></div>
+      <div style="width:100%;height:1px;background:rgba(255,255,255,0.08);margin:4px 0"></div>
+      <button class="demo-nav-item"><i class="ti ti-settings"></i><span class="demo-nav-label">Settings</span></button>
+    </div>
+    <div style="flex:1;font-size:var(--text-sm);color:var(--color-text-secondary);line-height:1.7">
+      <div style="font-weight:600;color:var(--color-text-primary);margin-bottom:var(--space-3)">Specs</div>
+      <div style="display:flex;flex-direction:column;gap:var(--space-2)">
+        <div><strong style="font-weight:500">Width:</strong> 74px fixed, flex-shrink:0</div>
+        <div><strong style="font-weight:500">Background:</strong> --color-nav-bg (#1A1F2E)</div>
+        <div><strong style="font-weight:500">Icon size:</strong> 20px</div>
+        <div><strong style="font-weight:500">Label:</strong> 11px · weight-medium</div>
+        <div><strong style="font-weight:500">Item height:</strong> 50px min</div>
+        <div><strong style="font-weight:500">Active bg:</strong> --color-nav-hover</div>
+        <div><strong style="font-weight:500">Badge:</strong> 14px tall · red-600 · monospace 9px</div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ══ 11. TOPBAR ────────────────────────────────────────── -->
+<section class="sg-section" id="topbar" data-section>
+  <div class="sg-section-header">
+    <div class="sg-section-num">11 — Navigation · Topbar</div>
+    <h2 class="sg-section-title">Topbar</h2>
+    <p class="sg-section-desc">56px tall. Dark (nav-bg). Left: study pill + site dropdown. Right: notifications, role chip, avatar. The study pill is the global scope; the site dropdown is a global filter. These are not duplicated in the breadcrumb.</p>
+  </div>
+  <div class="sg-canvas sg-canvas-muted" style="padding:var(--space-5)">
+    <div class="demo-topbar">
+      <div class="demo-tb-study">PRRS Swine USDA <i class="ti ti-chevron-down"></i></div>
+      <div class="demo-tb-sep"></div>
+      <button class="demo-tb-site">Clearwater Vet — Site 02 <i class="ti ti-chevron-down" style="font-size:11px;opacity:0.6"></i></button>
+      <div class="demo-tb-right">
+        <button class="demo-tb-icon"><i class="ti ti-bell"></i></button>
+        <button class="demo-tb-icon"><i class="ti ti-search"></i></button>
+        <span class="demo-tb-role">CRA</span>
+        <div class="demo-tb-avatar">EM</div>
+      </div>
+    </div>
+    <div class="panel-width-note">Topbar = study pill + site dropdown · breadcrumb = navigation path · never duplicate</div>
+  </div>
+</section>
+
+<!-- ══ 12. BREADCRUMB ────────────────────────────────────── -->
+<section class="sg-section" id="breadcrumb" data-section>
+  <div class="sg-section-header">
+    <div class="sg-section-num">12 — Navigation · Breadcrumb</div>
+    <h2 class="sg-section-title">Breadcrumb</h2>
+    <p class="sg-section-desc">Appears below the topbar. Ancestor nodes are links (underlined). Current node is text-primary, weight-medium. Separator: ti-chevron-right, 12px, text-placeholder. <strong>Site name is conditional:</strong> shows in breadcrumb only when "All Sites" is selected in the topbar. When a specific site is active in the topbar, the breadcrumb starts below the site level.</p>
+  </div>
+  <div class="sg-canvas">
+    <div style="display:flex;flex-direction:column;gap:var(--space-5)">
+      <!-- All Sites selected — site shows in breadcrumb -->
+      <div>
+        <div style="font-size:var(--text-xs);font-weight:700;color:var(--color-text-tertiary);text-transform:uppercase;letter-spacing:var(--tracking-caps);margin-bottom:var(--space-2)">Topbar: "All Sites" → site name appears in breadcrumb</div>
+        <div class="breadcrumb">
+          <a href="#">Data Entry</a>
+          <i class="ti ti-chevron-right"></i>
+          <a href="#">Austin Research Center</a>
+          <i class="ti ti-chevron-right"></i>
+          <span>Barn A</span>
+        </div>
+      </div>
+      <!-- Specific site selected — breadcrumb starts below site -->
+      <div>
+        <div style="font-size:var(--text-xs);font-weight:700;color:var(--color-text-tertiary);text-transform:uppercase;letter-spacing:var(--tracking-caps);margin-bottom:var(--space-2)">Topbar: specific site selected → breadcrumb starts below site</div>
+        <div class="breadcrumb">
+          <a href="#">Data Entry</a>
+          <i class="ti ti-chevron-right"></i>
+          <a href="#">Barn A</a>
+          <i class="ti ti-chevron-right"></i>
+          <a href="#">Pen 3</a>
+          <i class="ti ti-chevron-right"></i>
+          <span>SWN-004</span>
+        </div>
+      </div>
+      <!-- Companion study — no barn/pen -->
+      <div>
+        <div style="font-size:var(--text-xs);font-weight:700;color:var(--color-text-tertiary);text-transform:uppercase;letter-spacing:var(--tracking-caps);margin-bottom:var(--space-2)">Companion study — site selected, goes straight to subject</div>
+        <div class="breadcrumb">
+          <a href="#">Animals</a>
+          <i class="ti ti-chevron-right"></i>
+          <span>K9-002-B · Enrollment Form</span>
+        </div>
+      </div>
+      <!-- Settings -->
+      <div>
+        <div style="font-size:var(--text-xs);font-weight:700;color:var(--color-text-tertiary);text-transform:uppercase;letter-spacing:var(--tracking-caps);margin-bottom:var(--space-2)">Settings</div>
+        <div class="breadcrumb">
+          <a href="#">Settings</a>
+          <i class="ti ti-chevron-right"></i>
+          <span>Form Permissions</span>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ══ 13. FORM SIDEBAR ──────────────────────────────────── -->
+<section class="sg-section" id="form-sidebar" data-section>
+  <div class="sg-section-header">
+    <div class="sg-section-num">13 — Navigation · Form Sidebar</div>
+    <h2 class="sg-section-title">Form Sidebar</h2>
+    <p class="sg-section-desc">220px wide. Lists all CRF forms for the active subject. Each item: form name (left, ellipsis overflow) + right cluster (issue badge + status icon). Status is a 16px SVG icon. Active form: blue-50 bg, blue-600 text, weight-bold. Section labels: 11px caps. Sub-forms indented with left border.</p>
+  </div>
+  <div class="sg-canvas sg-canvas-muted" style="padding:var(--space-5);display:flex;gap:var(--space-5);align-items:flex-start">
+
+    <!-- Live sidebar demo -->
+    <div style="width:220px;background:var(--color-surface);border:1px solid var(--color-border);border-radius:var(--radius-lg);padding:var(--space-3);flex-shrink:0;overflow:hidden">
+
+      <!-- Section label -->
+      <div style="font-size:var(--text-xs);font-weight:var(--weight-medium);text-transform:uppercase;letter-spacing:var(--tracking-caps);color:var(--color-text-tertiary);margin-bottom:var(--space-2);padding:0 var(--space-1)">Forms</div>
+
+      <!-- Status legend -->
+      <div style="padding:0 var(--space-1) var(--space-3);display:flex;flex-direction:column;gap:5px;border-bottom:1px solid var(--color-border-subtle);margin-bottom:var(--space-2)">
+        <div style="display:flex;align-items:center;gap:6px;font-size:10px;color:var(--color-text-tertiary)"><div class="si-empty"></div> Empty</div>
+        <div style="display:flex;align-items:center;gap:6px;font-size:10px;color:var(--color-text-tertiary)"><svg width="16" height="16" viewBox="2 2 16 16" fill="none"><path fill-rule="evenodd" clip-rule="evenodd" d="M11.1423 17.9188C15.0196 17.3647 18.0003 14.0303 18.0003 9.99983C18.0003 5.58165 14.4186 2 10.0004 2C6.30023 2 3.18677 4.51215 2.27257 7.92394C2.0948 8.58662 2 9.28327 2 10.0021C2 14.4202 5.58165 18.0019 9.99983 18.0019C10.3887 18.0019 10.7712 17.9741 11.1452 17.9205L11.1423 17.9188ZM16.8574 9.99983C16.8574 6.21282 13.7874 3.14283 10.0004 3.14283C9.88547 3.14283 9.77117 3.14566 9.6576 3.15125C7.76505 4.82631 6.57193 7.27373 6.57193 9.99983C6.57193 12.7259 7.76505 15.1734 9.65759 16.8484C9.77117 16.854 9.88547 16.8568 10.0004 16.8568C13.7874 16.8568 16.8574 13.7868 16.8574 9.99983Z" fill="#4492CB"/></svg> In-Work</div>
+        <div style="display:flex;align-items:center;gap:6px;font-size:10px;color:var(--color-text-tertiary)"><svg width="16" height="16" viewBox="2 2 16 16" fill="none"><path fill-rule="evenodd" clip-rule="evenodd" d="M10 16.8574C13.7871 16.8574 16.8574 13.7871 16.8574 10C16.8574 6.2129 13.7871 3.14258 10 3.14258V10.0022V16.8574ZM7.60632 17.6357C8.37406 17.8765 9.18055 18.0022 10 18.0022V18C14.4183 18 18 14.4183 18 10C18 5.58172 14.4183 2 10 2C5.58172 2 2 5.58172 2 10C2 10.0004 2 10.0007 2 10.0011C2 10.0015 2 10.0019 2 10.0022C2 10.083 2.00122 10.1637 2.00366 10.2442C2.04632 11.6675 2.46075 12.9973 3.15316 14.14C3.48435 14.6881 3.8828 15.1987 4.34315 15.6591C5.07028 16.3862 5.92297 16.9589 6.85027 17.3561C7.09618 17.4615 7.34844 17.555 7.60632 17.6357Z" fill="#CF811E"/></svg> In-Review</div>
+        <div style="display:flex;align-items:center;gap:6px;font-size:10px;color:var(--color-text-tertiary)"><svg width="16" height="16" viewBox="2 2 16 16" fill="none"><path fill-rule="evenodd" clip-rule="evenodd" d="M10.3522 16.8489C13.9788 16.6689 16.8641 13.6712 16.8641 10C16.8641 6.32673 13.9756 3.32779 10.3462 3.15084C12.2407 4.826 13.4353 7.27477 13.4353 10.0025C13.4353 12.7274 12.2433 15.1738 10.3522 16.8489ZM7.16743 2.51848C4.14722 3.66218 2 6.58161 2 10.0025C2 14.035 4.9835 17.3706 8.86352 17.9224C9.24018 17.9726 9.62024 18 10.0067 18C14.425 18 18.0067 14.4183 18.0067 10C18.0067 5.58172 14.425 2 10.0067 2C9.00682 2 8.0498 2.18343 7.16743 2.51848Z" fill="#BF65D5"/></svg> Reviewed</div>
+        <div style="display:flex;align-items:center;gap:6px;font-size:10px;color:var(--color-text-tertiary)"><div class="si-finalized"><i class="ti ti-check"></i></div> Finalized</div>
+      </div>
+
+      <!-- Form items -->
+      <div style="display:flex;align-items:center;justify-content:space-between;padding:var(--space-1) var(--space-2);border-radius:var(--radius-md);font-size:var(--text-sm);color:var(--green-600);cursor:pointer;margin-bottom:1px;min-height:32px;gap:var(--space-2)">
+        <span style="flex:1;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">Animal info</span>
+        <div class="si-finalized"><i class="ti ti-check"></i></div>
+      </div>
+      <div style="display:flex;align-items:center;justify-content:space-between;padding:var(--space-1) var(--space-2);border-radius:var(--radius-md);font-size:var(--text-sm);color:var(--green-600);cursor:pointer;margin-bottom:1px;min-height:32px;gap:var(--space-2)">
+        <span style="flex:1;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">Screening</span>
+        <div class="si-finalized"><i class="ti ti-check"></i></div>
+      </div>
+      <div style="height:1px;background:var(--color-border-subtle);margin:var(--space-1) 0"></div>
+
+      <!-- Active form group -->
+      <div style="display:flex;align-items:center;justify-content:space-between;padding:var(--space-1) var(--space-2);border-radius:var(--radius-md);font-size:var(--text-sm);color:var(--blue-600);font-weight:700;background:var(--blue-50);cursor:pointer;margin-bottom:1px;min-height:32px;gap:var(--space-2)">
+        <span style="flex:1;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">Visit 1 — Baseline</span>
+        <svg width="16" height="16" viewBox="2 2 16 16" fill="none"><path fill-rule="evenodd" clip-rule="evenodd" d="M11.1423 17.9188C15.0196 17.3647 18.0003 14.0303 18.0003 9.99983C18.0003 5.58165 14.4186 2 10.0004 2C6.30023 2 3.18677 4.51215 2.27257 7.92394C2.0948 8.58662 2 9.28327 2 10.0021C2 14.4202 5.58165 18.0019 9.99983 18.0019C10.3887 18.0019 10.7712 17.9741 11.1452 17.9205L11.1423 17.9188ZM16.8574 9.99983C16.8574 6.21282 13.7874 3.14283 10.0004 3.14283C9.88547 3.14283 9.77117 3.14566 9.6576 3.15125C7.76505 4.82631 6.57193 7.27373 6.57193 9.99983C6.57193 12.7259 7.76505 15.1734 9.65759 16.8484C9.77117 16.854 9.88547 16.8568 10.0004 16.8568C13.7874 16.8568 16.8574 13.7868 16.8574 9.99983Z" fill="#4492CB"/></svg>
+      </div>
+      <!-- Sub-forms with left border -->
+      <div style="margin-left:var(--space-3);border-left:2px solid var(--slate-200);padding-left:var(--space-2)">
+        <div style="display:flex;align-items:center;justify-content:space-between;padding:var(--space-1) var(--space-2);border-radius:var(--radius-md);font-size:var(--text-sm);color:var(--color-text-primary);background:var(--color-hover-bg);cursor:pointer;margin-bottom:1px;min-height:32px;gap:var(--space-2)">
+          <span style="flex:1">Physical exam</span>
+          <svg width="16" height="16" viewBox="2 2 16 16" fill="none"><path fill-rule="evenodd" clip-rule="evenodd" d="M11.1423 17.9188C15.0196 17.3647 18.0003 14.0303 18.0003 9.99983C18.0003 5.58165 14.4186 2 10.0004 2C6.30023 2 3.18677 4.51215 2.27257 7.92394C2.0948 8.58662 2 9.28327 2 10.0021C2 14.4202 5.58165 18.0019 9.99983 18.0019C10.3887 18.0019 10.7712 17.9741 11.1452 17.9205L11.1423 17.9188ZM16.8574 9.99983C16.8574 6.21282 13.7874 3.14283 10.0004 3.14283C9.88547 3.14283 9.77117 3.14566 9.6576 3.15125C7.76505 4.82631 6.57193 7.27373 6.57193 9.99983C6.57193 12.7259 7.76505 15.1734 9.65759 16.8484C9.77117 16.854 9.88547 16.8568 10.0004 16.8568C13.7874 16.8568 16.8574 13.7868 16.8574 9.99983Z" fill="#4492CB"/></svg>
+        </div>
+        <div style="display:flex;align-items:center;justify-content:space-between;padding:var(--space-1) var(--space-2);border-radius:var(--radius-md);font-size:var(--text-sm);color:var(--color-text-primary);cursor:pointer;margin-bottom:1px;min-height:32px;gap:var(--space-2)">
+          <span style="flex:1">Labs</span>
+          <div class="si-empty"></div>
+        </div>
+        <div style="display:flex;align-items:center;justify-content:space-between;padding:var(--space-1) var(--space-2);border-radius:var(--radius-md);font-size:var(--text-sm);color:var(--color-text-primary);cursor:pointer;margin-bottom:1px;min-height:32px;gap:var(--space-2)">
+          <span style="flex:1">Dosing</span>
+          <div class="si-empty"></div>
+        </div>
+      </div>
+
+      <!-- Visit 2: issue badge + in-review -->
+      <div style="display:flex;align-items:center;justify-content:space-between;padding:var(--space-1) var(--space-2);border-radius:var(--radius-md);font-size:var(--text-sm);color:var(--color-text-primary);cursor:pointer;margin-bottom:1px;min-height:32px;gap:var(--space-2)">
+        <span style="flex:1;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">Visit 2 — Day 7</span>
+        <div style="display:flex;align-items:center;gap:3px">
+          <span style="display:inline-flex;align-items:center;justify-content:center;min-width:16px;height:16px;padding:0 4px;border-radius:var(--radius-full);font-size:9px;font-weight:700;font-family:var(--font-mono);background:var(--red-50);border:1px solid var(--red-600);color:var(--red-600)">1</span>
+          <svg width="16" height="16" viewBox="2 2 16 16" fill="none"><path fill-rule="evenodd" clip-rule="evenodd" d="M10 16.8574C13.7871 16.8574 16.8574 13.7871 16.8574 10C16.8574 6.2129 13.7871 3.14258 10 3.14258V10.0022V16.8574ZM7.60632 17.6357C8.37406 17.8765 9.18055 18.0022 10 18.0022V18C14.4183 18 18 14.4183 18 10C18 5.58172 14.4183 2 10 2C5.58172 2 2 5.58172 2 10C2 10.0004 2 10.0007 2 10.0011C2 10.0015 2 10.0019 2 10.0022C2 10.083 2.00122 10.1637 2.00366 10.2442C2.04632 11.6675 2.46075 12.9973 3.15316 14.14C3.48435 14.6881 3.8828 15.1987 4.34315 15.6591C5.07028 16.3862 5.92297 16.9589 6.85027 17.3561C7.09618 17.4615 7.34844 17.555 7.60632 17.6357Z" fill="#CF811E"/></svg>
+        </div>
+      </div>
+    </div>
+
+    <!-- Specs -->
+    <div style="flex:1;font-size:var(--text-sm);color:var(--color-text-secondary);line-height:1.7">
+      <div style="font-weight:600;color:var(--color-text-primary);margin-bottom:var(--space-3)">Specs</div>
+      <div style="display:flex;flex-direction:column;gap:var(--space-2)">
+        <div><strong style="font-weight:500">Width:</strong> 220px · border-right 1px solid border</div>
+        <div><strong style="font-weight:500">Item height:</strong> 32px min · flex space-between</div>
+        <div><strong style="font-weight:500">Status icon:</strong> 16px SVG (right side)</div>
+        <div><strong style="font-weight:500">Issue badge:</strong> 16px pill · most-severe color · mono 9px</div>
+        <div><strong style="font-weight:500">Active item:</strong> blue-50 bg · blue-600 · weight-bold</div>
+        <div><strong style="font-weight:500">Done item:</strong> green-600 text · no bg change</div>
+        <div><strong style="font-weight:500">Sub-group:</strong> margin-left space-3 · border-left 2px slate-200</div>
+        <div><strong style="font-weight:500">Section label:</strong> 11px caps · weight-medium · text-tertiary</div>
+        <div><strong style="font-weight:500">Status legend:</strong> shown at top of sidebar · 10px · text-tertiary</div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ══ 14. TABLES ────────────────────────────────────────── -->
+<section class="sg-section" id="tables" data-section>
+  <div class="sg-section-header">
+    <div class="sg-section-num">14 — Data Display · Tables</div>
+    <h2 class="sg-section-title">Tables</h2>
+    <p class="sg-section-desc">Sticky header. All columns sortable — sort icon (ti-selector) always visible in header, turns blue (blue-600) on active sort. Header: text-xs, weight-medium, uppercase, text-tertiary, hover → text-primary. Row hover: color-hover-bg. Data values in Roboto Mono.</p>
+  </div>
+  <div class="sg-canvas" style="padding:0;overflow:hidden">
+    <table class="sg-table" id="demo-table">
+      <thead>
+        <tr>
+          <th onclick="sortTable('id')" id="th-id">Subject ID <i class="sort-icon ti ti-selector"></i></th>
+          <th onclick="sortTable('species')" id="th-species">Species / Breed <i class="sort-icon ti ti-selector"></i></th>
+          <th onclick="sortTable('site')" id="th-site">Site <i class="sort-icon ti ti-selector"></i></th>
+          <th onclick="sortTable('status')" id="th-status">Status <i class="sort-icon ti ti-selector"></i></th>
+          <th onclick="sortTable('ts')" id="th-ts">Last Activity <i class="sort-icon ti ti-selector"></i></th>
+          <th>Queries</th>
+        </tr>
+      </thead>
+      <tbody id="demo-table-body">
+        <tr>
+          <td><span class="mono">K9-001-A</span></td>
+          <td>Canine / Labrador Retriever</td>
+          <td class="secondary">Site 01 — Maplewood</td>
+          <td><span class="badge badge-active">Active</span></td>
+          <td><span class="mono secondary">2026-03-14 09:42</span></td>
+          <td><span class="badge badge-queried">1 open</span></td>
+        </tr>
+        <tr>
+          <td><span class="mono">K9-002-B</span></td>
+          <td>Canine / Golden Retriever</td>
+          <td class="secondary">Site 01 — Maplewood</td>
+          <td><span class="badge badge-reviewed">Reviewed</span></td>
+          <td><span class="mono secondary">2026-03-13 14:28</span></td>
+          <td><span style="color:var(--color-text-placeholder);font-size:var(--text-sm)">—</span></td>
+        </tr>
+        <tr>
+          <td><span class="mono">SWN-004</span></td>
+          <td>Porcine / Yorkshire</td>
+          <td class="secondary">Site 02 — Clearwater</td>
+          <td><span class="badge badge-warning">Query Raised</span></td>
+          <td><span class="mono secondary">2026-03-14 07:15</span></td>
+          <td><span class="badge badge-warning">2 raised</span></td>
+        </tr>
+        <tr>
+          <td><span class="mono">BVN-011</span></td>
+          <td>Bovine / Holstein</td>
+          <td class="secondary">Site 03 — Prairie View</td>
+          <td><span class="badge badge-locked">Locked</span></td>
+          <td><span class="mono secondary">2026-03-10 11:00</span></td>
+          <td><span style="color:var(--color-text-placeholder);font-size:var(--text-sm)">—</span></td>
+        </tr>
+      </tbody>
+    </table>
+  </div>
+</section>
+
+<!-- ══ 15. CARDS & STATS ─────────────────────────────────── -->
+<section class="sg-section" id="cards" data-section>
+  <div class="sg-section-header">
+    <div class="sg-section-num">15 — Data Display · Cards &amp; Stats</div>
+    <h2 class="sg-section-title">Cards &amp; Stat Chips</h2>
+    <p class="sg-section-desc">Cards: header / body / footer structure. Stat chips: monospace value, uppercase label, accent color variants, optional trend line.</p>
+  </div>
+  <div class="sg-subsection">
+    <div class="sg-sub-title">Stat chips</div>
+    <div class="sg-canvas">
+      <div class="stat-row">
+        <div class="stat-chip"><div class="stat-val accent-blue">24</div><div class="stat-label">Enrolled</div><div class="stat-trend">+2 this week</div></div>
+        <div class="stat-chip"><div class="stat-val">48</div><div class="stat-label">Target</div></div>
+        <div class="stat-chip"><div class="stat-val accent-amber">7</div><div class="stat-label">Open Queries</div></div>
+        <div class="stat-chip"><div class="stat-val accent-red">1</div><div class="stat-label">SAE</div></div>
+        <div class="stat-chip"><div class="stat-val accent-green">62%</div><div class="stat-label">SDV Complete</div><div class="stat-trend">↑ 8% vs last month</div></div>
+      </div>
+    </div>
+  </div>
+  <div class="sg-subsection">
+    <div class="sg-sub-title">Card anatomy</div>
+    <div class="sg-canvas sg-canvas-muted" style="padding:var(--space-5)">
+      <div class="sg-card" style="max-width:360px">
+        <div class="sg-card-header">
+          <div class="sg-card-title">Enrollment Progress</div>
+          <button class="btn-icon"><i class="ti ti-dots-vertical"></i></button>
+        </div>
+        <div class="sg-card-body">
+          <div class="enroll-bar-wrap" style="margin-bottom:var(--space-4)">
+            <div class="enroll-bar-row">
+              <span class="enroll-bar-label">Overall enrollment</span>
+              <span class="enroll-bar-val">24 / 48</span>
+            </div>
+            <div class="enroll-bar-track"><div class="enroll-bar-fill" style="width:50%"></div></div>
+          </div>
+          <div style="display:flex;flex-direction:column;gap:var(--space-2)">
+            <div class="enroll-bar-wrap">
+              <div class="enroll-bar-row"><span class="enroll-bar-label">Site 01</span><span class="enroll-bar-val">12 / 20</span></div>
+              <div class="enroll-bar-track"><div class="enroll-bar-fill fill-green" style="width:60%"></div></div>
+            </div>
+            <div class="enroll-bar-wrap">
+              <div class="enroll-bar-row"><span class="enroll-bar-label">Site 02</span><span class="enroll-bar-val">8 / 16</span></div>
+              <div class="enroll-bar-track"><div class="enroll-bar-fill" style="width:50%"></div></div>
+            </div>
+            <div class="enroll-bar-wrap">
+              <div class="enroll-bar-row"><span class="enroll-bar-label">Site 03</span><span class="enroll-bar-val">4 / 12</span></div>
+              <div class="enroll-bar-track"><div class="enroll-bar-fill fill-amber" style="width:33%"></div></div>
+            </div>
+          </div>
+        </div>
+        <div class="sg-card-footer">
+          <span style="font-size:var(--text-xs);color:var(--color-text-tertiary)">Updated <span style="font-family:var(--font-mono)">2026-03-14</span></span>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ══ 16. PROGRESS ──────────────────────────────────────── -->
+<section class="sg-section" id="progress" data-section>
+  <div class="sg-section-header">
+    <div class="sg-section-num">16 — Data Display · Progress</div>
+    <h2 class="sg-section-title">Progress Bars</h2>
+    <p class="sg-section-desc">6px track height. radius-full. Three fill colors: blue (default/enrollment), green (SDV/completion), amber (at-risk/low enrollment). Label + value always accompany the bar.</p>
+  </div>
+  <div class="sg-canvas">
+    <div style="display:flex;flex-direction:column;gap:var(--space-5);max-width:500px">
+      <div class="enroll-bar-wrap">
+        <div class="enroll-bar-row"><span class="enroll-bar-label">Enrollment · blue (default)</span><span class="enroll-bar-val">24 / 48 · 50%</span></div>
+        <div class="enroll-bar-track"><div class="enroll-bar-fill" style="width:50%"></div></div>
+      </div>
+      <div class="enroll-bar-wrap">
+        <div class="enroll-bar-row"><span class="enroll-bar-label">SDV Complete · green</span><span class="enroll-bar-val">31 / 48 · 65%</span></div>
+        <div class="enroll-bar-track"><div class="enroll-bar-fill fill-green" style="width:65%"></div></div>
+      </div>
+      <div class="enroll-bar-wrap">
+        <div class="enroll-bar-row"><span class="enroll-bar-label">Site 03 enrollment · amber (at risk)</span><span class="enroll-bar-val">4 / 12 · 33%</span></div>
+        <div class="enroll-bar-track"><div class="enroll-bar-fill fill-amber" style="width:33%"></div></div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ══ 17. ROWS ──────────────────────────────────────────── -->
+<section class="sg-section" id="data-rows" data-section>
+  <div class="sg-section-header">
+    <div class="sg-section-num">17 — Data Display · Rows</div>
+    <h2 class="sg-section-title">Query &amp; Activity Rows</h2>
+    <p class="sg-section-desc">Used in panels and feed cards. Query rows show the field name, query text, timestamp, and status. Activity rows show the action (with linked actors), timestamp, and a color dot by type.</p>
+  </div>
+  <div class="sg-subsection">
+    <div class="sg-sub-title">Query rows</div>
+    <div class="sg-canvas" style="padding:0">
+      <div class="query-row">
+        <div class="query-row-left">
+          <div class="query-row-field">Body Weight (kg)</div>
+          <div class="query-row-text">Value 55.3 kg exceeds the physiological maximum for this species. Please verify against source document and correct if necessary.</div>
+          <div class="query-row-meta">2026-03-14 · 09:42 UTC · Raised by CRA J. Hoffman</div>
+        </div>
+        <div class="query-row-right">
+          <span class="badge badge-warning">Raised</span>
+        </div>
+      </div>
+      <div class="query-row">
+        <div class="query-row-left">
+          <div class="query-row-field">Informed Consent Date</div>
+          <div class="query-row-text">Consent date precedes screening date by 3 days. Please confirm correct date and update if applicable.</div>
+          <div class="query-row-meta">2026-03-12 · 14:28 UTC · CRC responded 2026-03-13</div>
+        </div>
+        <div class="query-row-right">
+          <span class="badge badge-reviewed">Responded</span>
+        </div>
+      </div>
+    </div>
+  </div>
+  <div class="sg-subsection">
+    <div class="sg-sub-title">Activity rows</div>
+    <div class="sg-canvas">
+      <div class="activity-row">
+        <div class="activity-dot"></div>
+        <div class="activity-left">
+          <div class="activity-action"><strong>E. Marinetti</strong> verified 3 fields via SDV on <strong>K9-001-A · Physical Examination</strong></div>
+          <div class="activity-meta">2026-03-14 · 09:15 UTC · CRA</div>
+        </div>
+      </div>
+      <div class="activity-row">
+        <div class="activity-dot" style="background:var(--amber-200)"></div>
+        <div class="activity-left">
+          <div class="activity-action"><strong>System</strong> auto-raised query on <strong>SWN-004 · Baseline Labs</strong>: value outside expected range</div>
+          <div class="activity-meta">2026-03-14 · 07:15 UTC · Auto-query</div>
+        </div>
+      </div>
+      <div class="activity-row">
+        <div class="activity-dot" style="background:var(--green-200)"></div>
+        <div class="activity-left">
+          <div class="activity-action"><strong>M. Torres</strong> finalized and locked <strong>BVN-011 · Week 4 Visit</strong></div>
+          <div class="activity-meta">2026-03-10 · 11:00 UTC · PI</div>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ══ 18. SLIDE PANELS ──────────────────────────────────── -->
+<section class="sg-section" id="slide-panels" data-section>
+  <div class="sg-section-header">
+    <div class="sg-section-num">18 — Panels · Slide-in</div>
+    <h2 class="sg-section-title">Slide-in Panels</h2>
+    <p class="sg-section-desc">Panels slide in from the right, over a dark semi-transparent overlay. Four standard widths — each serving a specific workflow. Header: title + meta row + close (32px btn-icon). Context bar: page-bg, secondary info. Footer: primary action right-aligned.</p>
+  </div>
+
+  <!-- Width reference -->
+  <div class="sg-subsection">
+    <div class="sg-sub-title">Panel widths &amp; use cases</div>
+    <div class="sg-canvas">
+      <table class="sg-table">
+        <thead><tr><th>Class <i class="sort-icon ti ti-selector"></i></th><th>Width</th><th>File reference</th><th>Use case</th></tr></thead>
+        <tbody>
+          <tr><td class="mono">.slide-panel</td><td class="mono">480px</td><td class="mono secondary">13-query-thread</td><td>Query thread — full conversation + compose area</td></tr>
+          <tr><td class="mono">.slide-panel-lg</td><td class="mono">520px</td><td class="mono secondary">22-coding</td><td>Coding panel — adverse event / MedDRA term selector</td></tr>
+          <tr><td class="mono">.slide-panel-invoice</td><td class="mono">500px</td><td class="mono secondary">23-invoices</td><td>Invoice detail — site billing record</td></tr>
+          <tr><td class="mono">.slide-panel-sm</td><td class="mono">420px</td><td class="mono secondary">13-query-thread (delta)</td><td>Delta panel — raise query, change reason entry</td></tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+
+  <!-- Query thread panel demo -->
+  <div class="sg-subsection">
+    <div class="sg-sub-title">Query thread panel (480px) · from 13-query-thread</div>
+    <div class="sg-canvas sg-canvas-muted" style="padding:var(--space-5)">
+      <div style="max-width:480px;background:var(--color-surface);border:1px solid var(--color-border);border-radius:var(--radius-lg);overflow:hidden">
+        <!-- Header -->
+        <div class="sp-header">
+          <div class="sp-header-left">
+            <div class="sp-title">Body Weight (kg)</div>
+            <div class="sp-meta">
+              <span class="mono" style="font-size:10px">QRY-0047</span>
+              <span class="qs-pill qs-raised">Raised</span>
+              <span class="mono" style="font-size:10px;color:var(--color-text-tertiary)">K9-001-A · Visit 1</span>
+            </div>
+          </div>
+          <button class="sp-close"><i class="ti ti-x"></i></button>
+        </div>
+        <!-- Field context bar -->
+        <div class="sp-context">
+          <div style="font-size:var(--text-xs);color:var(--color-text-tertiary);margin-bottom:3px;text-transform:uppercase;letter-spacing:var(--tracking-caps);font-weight:500">Flagged value</div>
+          <div style="display:flex;align-items:center;gap:var(--space-2)">
+            <span style="font-size:var(--text-sm);font-weight:500">Weight</span>
+            <span style="font-family:var(--font-mono);font-size:var(--text-xs);background:var(--amber-50);border:1px solid var(--amber-200);color:var(--amber-700);border-radius:var(--radius-sm);padding:0 5px">55.3 kg</span>
+          </div>
+        </div>
+        <!-- Thread body -->
+        <div style="padding:var(--space-4);display:flex;flex-direction:column;gap:var(--space-4)">
+          <div>
+            <div style="display:flex;align-items:center;gap:var(--space-2);margin-bottom:var(--space-2)">
+              <div style="width:26px;height:26px;border-radius:50%;background:var(--slate-600);color:#fff;font-size:10px;font-weight:700;display:flex;align-items:center;justify-content:center;flex-shrink:0">JH</div>
+              <span style="font-size:var(--text-sm);font-weight:500">J. Hoffman</span>
+              <span style="font-size:10px;background:var(--color-page-bg);border:1px solid var(--color-border);border-radius:var(--radius-sm);padding:1px 5px;color:var(--color-text-secondary)">CRA</span>
+              <span style="font-size:10px;font-family:var(--font-mono);color:var(--color-text-tertiary);margin-left:auto">2026-03-14 09:42</span>
+            </div>
+            <div class="msg-bubble auto" style="font-size:var(--text-sm)">Value 55.3 kg exceeds the physiological maximum for this species. Please verify against source document and correct if necessary.</div>
+          </div>
+        </div>
+        <!-- Compose footer -->
+        <div style="border-top:1px solid var(--color-border);padding:var(--space-4);display:flex;flex-direction:column;gap:var(--space-3)">
+          <textarea class="field-textarea" rows="2" placeholder="Respond to this query…" style="width:100%"></textarea>
+          <div style="display:flex;align-items:center;justify-content:flex-end;gap:var(--space-2)">
+            <button class="btn-secondary">Cancel</button>
+            <button class="btn-primary">Respond</button>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Raise query / delta panel -->
+  <div class="sg-subsection">
+    <div class="sg-sub-title">Raise query / Delta panel (420px) · from 13-query-thread (delta)</div>
+    <div class="sg-canvas sg-canvas-muted" style="padding:var(--space-5)">
+      <div style="max-width:420px;background:var(--color-surface);border:1px solid var(--color-border);border-radius:var(--radius-lg);overflow:hidden">
+        <div class="sp-header">
+          <div class="sp-header-left">
+            <div class="sp-title">Raise Query</div>
+            <div class="sp-meta">Body Weight (kg) · K9-001-A</div>
+          </div>
+          <button class="sp-close"><i class="ti ti-x"></i></button>
+        </div>
+        <div style="padding:var(--space-5);display:flex;flex-direction:column;gap:var(--space-4)">
+          <div class="field-wrap">
+            <label class="field-label">Field</label>
+            <select class="field-select"><option>Body Weight (kg)</option></select>
+          </div>
+          <div class="field-wrap">
+            <label class="field-label">Query text</label>
+            <textarea class="field-textarea" rows="3" placeholder="Describe the discrepancy clearly…" style="width:100%"></textarea>
+          </div>
+        </div>
+        <div style="border-top:1px solid var(--color-border);padding:var(--space-4) var(--space-5);display:flex;align-items:center;justify-content:flex-end;gap:var(--space-2);background:var(--color-surface)">
+          <button class="btn-secondary">Cancel</button>
+          <button class="btn-primary"><i class="ti ti-message-report"></i>Raise Query</button>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ══ 19. MODALS ────────────────────────────────────────── -->
+<section class="sg-section" id="modals" data-section>
+  <div class="sg-section-header">
+    <div class="sg-section-num">19 — Panels · Modals</div>
+    <h2 class="sg-section-title">Modals</h2>
+    <p class="sg-section-desc">Centered overlay with semi-transparent backdrop (rgba 14,18,28 · 0.32). Standard width 480–560px. Primary action uses <code style="font-family:var(--font-mono);font-size:11px;background:var(--color-border-subtle);padding:1px 4px;border-radius:2px">btn-primary (color-cta-bg)</code>. <code style="font-family:var(--font-mono);font-size:11px;background:var(--color-border-subtle);padding:1px 4px;border-radius:2px">btn-danger</code> is reserved exclusively for hard deletes, permanent data loss, and irreversible destructive actions — not for locking, confirming, or submitting.</p>
+  </div>
+  <div class="sg-canvas sg-canvas-muted" style="padding:var(--space-6);display:flex;gap:var(--space-5);flex-wrap:wrap;align-items:flex-start">
+    <!-- Standard modal — primary action -->
+    <div style="flex:1;min-width:300px;max-width:420px;background:var(--color-surface);border:1px solid var(--color-border);border-radius:var(--radius-lg);overflow:hidden">
+      <div class="sp-header">
+        <div class="sp-header-left">
+          <div class="sp-title">Lock Form</div>
+          <div class="sp-meta">This action requires confirmation</div>
+        </div>
+        <button class="sp-close"><i class="ti ti-x"></i></button>
+      </div>
+      <div style="padding:var(--space-5)">
+        <p style="font-size:var(--text-base);color:var(--color-text-secondary);line-height:1.6;margin-bottom:var(--space-4)">Lock <strong style="color:var(--color-text-primary)">Physical Examination</strong> for subject <strong style="color:var(--color-text-primary);font-family:var(--font-mono)">K9-001-A</strong>? The record will become read-only.</p>
+        <div class="field-wrap">
+          <label class="field-label">Electronic Signature</label>
+          <input class="field-input" type="password" placeholder="Enter your password">
+        </div>
+      </div>
+      <div style="border-top:1px solid var(--color-border);padding:var(--space-4) var(--space-5);display:flex;align-items:center;justify-content:flex-end;gap:var(--space-2)">
+        <button class="btn-secondary">Cancel</button>
+        <button class="btn-primary"><i class="ti ti-lock"></i>Lock Form</button>
+      </div>
+      <div style="padding:var(--space-2) var(--space-5) var(--space-3);font-size:var(--text-xs);color:var(--color-text-tertiary)">✓ Primary action uses color-cta-bg — locking is reversible by DM</div>
+    </div>
+    <!-- Destructive modal — danger only -->
+    <div style="flex:1;min-width:300px;max-width:420px;background:var(--color-surface);border:1px solid var(--color-border);border-radius:var(--radius-lg);overflow:hidden">
+      <div class="sp-header">
+        <div class="sp-header-left">
+          <div class="sp-title">Delete Subject Record</div>
+          <div class="sp-meta" style="color:var(--red-600)">This cannot be undone</div>
+        </div>
+        <button class="sp-close"><i class="ti ti-x"></i></button>
+      </div>
+      <div style="padding:var(--space-5)">
+        <p style="font-size:var(--text-base);color:var(--color-text-secondary);line-height:1.6;margin-bottom:var(--space-4)">Permanently delete all data for subject <strong style="color:var(--color-text-primary);font-family:var(--font-mono)">K9-001-A</strong>. All forms, queries, and audit entries will be erased and cannot be recovered.</p>
+        <div style="padding:var(--space-3);background:var(--red-50);border:1px solid var(--red-200);border-radius:var(--radius-md);font-size:var(--text-sm);color:var(--red-600)"><i class="ti ti-alert-circle" style="font-size:14px;margin-right:4px;vertical-align:middle"></i>This action is permanent and violates GCP if done after enrollment.</div>
+      </div>
+      <div style="border-top:1px solid var(--color-border);padding:var(--space-4) var(--space-5);display:flex;align-items:center;justify-content:flex-end;gap:var(--space-2)">
+        <button class="btn-secondary">Cancel</button>
+        <button class="btn-danger"><i class="ti ti-trash"></i>Delete Permanently</button>
+      </div>
+      <div style="padding:var(--space-2) var(--space-5) var(--space-3);font-size:var(--text-xs);color:var(--color-text-tertiary)">⚠ btn-danger only here — permanent, unrecoverable data loss</div>
+    </div>
+  </div>
+</section>
+
+<!-- ══ 20. QUERY LIFECYCLE ───────────────────────────────── -->
+<section class="sg-section" id="query-lifecycle" data-section>
+  <div class="sg-section-header">
+    <div class="sg-section-num">20 — Clinical · Query Lifecycle</div>
+    <h2 class="sg-section-title">Query Lifecycle</h2>
+    <p class="sg-section-desc">Three-stage progression: <strong>Raised → Responded → Resolved.</strong> Resolved is the terminal state — Arken has no separate "Closed" stage. One action per stage: CRA raises, CRC responds, DM/CRA resolves. Each stage has a single action button.</p>
+  </div>
+  <div class="sg-canvas">
+    <div class="lifecycle-row" style="max-width:480px">
+      <div class="lifecycle-step">
+        <div class="lifecycle-dot lc-raised">1</div>
+        <div class="lifecycle-label">Raised</div>
+        <div class="lifecycle-sub">CRA · orange</div>
+      </div>
+      <div class="lifecycle-step">
+        <div class="lifecycle-dot lc-responded">2</div>
+        <div class="lifecycle-label">Responded</div>
+        <div class="lifecycle-sub">CRC · amber</div>
+      </div>
+      <div class="lifecycle-step">
+        <div class="lifecycle-dot lc-resolved">3</div>
+        <div class="lifecycle-label">Resolved</div>
+        <div class="lifecycle-sub">DM/CRA · green</div>
+      </div>
+    </div>
+    <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:var(--space-3);margin-top:var(--space-4);max-width:640px">
+      <div style="padding:var(--space-3);background:var(--orange-50);border:1px solid var(--orange-200);border-radius:var(--radius-md)">
+        <div style="font-size:var(--text-xs);font-weight:700;color:var(--orange-600);text-transform:uppercase;letter-spacing:var(--tracking-caps);margin-bottom:4px">Raised</div>
+        <div style="font-size:var(--text-xs);color:var(--color-text-secondary);margin-bottom:var(--space-3);line-height:1.5">CRA opens query on a specific field. Site CRC is notified.</div>
+        <button class="btn-primary" style="font-size:10px;height:28px;padding:0 var(--space-2)"><i class="ti ti-message-report" style="font-size:12px"></i>Raise Query</button>
+      </div>
+      <div style="padding:var(--space-3);background:var(--amber-50);border:1px solid var(--amber-200);border-radius:var(--radius-md)">
+        <div style="font-size:var(--text-xs);font-weight:700;color:var(--amber-700);text-transform:uppercase;letter-spacing:var(--tracking-caps);margin-bottom:4px">Responded</div>
+        <div style="font-size:var(--text-xs);color:var(--color-text-secondary);margin-bottom:var(--space-3);line-height:1.5">CRC explains or corrects. Data field may be updated with Δ reason.</div>
+        <button class="btn-primary" style="font-size:10px;height:28px;padding:0 var(--space-2)">Respond</button>
+      </div>
+      <div style="padding:var(--space-3);background:var(--green-50);border:1px solid var(--green-200);border-radius:var(--radius-md)">
+        <div style="font-size:var(--text-xs);font-weight:700;color:var(--green-600);text-transform:uppercase;letter-spacing:var(--tracking-caps);margin-bottom:4px">Resolved</div>
+        <div style="font-size:var(--text-xs);color:var(--color-text-secondary);margin-bottom:var(--space-3);line-height:1.5">DM or CRA accepts response. Query is resolved and enters audit trail.</div>
+        <button class="btn-primary" style="font-size:10px;height:28px;padding:0 var(--space-2)"><i class="ti ti-check" style="font-size:12px"></i>Resolve</button>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ══ 21. DELTA CHANGE REASON ───────────────────────────── -->
+<section class="sg-section" id="delta" data-section>
+  <div class="sg-section-header">
+    <div class="sg-section-num">21 — Clinical · Change Reason (Δ)</div>
+    <h2 class="sg-section-title">Delta (Δ) Change Reason</h2>
+    <p class="sg-section-desc">Every data edit after initial entry must carry a reason for change. The Δ symbol (monospace) marks edited values. Original value is struck through in tertiary text. New value in primary. Reason in italics.</p>
+  </div>
+  <div class="sg-canvas">
+    <div style="display:flex;flex-direction:column;gap:var(--space-3);max-width:540px">
+      <div class="delta-row">
+        <span class="delta-symbol">Δ</span>
+        <span class="delta-old">14.2</span>
+        <i class="delta-arrow ti ti-arrow-right"></i>
+        <span class="delta-new">14.8</span>
+        <span style="font-size:var(--text-xs);color:var(--color-text-tertiary);margin-left:auto;font-style:italic">Transcription error — corrected from source</span>
+      </div>
+      <div class="delta-row">
+        <span class="delta-symbol">Δ</span>
+        <span class="delta-old">2026-03-10</span>
+        <i class="delta-arrow ti ti-arrow-right"></i>
+        <span class="delta-new">2026-03-11</span>
+        <span style="font-size:var(--text-xs);color:var(--color-text-tertiary);margin-left:auto;font-style:italic">Wrong date entered — verified against visit log</span>
+      </div>
+      <div style="padding:var(--space-3) var(--space-4);background:var(--amber-50);border:1px solid var(--amber-200);border-radius:var(--radius-lg)">
+        <div style="font-size:var(--text-xs);font-weight:700;color:var(--amber-700);text-transform:uppercase;letter-spacing:var(--tracking-caps);margin-bottom:4px">Pending change reason</div>
+        <div style="font-size:var(--text-sm);color:var(--color-text-secondary)">Edit made without a reason. The system prompts before saving.</div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ══ 22. SDV PATTERN ───────────────────────────────────── -->
+<section class="sg-section" id="sdv" data-section>
+  <div class="sg-section-header">
+    <div class="sg-section-num">22 — Clinical · SDV Pattern</div>
+    <h2 class="sg-section-title">Source Data Verification (SDV)</h2>
+    <p class="sg-section-desc">SDV mode is activated via the Remarks dropdown ("Remarks: SDV"). When SDV mode is active, a blue <code style="font-family:var(--font-mono);font-size:11px;background:var(--color-border-subtle);padding:1px 4px;border-radius:2px">ti-shield-check</code> icon appears next to each verifiable field — click to mark it verified. Fields do not change color on verification. The icon turns active (solid blue) and a text note appears below in blue.</p>
+  </div>
+  <div class="sg-canvas">
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:var(--space-5)">
+      <div>
+        <div class="label-caps" style="margin-bottom:var(--space-3)">SDV modes</div>
+        <div style="display:flex;flex-direction:column;gap:var(--space-3)">
+          <div style="padding:var(--space-3) var(--space-4);border:1px solid var(--color-border);border-radius:var(--radius-lg);background:var(--color-surface)">
+            <div style="font-size:var(--text-sm);font-weight:500;color:var(--color-text-primary);margin-bottom:3px">Targeted SDV</div>
+            <div style="font-size:var(--text-xs);color:var(--color-text-secondary)">Verify specific fields — primary endpoints and safety parameters. Most common.</div>
+          </div>
+          <div style="padding:var(--space-3) var(--space-4);border:1px solid var(--color-border);border-radius:var(--radius-lg);background:var(--color-surface)">
+            <div style="font-size:var(--text-sm);font-weight:500;color:var(--color-text-primary);margin-bottom:3px">100% SDV</div>
+            <div style="font-size:var(--text-xs);color:var(--color-text-secondary)">All fields verified — required for pivotal trials and certain regulatory submissions.</div>
+          </div>
+        </div>
+        <div style="margin-top:var(--space-4);padding:var(--space-3) var(--space-4);background:var(--blue-50);border:1px solid var(--blue-200);border-radius:var(--radius-lg)">
+          <div style="font-size:var(--text-xs);font-weight:700;color:var(--blue-600);text-transform:uppercase;letter-spacing:var(--tracking-caps);margin-bottom:4px">Remarks mode activation</div>
+          <div style="font-size:var(--text-sm);color:var(--color-text-secondary)">Activated via Remarks dropdown in the form toolbar → "Remarks: SDV". Shield icons become clickable. Switching to "Remarks: Queries" deactivates SDV mode.</div>
+        </div>
+      </div>
+      <div>
+        <div class="label-caps" style="margin-bottom:var(--space-3)">SDV field states</div>
+        <div style="display:flex;flex-direction:column;gap:var(--space-4)">
+          <!-- Not yet verified -->
+          <div class="field-wrap">
+            <label class="field-label">Body Weight (kg)</label>
+            <div style="display:flex;align-items:center;gap:var(--space-2)">
+              <input class="field-input" type="text" value="14.2" style="flex:1">
+              <i class="ti ti-shield" style="font-size:16px;color:var(--color-text-placeholder);flex-shrink:0" title="Click to verify"></i>
+            </div>
+            <span class="field-hint">SDV mode active — click shield to verify</span>
+          </div>
+          <!-- Verified -->
+          <div class="field-wrap">
+            <label class="field-label">Heart Rate (bpm)</label>
+            <div style="display:flex;align-items:center;gap:var(--space-2)">
+              <input class="field-input" type="text" value="82" style="flex:1">
+              <i class="ti ti-shield-check" style="font-size:16px;color:var(--blue-600);flex-shrink:0" title="SDV Verified"></i>
+            </div>
+            <div style="font-size:var(--text-xs);color:var(--blue-600);margin-top:var(--space-1)">Verified · E. Marinetti · 2026-03-14 09:15 UTC</div>
+          </div>
+        </div>
+        <div style="margin-top:var(--space-4);padding:var(--space-3) var(--space-4);background:var(--color-page-bg);border:1px solid var(--color-border);border-radius:var(--radius-lg)">
+          <div style="font-size:var(--text-xs);font-weight:700;color:var(--color-text-tertiary);text-transform:uppercase;letter-spacing:var(--tracking-caps);margin-bottom:4px">Audit entry</div>
+          <div style="font-family:var(--font-mono);font-size:10px;color:var(--color-text-secondary);line-height:1.6">E. Marinetti (CRA-007)<br>SDV_VERIFIED · Heart Rate<br>K9-001-A · Visit 1<br>2026-03-14 09:15:42 UTC</div>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ══ 23. HIERARCHY ─────────────────────────────────────── -->
+<section class="sg-section" id="hierarchy" data-section>
+  <div class="sg-section-header">
+    <div class="sg-section-num">23 — Clinical · Hierarchy Drill-down</div>
+    <h2 class="sg-section-title">Hierarchy Drill-down</h2>
+    <p class="sg-section-desc">Two study types use different hierarchy depths. Both share the same breadcrumb and sidebar patterns — only the levels differ. Every node can have forms attached. Subject level is defined in study settings.</p>
+  </div>
+  <div class="sg-canvas">
+    <!-- Livestock -->
+    <div style="margin-bottom:var(--space-6)">
+      <div style="font-size:var(--text-sm);font-weight:700;color:var(--color-text-primary);margin-bottom:var(--space-3)">Livestock studies — 5 levels</div>
+      <div style="display:flex;align-items:flex-start;gap:var(--space-2);flex-wrap:wrap;margin-bottom:var(--space-3)">
+        <div style="padding:var(--space-2) var(--space-3);background:var(--color-nav-bg);border-radius:var(--radius-md);color:#fff;font-size:var(--text-sm);font-weight:500">PRRS Swine</div>
+        <i class="ti ti-chevron-right" style="margin-top:8px;color:var(--color-text-placeholder)"></i>
+        <div style="padding:var(--space-2) var(--space-3);background:var(--blue-50);border:1px solid var(--blue-200);border-radius:var(--radius-md);color:var(--blue-600);font-size:var(--text-sm);font-weight:500">Site 02</div>
+        <i class="ti ti-chevron-right" style="margin-top:8px;color:var(--color-text-placeholder)"></i>
+        <div style="padding:var(--space-2) var(--space-3);background:var(--color-surface);border:1px solid var(--color-border);border-radius:var(--radius-md);color:var(--color-text-primary);font-size:var(--text-sm)">Barn A</div>
+        <i class="ti ti-chevron-right" style="margin-top:8px;color:var(--color-text-placeholder)"></i>
+        <div style="padding:var(--space-2) var(--space-3);background:var(--color-surface);border:1px solid var(--color-border);border-radius:var(--radius-md);color:var(--color-text-primary);font-size:var(--text-sm)">Pen 3</div>
+        <i class="ti ti-chevron-right" style="margin-top:8px;color:var(--color-text-placeholder)"></i>
+        <div style="padding:var(--space-2) var(--space-3);background:var(--color-surface);border:1px solid var(--color-border);border-radius:var(--radius-md);font-family:var(--font-mono);font-size:var(--text-sm)">SWN-004</div>
+      </div>
+      <div style="display:grid;grid-template-columns:repeat(5,1fr);gap:var(--space-2)">
+        <div style="text-align:center;padding:var(--space-3);background:var(--color-border-subtle);border-radius:var(--radius-md)"><div style="font-size:var(--text-xs);font-weight:700;color:var(--color-text-secondary)">L1</div><div style="font-size:var(--text-xs);color:var(--color-text-tertiary);margin-top:2px">Study</div></div>
+        <div style="text-align:center;padding:var(--space-3);background:var(--color-border-subtle);border-radius:var(--radius-md)"><div style="font-size:var(--text-xs);font-weight:700;color:var(--color-text-secondary)">L2</div><div style="font-size:var(--text-xs);color:var(--color-text-tertiary);margin-top:2px">Site</div></div>
+        <div style="text-align:center;padding:var(--space-3);background:var(--color-border-subtle);border-radius:var(--radius-md)"><div style="font-size:var(--text-xs);font-weight:700;color:var(--color-text-secondary)">L3</div><div style="font-size:var(--text-xs);color:var(--color-text-tertiary);margin-top:2px">Barn / Unit</div></div>
+        <div style="text-align:center;padding:var(--space-3);background:var(--color-border-subtle);border-radius:var(--radius-md)"><div style="font-size:var(--text-xs);font-weight:700;color:var(--color-text-secondary)">L4</div><div style="font-size:var(--text-xs);color:var(--color-text-tertiary);margin-top:2px">Pen / Group</div></div>
+        <div style="text-align:center;padding:var(--space-3);background:var(--slate-50);border:1px solid var(--slate-200);border-radius:var(--radius-md)"><div style="font-size:var(--text-xs);font-weight:700;color:var(--slate-600)">L5</div><div style="font-size:var(--text-xs);color:var(--slate-600);margin-top:2px">Animal ★</div></div>
+      </div>
+    </div>
+
+    <!-- Companion -->
+    <div style="border-top:1px solid var(--color-border);padding-top:var(--space-6)">
+      <div style="font-size:var(--text-sm);font-weight:700;color:var(--color-text-primary);margin-bottom:var(--space-3)">Companion studies — 3 levels</div>
+      <div style="display:flex;align-items:flex-start;gap:var(--space-2);flex-wrap:wrap;margin-bottom:var(--space-3)">
+        <div style="padding:var(--space-2) var(--space-3);background:var(--color-nav-bg);border-radius:var(--radius-md);color:#fff;font-size:var(--text-sm);font-weight:500">Canine Analgesia</div>
+        <i class="ti ti-chevron-right" style="margin-top:8px;color:var(--color-text-placeholder)"></i>
+        <div style="padding:var(--space-2) var(--space-3);background:var(--blue-50);border:1px solid var(--blue-200);border-radius:var(--radius-md);color:var(--blue-600);font-size:var(--text-sm);font-weight:500">Site 01</div>
+        <i class="ti ti-chevron-right" style="margin-top:8px;color:var(--color-text-placeholder)"></i>
+        <div style="padding:var(--space-2) var(--space-3);background:var(--color-surface);border:1px solid var(--color-border);border-radius:var(--radius-md);font-family:var(--font-mono);font-size:var(--text-sm)">K9-001-A</div>
+      </div>
+      <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:var(--space-2);max-width:300px">
+        <div style="text-align:center;padding:var(--space-3);background:var(--color-border-subtle);border-radius:var(--radius-md)"><div style="font-size:var(--text-xs);font-weight:700;color:var(--color-text-secondary)">L1</div><div style="font-size:var(--text-xs);color:var(--color-text-tertiary);margin-top:2px">Study</div></div>
+        <div style="text-align:center;padding:var(--space-3);background:var(--color-border-subtle);border-radius:var(--radius-md)"><div style="font-size:var(--text-xs);font-weight:700;color:var(--color-text-secondary)">L2</div><div style="font-size:var(--text-xs);color:var(--color-text-tertiary);margin-top:2px">Site</div></div>
+        <div style="text-align:center;padding:var(--space-3);background:var(--slate-50);border:1px solid var(--slate-200);border-radius:var(--radius-md)"><div style="font-size:var(--text-xs);font-weight:700;color:var(--slate-600)">L3</div><div style="font-size:var(--text-xs);color:var(--slate-600);margin-top:2px">Subject ★</div></div>
+      </div>
+      <div style="margin-top:var(--space-3);font-size:var(--text-xs);color:var(--color-text-tertiary)">No barn or pen levels. Study type is set in Study Settings → Study Type selector.</div>
+    </div>
+  </div>
+</section>
+
+<!-- ══ 24. DESIGN RULES ──────────────────────────────────── -->
+<section class="sg-section" id="design-rules" data-section>
+  <div class="sg-section-header">
+    <div class="sg-section-num">24 — Reference · 10 Design Rules</div>
+    <h2 class="sg-section-title">The 10 Rules</h2>
+    <p class="sg-section-desc">These rules apply to every component file, every new screen, and every pattern added to the system. Non-negotiable.</p>
+  </div>
+  <div class="rule-row">
+    <div class="rule-item"><div class="rule-num">1</div><div class="rule-text"><strong>Never hardcode hex</strong> — CSS token variables only. <code style="font-family:var(--font-mono);font-size:11px;background:var(--color-border-subtle);padding:1px 4px;border-radius:2px">color: var(--red-600)</code> not <code style="font-family:var(--font-mono);font-size:11px;background:var(--color-border-subtle);padding:1px 4px;border-radius:2px">#B52626</code></div></div>
+    <div class="rule-item"><div class="rule-num">2</div><div class="rule-text"><strong>No field shadow</strong> — border only. <code style="font-family:var(--font-mono);font-size:11px;background:var(--color-border-subtle);padding:1px 4px;border-radius:2px">border: 1px solid var(--color-border)</code> Never <code style="font-family:var(--font-mono);font-size:11px;background:var(--color-border-subtle);padding:1px 4px;border-radius:2px">box-shadow</code> on inputs.</div></div>
+    <div class="rule-item"><div class="rule-num">3</div><div class="rule-text"><strong>Three severity levels</strong> — never merge amber / orange / red. Amber = query warning. Orange = raised/active. Red = critical/error.</div></div>
+    <div class="rule-item"><div class="rule-num">4</div><div class="rule-text"><strong>text-transform: uppercase</strong> — never <code style="font-family:var(--font-mono);font-size:11px;background:var(--color-border-subtle);padding:1px 4px;border-radius:2px">font-variant: small-caps</code>. All caps labels use <code style="font-family:var(--font-mono);font-size:11px;background:var(--color-border-subtle);padding:1px 4px;border-radius:2px">letter-spacing: var(--tracking-caps)</code>.</div></div>
+    <div class="rule-item"><div class="rule-num">5</div><div class="rule-text"><strong>Roboto Mono on all data values</strong> — IDs, timestamps, measurements, counts, doses. Never Roboto for tabular data.</div></div>
+    <div class="rule-item"><div class="rule-num">6</div><div class="rule-text"><strong>1px borders · 4px base radius</strong> — no thick borders, no overrounded components. Inputs and cards follow radius-md (4px) or radius-lg (6px) only.</div></div>
+    <div class="rule-item"><div class="rule-num">7</div><div class="rule-text"><strong>Fields and buttons: 32px height everywhere</strong> — settings forms included. No "36px for settings" exception. <code style="font-family:var(--font-mono);font-size:11px;background:var(--color-border-subtle);padding:1px 4px;border-radius:2px">font-weight: var(--weight-medium)</code> · <code style="font-family:var(--font-mono);font-size:11px;background:var(--color-border-subtle);padding:1px 4px;border-radius:2px">font-family: var(--font-sans)</code></div></div>
+    <div class="rule-item"><div class="rule-num">8</div><div class="rule-text"><strong>Links: text underlined, icon NOT underlined.</strong> <code style="font-family:var(--font-mono);font-size:11px;background:var(--color-border-subtle);padding:1px 4px;border-radius:2px">a { text-decoration: underline }</code> — icon-only links use <code style="font-family:var(--font-mono);font-size:11px;background:var(--color-border-subtle);padding:1px 4px;border-radius:2px">text-decoration: none</code></div></div>
+    <div class="rule-item"><div class="rule-num">9</div><div class="rule-text"><strong>Every component file is self-contained</strong> — declare all tokens in <code style="font-family:var(--font-mono);font-size:11px;background:var(--color-border-subtle);padding:1px 4px;border-radius:2px">:root</code>. No file should depend on another file's styles.</div></div>
+    <div class="rule-item"><div class="rule-num">10</div><div class="rule-text"><strong>Topbar = study pill + site dropdown. Breadcrumb = navigation path below the site level.</strong> The site name appears in the breadcrumb <em>only</em> when "All Sites" is selected in the top nav. When a specific site is already selected in the topbar, breadcrumb starts from the node below the site (Barn, Pen, or Subject depending on study type). See 26-data-entry.html for reference.</div></div>
+  </div>
+</section>
+
+<!-- ══ 25. FULL TOKEN SET ────────────────────────────────── -->
+<section class="sg-section" id="tokens" data-section>
+  <div class="sg-section-header">
+    <div class="sg-section-num">25 — Reference · Full Token Set</div>
+    <h2 class="sg-section-title">Design Tokens</h2>
+    <p class="sg-section-desc">Complete CSS custom property reference. Copy this :root block into any new prototype file. Every token must appear here — never invent new variables without adding them here first.</p>
+  </div>
+  <div class="token-full-block">
+    <pre>:root {
+  <span style="color:#4F6080">/* ── Navigation ── */</span>
+  --color-nav-bg:    #1A1F2E;   <span style="color:#4F6080">/* Main nav background, topbar */</span>
+  --color-nav-hover: #2C3248;   <span style="color:#4F6080">/* Active nav item, hover state */</span>
+  --color-nav-icon:  #8aafc8;   <span style="color:#4F6080">/* Inactive nav icon color */</span>
+
+  <span style="color:#4F6080">/* ── Surfaces ── */</span>
+  --color-page-bg:   #FBFBFB;   <span style="color:#4F6080">/* Page background */</span>
+  --color-surface:   #FFFFFF;   <span style="color:#4F6080">/* Cards, panels, inputs */</span>
+  --color-hover-bg:  #F0F0EE;   <span style="color:#4F6080">/* Row hover, button hover */</span>
+
+  <span style="color:#4F6080">/* ── Borders ── */</span>
+  --color-border:        #E8E8E6;  <span style="color:#4F6080">/* Standard border */</span>
+  --color-border-subtle: #F0F0EE;  <span style="color:#4F6080">/* Row separators, subtle dividers */</span>
+
+  <span style="color:#4F6080">/* ── Text ── */</span>
+  --color-text-primary:     #2C2D33;  <span style="color:#4F6080">/* Headings, labels, primary body */</span>
+  --color-text-secondary:   #4F535B;  <span style="color:#4F6080">/* Body text, table cells */</span>
+  --color-text-tertiary:    #6D7480;  <span style="color:#4F6080">/* Hints, metadata, caps labels */</span>
+  --color-text-placeholder: #C4C4C2;  <span style="color:#4F6080">/* Input placeholders */</span>
+  --color-link:             #3D4A5C;  <span style="color:#4F6080">/* Link color (always underlined) */</span>
+
+  <span style="color:#4F6080">/* ── Interactive ── */</span>
+  --color-cta-bg:    #1A1F2E;   <span style="color:#4F6080">/* Primary button background */</span>
+  --color-cta-hover: #2C3248;   <span style="color:#4F6080">/* Primary button hover */</span>
+  --color-focus-ring:#3D8FE0;   <span style="color:#4F6080">/* Focus outline color */</span>
+
+  <span style="color:#4F6080">/* ── Clinical severity ── */</span>
+  --amber-50:  #FFF8E7;  --amber-200: #F5B830;  --amber-700: #8A5C00;
+  --orange-50: #FFF0E8;  --orange-200:#F48E50;  --orange-600:#C94C0C;
+  --red-50:    #FFF0F0;  --red-200:   #EC8585;  --red-600:   #B52626;
+
+  <span style="color:#4F6080">/* ── Status colors ── */</span>
+  --green-50:  #EEFAF4;  --green-200: #58BC88;  --green-600: #1A6B47;
+  --blue-50:   #E8F4FF;  --blue-200:  #7AB8EE;  --blue-600:  #1760A8;
+  --slate-50:  #EEF1F6;  --slate-200: #8AA0B8;  --slate-600: #3D5A78;
+  --purple-50: #F0EEFF;  --purple-200:#A9A3EC;  --purple-600:#534AB7;
+
+  <span style="color:#4F6080">/* ── Typography ── */</span>
+  --font-sans: 'Roboto', system-ui, sans-serif;
+  --font-mono: 'Roboto Mono', monospace;
+
+  --text-xs:   11px;  <span style="color:#4F6080">/* Caps labels, badges */</span>
+  --text-sm:   12px;  <span style="color:#4F6080">/* Secondary body, table cells */</span>
+  --text-base: 14px;  <span style="color:#4F6080">/* Primary body, inputs, buttons */</span>
+  --text-lg:   16px;  <span style="color:#4F6080">/* Section titles, card headers */</span>
+  --text-xl:   18px;  <span style="color:#4F6080">/* Stat values */</span>
+  --text-3xl:  24px;  <span style="color:#4F6080">/* Hero stats, enrollment counts */</span>
+
+  --weight-medium: 500;
+  --weight-bold:   700;
+  --tracking-caps: 0.07em;  <span style="color:#4F6080">/* All caps labels */</span>
+
+  <span style="color:#4F6080">/* ── Radius ── */</span>
+  --radius-sm:   2px;     <span style="color:#4F6080">/* Dividers, progress bars */</span>
+  --radius-md:   4px;     <span style="color:#4F6080">/* Buttons, inputs, nav items */</span>
+  --radius-lg:   6px;     <span style="color:#4F6080">/* Cards, panels, canvases */</span>
+  --radius-full: 9999px;  <span style="color:#4F6080">/* Badges, pills, dots */</span>
+
+  <span style="color:#4F6080">/* ── Spacing (4px base) ── */</span>
+  --space-1: 4px;   --space-2: 8px;   --space-3: 12px;
+  --space-4: 16px;  --space-5: 20px;  --space-6: 24px;  --space-8: 32px;
+
+  <span style="color:#4F6080">/* ── Motion ── */</span>
+  --duration-fast: 120ms;
+  --ease-default:  cubic-bezier(0.16, 1, 0.3, 1);
+}</pre>
+  </div>
+
+  <div class="sg-subsection" style="margin-top:var(--space-6)">
+    <div class="sg-sub-title">JS safety patterns</div>
+    <div class="sg-code">
+      <pre><span class="tok-comment">/* ✅ Safe — named function reads data-* attributes */</span>
+function handleSeverityClick(el) {
+  const color = el.dataset.color;  <span class="tok-comment">// read from data-color="var(--red-600)"</span>
+  el.style.borderColor = <span class="tok-val">`var(${color})`</span>;
+}
+
+<span class="tok-comment">/* ❌ NEVER — CSS var in onclick handler string */</span>
+&lt;button onclick="doThing('var(--red-600)')"&gt;  <span class="tok-comment">// single-quote nesting breaks</span>
+
+<span class="tok-comment">/* ✅ Always validate before declaring JS complete */</span>
+<span class="tok-val">node --check</span> 25-settings.html</pre>
+    </div>
+  </div>
+</section>
+
+</main>
+</div>
+
+<script>
+// Scrollspy — highlight active nav item
+function updateActive() {
+  const sections = document.querySelectorAll('.sg-section[data-section]');
+  const navItems = document.querySelectorAll('.sg-nav-item');
+  let current = '';
+  sections.forEach(s => {
+    if (window.scrollY >= s.offsetTop - 80) current = s.id;
+  });
+  navItems.forEach(item => {
+    const href = item.getAttribute('href');
+    if (href && href === '#' + current) {
+      item.classList.add('active');
+    } else {
+      item.classList.remove('active');
+    }
+  });
+}
+window.addEventListener('scroll', updateActive, { passive: true });
+updateActive();
+
+// Table sort
+var sortCol = null, sortDir = 1;
+function sortTable(col) {
+  var th = document.getElementById('th-' + col);
+  if (sortCol === col) { sortDir *= -1; } else { sortDir = 1; sortCol = col; }
+  document.querySelectorAll('.sg-table thead th').forEach(function(t) {
+    t.classList.remove('sort-asc','sort-desc');
+  });
+  th.classList.add(sortDir === 1 ? 'sort-asc' : 'sort-desc');
+  var tbody = document.getElementById('demo-table-body');
+  var rows = Array.from(tbody.querySelectorAll('tr'));
+  rows.sort(function(a,b) {
+    var av = a.cells[['id','species','site','status','ts'].indexOf(col)].textContent.trim();
+    var bv = b.cells[['id','species','site','status','ts'].indexOf(col)].textContent.trim();
+    return av.localeCompare(bv) * sortDir;
+  });
+  rows.forEach(function(r) { tbody.appendChild(r); });
+}
+
+// Toggle switches
+document.querySelectorAll('.toggle-switch input').forEach(function(input) {
+  input.addEventListener('change', function() {
+    var track = this.nextElementSibling;
+    var thumb = track.nextElementSibling;
+    if (this.checked) {
+      track.style.background = 'var(--blue-600)';
+      thumb.style.transform = 'translateX(16px)';
+    } else {
+      track.style.background = 'var(--color-border)';
+      thumb.style.transform = 'translateX(0)';
+    }
+  });
+  // Init
+  if (input.checked) {
+    var track = input.nextElementSibling;
+    var thumb = track.nextElementSibling;
+    track.style.background = 'var(--blue-600)';
+    thumb.style.transform = 'translateX(16px)';
+  }
+});
+</script>
+</body>
+</html>
