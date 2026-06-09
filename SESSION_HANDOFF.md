@@ -1,6 +1,6 @@
 # Arken EDC — Session Handoff
 **Paste this entire file at the start of a new conversation.**
-Last updated: 2026-06-09 | Session 19 COMPLETE → Session 20 — Data Entry drill-down
+Last updated: 2026-06-09 | Session 20 COMPLETE → Session 21 — Apply migrations + next screen
 
 ---
 
@@ -22,7 +22,13 @@ Paste the full content of this file as your first message. It contains everythin
 
 ## Where we are now
 
-**Design phase complete. Production stack live. Login, study selector, role-aware app shell, and the role dashboards are built and wired to live Supabase data. Session 20 builds the Data Entry drill-down — the core screen of the app.**
+**Design phase complete. Production stack live. Login, study selector, role-aware app shell, role dashboards, the Data Entry drill-down, and the Subject Record are built and wired to live Supabase data. Two migrations are written but NOT applied — Session 21 should apply them (reseed) and continue with the next screen.**
+
+> ⚠️ **TWO PENDING MIGRATIONS (written, NOT applied to the live DB):**
+> 1. `20260609100000_remove_closed_query_status.sql` — drops `closed` from `query_status`.
+> 2. `20260609110000_six_study_architecture.sql` — `study_type` → `companion | livestock_group | livestock_individual`, adds `equine` species.
+>
+> The live DB still holds the **old 4-study seed** (AK-2401, AK-2312, SB-LIVE, SB-COMP). The new **6-study seed** (`app/supabase/seed.sql`) only goes live after applying. To apply migrations **and** load the new seed: `cd app && npx supabase db reset` (destructive re-seed — fine for demo). The UI already handles both old and new data.
 
 ### Session 16 — COMPLETE ✅
 - **Living style guide built and published.** Single static page at `docs/index.html`, served on GitHub Pages (no build step). Documents the full Arken design system — every token, component, and pattern — in one browseable reference. Sticky sidebar nav, anchor-linked sections.
@@ -62,21 +68,24 @@ Paste the full content of this file as your first message. It contains everythin
   - Did **not** build `32-dashboard-v2`'s customization / AI-chat (deferred). Dashboard metrics are static prototype data (placeholders) except the greeting uses the live study name.
 - **Shell/studies fixes** (commit `b94f260`): removed the Site/Barn/Pen nav item; removed the topbar settings gear; study pill routes back to `/studies`; the `/studies` lobby has no sidenav and a cards/table view toggle (cards default, table interim pending `14-list-pages.html`).
 
-### Session 20 — NEXT (Data Entry drill-down) ▶
+### Session 20 — COMPLETE ✅
+- **Data Entry drill-down** (`app/app/study/[studyId]/data-entry/`) — live, type-aware hierarchy: companion = Site → Subject; `livestock_group` / `livestock_individual` = Site → Barn → Pen → Animal. Breadcrumb, per-level filterable tables, summary bar, and an **"Open [level] record" secondary button** at site/barn/pen levels. Clicking a subject opens its Subject Record.
+- **Subject Record** (`app/components/subject-record/`, from `30-subject-record.html`) — the subject-level **entry point**; forms live inside it. Form sidebar (live forms + status icons + open-query badges), subject header, **remarks dropdown (Queries / SDV mode)**, per-field **query / SDV / delta / flag** states, plus 480px **query-thread** and 380px **delta** slide panels.
+  - SDV verify buttons use **`ti-shield` / `ti-shield-check-filled`**; SDV verify gated to **CRA**; query-panel actions gated via `canQuery()`.
+  - **Field content is illustrative** (the schema has no field definitions); **forms, status, and the live query are real**. Stub form route now opens the Subject Record with the form pre-selected.
+- **Six-study architecture** (migration + seed — **NOT applied**, see the banner above):
+  - Showcase: **AK-2401** (livestock_group) · **CA-1103** (companion, ex AK-2312) · **EQ-3302** (livestock_individual, equine). Sandboxes: **FE-0891** · **SB-LIVE** · **EQ-SAND**.
+  - All `study_memberships` default to **CRC** (access-code role overrides on entry — note: login doesn't capture an access code yet, so default CRC for now).
+  - **Sandbox badge** on sandbox study cards (cards + table view).
 
-**Build the Data Entry drill-down from `26-data-entry.html` — the most important screen in the app and the core of case studies 1, 3, and 4.** Renders inside the app shell (it's the `data-entry` nav destination). Read `26-data-entry.html` **fully** before writing anything; translate faithfully, then wire per role/data.
+### Session 21 — NEXT (apply migrations, then next screen) ▶
 
-It includes:
-- **Hierarchy drill-down** — Site → Barn → Pen → Animal for **livestock** studies; Site → Subject for **companion** studies (type-aware, matching the schema: livestock uses barn/pen, companion uses owner/subject).
-- **Form sidebar** with **SVG status icons** (empty / in-work / reviewed / finalized / queried — the status-icon set from the style guide).
-- **Field states** — queried (amber), SDV-verified, delta (Δ change reason).
-- **Inline query flags** on fields.
-- **Remarks dropdown** with two modes — **Queries mode** and **SDV mode** (the toggle pattern from the style guide).
+1. **Apply the two pending migrations + reseed** so the six-study architecture goes live: `cd app && npx supabase db reset` (re-applies all migrations + the new 6-study seed). Verify the study selector shows the 6 studies with CRC chips + Sandbox badges, and that drill-down works for all three hierarchy shapes (group / individual livestock + companion). Then confirm the `query_status` enum no longer has `closed`.
+2. **Build the next screen** — suggested: **Animals list** from `29-animals-list.html` (the `animals` nav destination), wired to the live `subjects` table. Other candidates: Queries (`15-queries-list.html` + `13-query-thread.html`), Visits (`16-visits.html` / `17-calendar.html`).
 
-Notes:
-- Respect `QUERY_PERMISSIONS` / `canQuery()` and the SDV permission (CRA) from `lib/permissions.ts` — e.g. only CRA can SDV-verify; query actions per role.
-- Wire to live Supabase (`subjects`, `forms`, `form_fields`, `form_instances`, `field_values`, `queries`, `sdv_records`) where practical; note placeholders. The two rich seeded studies (AK-2401 livestock, AK-2312 companion) cover both hierarchy shapes.
-- Start by reading `26-data-entry.html`, then plan the drill-down + form + field-state component structure.
+Notes for whoever picks this up:
+- Read the target prototype **fully** before writing; translate faithfully, wire to live Supabase where practical, note placeholders.
+- The drill-down `data-entry` page builds a node tree from live `sites`/`barns`/`pens`/`subjects`; the Subject Record reads live `forms`/`form_instances`/`queries`.
 
 ---
 
@@ -228,4 +237,4 @@ The style guide is a single `docs/index.html`, served by GitHub Pages from the `
 
 Paste this file and say:
 
-> "This is the handoff doc for Arken EDC. We're in session 20. The design phase is complete; login, study selector, the role-aware app shell, and the role dashboards are built and wired to live Supabase data (app/app/study/[studyId], app/components/shell, app/components/dashboard, app/lib/permissions.ts). Read the handoff fully, then let's build the Data Entry drill-down from 26-data-entry.html — the most important screen in the app and the core of case studies 1, 3, and 4. It includes the hierarchy drill-down (Site→Barn→Pen→Animal for livestock, Site→Subject for companion), the form sidebar with SVG status icons, field states (queried/SDV/delta), inline query flags, and the remarks dropdown (Queries mode / SDV mode). Respect QUERY_PERMISSIONS/canQuery() and the SDV (CRA) permission in lib/permissions.ts. Read 26-data-entry.html fully before writing anything, then plan the component structure."
+> "This is the handoff doc for Arken EDC. We're in session 21. The design phase is complete; login, study selector, role-aware app shell, role dashboards, the Data Entry drill-down, and the Subject Record are built and wired to live Supabase data. IMPORTANT: two migrations are written but NOT applied — first apply them and reseed with `cd app && npx supabase db reset` so the six-study architecture goes live (walk me through it step by step, I'm new to the CLI). Then verify the study selector shows 6 studies with CRC chips + Sandbox badges and the drill-down works for all hierarchy shapes. After that, build the Animals list from 29-animals-list.html (the animals nav destination) wired to the live subjects table — read the prototype fully first."
