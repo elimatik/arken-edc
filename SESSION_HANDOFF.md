@@ -1,6 +1,6 @@
 # Arken EDC — Session Handoff
 **Paste this entire file at the start of a new conversation.**
-Last updated: 2026-06-09 | Session 18 COMPLETE → Session 19 — Role dashboards
+Last updated: 2026-06-09 | Session 19 COMPLETE → Session 20 — Data Entry drill-down
 
 ---
 
@@ -22,7 +22,7 @@ Paste the full content of this file as your first message. It contains everythin
 
 ## Where we are now
 
-**Design phase complete. Production stack live. Login, study selector, and the authenticated app shell (role-aware) are built and wired to live Supabase data. Session 19 builds the role dashboards.**
+**Design phase complete. Production stack live. Login, study selector, role-aware app shell, and the role dashboards are built and wired to live Supabase data. Session 20 builds the Data Entry drill-down — the core screen of the app.**
 
 ### Session 16 — COMPLETE ✅
 - **Living style guide built and published.** Single static page at `docs/index.html`, served on GitHub Pages (no build step). Documents the full Arken design system — every token, component, and pattern — in one browseable reference. Sticky sidebar nav, anchor-linked sections.
@@ -49,21 +49,34 @@ Paste the full content of this file as your first message. It contains everythin
   - **Breadcrumb component** implements the site rule (site shown only when no specific site is pinned).
   - **Route** `app/app/study/[studyId]/` — server layout fetches study/sites/role and renders the shell; landing is a dashboard stub. `enterStudy` routes here.
 - **Role-aware nav + permissions** — single source of truth in **`app/lib/permissions.ts`** (this is canonical; don't duplicate the matrix elsewhere):
-  - Nav items hidden (never reordered) per role. Final item set: Dashboard, Data Entry, Animals, Records (Site/Barn/Pen), Queries, Visits, SDV (CRA), Coding (DM), Calendar, Reports, Inventory, Audit Trail, Invoices (Admin), Settings (bottom-pinned).
+  - Nav items hidden (never reordered) per role. Final item set: Dashboard, Data Entry, Animals, Queries, Visits, SDV (CRA), Coding (DM), Calendar, Reports, Inventory, Audit Trail, Invoices (Admin), Settings (bottom-pinned). **Site/Barn/Pen is a drill-down inside Data Entry, not a standalone nav item.**
   - Per-role flags: `blinded` (Reports + Inventory for Sponsor), `readonly` (Settings DM=true, Admin=false).
   - **Query permissions** (`QUERY_PERMISSIONS` / `canQuery()`): CRC respond · CRA raise+resolve · DM raise+resolve+manage · PI respond · Sponsor/Admin none. Lifecycle `open → responded → resolved`; **Resolved is terminal — no Closed**.
 - **Live data + session:** study selector queries the live `studies` table (real roles, subject/site counts) and routes into the shell. Role switcher persists to `demo_sessions.active_role` (`app/lib/session.ts`), survives reloads.
 - ⚠️ **Pending migration:** `app/supabase/migrations/20260609100000_remove_closed_query_status.sql` drops `closed` from the `query_status` enum. **Written but NOT applied** — apply with `cd app && npx supabase db push`.
 
-### Session 19 — NEXT (role dashboards) ▶
+### Session 19 — COMPLETE ✅
+- **Role dashboards built** (replaced the landing stub at `app/app/study/[studyId]/page.tsx`). Driven by `useShell().activeRole` — switching the role in the topbar swaps the dashboard live. Widgets + styles in `app/components/dashboard/` (`RoleDashboard.tsx`, `widgets.tsx`, `dashboard.css`).
+  - CRC / CRA / PI / DM / Admin translated faithfully from `31-dashboard.html`.
+  - **Sponsor** = adapted oversight dashboard. **Blinding = aggregate totals only, no treatment-arm / randomization breakdown** (NOT value masking with `••••`). Semantics documented in `lib/permissions.ts` (`NavAccess.blinded`).
+  - Did **not** build `32-dashboard-v2`'s customization / AI-chat (deferred). Dashboard metrics are static prototype data (placeholders) except the greeting uses the live study name.
+- **Shell/studies fixes** (commit `b94f260`): removed the Site/Barn/Pen nav item; removed the topbar settings gear; study pill routes back to `/studies`; the `/studies` lobby has no sidenav and a cards/table view toggle (cards default, table interim pending `14-list-pages.html`).
 
-**Build the Dashboard screen — each role sees a different dashboard.** Reference `31-dashboard.html` (role dashboards, 6 roles) and `32-dashboard-v2.html` (customizable dashboard + AI chat) in the repo root.
+### Session 20 — NEXT (Data Entry drill-down) ▶
 
-- The dashboard renders inside the existing app shell at `app/app/study/[studyId]/page.tsx` (currently a stub) — replace the stub.
-- Use the active role from the shell (`useShell().activeRole`) to pick the dashboard variant, so switching the role in the topbar swaps the dashboard live.
-- Translate the prototype dashboards faithfully (tokens, fonts, Tabler icons); wire to live Supabase data where practical, placeholder where not (note any placeholders).
-- Respect the permission flags from `lib/permissions.ts` — e.g. Sponsor sees **blinded** Reports/Inventory widgets.
-- Start by reading `31-dashboard.html` and `32-dashboard-v2.html`, then plan the per-role widget structure.
+**Build the Data Entry drill-down from `26-data-entry.html` — the most important screen in the app and the core of case studies 1, 3, and 4.** Renders inside the app shell (it's the `data-entry` nav destination). Read `26-data-entry.html` **fully** before writing anything; translate faithfully, then wire per role/data.
+
+It includes:
+- **Hierarchy drill-down** — Site → Barn → Pen → Animal for **livestock** studies; Site → Subject for **companion** studies (type-aware, matching the schema: livestock uses barn/pen, companion uses owner/subject).
+- **Form sidebar** with **SVG status icons** (empty / in-work / reviewed / finalized / queried — the status-icon set from the style guide).
+- **Field states** — queried (amber), SDV-verified, delta (Δ change reason).
+- **Inline query flags** on fields.
+- **Remarks dropdown** with two modes — **Queries mode** and **SDV mode** (the toggle pattern from the style guide).
+
+Notes:
+- Respect `QUERY_PERMISSIONS` / `canQuery()` and the SDV permission (CRA) from `lib/permissions.ts` — e.g. only CRA can SDV-verify; query actions per role.
+- Wire to live Supabase (`subjects`, `forms`, `form_fields`, `form_instances`, `field_values`, `queries`, `sdv_records`) where practical; note placeholders. The two rich seeded studies (AK-2401 livestock, AK-2312 companion) cover both hierarchy shapes.
+- Start by reading `26-data-entry.html`, then plan the drill-down + form + field-state component structure.
 
 ---
 
@@ -215,4 +228,4 @@ The style guide is a single `docs/index.html`, served by GitHub Pages from the `
 
 Paste this file and say:
 
-> "This is the handoff doc for Arken EDC. We're in session 19. The design phase is complete; login, study selector, and the role-aware app shell are built and wired to live Supabase data (app/app/study/[studyId], app/components/shell, app/lib/permissions.ts). Read the handoff fully, then let's build the role dashboards: the Dashboard screen where each role sees a different dashboard, replacing the stub at app/app/study/[studyId]/page.tsx. Use useShell().activeRole to pick the variant so it swaps live with the topbar role switcher, and respect the blinded/readonly flags in lib/permissions.ts. Start by reading 31-dashboard.html and 32-dashboard-v2.html from the repo root, then plan the per-role widget structure."
+> "This is the handoff doc for Arken EDC. We're in session 20. The design phase is complete; login, study selector, the role-aware app shell, and the role dashboards are built and wired to live Supabase data (app/app/study/[studyId], app/components/shell, app/components/dashboard, app/lib/permissions.ts). Read the handoff fully, then let's build the Data Entry drill-down from 26-data-entry.html — the most important screen in the app and the core of case studies 1, 3, and 4. It includes the hierarchy drill-down (Site→Barn→Pen→Animal for livestock, Site→Subject for companion), the form sidebar with SVG status icons, field states (queried/SDV/delta), inline query flags, and the remarks dropdown (Queries mode / SDV mode). Respect QUERY_PERMISSIONS/canQuery() and the SDV (CRA) permission in lib/permissions.ts. Read 26-data-entry.html fully before writing anything, then plan the component structure."
