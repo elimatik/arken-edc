@@ -1,6 +1,6 @@
 # Arken EDC — Session Handoff
 **Paste this entire file at the start of a new conversation.**
-Last updated: 2026-06-09 | Session 20 COMPLETE → Session 21 — Apply migrations + next screen
+Last updated: 2026-06-09 | Session 21 COMPLETE → Session 22 — Form layer + Create new study
 
 ---
 
@@ -22,13 +22,11 @@ Paste the full content of this file as your first message. It contains everythin
 
 ## Where we are now
 
-**Design phase complete. Production stack live. Login, study selector, role-aware app shell, role dashboards, the Data Entry drill-down, and the Subject Record are built and wired to live Supabase data. Two migrations are written but NOT applied — Session 21 should apply them (reseed) and continue with the next screen.**
+**The app is fully built through the Subject Record and now runs on a session-based data store.** The final **3-study architecture** is applied and live in Supabase; on first visit the seed is hydrated once per tab into the session store, and from then on **all reads/writes are in-session** (edits reset on tab close). Session 22 builds the form layer and the "Create new study" flow.
 
-> ⚠️ **TWO PENDING MIGRATIONS (written, NOT applied to the live DB):**
-> 1. `20260609100000_remove_closed_query_status.sql` — drops `closed` from `query_status`.
-> 2. `20260609110000_six_study_architecture.sql` — `study_type` → `companion | livestock_group | livestock_individual`, adds `equine` species.
+> **Data model (important):** Supabase is the **read-only seed source**. `app/lib/session-store/` (`useStudySession` / `StudySessionProvider`) hydrates the dataset once per tab into `sessionStorage`; every screen reads from it; `update()` mutates in session and **never writes back to Supabase**. Only `hydrate.ts` reads Supabase.
 >
-> The live DB still holds the **old 4-study seed** (AK-2401, AK-2312, SB-LIVE, SB-COMP). The new **6-study seed** (`app/supabase/seed.sql`) only goes live after applying. To apply migrations **and** load the new seed: `cd app && npx supabase db reset` (destructive re-seed — fine for demo). The UI already handles both old and new data.
+> **Live studies (3):** `AK-2401` (livestock_group) · `CA-1103` (companion) · `EQ-3302` (livestock_individual, equine). All memberships **CRC**. No sandbox/showcase split — all three are the editable demo.
 
 ### Session 16 — COMPLETE ✅
 - **Living style guide built and published.** Single static page at `docs/index.html`, served on GitHub Pages (no build step). Documents the full Arken design system — every token, component, and pattern — in one browseable reference. Sticky sidebar nav, anchor-linked sections.
@@ -58,8 +56,7 @@ Paste the full content of this file as your first message. It contains everythin
   - Nav items hidden (never reordered) per role. Final item set: Dashboard, Data Entry, Animals, Queries, Visits, SDV (CRA), Coding (DM), Calendar, Reports, Inventory, Audit Trail, Invoices (Admin), Settings (bottom-pinned). **Site/Barn/Pen is a drill-down inside Data Entry, not a standalone nav item.**
   - Per-role flags: `blinded` (Reports + Inventory for Sponsor), `readonly` (Settings DM=true, Admin=false).
   - **Query permissions** (`QUERY_PERMISSIONS` / `canQuery()`): CRC respond · CRA raise+resolve · DM raise+resolve+manage · PI respond · Sponsor/Admin none. Lifecycle `open → responded → resolved`; **Resolved is terminal — no Closed**.
-- **Live data + session:** study selector queries the live `studies` table (real roles, subject/site counts) and routes into the shell. Role switcher persists to `demo_sessions.active_role` (`app/lib/session.ts`), survives reloads.
-- ⚠️ **Pending migration:** `app/supabase/migrations/20260609100000_remove_closed_query_status.sql` drops `closed` from the `query_status` enum. **Written but NOT applied** — apply with `cd app && npx supabase db push`.
+- **Live data + session:** study selector + shell wired to data. *(Superseded in Session 21 — data now flows through the session store; role switching is session-scoped and `demo_sessions` / `lib/session.ts` are removed.)*
 
 ### Session 19 — COMPLETE ✅
 - **Role dashboards built** (replaced the landing stub at `app/app/study/[studyId]/page.tsx`). Driven by `useShell().activeRole` — switching the role in the topbar swaps the dashboard live. Widgets + styles in `app/components/dashboard/` (`RoleDashboard.tsx`, `widgets.tsx`, `dashboard.css`).
@@ -73,19 +70,27 @@ Paste the full content of this file as your first message. It contains everythin
 - **Subject Record** (`app/components/subject-record/`, from `30-subject-record.html`) — the subject-level **entry point**; forms live inside it. Form sidebar (live forms + status icons + open-query badges), subject header, **remarks dropdown (Queries / SDV mode)**, per-field **query / SDV / delta / flag** states, plus 480px **query-thread** and 380px **delta** slide panels.
   - SDV verify buttons use **`ti-shield` / `ti-shield-check-filled`**; SDV verify gated to **CRA**; query-panel actions gated via `canQuery()`.
   - **Field content is illustrative** (the schema has no field definitions); **forms, status, and the live query are real**. Stub form route now opens the Subject Record with the form pre-selected.
-- **Six-study architecture** (migration + seed — **NOT applied**, see the banner above):
-  - Showcase: **AK-2401** (livestock_group) · **CA-1103** (companion, ex AK-2312) · **EQ-3302** (livestock_individual, equine). Sandboxes: **FE-0891** · **SB-LIVE** · **EQ-SAND**.
-  - All `study_memberships` default to **CRC** (access-code role overrides on entry — note: login doesn't capture an access code yet, so default CRC for now).
-  - **Sandbox badge** on sandbox study cards (cards + table view).
+- **Study architecture** (first drafted here as a 6-study set with sandboxes) was **finalized in Session 21** to 3 studies with no sandbox split — see Session 21.
 
-### Session 21 — NEXT (apply migrations, then next screen) ▶
+### Session 21 — COMPLETE ✅
+- **Final 3-study architecture — applied & live.** Migrations applied (`db push` + `db reset --linked`); `is_sandbox` dropped, `study_type` = companion | livestock_group | livestock_individual, `equine` species added, `query_status` `closed` removed. Live studies: **AK-2401** (livestock_group) · **CA-1103** (companion) · **EQ-3302** (livestock_individual, equine). All memberships **CRC**; no sandbox/showcase split.
+- **Session-based data store** (`app/lib/session-store/`) — **`useStudySession` / `StudySessionProvider`** (mounted at the root layout):
+  - hydrates the full dataset from Supabase **once per tab** into `sessionStorage` (`hydrate.ts`); resets on tab close.
+  - **all screens read from the store** — study selector, shell (`StudyShell` resolves study/sites), dashboard, drill-down (builds the hierarchy via `useMemo`), Subject Record (subject/forms/statuses/query).
+  - **role switching is session-scoped** (in the store, persisted per tab). `demo_sessions` writes and `lib/session.ts` are **removed**. **Only `hydrate.ts` reads Supabase.**
+  - `update(mutator)` mutates the dataset in session (never writes to Supabase); `reset()` re-hydrates from the seed.
+- **Fixes:** all study cards show the CRC chip; removed `.form-sticky-header` bottom border; removed the subject-status dot; SDV-verified fields show "Verified by … · date" in SDV mode; `.delta-btn` 16px; **all badge/chip heights normalized to 20px** (was 22.5px).
+- ⚠️ **Subject-record field edits are still local/illustrative** — the vitals fields and SDV toggles aren't backed by structured store data (the schema has no field definitions yet). Structured reads are session-sourced; structured field editing comes in Session 22.
 
-1. **Apply the two pending migrations + reseed** so the six-study architecture goes live: `cd app && npx supabase db reset` (re-applies all migrations + the new 6-study seed). Verify the study selector shows the 6 studies with CRC chips + Sandbox badges, and that drill-down works for all three hierarchy shapes (group / individual livestock + companion). Then confirm the `query_status` enum no longer has `closed`.
-2. **Build the next screen** — suggested: **Animals list** from `29-animals-list.html` (the `animals` nav destination), wired to the live `subjects` table. Other candidates: Queries (`15-queries-list.html` + `13-query-thread.html`), Visits (`16-visits.html` / `17-calendar.html`).
+### Session 22 — NEXT (form layer + Create new study) ▶
 
-Notes for whoever picks this up:
-- Read the target prototype **fully** before writing; translate faithfully, wire to live Supabase where practical, note placeholders.
-- The drill-down `data-entry` page builds a node tree from live `sites`/`barns`/`pens`/`subjects`; the Subject Record reads live `forms`/`form_instances`/`queries`.
+1. **Seed form definitions** — Demographics, Screening, Baseline Vitals, Visit 1 / 2 / 3 — with **species-specific validation rules** (per study type / species). These become real `form_fields` so the Subject Record renders actual fields instead of illustrative ones.
+2. **Wire real field editing through the session store** — field values, SDV verify, and query actions persist via `useStudySession().update()` (session only, reset on tab close).
+3. **Build the "Create new study" setup flow** — session-based: an `update()` that inserts a new study graph (study + sites/hierarchy + forms) into the session. Entry point is the study selector ("Create new study" option). Now well-positioned since the store + form layer exist.
+
+Notes:
+- Read any target prototype **fully** before writing; translate faithfully.
+- Everything is in-session now — no Supabase writes. New data lives in the session store and resets on tab close.
 
 ---
 
@@ -237,4 +242,4 @@ The style guide is a single `docs/index.html`, served by GitHub Pages from the `
 
 Paste this file and say:
 
-> "This is the handoff doc for Arken EDC. We're in session 21. The design phase is complete; login, study selector, role-aware app shell, role dashboards, the Data Entry drill-down, and the Subject Record are built and wired to live Supabase data. IMPORTANT: two migrations are written but NOT applied — first apply them and reseed with `cd app && npx supabase db reset` so the six-study architecture goes live (walk me through it step by step, I'm new to the CLI). Then verify the study selector shows 6 studies with CRC chips + Sandbox badges and the drill-down works for all hierarchy shapes. After that, build the Animals list from 29-animals-list.html (the animals nav destination) wired to the live subjects table — read the prototype fully first."
+> "This is the handoff doc for Arken EDC. We're in session 22. The app is fully built through the Subject Record and runs on a session-based data store (useStudySession / StudySessionProvider): the 3-study seed is hydrated from Supabase once per tab into sessionStorage, all screens read from the store, all edits are in-session (reset on tab close), and only hydrate.ts reads Supabase. Read the handoff fully, then build the form layer: (1) seed real form definitions — Demographics, Screening, Baseline Vitals, Visit 1/2/3 — with species-specific validation rules, so the Subject Record renders actual fields; (2) wire real field editing / SDV / query actions through useStudySession().update() (session only); (3) build the 'Create new study' setup flow as a session insert (update() that adds a new study graph). Plan the form-definition schema + the session write actions first."
