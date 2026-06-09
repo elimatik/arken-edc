@@ -1,6 +1,6 @@
 # Arken EDC — Session Handoff
 **Paste this entire file at the start of a new conversation.**
-Last updated: 2026-06-09 | Session 17 COMPLETE → Session 18 — App shell + live data
+Last updated: 2026-06-09 | Session 18 COMPLETE → Session 19 — Role dashboards
 
 ---
 
@@ -22,7 +22,7 @@ Paste the full content of this file as your first message. It contains everythin
 
 ## Where we are now
 
-**Design phase complete. Production stack live. Login + study selector built and the Supabase backend is applied with seed data. Session 18 builds the authenticated app shell and connects screens to live data.**
+**Design phase complete. Production stack live. Login, study selector, and the authenticated app shell (role-aware) are built and wired to live Supabase data. Session 19 builds the role dashboards.**
 
 ### Session 16 — COMPLETE ✅
 - **Living style guide built and published.** Single static page at `docs/index.html`, served on GitHub Pages (no build step). Documents the full Arken design system — every token, component, and pattern — in one browseable reference. Sticky sidebar nav, anchor-linked sections.
@@ -43,47 +43,27 @@ Paste the full content of this file as your first message. It contains everythin
   - ⚠️ **RLS deliberately OFF** for now (documented in the migration). Tables are reachable via the anon key — fine for demo data, revisit before anything real.
 - Role enum is **CRC · CRA · DM · PI · Sponsor · Admin** (Sponsor replaces the prototype's `PM` chip — update `rc-pm` references when building those screens).
 
-### Session 18 — NEXT (app shell + live data) ▶
+### Session 18 — COMPLETE ✅
+- **Authenticated app shell built** (translated from `04-app-shell.html`): 74px role-aware sidenav + 56px topbar + scrollable page content, in `app/components/shell/` (`AppShell`, `Sidenav`, `Topbar`, `Breadcrumb`, `ShellContext`, `shell.css`).
+  - **Topbar:** study pill + site dropdown (default "All Sites") on the left; role switcher (all roles, instant, no re-login) + utilities + avatar on the right.
+  - **Breadcrumb component** implements the site rule (site shown only when no specific site is pinned).
+  - **Route** `app/app/study/[studyId]/` — server layout fetches study/sites/role and renders the shell; landing is a dashboard stub. `enterStudy` routes here.
+- **Role-aware nav + permissions** — single source of truth in **`app/lib/permissions.ts`** (this is canonical; don't duplicate the matrix elsewhere):
+  - Nav items hidden (never reordered) per role. Final item set: Dashboard, Data Entry, Animals, Records (Site/Barn/Pen), Queries, Visits, SDV (CRA), Coding (DM), Calendar, Reports, Inventory, Audit Trail, Invoices (Admin), Settings (bottom-pinned).
+  - Per-role flags: `blinded` (Reports + Inventory for Sponsor), `readonly` (Settings DM=true, Admin=false).
+  - **Query permissions** (`QUERY_PERMISSIONS` / `canQuery()`): CRC respond · CRA raise+resolve · DM raise+resolve+manage · PI respond · Sponsor/Admin none. Lifecycle `open → responded → resolved`; **Resolved is terminal — no Closed**.
+- **Live data + session:** study selector queries the live `studies` table (real roles, subject/site counts) and routes into the shell. Role switcher persists to `demo_sessions.active_role` (`app/lib/session.ts`), survives reloads.
+- ⚠️ **Pending migration:** `app/supabase/migrations/20260609100000_remove_closed_query_status.sql` drops `closed` from the `query_status` enum. **Written but NOT applied** — apply with `cd app && npx supabase db push`.
 
-Build the authenticated app shell from `04-app-shell.html` and connect it to live Supabase data. Detailed specs:
+### Session 19 — NEXT (role dashboards) ▶
 
-**1. Topbar**
-- **Study pill + site dropdown side by side on the left.**
-- Site dropdown defaults to **"All Sites"**.
-- **Role switcher on the top right**, visible to **all roles**. Changing it switches the active role **instantly, without re-login**.
+**Build the Dashboard screen — each role sees a different dashboard.** Reference `31-dashboard.html` (role dashboards, 6 roles) and `32-dashboard-v2.html` (customizable dashboard + AI chat) in the repo root.
 
-**2. Breadcrumb rule**
-- When **All Sites** is selected → the **site name appears in the breadcrumb**.
-- When a **specific site** is selected → the breadcrumb **starts below the site level** (site is implied by the dropdown, not repeated in the trail).
-
-**3. Sidenav — role-aware**
-- Items are **hidden (not reordered)** based on the active role. Order is stable; disallowed items simply don't render.
-- **Store permissions in a single config object** (e.g. `app/lib/permissions.ts`), keyed by nav item → allowed roles. **Do not hardcode role checks per component.**
-
-Permission matrix (roles: CRC · CRA · DM · PI · Sponsor · Admin):
-
-| Nav item | CRC | CRA | DM | PI | Sponsor | Admin |
-|---|:--:|:--:|:--:|:--:|:--:|:--:|
-| Dashboard | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ |
-| Data Entry | ✓ | ✓ | ✓ | ✓ | — | ✓ |
-| Animals | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ |
-| Queries | ✓ | ✓ | ✓ | ✓ | — | ✓ |
-| Visits | ✓ | ✓ | ✓ | ✓ | — | ✓ |
-| Reports | — | ✓ | ✓ | ✓ | ✓ | ✓ |
-| Invoices | — | — | — | — | — | ✓ |
-| Inventory | — | ✓ | ✓ | — | — | ✓ |
-| Audit Trail | — | ✓ | ✓ | ✓ | — | ✓ |
-| Settings | — | — | — | — | — | ✓ |
-
-Plain-English rules behind the matrix: Dashboard + Animals = all roles · Data Entry/Queries/Visits = all **except Sponsor** · Reports = all **except CRC** · Inventory = CRA/DM/Admin · Audit Trail = CRA/DM/PI/Admin · Invoices + Settings = **Admin only**.
-
-**4. Live data — study selector**
-- Replace the hardcoded `STUDIES` array in `app/app/studies/page.tsx` with a query against the live Supabase **`studies`** table (project `lijieicldshgjtqjescv`).
-
-**5. Role switcher persistence**
-- The role switcher **updates `demo_sessions.active_role` in Supabase** (not just local state), so the active role survives reloads and drives the role-aware sidenav.
-
-`enterStudy` on the study selector should route into this app shell instead of the placeholder alert.
+- The dashboard renders inside the existing app shell at `app/app/study/[studyId]/page.tsx` (currently a stub) — replace the stub.
+- Use the active role from the shell (`useShell().activeRole`) to pick the dashboard variant, so switching the role in the topbar swaps the dashboard live.
+- Translate the prototype dashboards faithfully (tokens, fonts, Tabler icons); wire to live Supabase data where practical, placeholder where not (note any placeholders).
+- Respect the permission flags from `lib/permissions.ts` — e.g. Sponsor sees **blinded** Reports/Inventory widgets.
+- Start by reading `31-dashboard.html` and `32-dashboard-v2.html`, then plan the per-role widget structure.
 
 ---
 
@@ -235,4 +215,4 @@ The style guide is a single `docs/index.html`, served by GitHub Pages from the `
 
 Paste this file and say:
 
-> "This is the handoff doc for Arken EDC. We're in session 18. The design phase is complete, the login screen + study selector are built (app/app/login, app/app/studies), and the Supabase backend is applied with seed data (20 tables, live at project lijieicldshgjtqjescv). Read the handoff fully, then let's continue the build. Tasks: (1) build the authenticated app shell from 04-app-shell.html (sidenav + topbar) and route enterStudy into it; (2) wire the role switcher into the topnav, backed by demo_sessions.active_role; (3) connect the study selector to real Supabase data, replacing the hardcoded STUDIES array. Start by reading 04-app-shell.html and app/app/studies/page.tsx, then plan the component structure."
+> "This is the handoff doc for Arken EDC. We're in session 19. The design phase is complete; login, study selector, and the role-aware app shell are built and wired to live Supabase data (app/app/study/[studyId], app/components/shell, app/lib/permissions.ts). Read the handoff fully, then let's build the role dashboards: the Dashboard screen where each role sees a different dashboard, replacing the stub at app/app/study/[studyId]/page.tsx. Use useShell().activeRole to pick the variant so it swaps live with the topbar role switcher, and respect the blinded/readonly flags in lib/permissions.ts. Start by reading 31-dashboard.html and 32-dashboard-v2.html from the repo root, then plan the per-role widget structure."
