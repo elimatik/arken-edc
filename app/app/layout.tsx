@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import { Roboto, Roboto_Mono } from "next/font/google";
+import { SessionStoreProvider } from "@/lib/session-store/SessionStore";
 import "./globals.css";
 
 const roboto = Roboto({
@@ -34,7 +35,9 @@ export default function RootLayout({
           href="https://cdn.jsdelivr.net/npm/@tabler/icons-webfont@latest/tabler-icons.min.css"
         />
       </head>
-      <body>{children}</body>
+      <body>
+        <SessionStoreProvider>{children}</SessionStoreProvider>
+      </body>
     </html>
   );
 }

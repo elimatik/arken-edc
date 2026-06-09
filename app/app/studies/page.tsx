@@ -1,9 +1,8 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
-import { supabase } from "@/lib/supabase";
-import { DEMO_USER_ID } from "@/lib/constants";
+import { useSessionStore } from "@/lib/session-store/SessionStore";
 import "./studies.css";
 
 type Study = {
@@ -64,70 +63,46 @@ function cap(s: string): string {
 
 export default function StudiesPage() {
   const router = useRouter();
-  const [studies, setStudies] = useState<Study[]>([]);
-  const [loading, setLoading] = useState(true);
+  const { dataset, ready } = useSessionStore();
   const [search, setSearch] = useState("");
   const [statusFilter, setStatusFilter] = useState("");
   const [speciesFilter, setSpeciesFilter] = useState("");
   const [view, setView] = useState<"cards" | "table">("cards"); // cards is default
+  const loading = !ready;
 
-  useEffect(() => {
-    let cancelled = false;
-
-    async function load() {
-      // Live studies for the demo user, with cheap aggregates (subject + site counts).
-      const { data, error } = await supabase
-        .from("studies")
-        .select(
-          "id, code, name, sponsor, phase, species, status, enrollment_target, description, sites(count), subjects(count), study_memberships!inner(role)",
-        )
-        .eq("study_memberships.user_id", DEMO_USER_ID)
-        .order("code");
-
-      if (cancelled) return;
-
-      if (error || !data) {
-        setStudies([]);
-        setLoading(false);
-        return;
-      }
-
-      const mapped: Study[] = (data as any[]).map((row) => {
-        const species: string = row.species ?? "";
+  // Studies the demo user belongs to, derived from the session store
+  // (hydrated from the Supabase seed once per tab; counts computed in session).
+  const studies: Study[] = useMemo(() => {
+    if (!ready) return [];
+    return dataset.studies
+      .filter((s) => dataset.memberships.some((m) => m.study_id === s.id))
+      .slice()
+      .sort((a, b) => a.code.localeCompare(b.code))
+      .map((s) => {
+        const species = s.species ?? "";
         return {
-          id: row.id,
-          code: row.code,
-          name: row.name,
-          sponsor: row.sponsor ?? "",
-          phase: row.phase ?? "",
+          id: s.id,
+          code: s.code,
+          name: s.name,
+          sponsor: s.sponsor ?? "",
+          phase: s.phase ?? "",
           species: cap(species),
           icon: SPECIES_ICON[species] ?? "🔬",
           iconCls: species,
-          status: row.status,
-          statusLabel: STATUS_LABEL[row.status] ?? row.status,
+          status: s.status,
+          statusLabel: STATUS_LABEL[s.status] ?? s.status,
           // Default landing role is CRC for every study.
           role: "CRC",
           roleCls: "rc-crc",
-          enrolled: row.subjects?.[0]?.count ?? 0,
-          target: row.enrollment_target ?? 0,
-          sites: row.sites?.[0]?.count ?? 0,
-          // TODO (next session): live open-query count (subjects → form_instances → queries)
+          enrolled: dataset.subjects.filter((x) => x.study_id === s.id).length,
+          target: s.enrollment_target ?? 0,
+          sites: dataset.sites.filter((x) => x.study_id === s.id).length,
           openQueries: 0,
-          // TODO (next session): live last data-entry timestamp
           lastEntry: "—",
-          desc: row.description ?? "",
+          desc: s.description ?? "",
         };
       });
-
-      setStudies(mapped);
-      setLoading(false);
-    }
-
-    load();
-    return () => {
-      cancelled = true;
-    };
-  }, []);
+  }, [dataset, ready]);
 
   const q = search.toLowerCase().trim();
   const filtered = studies.filter((s) => {
