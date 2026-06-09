@@ -1,6 +1,6 @@
 # Arken EDC — Session Handoff
 **Paste this entire file at the start of a new conversation.**
-Last updated: 2026-06-08 | Session 16 COMPLETE → Session 17 — Claude Code build begins
+Last updated: 2026-06-09 | Session 17 COMPLETE → Session 18 — App shell + live data
 
 ---
 
@@ -22,7 +22,7 @@ Paste the full content of this file as your first message. It contains everythin
 
 ## Where we are now
 
-**Design phase is fully complete. Production stack is initialized and live. Session 17 begins the Claude Code build.**
+**Design phase complete. Production stack live. Login + study selector built and the Supabase backend is applied with seed data. Session 18 builds the authenticated app shell and connects screens to live data.**
 
 ### Session 16 — COMPLETE ✅
 - **Living style guide built and published.** Single static page at `docs/index.html`, served on GitHub Pages (no build step). Documents the full Arken design system — every token, component, and pattern — in one browseable reference. Sticky sidebar nav, anchor-linked sections.
@@ -32,11 +32,21 @@ Paste the full content of this file as your first message. It contains everythin
   - Environment variables set in `app/.env.local` (local) **and** in Vercel (production)
   - **Deployed live at https://arken-edc.vercel.app**
 
-### Session 17 — NEXT (Claude Code build begins) ▶
-First task: **build the login screen and app shell**, based on the `00-login.html` prototype.
-- Translate the static prototype into React/Next.js components using the design tokens (see token block below) mapped into Tailwind config.
-- Login + study selector flow, then the app shell (sidenav + topbar) that wraps the authenticated app.
-- Wire Supabase auth via the configured client.
+### Session 17 — COMPLETE ✅
+- **Login screen + study selector built** as React/Next.js components, translated faithfully from `00-login.html`.
+  - Shared root layout (`app/app/layout.tsx`): Roboto + Roboto Mono via `next/font`, Tabler Icons CDN, design-system tokens in `globals.css`.
+  - `/` → `/login`; `/login` (brand panel + form, password toggle, validation, loading state); `/studies` (study selector with search/filter, cards, enrollment bars, role chips). Page CSS ported verbatim for pixel fidelity.
+- **Supabase schema applied + seeded** to project `lijieicldshgjtqjescv`:
+  - **20 tables** — studies, site/barn/pen/subject hierarchy, forms/fields/instances/values, queries + threads, SDV, audit trail, access codes, `demo_sessions` (role switching), `companion_owners` stub.
+  - **Seed data live** — 2 rich studies (cattle/livestock + canine/companion) + 2 sandboxes, 5 access codes (`ARKEN-CRC/CRA/PI/SPON/ADMIN`).
+  - Migration + seed: `app/supabase/`. Supabase CLI is a dev dependency (`npx supabase …`).
+  - ⚠️ **RLS deliberately OFF** for now (documented in the migration). Tables are reachable via the anon key — fine for demo data, revisit before anything real.
+- Role enum is **CRC · CRA · DM · PI · Sponsor · Admin** (Sponsor replaces the prototype's `PM` chip — update `rc-pm` references when building those screens).
+
+### Session 18 — NEXT (app shell + live data) ▶
+1. **Build the authenticated app shell** from `04-app-shell.html` (sidenav + topbar) to wrap the in-study experience; `enterStudy` on the study selector should route into it instead of the placeholder alert.
+2. **Wire the role switcher into the topnav** — backed by `demo_sessions.active_role`; lets a reviewer view the app as CRC vs CRA vs PI vs Sponsor vs DM vs Admin.
+3. **Connect the study selector to real Supabase data** — replace the hardcoded `STUDIES` array in `app/app/studies/page.tsx` with a query against the live `studies` table.
 
 ---
 
@@ -188,4 +198,4 @@ The style guide is a single `docs/index.html`, served by GitHub Pages from the `
 
 Paste this file and say:
 
-> "This is the handoff doc for Arken EDC. We're in session 17. The design phase is complete, the style guide is published (docs/index.html), and the production stack is live (Next.js 14 + TypeScript + Tailwind in /app, Supabase configured, deployed at arken-edc.vercel.app). Read the handoff fully, then let's start the Claude Code build. First task: build the login screen and app shell as React/Next.js components based on the 00-login.html prototype — using the design tokens mapped into the Tailwind config. Start by reading 00-login.html and the style guide, then plan the component structure."
+> "This is the handoff doc for Arken EDC. We're in session 18. The design phase is complete, the login screen + study selector are built (app/app/login, app/app/studies), and the Supabase backend is applied with seed data (20 tables, live at project lijieicldshgjtqjescv). Read the handoff fully, then let's continue the build. Tasks: (1) build the authenticated app shell from 04-app-shell.html (sidenav + topbar) and route enterStudy into it; (2) wire the role switcher into the topnav, backed by demo_sessions.active_role; (3) connect the study selector to real Supabase data, replacing the hardcoded STUDIES array. Start by reading 04-app-shell.html and app/app/studies/page.tsx, then plan the component structure."
