@@ -1,6 +1,6 @@
 import type { Metadata } from "next";
 import { Roboto, Roboto_Mono } from "next/font/google";
-import { SessionStoreProvider } from "@/lib/session-store/SessionStore";
+import { StudySessionProvider } from "@/lib/session-store/SessionStore";
 import "./globals.css";
 
 const roboto = Roboto({
@@ -36,7 +36,7 @@ export default function RootLayout({
         />
       </head>
       <body>
-        <SessionStoreProvider>{children}</SessionStoreProvider>
+        <StudySessionProvider>{children}</StudySessionProvider>
       </body>
     </html>
   );

@@ -3,44 +3,55 @@
 import { createContext, useCallback, useContext, useEffect, useState } from "react";
 import { hydrateFromSupabase } from "./hydrate";
 import { EMPTY_DATASET, type Dataset } from "./types";
+import type { Role } from "@/lib/permissions";
 
-// Per-tab session store. sessionStorage gives us "resets on tab close" for free
+// Per-tab study session. sessionStorage gives us "resets on tab close" for free
 // (it survives reloads within the tab, clears when the tab closes). On first
-// visit it hydrates from Supabase; thereafter all reads/writes are in-session.
-const STORAGE_KEY = "arken_session_store_v1";
+// visit it hydrates from Supabase; thereafter ALL reads/writes are in-session —
+// nothing is written back to Supabase.
+const DATA_KEY = "arken_session_store_v1";
+const ROLE_KEY = "arken_active_role_v1";
 
-interface SessionStoreValue {
+interface StudySessionValue {
   dataset: Dataset;
   ready: boolean;
+  /** Active role (the "view as" role). Session-scoped, persisted per tab. */
+  activeRole: Role;
+  setActiveRole: (role: Role) => void;
   /** Mutate the dataset in session (and persist). Never writes to Supabase. */
   update: (mutator: (d: Dataset) => void) => void;
   /** Discard session edits and re-hydrate from the Supabase seed. */
   reset: () => Promise<void>;
 }
 
-const Ctx = createContext<SessionStoreValue | null>(null);
+const Ctx = createContext<StudySessionValue | null>(null);
 
-export function SessionStoreProvider({ children }: { children: React.ReactNode }) {
+export function StudySessionProvider({ children }: { children: React.ReactNode }) {
   const [dataset, setDataset] = useState<Dataset>(EMPTY_DATASET);
   const [ready, setReady] = useState(false);
+  const [activeRole, setActiveRoleState] = useState<Role>("CRC"); // default landing role
 
+  // Hydrate the dataset (from session storage, else from Supabase).
   useEffect(() => {
     let cancelled = false;
     try {
-      const saved = sessionStorage.getItem(STORAGE_KEY);
+      const saved = sessionStorage.getItem(DATA_KEY);
       if (saved) {
         setDataset(JSON.parse(saved) as Dataset);
         setReady(true);
-        return;
       }
+      const savedRole = sessionStorage.getItem(ROLE_KEY);
+      if (savedRole) setActiveRoleState(savedRole as Role);
     } catch {
       /* ignore corrupt session storage */
     }
+    if (sessionStorage.getItem(DATA_KEY)) return;
+
     hydrateFromSupabase().then((ds) => {
       if (cancelled) return;
       setDataset(ds);
       try {
-        sessionStorage.setItem(STORAGE_KEY, JSON.stringify(ds));
+        sessionStorage.setItem(DATA_KEY, JSON.stringify(ds));
       } catch {
         /* ignore quota errors */
       }
@@ -51,12 +62,21 @@ export function SessionStoreProvider({ children }: { children: React.ReactNode }
     };
   }, []);
 
+  const setActiveRole = useCallback((role: Role) => {
+    setActiveRoleState(role);
+    try {
+      sessionStorage.setItem(ROLE_KEY, role);
+    } catch {
+      /* ignore */
+    }
+  }, []);
+
   const update = useCallback((mutator: (d: Dataset) => void) => {
     setDataset((prev) => {
       const next: Dataset = structuredClone(prev);
       mutator(next);
       try {
-        sessionStorage.setItem(STORAGE_KEY, JSON.stringify(next));
+        sessionStorage.setItem(DATA_KEY, JSON.stringify(next));
       } catch {
         /* ignore quota errors */
       }
@@ -67,27 +87,31 @@ export function SessionStoreProvider({ children }: { children: React.ReactNode }
   const reset = useCallback(async () => {
     setReady(false);
     try {
-      sessionStorage.removeItem(STORAGE_KEY);
+      sessionStorage.removeItem(DATA_KEY);
     } catch {
       /* ignore */
     }
     const ds = await hydrateFromSupabase();
     setDataset(ds);
     try {
-      sessionStorage.setItem(STORAGE_KEY, JSON.stringify(ds));
+      sessionStorage.setItem(DATA_KEY, JSON.stringify(ds));
     } catch {
       /* ignore */
     }
     setReady(true);
   }, []);
 
-  return <Ctx.Provider value={{ dataset, ready, update, reset }}>{children}</Ctx.Provider>;
+  return (
+    <Ctx.Provider value={{ dataset, ready, activeRole, setActiveRole, update, reset }}>
+      {children}
+    </Ctx.Provider>
+  );
 }
 
-export function useSessionStore(): SessionStoreValue {
+export function useStudySession(): StudySessionValue {
   const ctx = useContext(Ctx);
   if (!ctx) {
-    throw new Error("useSessionStore must be used within SessionStoreProvider");
+    throw new Error("useStudySession must be used within StudySessionProvider");
   }
   return ctx;
 }

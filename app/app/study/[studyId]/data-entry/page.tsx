@@ -1,9 +1,9 @@
 "use client";
 
-import { Fragment, useEffect, useState } from "react";
+import { Fragment, useMemo, useState } from "react";
 import { useRouter, useParams } from "next/navigation";
-import { supabase } from "@/lib/supabase";
 import { useShell } from "@/components/shell/ShellContext";
+import { useStudySession } from "@/lib/session-store/SessionStore";
 import "./data-entry.css";
 
 // ─── Types ───────────────────────────────────────────────────────────────────
@@ -67,144 +67,124 @@ export default function DataEntryPage() {
   const params = useParams();
   const studyId = String(params.studyId);
   const { study } = useShell();
+  const { dataset, ready } = useStudySession();
 
-  const [loading, setLoading] = useState(true);
-  const [type, setType] = useState<"livestock" | "companion">("livestock");
-  const [nodesByParent, setNodesByParent] = useState<Record<string, Node[]>>({});
   const [nav, setNav] = useState<{ key: string; label: string }[]>([]);
   const [search, setSearch] = useState("");
   const [statusFilter, setStatusFilter] = useState("");
 
-  // ─── Load the full hierarchy for this study from Supabase ───────────────────
-  useEffect(() => {
-    let cancelled = false;
-    async function load() {
-      const { data: st } = await supabase.from("studies").select("type").eq("id", studyId).maybeSingle();
-      const studyType = ((st?.type as string) === "companion" ? "companion" : "livestock") as
-        | "livestock"
-        | "companion";
+  const loading = !ready;
 
-      const [sitesRes, subjectsRes, formsRes] = await Promise.all([
-        supabase.from("sites").select("id, code, name, status").eq("study_id", studyId).order("code"),
-        supabase
-          .from("subjects")
-          .select("id, subject_code, species, status, randomization_arm, site_id, barn_id, pen_id")
-          .eq("study_id", studyId)
-          .order("subject_code"),
-        supabase.from("forms").select("id, code, name, sequence").eq("study_id", studyId).order("sequence"),
-      ]);
+  // ─── Build the hierarchy for this study from the session store ──────────────
+  const { type, nodesByParent } = useMemo((): {
+    type: "livestock" | "companion";
+    nodesByParent: Record<string, Node[]>;
+  } => {
+    if (!ready) return { type: "livestock", nodesByParent: {} };
 
-      const sites = sitesRes.data ?? [];
-      const subjects = subjectsRes.data ?? [];
-      const forms = formsRes.data ?? [];
-      const subjectIds = subjects.map((s) => s.id);
+    const studyRow = dataset.studies.find((s) => s.id === studyId);
+    const studyType: "livestock" | "companion" =
+      studyRow?.type === "companion" ? "companion" : "livestock";
 
-      let barns: any[] = [];
-      let pens: any[] = [];
-      if (studyType === "livestock") {
-        const siteIds = sites.map((s) => s.id);
-        if (siteIds.length) {
-          const { data } = await supabase.from("barns").select("id, code, name, site_id").in("site_id", siteIds).order("code");
-          barns = data ?? [];
-        }
-        const barnIds = barns.map((b) => b.id);
-        if (barnIds.length) {
-          const { data } = await supabase.from("pens").select("id, code, name, barn_id").in("barn_id", barnIds).order("code");
-          pens = data ?? [];
-        }
-      }
+    const sites = dataset.sites
+      .filter((s) => s.study_id === studyId)
+      .slice()
+      .sort((a, b) => a.code.localeCompare(b.code));
+    const subjects = dataset.subjects
+      .filter((s) => s.study_id === studyId)
+      .slice()
+      .sort((a, b) => a.subject_code.localeCompare(b.subject_code));
+    const forms = dataset.forms
+      .filter((f) => f.study_id === studyId)
+      .slice()
+      .sort((a, b) => a.sequence - b.sequence);
 
-      let instances: any[] = [];
-      if (subjectIds.length) {
-        const { data } = await supabase.from("form_instances").select("id, status, form_id, subject_id").in("subject_id", subjectIds);
-        instances = data ?? [];
-      }
+    const siteIds = new Set(sites.map((s) => s.id));
+    const barns =
+      studyType === "livestock" ? dataset.barns.filter((b) => siteIds.has(b.site_id)) : [];
+    const barnIds = new Set(barns.map((b) => b.id));
+    const pens =
+      studyType === "livestock" ? dataset.pens.filter((p) => barnIds.has(p.barn_id)) : [];
+    const subjectIdSet = new Set(subjects.map((s) => s.id));
+    const instances = dataset.formInstances.filter((i) => subjectIdSet.has(i.subject_id));
 
-      // Per-subject form list = every study form, with status from its instance (or not-started).
-      const subjectForms = (subjId: string): FormItem[] =>
-        forms.map((f) => {
-          const inst = instances.find((i) => i.subject_id === subjId && i.form_id === f.id);
-          return { id: f.id, name: f.name, status: mapInstanceStatus(inst?.status) };
-        });
-
-      const subjectIdx = studyType === "livestock" ? 3 : 1;
-      const subjectNode = (s: any): Node => ({
-        id: s.id,
-        code: s.subject_code,
-        label: s.subject_code,
-        level: subjectIdx,
-        status: s.status,
-        subjectId: s.subject_code,
-        arm: s.randomization_arm,
-        forms: subjectForms(s.id),
+    // Per-subject form list = every study form, with status from its instance.
+    const subjectForms = (subjId: string): FormItem[] =>
+      forms.map((f) => {
+        const inst = instances.find((i) => i.subject_id === subjId && i.form_id === f.id);
+        return { id: f.id, name: f.name, status: mapInstanceStatus(inst?.status) };
       });
 
-      const map: Record<string, Node[]> = {};
+    const subjectIdx = studyType === "livestock" ? 3 : 1;
+    const subjectNode = (s: (typeof subjects)[number]): Node => ({
+      id: s.id,
+      code: s.subject_code,
+      label: s.subject_code,
+      level: subjectIdx,
+      status: s.status,
+      subjectId: s.subject_code,
+      arm: s.randomization_arm,
+      forms: subjectForms(s.id),
+    });
 
-      if (studyType === "livestock") {
-        map["root"] = sites.map((site) => ({
+    const map: Record<string, Node[]> = {};
+
+    if (studyType === "livestock") {
+      map["root"] = sites.map((site) => ({
+        id: site.id,
+        code: site.code,
+        label: site.name,
+        level: 0,
+        status: site.status,
+        childCount: barns.filter((b) => b.site_id === site.id).length,
+        subjectCount: subjects.filter((x) => x.site_id === site.id).length,
+      }));
+      barns.forEach((b) => {
+        (map[b.site_id] = map[b.site_id] || []).push({
+          id: b.id,
+          code: b.code,
+          label: b.name,
+          level: 1,
+          status: "active",
+          childCount: pens.filter((p) => p.barn_id === b.id).length,
+          subjectCount: subjects.filter((x) => x.barn_id === b.id).length,
+        });
+      });
+      pens.forEach((p) => {
+        (map[p.barn_id] = map[p.barn_id] || []).push({
+          id: p.id,
+          code: p.code,
+          label: p.name,
+          level: 2,
+          status: "active",
+          childCount: subjects.filter((x) => x.pen_id === p.id).length,
+        });
+      });
+      subjects.forEach((s) => {
+        if (!s.pen_id) return;
+        (map[s.pen_id] = map[s.pen_id] || []).push(subjectNode(s));
+      });
+    } else {
+      map["root"] = sites.map((site) => {
+        const n = subjects.filter((x) => x.site_id === site.id).length;
+        return {
           id: site.id,
           code: site.code,
           label: site.name,
           level: 0,
           status: site.status,
-          childCount: barns.filter((b) => b.site_id === site.id).length,
-          subjectCount: subjects.filter((x) => x.site_id === site.id).length,
-        }));
-        barns.forEach((b) => {
-          (map[b.site_id] = map[b.site_id] || []).push({
-            id: b.id,
-            code: b.code,
-            label: b.name,
-            level: 1,
-            status: "active",
-            childCount: pens.filter((p) => p.barn_id === b.id).length,
-            subjectCount: subjects.filter((x) => x.barn_id === b.id).length,
-          });
-        });
-        pens.forEach((p) => {
-          (map[p.barn_id] = map[p.barn_id] || []).push({
-            id: p.id,
-            code: p.code,
-            label: p.name,
-            level: 2,
-            status: "active",
-            childCount: subjects.filter((x) => x.pen_id === p.id).length,
-          });
-        });
-        subjects.forEach((s) => {
-          if (!s.pen_id) return;
-          (map[s.pen_id] = map[s.pen_id] || []).push(subjectNode(s));
-        });
-      } else {
-        map["root"] = sites.map((site) => {
-          const n = subjects.filter((x) => x.site_id === site.id).length;
-          return {
-            id: site.id,
-            code: site.code,
-            label: site.name,
-            level: 0,
-            status: site.status,
-            childCount: n,
-            subjectCount: n,
-          };
-        });
-        subjects.forEach((s) => {
-          if (!s.site_id) return;
-          (map[s.site_id] = map[s.site_id] || []).push(subjectNode(s));
-        });
-      }
-
-      if (cancelled) return;
-      setType(studyType);
-      setNodesByParent(map);
-      setLoading(false);
+          childCount: n,
+          subjectCount: n,
+        };
+      });
+      subjects.forEach((s) => {
+        if (!s.site_id) return;
+        (map[s.site_id] = map[s.site_id] || []).push(subjectNode(s));
+      });
     }
-    load();
-    return () => {
-      cancelled = true;
-    };
-  }, [studyId]);
+
+    return { type: studyType, nodesByParent: map };
+  }, [dataset, ready, studyId]);
 
   const levels = type === "livestock" ? LIVESTOCK_LEVELS : COMPANION_LEVELS;
   const subjectIdx = type === "livestock" ? 3 : 1;

@@ -2,7 +2,7 @@
 
 import { useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
-import { useSessionStore } from "@/lib/session-store/SessionStore";
+import { useStudySession } from "@/lib/session-store/SessionStore";
 import "./studies.css";
 
 type Study = {
@@ -63,7 +63,7 @@ function cap(s: string): string {
 
 export default function StudiesPage() {
   const router = useRouter();
-  const { dataset, ready } = useSessionStore();
+  const { dataset, ready } = useStudySession();
   const [search, setSearch] = useState("");
   const [statusFilter, setStatusFilter] = useState("");
   const [speciesFilter, setSpeciesFilter] = useState("");

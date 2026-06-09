@@ -1,9 +1,9 @@
 "use client";
 
-import { Fragment, useEffect, useState } from "react";
+import { Fragment, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
-import { supabase } from "@/lib/supabase";
 import { useShell } from "@/components/shell/ShellContext";
+import { useStudySession } from "@/lib/session-store/SessionStore";
 import { canQuery } from "@/lib/permissions";
 import "./subject-record.css";
 
@@ -59,11 +59,9 @@ export function SubjectRecord({ studyId, subjectId, initialFormId }: Props) {
   const router = useRouter();
   const { study, activeRole } = useShell();
 
-  const [loading, setLoading] = useState(true);
-  const [subject, setSubject] = useState<any>(null);
-  const [forms, setForms] = useState<SidebarForm[]>([]);
+  const { dataset, ready } = useStudySession();
   const [selectedFormId, setSelectedFormId] = useState<string | undefined>(initialFormId);
-  const [thread, setThread] = useState<QueryThread | null>(null);
+  const loading = !ready;
 
   // UI state
   const [remarksOpen, setRemarksOpen] = useState(false);
@@ -79,86 +77,54 @@ export function SubjectRecord({ studyId, subjectId, initialFormId }: Props) {
   const canRespond = canQuery(activeRole, "respond");
   const canResolve = canQuery(activeRole, "resolve");
 
-  useEffect(() => {
-    let cancelled = false;
-    async function load() {
-      const { data: subj } = await supabase
-        .from("subjects")
-        .select("id, subject_code, species, status, randomization_arm")
-        .eq("id", subjectId)
-        .maybeSingle();
-
-      const { data: formRows } = await supabase
-        .from("forms")
-        .select("id, code, name, sequence")
-        .eq("study_id", studyId)
-        .order("sequence");
-
-      const { data: instRows } = await supabase
-        .from("form_instances")
-        .select("id, status, form_id")
-        .eq("subject_id", subjectId);
-
-      const instances = instRows ?? [];
-      const instanceIds = instances.map((i) => i.id);
-
-      let queryRows: any[] = [];
-      if (instanceIds.length) {
-        const { data } = await supabase
-          .from("queries")
-          .select("id, status, title, form_instance_id")
-          .in("form_instance_id", instanceIds);
-        queryRows = data ?? [];
-      }
-      const openQueries = queryRows.filter((q) => q.status === "open" || q.status === "responded");
-
-      // Sidebar forms: status icon from the instance, query badge from open queries.
-      const sidebar: SidebarForm[] = (formRows ?? []).map((f) => {
-        const inst = instances.find((i) => i.form_id === f.id);
-        const formQueries = openQueries.filter((q) => q.form_instance_id === inst?.id);
-        return {
-          id: f.id,
-          name: f.name,
-          icon: formQueries.length ? "queried" : iconForInstance(inst?.status),
-          queryCount: formQueries.length,
-        };
-      });
-
-      // Build the query thread for the first open query (live messages where available).
-      let qThread: QueryThread | null = null;
-      const firstOpen = openQueries[0];
-      if (firstOpen) {
-        const { data: msgs } = await supabase
-          .from("query_messages")
-          .select("body, created_at, author_id")
-          .eq("query_id", firstOpen.id)
-          .order("created_at");
-        qThread = {
-          id: firstOpen.id,
-          title: firstOpen.title,
-          status: firstOpen.status,
-          messages: (msgs ?? []).map((m) => ({
-            author: "E. Tron",
-            role: "CRC",
-            av: "ET",
-            avCls: "av-crc",
-            body: m.body,
-          })),
-        };
-      }
-
-      if (cancelled) return;
-      setSubject(subj);
-      setForms(sidebar);
-      setThread(qThread);
-      setSelectedFormId((cur) => cur ?? sidebar[0]?.id);
-      setLoading(false);
+  // ─── Derive the subject record from the session store ──────────────────────
+  const { subject, forms, thread } = useMemo(() => {
+    if (!ready) {
+      return { subject: null as any, forms: [] as SidebarForm[], thread: null as QueryThread | null };
     }
-    load();
-    return () => {
-      cancelled = true;
-    };
-  }, [studyId, subjectId]);
+    const subj = dataset.subjects.find((s) => s.id === subjectId) ?? null;
+    const formRows = dataset.forms
+      .filter((f) => f.study_id === studyId)
+      .slice()
+      .sort((a, b) => a.sequence - b.sequence);
+    const instances = dataset.formInstances.filter((i) => i.subject_id === subjectId);
+    const instanceIds = new Set(instances.map((i) => i.id));
+    const openQueries = dataset.queries.filter(
+      (q) => instanceIds.has(q.form_instance_id) && (q.status === "open" || q.status === "responded"),
+    );
+
+    // Sidebar forms: status icon from the instance, query badge from open queries.
+    const sidebar: SidebarForm[] = formRows.map((f) => {
+      const inst = instances.find((i) => i.form_id === f.id);
+      const formQueries = openQueries.filter((q) => q.form_instance_id === inst?.id);
+      return {
+        id: f.id,
+        name: f.name,
+        icon: formQueries.length ? "queried" : iconForInstance(inst?.status),
+        queryCount: formQueries.length,
+      };
+    });
+
+    // Query thread for the first open query (live messages from the session store).
+    let qThread: QueryThread | null = null;
+    const firstOpen = openQueries[0];
+    if (firstOpen) {
+      const msgs = dataset.queryMessages
+        .filter((m) => m.query_id === firstOpen.id)
+        .slice()
+        .sort((a, b) => (a.created_at < b.created_at ? -1 : 1));
+      qThread = {
+        id: firstOpen.id,
+        title: firstOpen.title,
+        status: firstOpen.status,
+        messages: msgs.map((m) => ({ author: "E. Tron", role: "CRC", av: "ET", avCls: "av-crc", body: m.body })),
+      };
+    }
+
+    return { subject: subj, forms: sidebar, thread: qThread };
+  }, [dataset, ready, studyId, subjectId]);
+
+  const activeFormId = selectedFormId ?? forms[0]?.id;
 
   function openQueryPanel() {
     setQueryOpen(true);
@@ -186,7 +152,7 @@ export function SubjectRecord({ studyId, subjectId, initialFormId }: Props) {
     );
   }
 
-  const selectedForm = forms.find((f) => f.id === selectedFormId);
+  const selectedForm = forms.find((f) => f.id === activeFormId);
   const speciesIcon = SPECIES_ICON[subject?.species] || "🔬";
   const status = STATUS_MAP[subject?.status] || { cls: "status-screened", label: subject?.status };
   const sdvFields = ["temp", "heart", "resp", "weight", "gc", "nd", "cough", "brd"];
@@ -274,7 +240,7 @@ export function SubjectRecord({ studyId, subjectId, initialFormId }: Props) {
         {forms.map((f) => (
           <button
             key={f.id}
-            className={`form-item${f.id === selectedFormId ? " active" : ""}${f.icon === "final" ? " done" : ""}`}
+            className={`form-item${f.id === activeFormId ? " active" : ""}${f.icon === "final" ? " done" : ""}`}
             onClick={() => setSelectedFormId(f.id)}
             type="button"
           >
