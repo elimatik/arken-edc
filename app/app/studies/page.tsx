@@ -25,6 +25,7 @@ type Study = {
   openQueries: number;
   lastEntry: string;
   desc: string;
+  isSandbox: boolean;
 };
 
 const STATUS_CLS: Record<string, string> = {
@@ -79,7 +80,7 @@ export default function StudiesPage() {
       const { data, error } = await supabase
         .from("studies")
         .select(
-          "id, code, name, sponsor, phase, species, status, enrollment_target, description, sites(count), subjects(count), study_memberships!inner(role)",
+          "id, code, name, sponsor, phase, species, status, is_sandbox, enrollment_target, description, sites(count), subjects(count), study_memberships!inner(role)",
         )
         .eq("study_memberships.user_id", DEMO_USER_ID)
         .order("code");
@@ -116,6 +117,7 @@ export default function StudiesPage() {
           // TODO (next session): live last data-entry timestamp
           lastEntry: "—",
           desc: row.description ?? "",
+          isSandbox: !!row.is_sandbox,
         };
       });
 
@@ -284,6 +286,7 @@ export default function StudiesPage() {
                           <td>{s.sponsor}</td>
                           <td>{s.species}</td>
                           <td>
+                            {s.isSandbox && <span className="status-badge sb-sandbox" style={{ marginRight: "6px" }}>Sandbox</span>}
                             <span className={`status-badge ${statusCls}`}>{s.statusLabel}</span>
                           </td>
                           <td>
@@ -331,6 +334,7 @@ export default function StudiesPage() {
                         <div className="study-card-sponsor">{s.sponsor}</div>
                       </div>
                       <div className="study-card-status">
+                        {s.isSandbox && <span className="status-badge sb-sandbox">Sandbox</span>}
                         <span className={`status-badge ${statusCls}`}>
                           {s.statusLabel}
                         </span>

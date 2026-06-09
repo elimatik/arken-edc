@@ -1,11 +1,12 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { useRouter, usePathname } from "next/navigation";
 import { Sidenav } from "./Sidenav";
 import { Topbar } from "./Topbar";
 import { ShellProvider, type ShellSite, type ShellStudy } from "./ShellContext";
 import { getOrCreateSession, persistActiveRole } from "@/lib/session";
-import { navItemsForRole, type Role } from "@/lib/permissions";
+import { navItemsForRole, NAV_ROUTES, type Role } from "@/lib/permissions";
 import "./shell.css";
 
 interface AppShellProps {
@@ -16,11 +17,20 @@ interface AppShellProps {
 }
 
 export function AppShell({ study, sites, initialRole, children }: AppShellProps) {
+  const router = useRouter();
+  const pathname = usePathname();
   const [expanded, setExpanded] = useState(false);
-  const [activeKey, setActiveKey] = useState("dashboard");
   const [selectedSiteId, setSelectedSiteId] = useState<string | null>(null); // null = All Sites
   const [activeRole, setActiveRole] = useState<Role>(initialRole);
   const [sessionToken, setSessionToken] = useState<string | null>(null);
+
+  // The active nav item is derived from the route (first path segment under the study).
+  const base = `/study/${study.id}`;
+  const sub = pathname.startsWith(base)
+    ? pathname.slice(base.length).replace(/^\//, "").split("/")[0]
+    : "";
+  const activeKey =
+    Object.entries(NAV_ROUTES).find(([, route]) => route === sub)?.[0] ?? "dashboard";
 
   // Load (or create) the demo session — restores the persisted active role.
   useEffect(() => {
@@ -35,13 +45,19 @@ export function AppShell({ study, sites, initialRole, children }: AppShellProps)
     };
   }, [study.id, initialRole]);
 
+  function navigate(key: string) {
+    const route = NAV_ROUTES[key];
+    if (route === undefined) return; // no screen for this item yet
+    router.push(route ? `${base}/${route}` : base);
+  }
+
   function changeRole(role: Role) {
     setActiveRole(role);
-    // Keep the highlighted nav item valid for the new role.
-    if (!navItemsForRole(role).some((i) => i.key === activeKey)) {
-      setActiveKey("dashboard");
-    }
     if (sessionToken) persistActiveRole(sessionToken, role);
+    // If the new role can't see the current screen, fall back to the dashboard.
+    if (!navItemsForRole(role).some((i) => i.key === activeKey)) {
+      router.push(base);
+    }
   }
 
   return (
@@ -51,7 +67,7 @@ export function AppShell({ study, sites, initialRole, children }: AppShellProps)
           role={activeRole}
           activeKey={activeKey}
           expanded={expanded}
-          onSelect={setActiveKey}
+          onSelect={navigate}
           onToggle={() => setExpanded((e) => !e)}
         />
         <div className="main">

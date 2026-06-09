@@ -69,6 +69,14 @@ export function navItemsForRole(role: Role): NavItem[] {
   return NAV_ITEMS.filter((item) => role in item.access);
 }
 
+// Sub-routes under /study/[studyId] for nav items that have a built screen.
+// "" = the study base (dashboard). Items absent here have no destination yet —
+// clicking them is a no-op until their screen is built.
+export const NAV_ROUTES: Partial<Record<string, string>> = {
+  dashboard: "",
+  "data-entry": "data-entry",
+};
+
 export function navAccess(item: NavItem, role: Role): NavAccess | undefined {
   return item.access[role];
 }

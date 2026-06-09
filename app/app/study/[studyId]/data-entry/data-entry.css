@@ -1,0 +1,112 @@
+/* ════════════════════════════════════════════════════════════════════════════
+   Data Entry drill-down — ported from 26-data-entry.html.
+   The shell's .page-content has padding; .de-screen breaks out of it so the
+   header / filter / table strips run full-bleed like the prototype.
+════════════════════════════════════════════════════════════════════════════ */
+.de-screen {
+  margin: calc(var(--space-5) * -1);
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  background: var(--color-page-bg);
+}
+
+/* ─── Shared buttons ── */
+.btn-primary { display: inline-flex; align-items: center; gap: 4px; height: 32px; padding: 0 var(--space-3); font-size: var(--text-sm); font-weight: var(--weight-medium); font-family: var(--font-sans); border: none; border-radius: var(--radius-md); background: var(--color-cta-bg); color: #fff; cursor: pointer; white-space: nowrap; transition: background var(--duration-fast); }
+.btn-primary:hover { background: var(--color-cta-hover); }
+.btn-primary i { font-size: 14px; }
+.btn-secondary { display: inline-flex; align-items: center; gap: 4px; height: 32px; padding: 0 var(--space-3); font-size: var(--text-sm); font-weight: var(--weight-medium); font-family: var(--font-sans); border: 1px solid var(--color-border); border-radius: var(--radius-md); background: var(--color-surface); color: var(--color-text-primary); cursor: pointer; white-space: nowrap; transition: background var(--duration-fast); }
+.btn-secondary:hover { background: var(--color-hover-bg); }
+.btn-secondary i { font-size: 14px; }
+.btn-icon { display: inline-flex; align-items: center; justify-content: center; width: 28px; height: 28px; border: none; background: none; border-radius: var(--radius-md); color: var(--color-text-tertiary); cursor: pointer; transition: background var(--duration-fast), color var(--duration-fast); }
+.btn-icon:hover { background: var(--color-hover-bg); color: var(--color-text-primary); }
+.btn-icon i { font-size: 15px; }
+
+/* ─── Page header ── */
+.de-header { padding: var(--space-4) var(--space-5); border-bottom: 1px solid var(--color-border); background: var(--color-surface); flex-shrink: 0; }
+.de-bc { display: flex; align-items: center; gap: var(--space-1); font-size: var(--text-sm); color: var(--color-text-tertiary); margin-bottom: var(--space-3); flex-wrap: wrap; }
+.bc-btn { color: var(--color-link); background: none; border: none; font-size: var(--text-sm); cursor: pointer; padding: 0; font-family: var(--font-sans); }
+.bc-btn span { text-decoration: underline; text-underline-offset: 2px; }
+.bc-btn:hover { color: var(--color-text-primary); }
+.bc-cur { color: var(--color-text-primary); }
+.bc-sep { color: var(--color-text-placeholder); font-size: 11px; display: inline-flex; }
+.de-title-row { display: flex; align-items: flex-start; justify-content: space-between; gap: var(--space-4); }
+.de-title { font-size: var(--text-3xl); font-weight: var(--weight-medium); line-height: 1.2; }
+.de-title-sub { font-size: var(--text-sm); color: var(--color-text-tertiary); font-family: var(--font-mono); margin-top: 3px; }
+.de-actions { display: flex; align-items: center; gap: var(--space-2); flex-shrink: 0; margin-top: 2px; }
+
+/* ─── Badges ── */
+.badge { display: inline-flex; align-items: center; gap: 3px; padding: 2px var(--space-2); border-radius: var(--radius-full); font-size: var(--text-xs); font-weight: var(--weight-medium); border: 1px solid; white-space: nowrap; }
+.badge-active { background: var(--blue-50); border-color: var(--blue-200); color: var(--blue-600); }
+.badge-pending { background: var(--purple-50); border-color: var(--purple-200); color: var(--purple-600); }
+.badge-success { background: var(--green-50); border-color: var(--green-200); color: var(--green-600); }
+.badge-hold { background: var(--amber-50); border-color: var(--amber-200); color: var(--amber-700); }
+.badge-closed { background: var(--slate-50); border-color: var(--slate-200); color: var(--slate-600); }
+
+/* ─── Filter bar ── */
+.de-filter { padding: var(--space-3) var(--space-5); background: var(--color-surface); border-bottom: 1px solid var(--color-border); display: flex; align-items: center; gap: var(--space-3); flex-shrink: 0; }
+.de-search { height: 32px; padding: 0 var(--space-3) 0 32px; font-size: var(--text-sm); font-family: var(--font-sans); border: 1px solid var(--color-border); border-radius: var(--radius-md); background: var(--color-surface); color: var(--color-text-primary); outline: none; min-width: 200px; background-image: url("data:image/svg+xml,%3Csvg width='14' height='14' viewBox='0 0 14 14' fill='none' xmlns='http://www.w3.org/2000/svg'%3E%3Ccircle cx='6' cy='6' r='4.5' stroke='%23C4C4C2' stroke-width='1.5'/%3E%3Cpath d='M9.5 9.5L12 12' stroke='%23C4C4C2' stroke-width='1.5' stroke-linecap='round'/%3E%3C/svg%3E"); background-repeat: no-repeat; background-position: 10px center; }
+.de-search:focus { border-color: var(--color-focus-ring); }
+.de-select { height: 32px; padding: 0 24px 0 var(--space-2); font-size: var(--text-sm); font-family: var(--font-sans); border: 1px solid var(--color-border); border-radius: var(--radius-md); background: var(--color-surface); color: var(--color-text-primary); cursor: pointer; appearance: none; background-image: url("data:image/svg+xml,%3Csvg width='8' height='12' viewBox='0 0 8 12' fill='none'%3E%3Cpath d='M1 1L6 6L1 11' stroke='%236D7480' stroke-width='1.5' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E"); background-repeat: no-repeat; background-position: right 8px center; outline: none; }
+.de-count { font-size: var(--text-xs); color: var(--color-text-tertiary); margin-left: auto; white-space: nowrap; }
+
+/* ─── List table ── */
+.de-table-wrap { flex: 1; overflow-y: auto; }
+.de-table { width: 100%; border-collapse: collapse; font-size: var(--text-sm); }
+.de-table thead th { position: sticky; top: 0; z-index: 5; background: var(--color-surface); padding: var(--space-2) var(--space-3); text-align: left; font-size: var(--text-xs); font-weight: var(--weight-medium); text-transform: uppercase; letter-spacing: var(--tracking-caps); color: var(--color-text-tertiary); border-bottom: 1px solid var(--color-border); white-space: nowrap; }
+.de-table thead th:first-child { padding-left: var(--space-5); }
+.de-table thead th:last-child { padding-right: var(--space-5); }
+.de-table tbody tr { border-bottom: 1px solid var(--color-border-subtle); transition: background var(--duration-fast); }
+.de-table tbody tr.clickable:hover { background: var(--color-hover-bg); cursor: pointer; }
+.de-table tbody td { padding: var(--space-2) var(--space-3); vertical-align: middle; }
+.de-table tbody td:first-child { padding-left: var(--space-5); }
+.de-table tbody td:last-child { padding-right: var(--space-5); }
+.mono { font-family: var(--font-mono); font-size: var(--text-sm); }
+.muted { color: var(--color-text-secondary); }
+.cell-link { color: var(--color-link); font-weight: var(--weight-medium); cursor: pointer; }
+.de-table tbody tr:hover .cell-link { color: var(--color-text-primary); text-decoration: underline; text-underline-offset: 2px; }
+.de-empty { padding: var(--space-8); text-align: center; color: var(--color-text-tertiary); font-size: var(--text-sm); }
+.de-empty i { font-size: 24px; display: block; margin-bottom: var(--space-3); color: var(--color-border); }
+
+/* Row actions — hidden until hover */
+.row-actions { display: flex; align-items: center; gap: 2px; opacity: 0; transition: opacity var(--duration-fast); justify-content: flex-end; }
+.de-table tbody tr:hover .row-actions { opacity: 1; }
+
+/* Progress bar */
+.progress-cell { display: flex; align-items: center; gap: var(--space-2); }
+.progress-track { width: 80px; height: 4px; background: var(--color-border); border-radius: var(--radius-full); }
+.progress-fill { height: 100%; border-radius: var(--radius-full); background: var(--blue-600); }
+.progress-fill.low { background: var(--orange-600); }
+.progress-label { font-family: var(--font-mono); font-size: var(--text-xs); color: var(--color-text-secondary); white-space: nowrap; }
+
+/* ─── Summary bar ── */
+.de-summary { padding: var(--space-2) var(--space-5); background: var(--color-surface); border-top: 1px solid var(--color-border); display: flex; align-items: center; gap: var(--space-4); font-size: var(--text-xs); color: var(--color-text-tertiary); flex-shrink: 0; }
+.de-summary .sv { font-weight: var(--weight-medium); color: var(--color-text-primary); font-family: var(--font-mono); }
+.de-summary .sv.warn { color: var(--amber-700); }
+
+/* ─── Subject form list ── */
+.de-forms { flex: 1; overflow-y: auto; padding: var(--space-5); }
+.de-forms-inner { max-width: 680px; display: flex; flex-direction: column; gap: var(--space-2); }
+.form-row { display: flex; align-items: center; gap: var(--space-3); padding: var(--space-3) var(--space-4); border: 1px solid var(--color-border); border-radius: var(--radius-md); background: var(--color-surface); transition: background var(--duration-fast); }
+.form-row:hover { background: var(--color-hover-bg); }
+.form-row-icon { width: 30px; height: 30px; border: 1px solid var(--color-border); border-radius: var(--radius-md); display: flex; align-items: center; justify-content: center; background: var(--color-page-bg); flex-shrink: 0; }
+.form-row-icon i { font-size: 14px; color: var(--color-text-tertiary); }
+.form-row-body { flex: 1; min-width: 0; }
+.form-row-name { font-size: var(--text-sm); font-weight: var(--weight-medium); }
+.form-row-status { font-size: var(--text-xs); margin-top: 2px; }
+.fcs-complete { color: var(--green-600); }
+.fcs-incomplete { color: var(--amber-700); }
+.fcs-notstarted { color: var(--color-text-placeholder); }
+.form-row-btn { height: 28px; padding: 0 var(--space-3); border: 1px solid var(--color-border); border-radius: var(--radius-md); background: var(--color-surface); font-size: var(--text-xs); font-weight: var(--weight-medium); font-family: var(--font-sans); color: var(--color-text-secondary); cursor: pointer; display: inline-flex; align-items: center; gap: 4px; white-space: nowrap; flex-shrink: 0; }
+.form-row-btn:hover { background: var(--color-hover-bg); }
+.form-row-btn i { font-size: 12px; }
+
+/* Loading */
+.de-loading { flex: 1; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: var(--space-3); color: var(--color-text-tertiary); }
+.de-loading i { font-size: 28px; animation: spin 1s linear infinite; }
+
+/* Placeholder note (features pending other prototypes / schema) */
+.de-note { font-size: var(--text-xs); color: var(--color-text-tertiary); display: inline-flex; align-items: center; gap: var(--space-1); }
+.de-note i { font-size: 12px; }
