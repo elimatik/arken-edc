@@ -11,7 +11,11 @@ export const ROLES: Role[] = ["CRC", "CRA", "DM", "PI", "Sponsor", "Admin"];
 
 // Optional per-role access flags carried alongside a nav permission.
 export interface NavAccess {
-  blinded?: boolean; // data shown blinded (Reports + Inventory for Sponsor)
+  // Sponsor blinding (Reports + Inventory): show AGGREGATE TOTALS only — never
+  // broken down by treatment arm / randomization group. This is arm-level
+  // blinding, NOT a value mask: sponsor-visible widgets and tables omit any
+  // per-arm rows or columns entirely; the sponsor still sees real study totals.
+  blinded?: boolean;
   readonly?: boolean; // view-only (Settings for DM); false = full edit (Admin)
 }
 
@@ -36,8 +40,8 @@ export const NAV_ITEMS: NavItem[] = [
     access: { CRC: open, CRA: open, DM: open, PI: open } },
   { key: "animals", label: "Animals", icon: "list",
     access: { CRC: open, CRA: open, DM: open, PI: open, Sponsor: open } },
-  { key: "records", label: "Records", title: "Site / Barn / Pen Records", icon: "building-warehouse",
-    access: { CRC: open, CRA: open, DM: open, PI: open } },
+  // NB: Site/Barn/Pen navigation is a drill-down inside Data Entry — not a
+  // standalone nav item — so there is intentionally no "Sites/Records" entry.
   { key: "queries", label: "Queries", icon: "help-circle", badge: 4,
     access: { CRC: open, CRA: open, DM: open, PI: open } },
   { key: "visits", label: "Visits", icon: "calendar-event",

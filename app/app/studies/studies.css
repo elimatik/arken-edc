@@ -28,7 +28,28 @@
 .studies-search input{border:none;outline:none;font-size:var(--text-sm);font-family:var(--font-sans);color:var(--color-text-primary);background:transparent;flex:1}
 .studies-search input::placeholder{color:var(--color-text-placeholder)}
 .studies-filter{height:36px;padding:0 24px 0 var(--space-3);font-size:var(--text-sm);font-family:var(--font-sans);border:1px solid var(--color-border);border-radius:var(--radius-md);background:var(--color-surface);color:var(--color-text-primary);cursor:pointer;appearance:none;background-image:url("data:image/svg+xml,%3Csvg width='8' height='12' viewBox='0 0 8 12' fill='none'%3E%3Cpath d='M1 1L6 6L1 11' stroke='%236D7480' stroke-width='1.5' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E");background-repeat:no-repeat;background-position:right 8px center;outline:none}
-.studies-count{font-size:var(--text-sm);color:var(--color-text-tertiary);margin-left:auto}
+.studies-count{font-size:var(--text-sm);color:var(--color-text-tertiary)}
+
+/* View toggle (cards / table) */
+.studies-view-toggle{margin-left:auto;display:flex;border:1px solid var(--color-border);border-radius:var(--radius-md);overflow:hidden;background:var(--color-surface)}
+.view-btn{width:34px;height:36px;display:flex;align-items:center;justify-content:center;border:none;background:var(--color-surface);color:var(--color-text-tertiary);cursor:pointer;transition:background var(--duration-fast),color var(--duration-fast)}
+.view-btn:hover{background:var(--color-hover-bg);color:var(--color-text-secondary)}
+.view-btn.active{background:var(--color-cta-bg);color:#fff}
+.view-btn+.view-btn{border-left:1px solid var(--color-border)}
+.view-btn i{font-size:16px}
+
+/* Table view — interim; the full list experience comes from 14-list-pages.html */
+.studies-table-wrap{background:var(--color-surface);border:1px solid var(--color-border);border-radius:var(--radius-lg);overflow:hidden}
+.studies-table{width:100%;border-collapse:collapse;font-size:var(--text-sm)}
+.studies-table th{text-align:left;padding:var(--space-3) var(--space-4);font-size:var(--text-xs);font-weight:500;text-transform:uppercase;letter-spacing:var(--tracking-caps);color:var(--color-text-tertiary);border-bottom:1px solid var(--color-border);background:var(--color-page-bg);white-space:nowrap}
+.studies-table td{padding:var(--space-3) var(--space-4);border-bottom:1px solid var(--color-border-subtle);vertical-align:middle}
+.studies-table tbody tr:last-child td{border-bottom:none}
+.studies-table tbody tr{cursor:pointer;transition:background var(--duration-fast)}
+.studies-table tbody tr:hover{background:var(--color-hover-bg)}
+.st-code{font-family:var(--font-mono);font-weight:500}
+.st-mono{font-family:var(--font-mono);color:var(--color-text-secondary)}
+.studies-table-note{font-size:var(--text-xs);color:var(--color-text-tertiary);margin-top:var(--space-3);display:flex;align-items:center;gap:var(--space-2)}
+.studies-table-note i{font-size:13px}
 
 /* Study cards grid */
 .studies-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(400px,1fr));gap:var(--space-4)}

@@ -61,9 +61,6 @@ export function Topbar({
         <button className="tb-icon" title="Help" type="button">
           <i className="ti ti-help-circle" aria-hidden="true"></i>
         </button>
-        <button className="tb-icon" title="Settings" type="button">
-          <i className="ti ti-settings" aria-hidden="true"></i>
-        </button>
 
         {/* Role switcher — visible to all roles, switches instantly */}
         <select

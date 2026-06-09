@@ -69,6 +69,7 @@ export default function StudiesPage() {
   const [search, setSearch] = useState("");
   const [statusFilter, setStatusFilter] = useState("");
   const [speciesFilter, setSpeciesFilter] = useState("");
+  const [view, setView] = useState<"cards" | "table">("cards"); // cards is default
 
   useEffect(() => {
     let cancelled = false;
@@ -212,14 +213,34 @@ export default function StudiesPage() {
               <option value="Aquatic">Aquatic</option>
               <option value="Feline">Feline</option>
             </select>
+            <div className="studies-view-toggle" role="group" aria-label="View">
+              <button
+                className={`view-btn${view === "cards" ? " active" : ""}`}
+                onClick={() => setView("cards")}
+                title="Card view"
+                aria-pressed={view === "cards"}
+                type="button"
+              >
+                <i className="ti ti-layout-grid"></i>
+              </button>
+              <button
+                className={`view-btn${view === "table" ? " active" : ""}`}
+                onClick={() => setView("table")}
+                title="Table view"
+                aria-pressed={view === "table"}
+                type="button"
+              >
+                <i className="ti ti-list"></i>
+              </button>
+            </div>
             <span className="studies-count">
               {filtered.length} {filtered.length === 1 ? "study" : "studies"}
             </span>
           </div>
 
-          {/* Grid */}
-          <div className="studies-grid">
-            {loading ? (
+          {/* Content — card view (default) or interim table view */}
+          {loading ? (
+            <div className="studies-grid">
               <div className="studies-empty" style={{ gridColumn: "1/-1" }}>
                 <i
                   className="ti ti-loader-2"
@@ -227,7 +248,9 @@ export default function StudiesPage() {
                 ></i>
                 <div className="studies-empty-title">Loading studies…</div>
               </div>
-            ) : filtered.length === 0 ? (
+            </div>
+          ) : filtered.length === 0 ? (
+            <div className="studies-grid">
               <div className="studies-empty" style={{ gridColumn: "1/-1" }}>
                 <i className="ti ti-microscope"></i>
                 <div className="studies-empty-title">
@@ -235,8 +258,57 @@ export default function StudiesPage() {
                 </div>
                 <div>Try adjusting the search or status filter</div>
               </div>
-            ) : (
-              filtered.map((s) => {
+            </div>
+          ) : view === "table" ? (
+            <div>
+              <div className="studies-table-wrap">
+                <table className="studies-table">
+                  <thead>
+                    <tr>
+                      <th>Study</th>
+                      <th>Name</th>
+                      <th>Sponsor</th>
+                      <th>Species</th>
+                      <th>Status</th>
+                      <th>Role</th>
+                      <th>Subjects</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {filtered.map((s) => {
+                      const statusCls = STATUS_CLS[s.status] || "sb-setup";
+                      return (
+                        <tr key={s.id} onClick={() => enterStudy(s)}>
+                          <td className="st-code">{s.code}</td>
+                          <td>{s.name}</td>
+                          <td>{s.sponsor}</td>
+                          <td>{s.species}</td>
+                          <td>
+                            <span className={`status-badge ${statusCls}`}>{s.statusLabel}</span>
+                          </td>
+                          <td>
+                            <span className={`study-role-chip ${s.roleCls}`}>
+                              <i className="ti ti-user-circle" style={{ fontSize: "11px" }}></i> {s.role}
+                            </span>
+                          </td>
+                          <td className="st-mono">
+                            {s.enrolled} / {s.target}
+                          </td>
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                </table>
+              </div>
+              <div className="studies-table-note">
+                <i className="ti ti-info-circle"></i>
+                Table view is interim — the full list experience comes from
+                14-list-pages.html.
+              </div>
+            </div>
+          ) : (
+            <div className="studies-grid">
+              {filtered.map((s) => {
                 const pct =
                   s.target > 0 ? Math.round((s.enrolled / s.target) * 100) : 0;
                 const statusCls = STATUS_CLS[s.status] || "sb-setup";
@@ -336,9 +408,9 @@ export default function StudiesPage() {
                     </div>
                   </div>
                 );
-              })
-            )}
-          </div>
+              })}
+            </div>
+          )}
         </div>
       </div>
     </div>
