@@ -44,9 +44,46 @@ Paste the full content of this file as your first message. It contains everythin
 - Role enum is **CRC · CRA · DM · PI · Sponsor · Admin** (Sponsor replaces the prototype's `PM` chip — update `rc-pm` references when building those screens).
 
 ### Session 18 — NEXT (app shell + live data) ▶
-1. **Build the authenticated app shell** from `04-app-shell.html` (sidenav + topbar) to wrap the in-study experience; `enterStudy` on the study selector should route into it instead of the placeholder alert.
-2. **Wire the role switcher into the topnav** — backed by `demo_sessions.active_role`; lets a reviewer view the app as CRC vs CRA vs PI vs Sponsor vs DM vs Admin.
-3. **Connect the study selector to real Supabase data** — replace the hardcoded `STUDIES` array in `app/app/studies/page.tsx` with a query against the live `studies` table.
+
+Build the authenticated app shell from `04-app-shell.html` and connect it to live Supabase data. Detailed specs:
+
+**1. Topbar**
+- **Study pill + site dropdown side by side on the left.**
+- Site dropdown defaults to **"All Sites"**.
+- **Role switcher on the top right**, visible to **all roles**. Changing it switches the active role **instantly, without re-login**.
+
+**2. Breadcrumb rule**
+- When **All Sites** is selected → the **site name appears in the breadcrumb**.
+- When a **specific site** is selected → the breadcrumb **starts below the site level** (site is implied by the dropdown, not repeated in the trail).
+
+**3. Sidenav — role-aware**
+- Items are **hidden (not reordered)** based on the active role. Order is stable; disallowed items simply don't render.
+- **Store permissions in a single config object** (e.g. `app/lib/permissions.ts`), keyed by nav item → allowed roles. **Do not hardcode role checks per component.**
+
+Permission matrix (roles: CRC · CRA · DM · PI · Sponsor · Admin):
+
+| Nav item | CRC | CRA | DM | PI | Sponsor | Admin |
+|---|:--:|:--:|:--:|:--:|:--:|:--:|
+| Dashboard | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ |
+| Data Entry | ✓ | ✓ | ✓ | ✓ | — | ✓ |
+| Animals | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ |
+| Queries | ✓ | ✓ | ✓ | ✓ | — | ✓ |
+| Visits | ✓ | ✓ | ✓ | ✓ | — | ✓ |
+| Reports | — | ✓ | ✓ | ✓ | ✓ | ✓ |
+| Invoices | — | — | — | — | — | ✓ |
+| Inventory | — | ✓ | ✓ | — | — | ✓ |
+| Audit Trail | — | ✓ | ✓ | ✓ | — | ✓ |
+| Settings | — | — | — | — | — | ✓ |
+
+Plain-English rules behind the matrix: Dashboard + Animals = all roles · Data Entry/Queries/Visits = all **except Sponsor** · Reports = all **except CRC** · Inventory = CRA/DM/Admin · Audit Trail = CRA/DM/PI/Admin · Invoices + Settings = **Admin only**.
+
+**4. Live data — study selector**
+- Replace the hardcoded `STUDIES` array in `app/app/studies/page.tsx` with a query against the live Supabase **`studies`** table (project `lijieicldshgjtqjescv`).
+
+**5. Role switcher persistence**
+- The role switcher **updates `demo_sessions.active_role` in Supabase** (not just local state), so the active role survives reloads and drives the role-aware sidenav.
+
+`enterStudy` on the study selector should route into this app shell instead of the placeholder alert.
 
 ---
 
