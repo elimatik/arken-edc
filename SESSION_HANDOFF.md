@@ -1,6 +1,6 @@
 # Arken EDC — Session Handoff
 **Paste this entire file at the start of a new conversation.**
-Last updated: 2026-06-09 | Session 21 COMPLETE → Session 22 — Form layer + Create new study
+Last updated: 2026-06-09 | Session 22 COMPLETE → Session 23 — Form-layer fixes
 
 ---
 
@@ -22,7 +22,7 @@ Paste the full content of this file as your first message. It contains everythin
 
 ## Where we are now
 
-**The app is fully built through the Subject Record and now runs on a session-based data store.** The final **3-study architecture** is applied and live in Supabase; on first visit the seed is hydrated once per tab into the session store, and from then on **all reads/writes are in-session** (edits reset on tab close). Session 22 builds the form layer and the "Create new study" flow.
+**The app is built through the Subject Record with a live form layer, all on a session-based data store.** The 3-study architecture + form definitions (108 fields, 20 species ranges) are applied and live in Supabase; on first visit the seed hydrates once per tab into the session store, and from then on **all reads/writes are in-session** (edits reset on tab close). The Subject Record renders real fields with species-specific validation that auto-raises edit-check queries. Session 23 is form-layer fixes.
 
 > **Data model (important):** Supabase is the **read-only seed source**. `app/lib/session-store/` (`useStudySession` / `StudySessionProvider`) hydrates the dataset once per tab into `sessionStorage`; every screen reads from it; `update()` mutates in session and **never writes back to Supabase**. Only `hydrate.ts` reads Supabase.
 >
@@ -82,15 +82,25 @@ Paste the full content of this file as your first message. It contains everythin
 - **Fixes:** all study cards show the CRC chip; removed `.form-sticky-header` bottom border; removed the subject-status dot; SDV-verified fields show "Verified by … · date" in SDV mode; `.delta-btn` 16px; **all badge/chip heights normalized to 20px** (was 22.5px).
 - ⚠️ **Subject-record field edits are still local/illustrative** — the vitals fields and SDV toggles aren't backed by structured store data (the schema has no field definitions yet). Structured reads are session-sourced; structured field editing comes in Session 22.
 
-### Session 22 — NEXT (form layer + Create new study) ▶
+### Session 22 — COMPLETE ✅ (form layer)
+- **Form definitions seeded & applied live.** Per study: 6 templates (Demographics, Screening, Baseline Vitals, Visit 1/2/3) → **108 `form_fields`** total, with a `validation` jsonb on vitals. New **`species_ranges`** table — **20 rows** (5 species × 4 vitals: heart rate, temperature, respiratory rate, weight). Migration `20260609130000_species_ranges.sql`; seed expanded. Applied via `db reset --linked --yes`.
+- **Validation engine** (`app/lib/forms/validation.ts`) — pure `evaluateField(field, value, species, ranges)`: a field declares `validation.vital`, the species table resolves the range. `rangeLabel()` gives the "Normal: x–y" hint. (Case Study 3.)
+- **Session store** now hydrates `formFields` + `speciesRanges` (`types.ts`, `hydrate.ts`); storage key bumped to `v2`.
+- **Subject Record rewritten** (`components/subject-record/SubjectRecord.tsx`) — renders **real fields** from `form_fields`; editing persists via `useStudySession().update()`; **out-of-range vitals auto-raise an edit-check query** (amber flag + inline thread), and going back in-range auto-resolves it (Case Study 1 ↔ 3). SDV verify (CRA) and query respond/resolve also go through `update()` (session only). Demo: AK-2401-001 Baseline Vitals seeded with an out-of-range temp (39.8 vs cattle 38.0–39.3) + its query.
+- ⚠️ **"Create new study" NOT built** — deferred (was item 3 of the original plan). Still session-based when built: an `update()` that inserts a new study graph.
 
-1. **Seed form definitions** — Demographics, Screening, Baseline Vitals, Visit 1 / 2 / 3 — with **species-specific validation rules** (per study type / species). These become real `form_fields` so the Subject Record renders actual fields instead of illustrative ones.
-2. **Wire real field editing through the session store** — field values, SDV verify, and query actions persist via `useStudySession().update()` (session only, reset on tab close).
-3. **Build the "Create new study" setup flow** — session-based: an `update()` that inserts a new study graph (study + sites/hierarchy + forms) into the session. Entry point is the study selector ("Create new study" option). Now well-positioned since the store + form layer exist.
+### Session 23 — NEXT (form-layer fixes) ▶
+1. **Query response flow is broken** — fix respond/resolve in the query thread panel.
+2. **In-work SVG status icon is wrong** — match the style guide's status-icon set (`docs/index.html`).
+3. **SDV shields** — not showing on all fields, and the icon doesn't swap on click (verify the `ti-shield` ↔ `ti-shield-check-filled` toggle on every vital).
+4. **Study selector dropdown** in the topbar — pinned current study + a "go to study list" link (reference `14-list-pages.html`).
+5. **Equine terminology** — for `livestock_individual`/equine, relabel **Barn → Stable** and **Pen → Stall** in the drill-down + breadcrumbs.
+6. **Breadcrumb** on the Subject Record should show the **full path** (study → site → barn/pen → subject), not just Data Entry → study → subject.
+7. **Form groups review** — review how forms group (visit grouping / sub-forms in the sidebar) against the style guide.
 
 Notes:
-- Read any target prototype **fully** before writing; translate faithfully.
-- Everything is in-session now — no Supabase writes. New data lives in the session store and resets on tab close.
+- Everything is in-session — no Supabase writes; edits reset on tab close.
+- After the fixes, **"Create new study"** (deferred from Session 22) and **Case Study 4** (conditional demographics) are the remaining big items.
 
 ---
 
@@ -242,4 +252,4 @@ The style guide is a single `docs/index.html`, served by GitHub Pages from the `
 
 Paste this file and say:
 
-> "This is the handoff doc for Arken EDC. We're in session 22. The app is fully built through the Subject Record and runs on a session-based data store (useStudySession / StudySessionProvider): the 3-study seed is hydrated from Supabase once per tab into sessionStorage, all screens read from the store, all edits are in-session (reset on tab close), and only hydrate.ts reads Supabase. Read the handoff fully, then build the form layer: (1) seed real form definitions — Demographics, Screening, Baseline Vitals, Visit 1/2/3 — with species-specific validation rules, so the Subject Record renders actual fields; (2) wire real field editing / SDV / query actions through useStudySession().update() (session only); (3) build the 'Create new study' setup flow as a session insert (update() that adds a new study graph). Plan the form-definition schema + the session write actions first."
+> "This is the handoff doc for Arken EDC. We're in session 23. The form layer is built and live — the Subject Record renders real fields from form_fields with species-specific validation (species_ranges) that auto-raises edit-check queries; everything is in-session via useStudySession().update(). Read the handoff fully, then work the Session 23 fix list: (1) fix the broken query response/resolve flow; (2) correct the in-work status SVG icon to match the style guide (docs/index.html); (3) SDV shields — show on all vital fields + swap icon on click; (4) topbar study dropdown with pinned study + 'go to study list' link (ref 14-list-pages.html); (5) equine terminology Barn→Stable, Pen→Stall; (6) full-path breadcrumb on the Subject Record; (7) review form grouping. Start the dev server and verify each fix in-browser as it lands."
