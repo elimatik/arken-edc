@@ -111,6 +111,36 @@ export interface MembershipRow {
   role: Role;
 }
 
+// Field validation declared on a form field. `vital` resolves a species-specific
+// range from species_ranges; `min`/`max` are species-independent static bounds.
+export interface FieldValidation {
+  vital?: string; // heart_rate | temperature | respiratory_rate | weight
+  min?: number;
+  max?: number;
+  onViolation?: "query" | "block";
+}
+
+export interface FormFieldRow {
+  id: string;
+  form_id: string;
+  code: string;
+  label: string;
+  field_type: string;
+  options: string[] | null;
+  unit: string | null;
+  is_required: boolean;
+  sequence: number;
+  validation: FieldValidation | null;
+}
+
+export interface SpeciesRangeRow {
+  species: string;
+  vital: string;
+  min: number;
+  max: number;
+  unit: string;
+}
+
 // The full hydrated dataset held in the session.
 export interface Dataset {
   studies: StudyRow[];
@@ -120,12 +150,14 @@ export interface Dataset {
   subjects: SubjectRow[];
   owners: OwnerRow[];
   forms: FormRow[];
+  formFields: FormFieldRow[];
   formInstances: FormInstanceRow[];
   fieldValues: FieldValueRow[];
   queries: QueryRow[];
   queryMessages: QueryMessageRow[];
   sdvRecords: SdvRecordRow[];
   memberships: MembershipRow[];
+  speciesRanges: SpeciesRangeRow[];
 }
 
 export const EMPTY_DATASET: Dataset = {
@@ -136,10 +168,12 @@ export const EMPTY_DATASET: Dataset = {
   subjects: [],
   owners: [],
   forms: [],
+  formFields: [],
   formInstances: [],
   fieldValues: [],
   queries: [],
   queryMessages: [],
   sdvRecords: [],
   memberships: [],
+  speciesRanges: [],
 };
