@@ -1,55 +1,44 @@
 -- ════════════════════════════════════════════════════════════════════════════
--- Arken EDC — Seed data (six-study architecture)
+-- Arken EDC — Seed data (final: three session-based studies)
 --
---   Showcase studies (rich):
---     AK-2401  livestock_group       Site → Barn → Pen → Animals (group)
---     CA-1103  companion             Site → Subject (+ owner)        [ex AK-2312]
---     EQ-3302  livestock_individual  Site → Barn → Pen → Animal (individual)
---   Sandbox studies (empty — visitors experiment freely):
---     FE-0891  companion             sandbox
---     SB-LIVE  livestock_group       sandbox
---     EQ-SAND  livestock_individual  sandbox
+--   AK-2401  livestock_group       Site → Barn → Pen → Animals (group)
+--   CA-1103  companion             Site → Subject (+ owner)
+--   EQ-3302  livestock_individual  Site → Barn → Pen → Animal (individual)
 --
---   Default landing role is CRC for every study (all memberships = CRC). An
---   access code's role overrides this when one is used to enter.
+-- All three are the demo: rich seed here is loaded into the browser session on
+-- first visit and edited in session (writes never go back to Supabase). Supabase
+-- is the read-only seed source. Default landing role is CRC for every study.
 --
--- ⚠️ NOT YET APPLIED. Run after migrations:
---    cd app && supabase db reset      (re-applies migrations + this seed)
--- UUIDs are hardcoded (deterministic) so foreign keys are traceable by eye.
+-- IDEMPOTENT: truncates first so `supabase db push --include-seed` can re-run
+-- against an already-populated database. UUIDs are deterministic.
+--
+-- ⚠️ Apply with:  cd app && npx supabase db push --include-seed
 -- ════════════════════════════════════════════════════════════════════════════
+
+-- Clear everything (cascade reaches all child tables) so the seed is re-runnable.
+-- (idempotent — safe to re-run via `supabase db push --include-seed`)
+truncate table users, studies, access_codes cascade;
 
 -- ─── Demo user ──────────────────────────────────────────────────────────────
 insert into users (id, full_name, email, initials, is_demo) values
   ('10000000-0000-0000-0000-000000000001', 'Elisa Tron', 'elisa@arken.io', 'ET', true);
 
--- ─── Studies: 3 showcase + 3 sandbox ────────────────────────────────────────
-insert into studies (id, code, name, sponsor, phase, type, species, status, is_sandbox, enrollment_target, description) values
+-- ─── Studies: three showcase studies (no sandbox/showcase split) ─────────────
+insert into studies (id, code, name, sponsor, phase, type, species, status, enrollment_target, description) values
   ('20000000-0000-0000-0000-000000002401', 'AK-2401',
    'BRD Cattle Phase II Efficacy Trial', 'AgriVet Sciences', 'Phase II',
-   'livestock_group', 'cattle', 'active', false, 120,
+   'livestock_group', 'cattle', 'active', 120,
    'Bovine respiratory disease — group-housed cattle, pen-level data capture'),
   ('20000000-0000-0000-0000-000000001103', 'CA-1103',
    'Canine Osteoarthritis Pain Study', 'PharmaVet Inc.', 'Phase II',
-   'companion', 'canine', 'active', false, 80,
+   'companion', 'canine', 'active', 80,
    'Companion individual records — owner-linked, post-op analgesia'),
   ('20000000-0000-0000-0000-000000003302', 'EQ-3302',
    'Equine Lameness Therapeutic Trial', 'VetPharm Europe', 'Phase III',
-   'livestock_individual', 'equine', 'active', false, 60,
-   'Stabled equine — individual animal records, lameness scoring'),
-  ('20000000-0000-0000-0000-000000000891', 'FE-0891',
-   'Sandbox — Companion Playground', 'Arken Demo', 'Sandbox',
-   'companion', 'feline', 'setup', true, null,
-   'Open sandbox for companion-animal data entry'),
-  ('20000000-0000-0000-0000-000000005b01', 'SB-LIVE',
-   'Sandbox — Livestock Group Playground', 'Arken Demo', 'Sandbox',
-   'livestock_group', 'swine', 'setup', true, null,
-   'Open sandbox for group-housed livestock data entry'),
-  ('20000000-0000-0000-0000-000000005b03', 'EQ-SAND',
-   'Sandbox — Livestock Individual Playground', 'Arken Demo', 'Sandbox',
-   'livestock_individual', 'equine', 'setup', true, null,
-   'Open sandbox for individual livestock data entry');
+   'livestock_individual', 'equine', 'active', 60,
+   'Stabled equine — individual animal records, lameness scoring');
 
--- ─── Access codes (5) — entry role OVERRIDES the default CRC landing role ────
+-- ─── Access codes (5) — entry role overrides the default CRC landing role ────
 insert into access_codes (id, code, label, role, study_id, is_active) values
   ('50000000-0000-0000-0000-000000000001', 'ARKEN-CRC', 'CRC — site coordinator', 'CRC', null, true),
   ('50000000-0000-0000-0000-000000000002', 'ARKEN-CRA', 'CRA — monitor / SDV', 'CRA', null, true),
@@ -57,17 +46,14 @@ insert into access_codes (id, code, label, role, study_id, is_active) values
   ('50000000-0000-0000-0000-000000000004', 'ARKEN-SPON','Sponsor — oversight',  'Sponsor', null, true),
   ('50000000-0000-0000-0000-000000000005', 'ARKEN-ADMIN','Admin — all access',  'Admin', null, true);
 
--- ─── Memberships: default landing role is CRC for ALL six studies ───────────
+-- ─── Memberships: default landing role is CRC for all studies ───────────────
 insert into study_memberships (id, user_id, study_id, role) values
   ('40000000-0000-0000-0000-000000000001', '10000000-0000-0000-0000-000000000001', '20000000-0000-0000-0000-000000002401', 'CRC'),
   ('40000000-0000-0000-0000-000000000002', '10000000-0000-0000-0000-000000000001', '20000000-0000-0000-0000-000000001103', 'CRC'),
-  ('40000000-0000-0000-0000-000000000003', '10000000-0000-0000-0000-000000000001', '20000000-0000-0000-0000-000000003302', 'CRC'),
-  ('40000000-0000-0000-0000-000000000004', '10000000-0000-0000-0000-000000000001', '20000000-0000-0000-0000-000000000891', 'CRC'),
-  ('40000000-0000-0000-0000-000000000005', '10000000-0000-0000-0000-000000000001', '20000000-0000-0000-0000-000000005b01', 'CRC'),
-  ('40000000-0000-0000-0000-000000000006', '10000000-0000-0000-0000-000000000001', '20000000-0000-0000-0000-000000005b03', 'CRC');
+  ('40000000-0000-0000-0000-000000000003', '10000000-0000-0000-0000-000000000001', '20000000-0000-0000-0000-000000003302', 'CRC');
 
 -- ════════════════════════════════════════════════════════════════════════════
--- SHOWCASE 1 — AK-2401 (cattle, livestock_group): site → barn → pen → subjects
+-- AK-2401 (cattle, livestock_group): site → barn → pen → subjects
 -- ════════════════════════════════════════════════════════════════════════════
 insert into sites (id, study_id, code, name, location, principal_investigator, status) values
   ('30000000-0000-0000-0000-000000002401', '20000000-0000-0000-0000-000000002401', 'S01', 'Prairie Veterinary Research', 'Amarillo, TX', 'Dr. J. Mercer', 'active');
@@ -115,11 +101,10 @@ insert into sdv_records (id, form_instance_id, field_value_id, status, verified_
   ('72000000-0000-0000-0000-000000002401', '63000000-0000-0000-0000-000000002401', '64000000-0000-0000-0000-000000002402', 'verified', '10000000-0000-0000-0000-000000000001', now(), 'Matches source.');
 
 insert into audit_trail (id, entity_table, entity_id, action, new_value, reason, user_id, role, study_id) values
-  ('80000000-0000-0000-0000-000000002401', 'field_values', '64000000-0000-0000-0000-000000002401', 'create', '{"value":"39.8"}'::jsonb, null, '10000000-0000-0000-0000-000000000001', 'CRC', '20000000-0000-0000-0000-000000002401'),
-  ('80000000-0000-0000-0000-000000002402', 'queries', '70000000-0000-0000-0000-000000002401', 'query_raise', '{"severity":"major"}'::jsonb, 'Out-of-range value', '10000000-0000-0000-0000-000000000001', 'CRC', '20000000-0000-0000-0000-000000002401');
+  ('80000000-0000-0000-0000-000000002401', 'field_values', '64000000-0000-0000-0000-000000002401', 'create', '{"value":"39.8"}'::jsonb, null, '10000000-0000-0000-0000-000000000001', 'CRC', '20000000-0000-0000-0000-000000002401');
 
 -- ════════════════════════════════════════════════════════════════════════════
--- SHOWCASE 2 — CA-1103 (canine, companion): site → subjects (+ owners)
+-- CA-1103 (canine, companion): site → subjects (+ owners)
 -- ════════════════════════════════════════════════════════════════════════════
 insert into sites (id, study_id, code, name, location, principal_investigator, status) values
   ('30000000-0000-0000-0000-000000001103', '20000000-0000-0000-0000-000000001103', 'S01', 'Bayside Animal Hospital', 'Portland, OR', 'Dr. L. Okafor', 'active');
@@ -152,7 +137,7 @@ insert into field_values (id, form_instance_id, form_field_id, value, value_num,
   ('64000000-0000-0000-0000-000000001102', '63000000-0000-0000-0000-000000001101', '62000000-0000-0000-0000-000000001102', 'No', null, '10000000-0000-0000-0000-000000000001', now());
 
 -- ════════════════════════════════════════════════════════════════════════════
--- SHOWCASE 3 — EQ-3302 (equine, livestock_individual): site → barn → pen → animals
+-- EQ-3302 (equine, livestock_individual): site → barn → pen → animals
 -- ════════════════════════════════════════════════════════════════════════════
 insert into sites (id, study_id, code, name, location, principal_investigator, status) values
   ('30000000-0000-0000-0000-000000003302', '20000000-0000-0000-0000-000000003302', 'S01', 'Hill Country Equine Center', 'Lexington, KY', 'Dr. R. Devlin', 'active');
@@ -183,21 +168,3 @@ insert into form_instances (id, form_id, subject_id, visit_id, status) values
   ('63000000-0000-0000-0000-000000003301', '61000000-0000-0000-0000-000000003302', '34000000-0000-0000-0000-000000003301', '60000000-0000-0000-0000-000000003302', 'reviewed'),
   ('63000000-0000-0000-0000-000000003302', '61000000-0000-0000-0000-000000003302', '34000000-0000-0000-0000-000000003302', '60000000-0000-0000-0000-000000003302', 'in_work'),
   ('63000000-0000-0000-0000-000000003303', '61000000-0000-0000-0000-000000003302', '34000000-0000-0000-0000-000000003303', '60000000-0000-0000-0000-000000003302', 'empty');
-
--- ════════════════════════════════════════════════════════════════════════════
--- SANDBOX STUDIES — site + blank form template, no subjects (free play)
--- ════════════════════════════════════════════════════════════════════════════
-insert into sites (id, study_id, code, name, location, status) values
-  ('30000000-0000-0000-0000-000000000891', '20000000-0000-0000-0000-000000000891', 'S01', 'Sandbox Site', 'Demo', 'active'),
-  ('30000000-0000-0000-0000-000000005b01', '20000000-0000-0000-0000-000000005b01', 'S01', 'Sandbox Site', 'Demo', 'active'),
-  ('30000000-0000-0000-0000-000000005b03', '20000000-0000-0000-0000-000000005b03', 'S01', 'Sandbox Site', 'Demo', 'active');
-
-insert into forms (id, study_id, code, name, sequence, description) values
-  ('61000000-0000-0000-0000-000000000891', '20000000-0000-0000-0000-000000000891', 'DEMOG', 'Demographics', 1, 'Sandbox form — enter anything'),
-  ('61000000-0000-0000-0000-000000005b01', '20000000-0000-0000-0000-000000005b01', 'DEMOG', 'Demographics', 1, 'Sandbox form — enter anything'),
-  ('61000000-0000-0000-0000-000000005b03', '20000000-0000-0000-0000-000000005b03', 'DEMOG', 'Demographics', 1, 'Sandbox form — enter anything');
-
-insert into form_fields (id, form_id, code, label, field_type, is_required, sequence) values
-  ('62000000-0000-0000-0000-000000000891', '61000000-0000-0000-0000-000000000891', 'animal_id', 'Animal ID', 'text', true, 1),
-  ('62000000-0000-0000-0000-000000005b01', '61000000-0000-0000-0000-000000005b01', 'animal_id', 'Animal ID', 'text', true, 1),
-  ('62000000-0000-0000-0000-000000005b03', '61000000-0000-0000-0000-000000005b03', 'animal_id', 'Animal ID', 'text', true, 1);

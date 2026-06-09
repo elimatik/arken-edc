@@ -257,6 +257,10 @@ export function SubjectRecord({ studyId, subjectId, initialFormId }: Props) {
         ) : (
           opts.hint && <span className="field-hint">{opts.hint}</span>
         )}
+        {/* SDV verified note — shown in SDV mode for a verified field */}
+        {modeSdv && verified[key] && (
+          <span className="sdv-verified-note">Verified by E. Tron · 2026-05-09</span>
+        )}
       </div>
     );
   }
@@ -313,10 +317,7 @@ export function SubjectRecord({ studyId, subjectId, initialFormId }: Props) {
           <div className="subject-header">
             <div className="species-icon">{speciesIcon}</div>
             <span className="subject-id">{subject?.subject_code}</span>
-            <span className={`subject-status ${status.cls}`}>
-              <span className="status-dot"></span>
-              {status.label}
-            </span>
+            <span className={`subject-status ${status.cls}`}>{status.label}</span>
             <div className="subject-meta">
               <span className="meta-item">{(subject?.species || "").charAt(0).toUpperCase() + (subject?.species || "").slice(1)}</span>
               {subject?.randomization_arm && (
