@@ -1,11 +1,14 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
+import { supabase } from "@/lib/supabase";
+import { DEMO_USER_ID } from "@/lib/constants";
 import "./studies.css";
 
 type Study = {
-  id: string;
+  id: string; // uuid (used for routing)
+  code: string; // human study code, e.g. "AK-2401"
   name: string;
   sponsor: string;
   phase: string;
@@ -24,123 +27,6 @@ type Study = {
   desc: string;
 };
 
-const STUDIES: Study[] = [
-  {
-    id: "AK-2401",
-    name: "BRD Cattle Phase II Efficacy Trial",
-    sponsor: "AgriVet Sciences",
-    phase: "Phase II",
-    species: "Cattle",
-    icon: "🐄",
-    iconCls: "cattle",
-    status: "active",
-    statusLabel: "Active",
-    role: "CRC",
-    roleCls: "rc-crc",
-    enrolled: 89,
-    target: 120,
-    sites: 3,
-    openQueries: 11,
-    lastEntry: "Today",
-    desc: "Bovine respiratory disease — efficacy and safety of AV-2201",
-  },
-  {
-    id: "AK-2209",
-    name: "PRRS Swine USDA Vaccine Efficacy Study",
-    sponsor: "AgriVet Sciences",
-    phase: "Phase III",
-    species: "Swine",
-    icon: "🐷",
-    iconCls: "swine",
-    status: "active",
-    statusLabel: "Active",
-    role: "CRC",
-    roleCls: "rc-crc",
-    enrolled: 156,
-    target: 200,
-    sites: 4,
-    openQueries: 6,
-    lastEntry: "Jun 06",
-    desc: "Porcine reproductive and respiratory syndrome — USDA conditional license study",
-  },
-  {
-    id: "AK-2312",
-    name: "Canine Analgesia Study — Velafen",
-    sponsor: "PharmaVet Inc.",
-    phase: "Phase II",
-    species: "Canine",
-    icon: "🐕",
-    iconCls: "canine",
-    status: "setup",
-    statusLabel: "In setup",
-    role: "CRC",
-    roleCls: "rc-crc",
-    enrolled: 0,
-    target: 80,
-    sites: 2,
-    openQueries: 0,
-    lastEntry: "—",
-    desc: "Pain management efficacy — post-operative canine analgesia",
-  },
-  {
-    id: "AK-2318",
-    name: "Aquatic Species NADA Residue Study",
-    sponsor: "AquaPharm LLC",
-    phase: "Phase I",
-    species: "Aquatic",
-    icon: "🐟",
-    iconCls: "aquatic",
-    status: "active",
-    statusLabel: "Active",
-    role: "PI",
-    roleCls: "rc-pi",
-    enrolled: 240,
-    target: 300,
-    sites: 2,
-    openQueries: 3,
-    lastEntry: "Jun 07",
-    desc: "Tissue residue depletion study in rainbow trout — NADA submission",
-  },
-  {
-    id: "AK-2205",
-    name: "Feline Hypertension Long-Term Safety",
-    sponsor: "VetPharm Europe",
-    phase: "Phase III",
-    species: "Feline",
-    icon: "🐈",
-    iconCls: "feline",
-    status: "closed",
-    statusLabel: "Closed",
-    role: "CRC",
-    roleCls: "rc-crc",
-    enrolled: 120,
-    target: 120,
-    sites: 3,
-    openQueries: 0,
-    lastEntry: "Dec 2025",
-    desc: "Long-term safety of FH-301 in hypertensive cats — study completed",
-  },
-  {
-    id: "AK-2407",
-    name: "BRD Cattle Phase III — Multi-region",
-    sponsor: "AgriVet Sciences",
-    phase: "Phase III",
-    species: "Cattle",
-    icon: "🐄",
-    iconCls: "cattle",
-    status: "setup",
-    statusLabel: "In setup",
-    role: "Admin",
-    roleCls: "rc-admin",
-    enrolled: 0,
-    target: 360,
-    sites: 8,
-    openQueries: 0,
-    lastEntry: "—",
-    desc: "Phase III efficacy — 8-site expansion across US and Canada",
-  },
-];
-
 const STATUS_CLS: Record<string, string> = {
   active: "sb-active",
   setup: "sb-setup",
@@ -148,18 +34,106 @@ const STATUS_CLS: Record<string, string> = {
   paused: "sb-paused",
 };
 
+const STATUS_LABEL: Record<string, string> = {
+  active: "Active",
+  setup: "In setup",
+  paused: "Paused",
+  closed: "Closed",
+};
+
+const SPECIES_ICON: Record<string, string> = {
+  cattle: "🐄",
+  swine: "🐷",
+  canine: "🐕",
+  aquatic: "🐟",
+  feline: "🐈",
+};
+
+const ROLE_CLS: Record<string, string> = {
+  CRC: "rc-crc",
+  CRA: "rc-cra",
+  DM: "rc-dm",
+  PI: "rc-pi",
+  Sponsor: "rc-sponsor",
+  Admin: "rc-admin",
+};
+
+function cap(s: string): string {
+  return s ? s.charAt(0).toUpperCase() + s.slice(1) : "";
+}
+
 export default function StudiesPage() {
   const router = useRouter();
+  const [studies, setStudies] = useState<Study[]>([]);
+  const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState("");
   const [statusFilter, setStatusFilter] = useState("");
   const [speciesFilter, setSpeciesFilter] = useState("");
 
+  useEffect(() => {
+    let cancelled = false;
+
+    async function load() {
+      // Live studies for the demo user, with cheap aggregates (subject + site counts).
+      const { data, error } = await supabase
+        .from("studies")
+        .select(
+          "id, code, name, sponsor, phase, species, status, enrollment_target, description, sites(count), subjects(count), study_memberships!inner(role)",
+        )
+        .eq("study_memberships.user_id", DEMO_USER_ID)
+        .order("code");
+
+      if (cancelled) return;
+
+      if (error || !data) {
+        setStudies([]);
+        setLoading(false);
+        return;
+      }
+
+      const mapped: Study[] = (data as any[]).map((row) => {
+        const species: string = row.species ?? "";
+        const role: string = row.study_memberships?.[0]?.role ?? "";
+        return {
+          id: row.id,
+          code: row.code,
+          name: row.name,
+          sponsor: row.sponsor ?? "",
+          phase: row.phase ?? "",
+          species: cap(species),
+          icon: SPECIES_ICON[species] ?? "🔬",
+          iconCls: species,
+          status: row.status,
+          statusLabel: STATUS_LABEL[row.status] ?? row.status,
+          role,
+          roleCls: ROLE_CLS[role] ?? "",
+          enrolled: row.subjects?.[0]?.count ?? 0,
+          target: row.enrollment_target ?? 0,
+          sites: row.sites?.[0]?.count ?? 0,
+          // TODO (next session): live open-query count (subjects → form_instances → queries)
+          openQueries: 0,
+          // TODO (next session): live last data-entry timestamp
+          lastEntry: "—",
+          desc: row.description ?? "",
+        };
+      });
+
+      setStudies(mapped);
+      setLoading(false);
+    }
+
+    load();
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
   const q = search.toLowerCase().trim();
-  const filtered = STUDIES.filter((s) => {
+  const filtered = studies.filter((s) => {
     const matchQ =
       !q ||
       s.name.toLowerCase().includes(q) ||
-      s.id.toLowerCase().includes(q) ||
+      s.code.toLowerCase().includes(q) ||
       s.sponsor.toLowerCase().includes(q);
     const matchStatus = !statusFilter || s.status === statusFilter;
     const matchSpecies = !speciesFilter || s.species === speciesFilter;
@@ -167,10 +141,7 @@ export default function StudiesPage() {
   });
 
   function enterStudy(s: Study) {
-    // In production: navigate to app. For prototype: show confirmation.
-    alert(
-      `Entering ${s.id} — ${s.name}\n\nIn production this would load the full EDC shell for this study with role: ${s.role}`,
-    );
+    router.push(`/study/${s.id}`);
   }
 
   function signOut() {
@@ -248,7 +219,15 @@ export default function StudiesPage() {
 
           {/* Grid */}
           <div className="studies-grid">
-            {filtered.length === 0 ? (
+            {loading ? (
+              <div className="studies-empty" style={{ gridColumn: "1/-1" }}>
+                <i
+                  className="ti ti-loader-2"
+                  style={{ animation: "spin 1s linear infinite" }}
+                ></i>
+                <div className="studies-empty-title">Loading studies…</div>
+              </div>
+            ) : filtered.length === 0 ? (
               <div className="studies-empty" style={{ gridColumn: "1/-1" }}>
                 <i className="ti ti-microscope"></i>
                 <div className="studies-empty-title">
@@ -274,7 +253,7 @@ export default function StudiesPage() {
                       </div>
                       <div className="study-card-main">
                         <div className="study-card-id">
-                          {s.id} · {s.phase} · {s.species}
+                          {s.code} · {s.phase} · {s.species}
                         </div>
                         <div className="study-card-name">{s.name}</div>
                         <div className="study-card-sponsor">{s.sponsor}</div>

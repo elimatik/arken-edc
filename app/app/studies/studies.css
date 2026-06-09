@@ -77,6 +77,7 @@
 .rc-pi    {background:var(--green-50);border-color:var(--green-200);color:var(--green-600)}
 .rc-dm    {background:var(--slate-50);border-color:var(--slate-200);color:var(--slate-600)}
 .rc-pm    {background:var(--amber-50);border-color:var(--amber-200);color:var(--amber-700)}
+.rc-sponsor {background:var(--amber-50);border-color:var(--amber-200);color:var(--amber-700)}
 .rc-admin {background:var(--red-50);border-color:var(--red-200);color:var(--red-600)}
 .study-card-enter{font-size:var(--text-xs);color:var(--color-text-placeholder);display:flex;align-items:center;gap:4px;transition:color var(--duration-fast)}
 .study-card:hover .study-card-enter{color:var(--blue-600)}
