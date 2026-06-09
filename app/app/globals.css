@@ -2,26 +2,53 @@
 @tailwind components;
 @tailwind utilities;
 
+/* ════════════════════════════════════════════════════════════════
+   ARKEN EDC — DESIGN SYSTEM TOKENS
+   Canonical token set (style guide superset + prototype tokens).
+   Fonts resolve to the next/font CSS variables set in layout.tsx.
+════════════════════════════════════════════════════════════════ */
 :root {
-  --background: #ffffff;
-  --foreground: #171717;
+  /* Surfaces & navigation */
+  --color-nav-bg:#1A1F2E; --color-nav-hover:#2C3248; --color-nav-icon:#8aafc8;
+  --color-page-bg:#FBFBFB; --color-surface:#FFFFFF;
+  --color-border:#E8E8E6; --color-border-subtle:#F0F0EE;
+  --color-text-primary:#2C2D33; --color-text-secondary:#4F535B;
+  --color-text-tertiary:#6D7480; --color-text-placeholder:#C4C4C2;
+  --color-link:#3D4A5C; --color-hover-bg:#F0F0EE;
+  --color-cta-bg:#1A1F2E; --color-cta-hover:#2C3248; --color-focus-ring:#3D8FE0;
+
+  /* Severity & semantic palette */
+  --amber-50:#FFF8E7; --amber-200:#F5B830; --amber-700:#8A5C00;
+  --orange-50:#FFF0E8; --orange-200:#F48E50; --orange-700:#A33A08;
+  --red-50:#FFF0F0; --red-200:#EC8585; --red-600:#B52626;
+  --green-50:#EEFAF4; --green-200:#58BC88; --green-600:#1A6B47;
+  --blue-50:#E8F4FF; --blue-200:#7AB8EE; --blue-600:#1760A8;
+  --purple-50:#F0EEFF; --purple-200:#A9A3EC; --purple-600:#534AB7;
+  --slate-50:#EEF1F6; --slate-200:#8AA0B8; --slate-600:#3D5A78;
+
+  /* Typography */
+  --font-sans: var(--font-roboto), 'Roboto', system-ui, sans-serif;
+  --font-mono: var(--font-roboto-mono), 'Roboto Mono', monospace;
+  --text-xs:11px; --text-sm:12px; --text-base:14px; --text-lg:16px;
+  --text-xl:18px; --text-2xl:20px; --text-3xl:24px;
+  --weight-medium:500; --weight-bold:700;
+
+  /* Radius & spacing */
+  --radius-sm:2px; --radius-md:4px; --radius-lg:6px; --radius-full:9999px;
+  --space-1:4px; --space-2:8px; --space-3:12px; --space-4:16px;
+  --space-5:20px; --space-6:24px; --space-8:32px; --space-10:40px;
+
+  /* Motion & misc */
+  --duration-fast:120ms; --ease-default:cubic-bezier(0.16,1,0.3,1);
+  --tracking-caps:0.07em;
 }
 
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
-  }
-}
-
-body {
-  color: var(--foreground);
-  background: var(--background);
-  font-family: Arial, Helvetica, sans-serif;
-}
-
-@layer utilities {
-  .text-balance {
-    text-wrap: balance;
-  }
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+body{
+  font-family:var(--font-sans);
+  font-size:var(--text-base);
+  color:var(--color-text-primary);
+  background:var(--color-page-bg);
+  -webkit-font-smoothing:antialiased;
+  min-height:100vh;
 }
