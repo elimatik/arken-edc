@@ -3,6 +3,7 @@
 import { useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import { useStudySession } from "@/lib/session-store/SessionStore";
+import { getPinnedStudy, setPinnedStudy } from "@/lib/pinned-study";
 import "./studies.css";
 
 type Study = {
@@ -61,19 +62,14 @@ function cap(s: string): string {
   return s ? s.charAt(0).toUpperCase() + s.slice(1) : "";
 }
 
-const PIN_KEY = "arken_pinned_study_v1";
-
 export default function StudiesPage() {
   const router = useRouter();
-  const { dataset, ready, update } = useStudySession();
+  const { dataset, ready, update, setActiveRole } = useStudySession();
   const [search, setSearch] = useState("");
   const [statusFilter, setStatusFilter] = useState("");
   const [speciesFilter, setSpeciesFilter] = useState("");
-  const [view, setView] = useState<"cards" | "table">("cards"); // cards is default
-  const [pinnedId, setPinnedId] = useState<string | null>(() => {
-    if (typeof window === "undefined") return null;
-    try { return sessionStorage.getItem(PIN_KEY); } catch { return null; }
-  });
+  const [view, setView] = useState<"cards" | "table">("table"); // table is default
+  const [pinnedId, setPinnedId] = useState<string | null>(() => getPinnedStudy());
   // Add-study modal
   const [addOpen, setAddOpen] = useState(false);
   const [newName, setNewName] = useState("");
@@ -127,15 +123,22 @@ export default function StudiesPage() {
     return matchQ && matchStatus && matchSpecies;
   });
 
-  // Pinned / active study (session-scoped). Defaults to the first study.
-  const pinned = pinnedId ?? studies[0]?.id ?? null;
-  function pinStudy(id: string) {
-    setPinnedId(id);
-    try { sessionStorage.setItem(PIN_KEY, id); } catch { /* ignore */ }
+  // Pinned / active study (session-scoped, persisted in sessionStorage). No
+  // implicit default — pinned only when the user explicitly pins.
+  const pinned = pinnedId;
+  // Clicking the pin toggles: pin an unpinned study, unpin the pinned one.
+  function togglePin(id: string) {
+    const next = pinnedId === id ? null : id;
+    setPinnedId(next);
+    setPinnedStudy(next);
   }
 
+  // Pinned study always renders first in the table, regardless of sort.
+  const ordered = pinned
+    ? [...filtered].sort((a, b) => (a.id === pinned ? -1 : b.id === pinned ? 1 : 0))
+    : filtered;
+
   function enterStudy(s: Study) {
-    pinStudy(s.id); // entering a study makes it the active/pinned one
     router.push(`/study/${s.id}`);
   }
 
@@ -155,7 +158,8 @@ export default function StudiesPage() {
     setNewClientText("");
   }
 
-  // Create a new session-based study (companion template) and navigate to it.
+  // Create a new, empty session-based study and go to its settings to configure
+  // it. No sites/barns/pens/subjects/forms yet — Admin sets all that up.
   function confirmAdd() {
     if (!canCreate) return;
     const id = crypto.randomUUID();
@@ -168,25 +172,12 @@ export default function StudiesPage() {
         type: "companion", species: null, status: "setup",
         enrollment_target: null, description: null,
       });
-      d.memberships.push({ study_id: id, role: "CRC" });
-      const siteId = crypto.randomUUID();
-      d.sites.push({ id: siteId, study_id: id, code: "S01", name: "Site 01", status: "active" });
-      // Clone the standard grouped form template from the companion study.
-      const tmpl = "20000000-0000-0000-0000-000000001103";
-      const tmplForms = d.forms.filter((f) => f.study_id === tmpl);
-      const idMap: Record<string, string> = {};
-      tmplForms.forEach((f) => { idMap[f.id] = crypto.randomUUID(); });
-      tmplForms.forEach((f) =>
-        d.forms.push({ ...f, id: idMap[f.id], study_id: id, parent_form_id: f.parent_form_id ? idMap[f.parent_form_id] : null }),
-      );
-      const tmplFormIds = new Set(tmplForms.map((f) => f.id));
-      d.formFields
-        .filter((ff) => tmplFormIds.has(ff.form_id))
-        .forEach((ff) => d.formFields.push({ ...ff, id: crypto.randomUUID(), form_id: idMap[ff.form_id] }));
+      // Admin-only membership — configuring a new study is an Admin task.
+      d.memberships.push({ study_id: id, role: "Admin" });
     });
-    pinStudy(id);
+    setActiveRole("Admin"); // enter the study as Admin
     closeAdd();
-    router.push(`/study/${id}`);
+    router.push(`/study/${id}/settings`);
   }
 
   return (
@@ -323,7 +314,7 @@ export default function StudiesPage() {
                     </tr>
                   </thead>
                   <tbody>
-                    {filtered.map((s) => {
+                    {ordered.map((s) => {
                       const statusCls = STATUS_CLS[s.status] || "sb-setup";
                       const isPinned = s.id === pinned;
                       return (
@@ -331,9 +322,9 @@ export default function StudiesPage() {
                           <td className="st-pin-cell">
                             <button
                               className={`st-pin${isPinned ? " pinned" : ""}`}
-                              title={isPinned ? "Active study" : "Pin as active study"}
+                              title={isPinned ? "Pinned — click to unpin" : "Pin as active study"}
                               aria-pressed={isPinned}
-                              onClick={(e) => { e.stopPropagation(); pinStudy(s.id); }}
+                              onClick={(e) => { e.stopPropagation(); togglePin(s.id); }}
                               type="button"
                             >
                               <i className={`ti ${isPinned ? "ti-pin-filled" : "ti-pin"}`}></i>

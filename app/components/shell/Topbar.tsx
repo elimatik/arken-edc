@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { ROLES, type Role } from "@/lib/permissions";
 import { DEMO_USER } from "@/lib/constants";
 import { useStudySession } from "@/lib/session-store/SessionStore";
+import { getPinnedStudy, setPinnedStudy } from "@/lib/pinned-study";
 import type { ShellSite, ShellStudy } from "./ShellContext";
 
 interface TopbarProps {
@@ -27,8 +28,20 @@ export function Topbar({
   const router = useRouter();
   const { dataset } = useStudySession();
   const [pickerOpen, setPickerOpen] = useState(false);
+  const [pinnedId, setPinnedId] = useState<string | null>(() => getPinnedStudy());
 
-  const otherStudies = dataset.studies.filter((s) => s.id !== study.id);
+  function openPicker() {
+    setPinnedId(getPinnedStudy()); // refresh from storage in case it changed elsewhere
+    setPickerOpen((o) => !o);
+  }
+  function unpin() {
+    setPinnedStudy(null);
+    setPinnedId(null);
+  }
+
+  const pinnedStudy = pinnedId ? dataset.studies.find((s) => s.id === pinnedId) : undefined;
+  // Studies you can switch to: everything except the one you're in and the pinned one (shown above).
+  const switchStudies = dataset.studies.filter((s) => s.id !== study.id && s.id !== pinnedId);
 
   return (
     <header className="topbar">
@@ -36,7 +49,7 @@ export function Topbar({
       <div className="tb-study-wrap">
         <button
           className="tb-study"
-          onClick={() => setPickerOpen((o) => !o)}
+          onClick={openPicker}
           title="Current study"
           aria-haspopup="menu"
           aria-expanded={pickerOpen}
@@ -48,18 +61,37 @@ export function Topbar({
         </button>
         {pickerOpen && <div className="tb-picker-backdrop" onClick={() => setPickerOpen(false)} />}
         <div className={`tb-picker${pickerOpen ? " open" : ""}`} role="menu">
-          <div className="tb-picker-section">
-            <div className="tb-picker-label">Current study</div>
-            <button className="tb-picker-study current" type="button" disabled>
-              <i className="ti ti-pin-filled" style={{ fontSize: "12px", color: "var(--blue-600)" }} aria-hidden="true"></i>
-              {study.name}
-              <span className="study-id">{study.code}</span>
-            </button>
-          </div>
-          {otherStudies.length > 0 && (
+          {pinnedStudy && (
+            <div className="tb-picker-section">
+              <div className="tb-picker-label">Pinned</div>
+              <div className="tb-picker-study">
+                <button
+                  className="tb-pin-btn pinned"
+                  title="Pinned — click to unpin"
+                  aria-label="Unpin study"
+                  onClick={unpin}
+                  type="button"
+                >
+                  <i className="ti ti-pin-filled" aria-hidden="true"></i>
+                </button>
+                <button
+                  className="tb-picker-study-link"
+                  type="button"
+                  onClick={() => {
+                    setPickerOpen(false);
+                    router.push(`/study/${pinnedStudy.id}`);
+                  }}
+                >
+                  {pinnedStudy.name}
+                  <span className="study-id">{pinnedStudy.code}</span>
+                </button>
+              </div>
+            </div>
+          )}
+          {switchStudies.length > 0 && (
             <div className="tb-picker-section">
               <div className="tb-picker-label">Switch to</div>
-              {otherStudies.map((s) => (
+              {switchStudies.map((s) => (
                 <button
                   key={s.id}
                   className="tb-picker-study"

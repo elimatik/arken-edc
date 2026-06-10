@@ -75,6 +75,7 @@ export function navItemsForRole(role: Role): NavItem[] {
 export const NAV_ROUTES: Partial<Record<string, string>> = {
   dashboard: "",
   "data-entry": "data-entry",
+  settings: "settings",
 };
 
 export function navAccess(item: NavItem, role: Role): NavAccess | undefined {
