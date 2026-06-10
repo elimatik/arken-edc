@@ -46,19 +46,6 @@ const BADGE_CLS: Record<string, string> = {
 function statusLabel(s: string): string {
   return s.charAt(0).toUpperCase() + s.slice(1).replace(/-/g, " ");
 }
-function formBtn(s: FormStatus) {
-  return {
-    complete: { label: "Review", icon: "ti-eye" },
-    incomplete: { label: "Continue", icon: "ti-pencil" },
-    "not-started": { label: "Start", icon: "ti-pencil" },
-  }[s];
-}
-function formStatusText(s: FormStatus) {
-  return { complete: "Complete", incomplete: "In progress", "not-started": "Not started" }[s];
-}
-function formStatusCls(s: FormStatus) {
-  return { complete: "fcs-complete", incomplete: "fcs-incomplete", "not-started": "fcs-notstarted" }[s];
-}
 
 export default function DataEntryPage() {
   const router = useRouter();
@@ -202,7 +189,6 @@ export default function DataEntryPage() {
   }
 
   const parentNode = nav.length ? findNode(nav[nav.length - 1].key) : null;
-  const isSubjectView = parentNode != null && parentNode.level === subjectIdx;
 
   function drillInto(node: Node) {
     // Subjects open their full Subject Record; containers drill in place.

@@ -49,15 +49,6 @@ const SPECIES_ICON: Record<string, string> = {
   feline: "🐈",
 };
 
-const ROLE_CLS: Record<string, string> = {
-  CRC: "rc-crc",
-  CRA: "rc-cra",
-  DM: "rc-dm",
-  PI: "rc-pi",
-  Sponsor: "rc-sponsor",
-  Admin: "rc-admin",
-};
-
 function cap(s: string): string {
   return s ? s.charAt(0).toUpperCase() + s.slice(1) : "";
 }
