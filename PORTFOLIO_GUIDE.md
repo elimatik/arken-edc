@@ -160,9 +160,10 @@ cd app && npx supabase db reset --linked --yes
 - **Required fields** flagged with a red asterisk; **vital hints** show the species normal range ("Normal: 38.0–39.3 °C").
 - **Form status lifecycle** — Empty → In-Work → In-Review → Reviewed → Finalized → Locked, with **role-gated** advance actions and an **e-signature** confirmation to lock; a locked form is fully read-only.
 - **Inclusion/Exclusion logic** — failing any criterion flags the subject **ineligible** (red banner + PI-review chip on the record and a warning badge in the drill-down list).
+- **Change reason (Δ)** — editing a saved value requires a reason; the Δ panel shows old → new, records the reason with author + timestamp, and tracks a **pending → responded → DM-approved** state (21 CFR Part 11). Query flags persist (resolved → green); a **Remarks** toggle shows/hides Queries and SDV overlays; verified fields stay marked when SDV mode is off.
 
 **Pending:**
-- **SDV panel** + **change-reason (Δ)** persistence (the per-field shield and the Δ panel exist; a dedicated SDV surface and Δ history are next)
+- **SDV panel** — a dedicated source-data-verification surface (the per-field shield + progress exist; a bulk SDV view is next)
 - **Case Study 4 — conditional demographics** (breed lists, production-purpose tags; age auto-calc is done)
 - **Animals list** and **Queries** screens
 - The **portfolio site** itself

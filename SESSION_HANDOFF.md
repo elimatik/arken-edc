@@ -1,6 +1,6 @@
 # Arken EDC — Session Handoff
 **Paste this entire file at the start of a new conversation.**
-Last updated: 2026-06-10 | Session 24 — forms deep dive (field types, status, I/E) DONE
+Last updated: 2026-06-10 | Session 24 — forms deep dive + 11 form UI fixes DONE
 
 ---
 
@@ -133,12 +133,26 @@ All in `components/subject-record/SubjectRecord.tsx` (+ `subject-record.css`), w
 
 Seed: `generate-seed.mjs` adds `coded()` (→ `validation.coded`) and `crit()` (→ `validation.exclusion_criterion`) builders; `types.ts` gains `FieldValidation.coded/exclusion_criterion` + `SubjectRow.ineligible`; session key bumped to **v4**; applied via `db reset` (this also applied the `nda_agreements` migration). Verified: `tsc`, `next lint`, and **`next build` all clean**.
 
+### Session 24 — form UI fixes ✅ (11 fixes, all in `SubjectRecord.tsx` + `subject-record.css`)
+1. **No status chip in the toolbar** — status lives in the sidebar icon; only the advance button remains.
+2. **Groups collapsed on load except the active one** — `collapsedGroups` is `null` until first toggle; default = every group collapsed except the active form's parent (Animal Information opens by default).
+3. **Sidebar status-icon tooltips** — `StatusGlyph` wraps in `.status-glyph` with a `title` (Empty / In-Work / In-Review / Reviewed / Finalized / Locked / Open query).
+4. **Native date picker** — `type=date` + `onClick` calls `showPicker()`; `.field-date` shows the calendar indicator.
+5. **Select chevron** — `.field-select` now uses a **down** chevron SVG (right 8px, padding-right 32px, appearance none).
+6. **Remarks default OFF** — `modeQueries` starts `false` (was `true`); Queries + SDV are opt-in.
+7. **Δ only on a real change** — `baseline[fieldId]` captures the pre-edit (saved) value on first edit; Δ shows only when the baseline is non-empty **and** the value differs (no Δ on first entry of an empty field).
+8. **Change-reason panel rebuilt** — 420px; header title + `Δ-[code]` chip + X; context bar old⊘ → new (mono); body = required reason textarea + previous-changes history; footer Cancel + Submit (disabled until filled). **Δ states**: pending (dashed red) → responded (solid blue) → approved (green filled, DM approves in the history list). Persists to a session-only `deltaRecords` array.
+9. **Resolved query → green flag persists** — `fieldQueryFor()` returns any query (incl. resolved); resolved shows green `ti-flag-check` (`.flag-btn.resolved`), not the hollow default.
+10. **Flags only in Queries mode** — the flag button + amber input + inline query state render only when `modeQueries` is on.
+11. **Verified SDV icon persists** — when SDV mode is off, verified fields show a static blue `ti-shield-check-filled` (`.sdv-static`); only the interactive shield buttons hide. Verification is permanent across mode toggles.
+
+Data: `types.ts` adds `DeltaRecordRow` + `Dataset.deltaRecords` (session-only, not from Supabase); `hydrate.ts` seeds it `[]`; session key → **v5**. Verified: `tsc`, `next lint`, **`next build` all clean**.
+
 ### Session 25 — NEXT ▶ (remaining form polish)
 1. **SDV panel** — a dedicated source-data-verification surface (not just the per-field shield): progress, per-field verify, bulk.
-2. **Change reason (Δ)** — wire the delta panel to actually record the reason + show change history (21 CFR Part 11). (Currently the panel opens but doesn't persist.)
-3. **Sidebar deep-link** — opening a sub-form via URL should expand/select its group.
-4. **Query panel** — re-open a resolved query; richer thread.
-5. **Case Study 4 — conditional demographics** (breed lists, production-purpose tags that appear/validate per animal). Age auto-calc is already done.
+2. **Sidebar deep-link** — opening a sub-form via URL should expand/select its group.
+3. **Query panel** — re-open a resolved query; richer thread.
+4. **Case Study 4 — conditional demographics** (breed lists, production-purpose tags that appear/validate per animal). Age auto-calc is already done.
 
 Notes:
 - Everything is in-session — no Supabase writes; edits reset on tab close.

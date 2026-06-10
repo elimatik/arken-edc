@@ -137,6 +137,8 @@ The same field definitions drive a complete data-entry surface, not just a previ
 
 Over the top sits the regulated lifecycle every clinical record needs: **Empty → In-Work → In-Review → Reviewed → Finalized → Locked**, each transition gated to the role that owns it, with an **electronic signature** to lock and a fully read-only form afterwards (21 CFR Part 11). And the **inclusion/exclusion** sub-form is live logic, not just fields — fail any criterion and the subject is flagged **ineligible for PI review**, surfaced on the record and back in the drill-down list. The point: the field metadata isn't documentation, it's the program — definition, validation, entry, and workflow all read from the same source.
 
+Two details carry the same regulated intent down to the keystroke. Changing a value that was already saved demands a **change reason** — the Δ panel shows old → new, captures the reason with author and timestamp, and walks a *pending → responded → DM-approved* state — while a brand-new entry asks for nothing (there's no prior value to explain). And a query, once raised, never silently disappears: it stays amber while open and turns a **persistent green** when resolved, because in an auditable system the absence of a flag and a *resolved* flag are not the same fact.
+
 ---
 
 > **Case Study 4 is coming** — **conditional demographics** (breed lists, age auto-calculation from date of birth, and production-purpose tags that appear and validate based on the animal). The form layer it builds on is now live.

@@ -112,6 +112,20 @@ export interface SdvRecordRow {
   verified_at?: string | null; // YYYY-MM-DD of verification
 }
 
+// Change-reason (Δ) record — captured when a saved value is changed (21 CFR Part 11).
+// status: responded (reason submitted, awaiting DM) | approved (DM signed off).
+export interface DeltaRecordRow {
+  id: string;
+  field_value_id: string;
+  old_value: string;
+  new_value: string;
+  reason: string;
+  author_name: string;
+  author_role: string;
+  created_at: string;
+  status: "responded" | "approved";
+}
+
 export interface MembershipRow {
   study_id: string;
   role: Role;
@@ -164,6 +178,7 @@ export interface Dataset {
   queries: QueryRow[];
   queryMessages: QueryMessageRow[];
   sdvRecords: SdvRecordRow[];
+  deltaRecords: DeltaRecordRow[];
   memberships: MembershipRow[];
   speciesRanges: SpeciesRangeRow[];
 }
@@ -182,6 +197,7 @@ export const EMPTY_DATASET: Dataset = {
   queries: [],
   queryMessages: [],
   sdvRecords: [],
+  deltaRecords: [],
   memberships: [],
   speciesRanges: [],
 };

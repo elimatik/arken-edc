@@ -55,14 +55,14 @@ const STATUS_FLOW: Record<string, { next: string; label: string; roles: string[]
   reviewed: { next: "finalized", label: "Finalize", roles: ["PI", "DM"] },
   finalized: { next: "locked", label: "Lock", roles: ["DM"], esign: true },
 };
-const STATUS_BADGE: Record<string, { cls: string; label: string; icon?: string }> = {
-  empty: { cls: "fsb-empty", label: "Empty" },
-  in_work: { cls: "fsb-inwork", label: "In-Work" },
-  in_review: { cls: "fsb-inreview", label: "In-Review" },
-  reviewed: { cls: "fsb-reviewed", label: "Reviewed" },
-  finalized: { cls: "fsb-finalized", label: "Finalized", icon: "ti-check" },
-  locked: { cls: "fsb-locked", label: "Locked", icon: "ti-lock" },
+// Human label for a sidebar status icon (tooltip).
+const ICON_LABEL: Record<SidebarIcon, string> = {
+  empty: "Empty", inwork: "In-Work", inreview: "In-Review", reviewed: "Reviewed", final: "Finalized", queried: "Open query",
 };
+const STATUS_LABEL: Record<string, string> = {
+  empty: "Empty", in_work: "In-Work", in_review: "In-Review", reviewed: "Reviewed", finalized: "Finalized", locked: "Locked",
+};
+
 // Stub VeDDRA dictionary for the coded-field "Look up" (DM coding).
 const VEDDRA_TERMS = [
   "Pyrexia NOS", "Lethargy", "Inappetence / anorexia", "Vomiting", "Diarrhoea",
@@ -100,14 +100,16 @@ export function SubjectRecord({ studyId, subjectId, initialFormId }: Props) {
   const { dataset, ready, update } = useStudySession();
 
   const [selectedFormId, setSelectedFormId] = useState<string | undefined>(initialFormId);
-  const [collapsedGroups, setCollapsedGroups] = useState<Set<string>>(new Set());
+  // null = not yet initialised → default to "all groups collapsed except the active one".
+  const [collapsedGroups, setCollapsedGroups] = useState<Set<string> | null>(null);
   const [remarksOpen, setRemarksOpen] = useState(false);
-  const [modeQueries, setModeQueries] = useState(true);
+  const [modeQueries, setModeQueries] = useState(false); // remarks default OFF
   const [modeSdv, setModeSdv] = useState(false);
-  const [edited, setEdited] = useState<Record<string, boolean>>({});
+  const [baseline, setBaseline] = useState<Record<string, string>>({}); // pre-edit values (for Δ)
   const [panelFvId, setPanelFvId] = useState<string | null>(null); // query panel target
   const [reply, setReply] = useState(""); // query-thread compose box
-  const [deltaField, setDeltaField] = useState<{ name: string; code: string } | null>(null);
+  const [deltaField, setDeltaField] = useState<FormFieldRow | null>(null);
+  const [deltaReason, setDeltaReason] = useState(""); // change-reason compose box
   const [lockModalOpen, setLockModalOpen] = useState(false); // e-signature modal
   const [lockPassword, setLockPassword] = useState("");
   const [lookupField, setLookupField] = useState<FormFieldRow | null>(null); // coded lookup target
@@ -150,11 +152,11 @@ export function SubjectRecord({ studyId, subjectId, initialFormId }: Props) {
     const inst = dataset.formInstances.find((i) => i.subject_id === subjectId && i.form_id === f.id);
     const openQ = inst ? dataset.queries.filter((q) => q.form_instance_id === inst.id && (q.status === "open" || q.status === "responded")) : [];
     const icon: SidebarIcon = openQ.length ? "queried" : iconForInstance(inst?.status);
-    return { id: f.id, name: f.name, icon, queryCount: openQ.length };
+    return { id: f.id, name: f.name, icon, queryCount: openQ.length, status: inst?.status ?? "empty" };
   }
 
   type LeafItem = ReturnType<typeof leafItem>;
-  interface SidebarNode { id: string; name: string; isGroup: boolean; icon: SidebarIcon; queryCount: number; children: LeafItem[] }
+  interface SidebarNode { id: string; name: string; isGroup: boolean; icon: SidebarIcon; queryCount: number; status: string; children: LeafItem[] }
 
   // Top-level = groups + standalone forms (those without a parent), in order.
   const sidebarTree: SidebarNode[] = studyForms
@@ -168,32 +170,37 @@ export function SubjectRecord({ studyId, subjectId, initialFormId }: Props) {
           "final",
         );
         const queryCount = children.reduce((a, c) => a + c.queryCount, 0);
-        return { id: f.id, name: f.name, isGroup: true, icon: worst, queryCount, children };
+        return { id: f.id, name: f.name, isGroup: true, icon: worst, queryCount, status: "", children };
       }
       const leaf = leafItem(f);
-      return { id: f.id, name: f.name, isGroup: false, icon: leaf.icon, queryCount: leaf.queryCount, children: [] };
+      return { id: f.id, name: f.name, isGroup: false, icon: leaf.icon, queryCount: leaf.queryCount, status: leaf.status, children: [] };
     });
 
   // Flat ordered list of selectable leaves (children + standalones) for defaulting.
-  const orderedLeaves: LeafItem[] = sidebarTree.flatMap((n) => (n.isGroup ? n.children : [{ id: n.id, name: n.name, icon: n.icon, queryCount: n.queryCount }]));
+  const orderedLeaves: LeafItem[] = sidebarTree.flatMap((n) => (n.isGroup ? n.children : [{ id: n.id, name: n.name, icon: n.icon, queryCount: n.queryCount, status: n.status }]));
 
   const activeFormId = selectedFormId ?? orderedLeaves[0]?.id;
   const selectedForm = studyForms.find((f) => f.id === activeFormId);
   const activeParentId = selectedForm?.parent_form_id ?? null; // group containing the active child
 
-  function StatusGlyph({ icon }: { icon: SidebarIcon }) {
-    if (icon === "final") return <div className="status-final"><i className="ti ti-check"></i></div>;
-    if (icon === "inwork") return <InWorkIcon />;
-    if (icon === "inreview") return <InReviewIcon />;
-    return <div className={`status-${icon}`}></div>;
+  // Default: every group collapsed except the one holding the active form (the
+  // record opens on the first sub-form, so Animal Information is open on load).
+  const defaultCollapsed = new Set(Array.from(groupIds).filter((id) => id !== activeParentId));
+  const collapsedSet = collapsedGroups ?? defaultCollapsed;
+
+  function StatusGlyph({ icon, title }: { icon: SidebarIcon; title?: string }) {
+    let inner: JSX.Element;
+    if (icon === "final") inner = <div className="status-final"><i className="ti ti-check"></i></div>;
+    else if (icon === "inwork") inner = <InWorkIcon />;
+    else if (icon === "inreview") inner = <InReviewIcon />;
+    else inner = <div className={`status-${icon}`}></div>;
+    return <span className="status-glyph" title={title}>{inner}</span>;
   }
   function toggleGroup(id: string) {
-    setCollapsedGroups((prev) => {
-      const next = new Set(prev);
-      if (next.has(id)) next.delete(id);
-      else next.add(id);
-      return next;
-    });
+    const next = new Set(collapsedSet);
+    if (next.has(id)) next.delete(id);
+    else next.add(id);
+    setCollapsedGroups(next);
   }
   function renderLeaf(item: LeafItem) {
     return (
@@ -206,7 +213,7 @@ export function SubjectRecord({ studyId, subjectId, initialFormId }: Props) {
         <span className="form-item-label">{item.name}</span>
         <div className="form-item-right">
           {item.queryCount > 0 && <span className="issue-badge warning">{item.queryCount}</span>}
-          <StatusGlyph icon={item.icon} />
+          <StatusGlyph icon={item.icon} title={item.icon === "queried" ? "Open query" : STATUS_LABEL[item.status] ?? ICON_LABEL[item.icon]} />
         </div>
       </button>
     );
@@ -218,9 +225,29 @@ export function SubjectRecord({ studyId, subjectId, initialFormId }: Props) {
     instance ? dataset.fieldValues.find((v) => v.form_instance_id === instance.id && v.form_field_id === fieldId) : undefined;
   const openQueryFor = (fvId: string | undefined) =>
     fvId ? dataset.queries.find((q) => q.field_value_id === fvId && (q.status === "open" || q.status === "responded")) : undefined;
+  // Any query on the field (open/responded preferred, else the latest resolved) —
+  // so a resolved query keeps a green flag instead of resetting to hollow.
+  const fieldQueryFor = (fvId: string | undefined) => {
+    if (!fvId) return undefined;
+    const qs = dataset.queries.filter((q) => q.field_value_id === fvId);
+    const live = qs.find((q) => q.status === "open" || q.status === "responded");
+    if (live) return live;
+    const resolved = qs.filter((q) => q.status === "resolved");
+    return resolved.length ? resolved[resolved.length - 1] : undefined;
+  };
   const sdvRecordFor = (fvId: string | undefined) =>
     fvId ? dataset.sdvRecords.find((r) => r.field_value_id === fvId && r.status === "verified") : undefined;
   const sdvVerified = (fvId: string | undefined) => !!sdvRecordFor(fvId);
+
+  // Δ change-reason state for a field: null (no change) | pending (reason needed)
+  // | responded (reason submitted) | approved (DM signed off).
+  function deltaStateFor(fieldId: string, fvId: string | undefined, value: string): "pending" | "responded" | "approved" | null {
+    const oldVal = baseline[fieldId];
+    if (oldVal === undefined || oldVal === "" || value === oldVal) return null;
+    const recs = fvId ? dataset.deltaRecords.filter((r) => r.field_value_id === fvId && r.new_value === value) : [];
+    if (!recs.length) return "pending";
+    return recs[recs.length - 1].status === "approved" ? "approved" : "responded";
+  }
 
   const sdvFieldIds = fields.filter(isSdvEligible).map((f) => f.id);
   const verifiedCount = sdvFieldIds.filter((id) => sdvVerified(fvFor(id)?.id)).length;
@@ -289,6 +316,9 @@ export function SubjectRecord({ studyId, subjectId, initialFormId }: Props) {
   // ─── Write actions (all via update() — session only) ───────────────────────
   function setFieldValue(field: FormFieldRow, value: string) {
     if (locked) return; // locked forms are read-only
+    // Capture the pre-edit (saved) value once, so Δ only appears on a real change.
+    const prev = fvFor(field.id)?.value ?? "";
+    setBaseline((b) => (field.id in b ? b : { ...b, [field.id]: prev }));
     update((d: Dataset) => {
       let inst = d.formInstances.find((i) => i.subject_id === subjectId && i.form_id === field.form_id);
       if (!inst) {
@@ -337,7 +367,37 @@ export function SubjectRecord({ studyId, subjectId, initialFormId }: Props) {
         if (subj) subj.ineligible = fail;
       }
     });
-    setEdited((e) => ({ ...e, [field.id]: true }));
+  }
+
+  // ─── Change reason (Δ) ──────────────────────────────────────────────────────
+  function submitDeltaReason() {
+    if (!deltaField || !deltaReason.trim()) return;
+    const fv = fvFor(deltaField.id);
+    if (!fv) return;
+    const oldVal = baseline[deltaField.id] ?? "";
+    const newVal = fv.value ?? "";
+    update((d: Dataset) => {
+      d.deltaRecords.push({
+        id: newId(),
+        field_value_id: fv.id,
+        old_value: oldVal,
+        new_value: newVal,
+        reason: deltaReason.trim(),
+        author_name: DEMO_USER.fullName,
+        author_role: activeRole,
+        created_at: new Date().toISOString(),
+        status: "responded",
+      });
+    });
+    setDeltaReason("");
+    setDeltaField(null);
+  }
+  function approveDelta(recordId: string) {
+    if (activeRole !== "DM") return;
+    update((d: Dataset) => {
+      const r = d.deltaRecords.find((x) => x.id === recordId);
+      if (r) r.status = "approved";
+    });
   }
 
   // ─── Form status transitions (persist via update()) ─────────────────────────
@@ -429,8 +489,17 @@ export function SubjectRecord({ studyId, subjectId, initialFormId }: Props) {
 
   // ─── Render ────────────────────────────────────────────────────────────────
   const statusInfo = STATUS_MAP[subject.status] || { cls: "status-screened", label: subject.status };
-  const panelQuery = openQueryFor(panelFvId ?? undefined);
+  const panelQuery = fieldQueryFor(panelFvId ?? undefined);
+  const panelResolved = panelQuery?.status === "resolved";
   const panelMsgs = panelQuery ? dataset.queryMessages.filter((m) => m.query_id === panelQuery.id).slice().sort((a, b) => (a.created_at < b.created_at ? -1 : 1)) : [];
+
+  // Δ change-reason panel
+  const deltaFv = deltaField ? fvFor(deltaField.id) : undefined;
+  const deltaOld = deltaField ? (baseline[deltaField.id] ?? "") : "";
+  const deltaNew = deltaFv?.value ?? "";
+  const deltaHistory = deltaFv
+    ? dataset.deltaRecords.filter((r) => r.field_value_id === deltaFv.id).slice().sort((a, b) => (a.created_at < b.created_at ? -1 : 1))
+    : [];
 
   function renderControl(field: FormFieldRow, value: string, queried: boolean) {
     const onChange = (v: string) => setFieldValue(field, v);
@@ -520,9 +589,18 @@ export function SubjectRecord({ studyId, subjectId, initialFormId }: Props) {
         </div>
       );
     }
-    // date / datetime
+    // date / datetime — native picker (opens on click via showPicker)
     if (type === "date" || type === "datetime") {
-      return <input type={type === "datetime" ? "datetime-local" : "date"} className={`field-input${queried ? " query" : ""}`} value={value} disabled={ro} onChange={(e) => onChange(e.target.value)} />;
+      return (
+        <input
+          type={type === "datetime" ? "datetime-local" : "date"}
+          className={`field-input field-date${queried ? " query" : ""}`}
+          value={value}
+          disabled={ro}
+          onChange={(e) => onChange(e.target.value)}
+          onClick={(e) => { try { (e.currentTarget as HTMLInputElement & { showPicker?: () => void }).showPicker?.(); } catch { /* not supported */ } }}
+        />
+      );
     }
     // number / integer / text
     const mono = type === "number" || type === "integer";
@@ -545,9 +623,9 @@ export function SubjectRecord({ studyId, subjectId, initialFormId }: Props) {
         <div className="sidebar-label">Forms</div>
         {sidebarTree.map((node) => {
           if (!node.isGroup) {
-            return renderLeaf({ id: node.id, name: node.name, icon: node.icon, queryCount: node.queryCount });
+            return renderLeaf({ id: node.id, name: node.name, icon: node.icon, queryCount: node.queryCount, status: node.status });
           }
-          const collapsed = collapsedGroups.has(node.id);
+          const collapsed = collapsedSet.has(node.id);
           return (
             <div className="form-group" key={node.id}>
               <button
@@ -560,7 +638,7 @@ export function SubjectRecord({ studyId, subjectId, initialFormId }: Props) {
                 <span className="form-group-label">{node.name}</span>
                 <div className="form-item-right">
                   {node.queryCount > 0 && <span className="issue-badge warning">{node.queryCount}</span>}
-                  <StatusGlyph icon={node.icon} />
+                  <StatusGlyph icon={node.icon} title={ICON_LABEL[node.icon]} />
                 </div>
               </button>
               {!collapsed && <div className="form-group-children">{node.children.map(renderLeaf)}</div>}
@@ -630,10 +708,6 @@ export function SubjectRecord({ studyId, subjectId, initialFormId }: Props) {
                   </button>
                 </div>
               </div>
-              <span className={`form-status-badge ${STATUS_BADGE[currentStatus].cls}`} title={`Form status: ${STATUS_BADGE[currentStatus].label}`}>
-                {STATUS_BADGE[currentStatus].icon && <i className={`ti ${STATUS_BADGE[currentStatus].icon}`}></i>}
-                {STATUS_BADGE[currentStatus].label}
-              </span>
               {flow && (
                 <button
                   className="btn-primary"
@@ -662,13 +736,18 @@ export function SubjectRecord({ studyId, subjectId, initialFormId }: Props) {
             {fields.map((field) => {
               const fv = fvFor(field.id);
               const value = fv?.value ?? "";
-              const query = openQueryFor(fv?.id);
-              const queried = !!query;
+              const openQ = openQueryFor(fv?.id); // open/responded
+              const dispQ = fieldQueryFor(fv?.id); // any query, incl. resolved (drives the flag icon)
+              const inputQueried = modeQueries && !!openQ; // amber input only in Queries mode + open
               const sdvRec = sdvRecordFor(fv?.id);
               const verified = !!sdvRec;
+              const dState = deltaStateFor(field.id, fv?.id, value);
+              const showInteractiveSdv = isSdvEligible(field) && !locked && modeSdv;
+              const showStaticSdv = isSdvEligible(field) && verified && !showInteractiveSdv;
               const numeric = field.field_type === "number" || field.field_type === "integer";
               const hint = rangeLabel(field, species, dataset.speciesRanges) ?? (numeric && field.unit ? field.unit : null);
               const isWide = field.field_type === "textarea" || field.field_type === "multiselect";
+              const deltaTitle = dState === "approved" ? "Change approved by DM" : dState === "responded" ? "Change reason submitted — awaiting DM review" : "Change reason required";
               return (
                 <div className={`field${isWide ? " full" : ""}${locked ? " state-locked" : ""}`} key={field.id}>
                   <label className="field-label">
@@ -676,10 +755,10 @@ export function SubjectRecord({ studyId, subjectId, initialFormId }: Props) {
                     {field.is_required && <span className="field-req"> *</span>}
                   </label>
                   <div className="field-row">
-                    {renderControl(field, value, queried)}
-                    {isSdvEligible(field) && !locked && (
+                    {renderControl(field, value, inputQueried)}
+                    {showInteractiveSdv && (
                       <button
-                        className={`sdv-btn${modeSdv ? " visible" : ""}${verified ? " verified" : ""}`}
+                        className={`sdv-btn visible${verified ? " verified" : ""}`}
                         onClick={() => toggleSdv(field)}
                         title={canSdv ? (verified ? "SDV verified — click to undo" : "SDV: click to verify") : "SDV verify — CRA only"}
                         type="button"
@@ -687,29 +766,29 @@ export function SubjectRecord({ studyId, subjectId, initialFormId }: Props) {
                         <i className={`ti ${verified ? "ti-shield-check-filled" : "ti-shield"}`}></i>
                       </button>
                     )}
-                    {!locked && (
-                      <button
-                        className={`delta-btn${edited[field.id] ? " visible" : ""}`}
-                        onClick={() => setDeltaField({ name: field.label, code: field.code.toUpperCase() })}
-                        title="Change reason"
-                        type="button"
-                      >
+                    {showStaticSdv && (
+                      <span className="sdv-static" title="SDV verified"><i className="ti ti-shield-check-filled"></i></span>
+                    )}
+                    {!locked && dState && (
+                      <button className={`delta-btn ${dState}`} onClick={() => setDeltaField(field)} title={deltaTitle} type="button">
                         Δ
                       </button>
                     )}
-                    <button
-                      className={`flag-btn${queried ? " flagged" : ""}`}
-                      onClick={queried && fv ? () => setPanelFvId(fv.id) : undefined}
-                      title={queried ? "Query open — click to view" : "No open query"}
-                      type="button"
-                    >
-                      <i className={`ti ${queried ? "ti-flag-filled" : "ti-flag"}`}></i>
-                    </button>
+                    {modeQueries && (
+                      <button
+                        className={`flag-btn${dispQ ? (dispQ.status === "resolved" ? " resolved" : " flagged") : ""}`}
+                        onClick={dispQ && fv ? () => setPanelFvId(fv.id) : undefined}
+                        title={dispQ ? (dispQ.status === "resolved" ? "Query resolved — click to view" : "Query open — click to view") : "No query"}
+                        type="button"
+                      >
+                        <i className={`ti ${dispQ ? (dispQ.status === "resolved" ? "ti-flag-check" : "ti-flag-filled") : "ti-flag"}`}></i>
+                      </button>
+                    )}
                   </div>
-                  {queried && fv ? (
+                  {inputQueried && fv ? (
                     <div className="field-state state-query">
                       <i className="ti ti-info-circle"></i>
-                      <span className="query-link" onClick={() => setPanelFvId(fv.id)}>{query!.title}</span>
+                      <span className="query-link" onClick={() => setPanelFvId(fv.id)}>{openQ!.title}</span>
                     </div>
                   ) : (
                     hint && <span className="field-hint">{hint}</span>
@@ -765,7 +844,9 @@ export function SubjectRecord({ studyId, subjectId, initialFormId }: Props) {
           })}
         </div>
         <div className="compose-area">
-          {canRespond || canResolve ? (
+          {panelResolved ? (
+            <div className="sr-perm-note"><i className="ti ti-flag-check"></i> This query is resolved.</div>
+          ) : canRespond || canResolve ? (
             <>
               <div className="compose-context"><i className="ti ti-user-circle"></i> Acting as {activeRole}</div>
               <textarea
@@ -777,8 +858,8 @@ export function SubjectRecord({ studyId, subjectId, initialFormId }: Props) {
               <div className="compose-btns">
                 <span className="compose-sub">Shift+Enter for new line</span>
                 <div style={{ display: "flex", gap: "var(--space-2)" }}>
-                  {canRespond && panelQuery && <button className="btn-respond" type="button" onClick={() => respondQuery(panelQuery.id)}>Respond</button>}
-                  {canResolve && panelQuery && <button className="btn-respond" type="button" onClick={() => resolveQuery(panelQuery.id)}>Resolve</button>}
+                  {canRespond && panelQuery && !panelResolved && <button className="btn-respond" type="button" onClick={() => respondQuery(panelQuery.id)}>Respond</button>}
+                  {canResolve && panelQuery && !panelResolved && <button className="btn-respond" type="button" onClick={() => resolveQuery(panelQuery.id)}>Resolve</button>}
                 </div>
               </div>
             </>
@@ -788,31 +869,59 @@ export function SubjectRecord({ studyId, subjectId, initialFormId }: Props) {
         </div>
       </div>
 
-      {/* Delta change-reason panel */}
-      <div className={`panel-overlay${deltaField ? " open" : ""}`} onClick={() => setDeltaField(null)}></div>
+      {/* Change-reason (Δ) panel */}
+      <div className={`panel-overlay${deltaField ? " open" : ""}`} onClick={() => { setDeltaField(null); setDeltaReason(""); }}></div>
       <div className={`slide-panel delta${deltaField ? " open" : ""}`}>
         <div className="panel-header">
           <div>
             <div className="panel-title">Change reason</div>
-            <div className="panel-title-meta"><span className="query-status qs-open">Change reason required</span></div>
+            <div className="panel-title-meta"><span className="delta-chip">Δ-{(deltaField?.code ?? "").toUpperCase()}</span></div>
           </div>
-          <button className="panel-close" onClick={() => setDeltaField(null)} type="button"><i className="ti ti-x"></i></button>
+          <button className="panel-close" onClick={() => { setDeltaField(null); setDeltaReason(""); }} type="button"><i className="ti ti-x"></i></button>
         </div>
         <div className="delta-context">
           <div className="fc-label">Field</div>
-          <div style={{ display: "flex", alignItems: "center", gap: "var(--space-2)" }}>
-            <span className="fc-field">{deltaField?.name}</span>
-            <span className="fc-code">{deltaField?.code}</span>
+          <div className="fc-field" style={{ marginBottom: "var(--space-2)" }}>{deltaField?.label}</div>
+          <div className="delta-values">
+            <span className="delta-old">{deltaOld || "—"}</span>
+            <span className="delta-arrow"><i className="ti ti-arrow-right" style={{ fontSize: "13px" }}></i></span>
+            <span className="delta-new">{deltaNew || "—"}</span>
           </div>
         </div>
-        <div className="delta-thread">A change reason is required for any edit after initial entry (21 CFR Part 11).</div>
-        <div className="compose-area">
-          <div className="compose-context"><i className="ti ti-user-circle"></i> Acting as {activeRole} — explain the reason for this change</div>
-          <textarea className="compose-textarea" placeholder="Enter reason for change…"></textarea>
-          <div className="compose-btns">
-            <span className="compose-sub">Shift+Enter for new line</span>
-            <button className="btn-respond" type="button" onClick={() => setDeltaField(null)}>Submit reason</button>
-          </div>
+        <div className="delta-body">
+          <label className="delta-field-label">Reason for change <span className="field-req">*</span></label>
+          <textarea
+            className="compose-textarea"
+            placeholder="Describe why this value was changed..."
+            value={deltaReason}
+            onChange={(e) => setDeltaReason(e.target.value)}
+          ></textarea>
+          {deltaHistory.length > 0 && (
+            <div className="delta-history">
+              <div className="delta-history-label">Previous changes</div>
+              {deltaHistory.map((r) => (
+                <div className="delta-entry" key={r.id}>
+                  <div className="delta-entry-reason">{r.reason}</div>
+                  <div className="delta-entry-meta">
+                    <span>{r.author_name} · {r.author_role}</span>
+                    <span className="delta-entry-ts">{r.created_at.slice(0, 16).replace("T", " ")}</span>
+                  </div>
+                  <div className="delta-entry-foot">
+                    <span className={`delta-status-badge ${r.status === "approved" ? "ds-approved" : "ds-responded"}`}>
+                      {r.status === "approved" ? "DM approved" : "Awaiting DM review"}
+                    </span>
+                    {activeRole === "DM" && r.status !== "approved" && (
+                      <button className="delta-approve" type="button" onClick={() => approveDelta(r.id)}>Approve</button>
+                    )}
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+        <div className="delta-footer">
+          <button className="btn-secondary" type="button" onClick={() => { setDeltaField(null); setDeltaReason(""); }}>Cancel</button>
+          <button className="btn-primary" type="button" disabled={!deltaReason.trim()} onClick={submitDeltaReason}>Submit reason</button>
         </div>
       </div>
 
