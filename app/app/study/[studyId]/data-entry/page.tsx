@@ -4,6 +4,7 @@ import { Fragment, useMemo, useState } from "react";
 import { useRouter, useParams } from "next/navigation";
 import { useShell } from "@/components/shell/ShellContext";
 import { useStudySession } from "@/lib/session-store/SessionStore";
+import { hierarchyLevels } from "@/lib/terminology";
 import "./data-entry.css";
 
 // ─── Types ───────────────────────────────────────────────────────────────────
@@ -25,9 +26,6 @@ interface Node {
   arm?: string | null;
   forms?: FormItem[];
 }
-
-const LIVESTOCK_LEVELS = ["Site", "Barn", "Pen", "Animal"];
-const COMPANION_LEVELS = ["Site", "Animal"];
 
 // ─── Status mapping (instance_status → prototype's 3 buckets) ────────────────
 function mapInstanceStatus(s?: string): FormStatus {
@@ -94,10 +92,13 @@ export default function DataEntryPage() {
       .filter((s) => s.study_id === studyId)
       .slice()
       .sort((a, b) => a.subject_code.localeCompare(b.subject_code));
-    const forms = dataset.forms
+    const allForms = dataset.forms
       .filter((f) => f.study_id === studyId)
       .slice()
       .sort((a, b) => a.sequence - b.sequence);
+    // Group containers have no fields/instances — count only leaf (sub-)forms.
+    const groupIds = new Set(allForms.map((f) => f.parent_form_id).filter(Boolean) as string[]);
+    const forms = allForms.filter((f) => !groupIds.has(f.id));
 
     const siteIds = new Set(sites.map((s) => s.id));
     const barns =
@@ -186,8 +187,10 @@ export default function DataEntryPage() {
     return { type: studyType, nodesByParent: map };
   }, [dataset, ready, studyId]);
 
-  const levels = type === "livestock" ? LIVESTOCK_LEVELS : COMPANION_LEVELS;
-  const subjectIdx = type === "livestock" ? 3 : 1;
+  // Level labels are terminology-driven (equine → Site/Stable/Stall/Animal).
+  const studyRow = ready ? dataset.studies.find((s) => s.id === studyId) : undefined;
+  const levels = hierarchyLevels(studyRow);
+  const subjectIdx = levels.length - 1;
   const currentKey = nav.length ? nav[nav.length - 1].key : "root";
 
   function findNode(id: string): Node | null {

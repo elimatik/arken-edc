@@ -31,7 +31,7 @@ export async function hydrateFromSupabase(): Promise<Dataset> {
     supabase.from("pens").select("id, barn_id, code, name"),
     supabase.from("subjects").select("id, study_id, site_id, barn_id, pen_id, owner_id, subject_code, species, status, randomization_arm"),
     supabase.from("companion_owners").select("id, study_id, full_name"),
-    supabase.from("forms").select("id, study_id, visit_id, code, name, sequence"),
+    supabase.from("forms").select("id, study_id, visit_id, parent_form_id, code, name, sequence"),
     supabase.from("form_fields").select("id, form_id, code, label, field_type, options, unit, is_required, sequence, validation"),
     supabase.from("form_instances").select("id, form_id, subject_id, status"),
     supabase.from("field_values").select("id, form_instance_id, form_field_id, value"),

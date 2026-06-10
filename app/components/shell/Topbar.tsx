@@ -1,8 +1,10 @@
 "use client";
 
+import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { ROLES, type Role } from "@/lib/permissions";
 import { DEMO_USER } from "@/lib/constants";
+import { useStudySession } from "@/lib/session-store/SessionStore";
 import type { ShellSite, ShellStudy } from "./ShellContext";
 
 interface TopbarProps {
@@ -23,20 +25,71 @@ export function Topbar({
   onChangeRole,
 }: TopbarProps) {
   const router = useRouter();
+  const { dataset } = useStudySession();
+  const [pickerOpen, setPickerOpen] = useState(false);
+
+  const otherStudies = dataset.studies.filter((s) => s.id !== study.id);
 
   return (
     <header className="topbar">
-      {/* Left: study pill + site dropdown side by side */}
-      <button
-        className="tb-study"
-        onClick={() => router.push("/studies")}
-        title="Switch study"
-        aria-label={`Switch study — currently ${study.name}`}
-        type="button"
-      >
-        {study.name}
-        <i className="ti ti-chevron-right" aria-hidden="true"></i>
-      </button>
+      {/* Left: study picker (pinned current study + switch + study list) + site dropdown */}
+      <div className="tb-study-wrap">
+        <button
+          className="tb-study"
+          onClick={() => setPickerOpen((o) => !o)}
+          title="Current study"
+          aria-haspopup="menu"
+          aria-expanded={pickerOpen}
+          aria-label={`Current study ${study.name} — open study menu`}
+          type="button"
+        >
+          {study.code} — {study.name}
+          <i className="ti ti-chevron-down" aria-hidden="true"></i>
+        </button>
+        {pickerOpen && <div className="tb-picker-backdrop" onClick={() => setPickerOpen(false)} />}
+        <div className={`tb-picker${pickerOpen ? " open" : ""}`} role="menu">
+          <div className="tb-picker-section">
+            <div className="tb-picker-label">Current study</div>
+            <button className="tb-picker-study current" type="button" disabled>
+              <i className="ti ti-pin-filled" style={{ fontSize: "12px", color: "var(--blue-600)" }} aria-hidden="true"></i>
+              {study.name}
+              <span className="study-id">{study.code}</span>
+            </button>
+          </div>
+          {otherStudies.length > 0 && (
+            <div className="tb-picker-section">
+              <div className="tb-picker-label">Switch to</div>
+              {otherStudies.map((s) => (
+                <button
+                  key={s.id}
+                  className="tb-picker-study"
+                  type="button"
+                  onClick={() => {
+                    setPickerOpen(false);
+                    router.push(`/study/${s.id}`);
+                  }}
+                >
+                  {s.name}
+                  <span className="study-id">{s.code}</span>
+                </button>
+              ))}
+            </div>
+          )}
+          <div className="tb-picker-footer">
+            <button
+              className="tb-picker-link"
+              type="button"
+              onClick={() => {
+                setPickerOpen(false);
+                router.push("/studies");
+              }}
+            >
+              <i className="ti ti-list" style={{ fontSize: "13px" }} aria-hidden="true"></i>
+              Go to study list
+            </button>
+          </div>
+        </div>
+      </div>
 
       <select
         className="tb-site-select"

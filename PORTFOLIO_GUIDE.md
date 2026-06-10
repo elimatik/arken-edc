@@ -54,7 +54,7 @@ The **living style guide** (https://elimatik.github.io/arken-edc/) documents the
 ### Try all three hierarchy shapes
 - **AK-2401** — livestock, group-housed (Site → Barn → Pen → Animals)
 - **CA-1103** — companion, individual records (Site → Subject + owner)
-- **EQ-3302** — equine, individual records (Site → Barn → Pen → Animal)
+- **EQ-3302** — equine, individual records (Site → **Stable → Stall** → Animal — the same engine, species-relabelled)
 
 The design rationale behind the query workflow and the three enrollment modes is written up in **`CASE_STUDY.md`**.
 
@@ -114,6 +114,9 @@ So the demo is fully explorable and editable by anyone, with zero risk of one vi
 
 - **`app/lib/permissions.ts`** — the canonical **nav matrix + role permissions**: which roles see which nav items, the `blinded` / `readonly` flags, and the query-action permissions. Change access here, not in components.
 - **`app/lib/session-store/`** — the **data layer**: `types.ts` (dataset shape), `hydrate.ts` (one-time Supabase load), `SessionStore.tsx` (`StudySessionProvider` + `useStudySession`).
+- **`app/lib/forms/validation.ts`** — the **edit-check engine**: `evaluateField(field, value, species, ranges)` resolves a species range and returns a query-or-null. Pure; no UI.
+- **`app/lib/terminology.ts`** — the **species → housing-label map** (Barn/Pen vs Stable/Stall) + `hierarchyLevels(study)`.
+- **`app/supabase/generate-seed.mjs`** — generates `seed.sql` (72 forms / 365 fields) from the form tree + per-study field definitions. Edit it, re-run `node generate-seed.mjs`, then `db reset`.
 
 ---
 
@@ -131,10 +134,10 @@ cd app && npx supabase db reset --linked --yes
 
 ## Built vs. pending
 
-**Built:** login, study selector, role-aware app shell, role dashboards, Data Entry drill-down, Subject Record, and the session-store data layer.
+**Built:** login, study selector, role-aware app shell, role dashboards, Data Entry drill-down, Subject Record, the session-store data layer, and the **grouped form layer** — real field definitions across all 3 studies (114 / 113 / 138 fields), forms nested into collapsible visit/info **groups** (`parent_form_id`), and **species-specific validation** (`species_ranges`) that auto-raises and auto-resolves inline edit-check queries.
 
 **Pending:**
-- **Form layer** — real field definitions + species-specific validation (so the Subject Record renders actual fields, not illustrative ones)
+- **Case Study 4 — conditional demographics** (breed lists, age auto-calculation, production-purpose tags)
 - **"Create new study"** setup flow (session-based)
 - **Animals list** and **Queries** screens
 - The **portfolio site** itself

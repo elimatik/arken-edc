@@ -64,6 +64,7 @@ export interface FormRow {
   id: string;
   study_id: string;
   visit_id: string | null;
+  parent_form_id: string | null; // set on sub-forms (→ their group container)
   code: string;
   name: string;
   sequence: number;
@@ -97,6 +98,8 @@ export interface QueryMessageRow {
   author_id: string | null;
   body: string;
   created_at: string;
+  author_name?: string | null; // set on human responses (null/absent = auto edit-check)
+  author_role?: string | null; // the role that authored the response
 }
 
 export interface SdvRecordRow {
@@ -104,6 +107,8 @@ export interface SdvRecordRow {
   form_instance_id: string;
   field_value_id: string | null;
   status: string;
+  verified_by_name?: string | null; // who verified (set on verify)
+  verified_at?: string | null; // YYYY-MM-DD of verification
 }
 
 export interface MembershipRow {

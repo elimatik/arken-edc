@@ -1,6 +1,6 @@
 # Arken EDC — Session Handoff
 **Paste this entire file at the start of a new conversation.**
-Last updated: 2026-06-09 | Session 22 COMPLETE → Session 23 — Form-layer fixes
+Last updated: 2026-06-10 | Session 23 COMPLETE → Session 24 — Create new study + Case Study 4
 
 ---
 
@@ -22,7 +22,7 @@ Paste the full content of this file as your first message. It contains everythin
 
 ## Where we are now
 
-**The app is built through the Subject Record with a live form layer, all on a session-based data store.** The 3-study architecture + form definitions (108 fields, 20 species ranges) are applied and live in Supabase; on first visit the seed hydrates once per tab into the session store, and from then on **all reads/writes are in-session** (edits reset on tab close). The Subject Record renders real fields with species-specific validation that auto-raises edit-check queries. Session 23 is form-layer fixes.
+**The app is built through the Subject Record with a live, grouped form layer, all on a session-based data store.** The 3-study architecture + full form definitions (**72 forms / 365 fields** across the 3 studies, 20 species ranges) are applied and live in Supabase; on first visit the seed hydrates once per tab into the session store, and from then on **all reads/writes are in-session** (edits reset on tab close). The Subject Record renders real fields with species-specific validation that auto-raises edit-check queries, and the form sidebar groups sub-forms into collapsible visit/info sections with rolled-up status. Session 23 (form-layer fixes + grouped form definitions) is COMPLETE.
 
 > **Data model (important):** Supabase is the **read-only seed source**. `app/lib/session-store/` (`useStudySession` / `StudySessionProvider`) hydrates the dataset once per tab into `sessionStorage`; every screen reads from it; `update()` mutates in session and **never writes back to Supabase**. Only `hydrate.ts` reads Supabase.
 >
@@ -89,18 +89,31 @@ Paste the full content of this file as your first message. It contains everythin
 - **Subject Record rewritten** (`components/subject-record/SubjectRecord.tsx`) — renders **real fields** from `form_fields`; editing persists via `useStudySession().update()`; **out-of-range vitals auto-raise an edit-check query** (amber flag + inline thread), and going back in-range auto-resolves it (Case Study 1 ↔ 3). SDV verify (CRA) and query respond/resolve also go through `update()` (session only). Demo: AK-2401-001 Baseline Vitals seeded with an out-of-range temp (39.8 vs cattle 38.0–39.3) + its query.
 - ⚠️ **"Create new study" NOT built** — deferred (was item 3 of the original plan). Still session-based when built: an `update()` that inserts a new study graph.
 
-### Session 23 — NEXT (form-layer fixes) ▶
-1. **Query response flow is broken** — fix respond/resolve in the query thread panel.
-2. **In-work SVG status icon is wrong** — match the style guide's status-icon set (`docs/index.html`).
-3. **SDV shields** — not showing on all fields, and the icon doesn't swap on click (verify the `ti-shield` ↔ `ti-shield-check-filled` toggle on every vital).
-4. **Study selector dropdown** in the topbar — pinned current study + a "go to study list" link (reference `14-list-pages.html`).
-5. **Equine terminology** — for `livestock_individual`/equine, relabel **Barn → Stable** and **Pen → Stall** in the drill-down + breadcrumbs.
-6. **Breadcrumb** on the Subject Record should show the **full path** (study → site → barn/pen → subject), not just Data Entry → study → subject.
-7. **Form groups review** — review how forms group (visit grouping / sub-forms in the sidebar) against the style guide.
+### Session 23 — COMPLETE ✅ (form-layer fixes + grouped form definitions)
+**Part 1 — 7 fixes (all in `components/subject-record/SubjectRecord.tsx` unless noted):**
+1. **Query response flow** — `respondQuery`/`resolveQuery` now mutate status (raised → responded → resolved) via `update()` and persist the **typed** reply with author attribution (controlled compose box). Thread distinguishes human responses from the auto edit-check.
+2. **In-Work status icon** — replaced the CSS conic-gradient with the exact **SVG half-moon** from the style guide (`<InWorkIcon/>`, `.si-inwork`), used by the sidebar + group roll-up.
+3. **SDV shields** — `isSdvEligible(field)` = `number`/`integer` or any field with a `vital` key; shields show on all of them in SDV mode (was vital-only).
+4. **SDV icon swap** — shield toggles `ti-shield` ↔ `ti-shield-check-filled`; verify stamps `verified_by_name` + `verified_at` on the SDV record; note reads **"Verified by [name] · [date]"** in `var(--blue-600)`/`var(--text-xs)`. (Still CRA-gated by design.)
+5. **Topbar study picker** (`components/shell/Topbar.tsx`) — pinned current study + switch-to list + **"Go to study list"** link (pattern from `14-list-pages.html`); CSS in `shell.css`.
+6. **Equine terminology** — `app/lib/terminology.ts` maps species → housing labels (equine → **Stable / Stall**); `hierarchyLevels(study)` drives the drill-down labels/breadcrumbs/buttons.
+7. **Full-path breadcrumb** — Subject Record shows Data Entry → site → barn/stable → pen/stall → subject (resolved from the subject's site/barn/pen).
+
+**Part 2 — grouped form layer:**
+- New migration `20260610000000_form_groups.sql` — adds `forms.parent_form_id` (self-ref) + `'file'` to the `field_type` enum.
+- **Seed is now generated** — `app/supabase/generate-seed.mjs` → `seed.sql` (**72 forms / 365 fields**). 7 visit/info **groups** (containers, no fields) with 2 sub-forms each + 3 standalone forms (Adverse Event, Unscheduled Visit, ConMed) per study. Per-study field definitions (AK 114 / CA 113 / EQ 138). `species_ranges` aligned to the protocols (cattle HR 40–80, equine temp 37.5–38.5, etc.).
+- Sidebar renders groups as **collapsible sections** with a **rolled-up status icon** (worst child) + open-query badge. `parent_form_id` added to `types.ts` + `hydrate.ts`; session key bumped to **v3**. Data-entry progress counts **leaf forms only**.
+- Applied via `npx supabase db reset --linked --yes`. Verified: 72 forms / 365 fields live, group tree correct, cattle 39.8 °C and equine HR 90 both auto-raise.
+- **Case Study 3 written** in `CASE_STUDY.md` (species validation + grouped form layer).
+
+### Session 24 — NEXT ▶
+1. **"Create new study"** (deferred since Session 22) — a session-based `update()` that inserts a new study graph (study + hierarchy + the standard grouped form template).
+2. **Case Study 4 — conditional demographics** — breed lists, `age_auto_calc` from DOB (read-only calculated fields already seeded), production-purpose tags that appear/validate per animal.
+3. Optional: render `calculated` fields read-only with their computed value; wire `file` upload fields; **Animals list** + **Queries** screens.
 
 Notes:
 - Everything is in-session — no Supabase writes; edits reset on tab close.
-- After the fixes, **"Create new study"** (deferred from Session 22) and **Case Study 4** (conditional demographics) are the remaining big items.
+- To change form definitions: edit `generate-seed.mjs`, run `node app/supabase/generate-seed.mjs`, then `npx supabase db reset --linked --yes`.
 
 ---
 

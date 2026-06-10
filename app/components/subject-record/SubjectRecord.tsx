@@ -5,7 +5,7 @@ import { useRouter } from "next/navigation";
 import { useShell } from "@/components/shell/ShellContext";
 import { useStudySession } from "@/lib/session-store/SessionStore";
 import { canQuery } from "@/lib/permissions";
-import { DEMO_USER_ID } from "@/lib/constants";
+import { DEMO_USER_ID, DEMO_USER } from "@/lib/constants";
 import { evaluateField, rangeLabel } from "@/lib/forms/validation";
 import type { Dataset, FormFieldRow } from "@/lib/session-store/types";
 import "./subject-record.css";
@@ -41,19 +41,41 @@ function iconForInstance(s: string | undefined): SidebarIcon {
   return "empty";
 }
 const QS_CLS: Record<string, string> = { open: "qs-open", responded: "qs-responded", resolved: "qs-resolved" };
+// Worst → best, for rolling a group's status up from its children (queried = most
+// attention-needing, final = done).
+const ICON_RANK: Record<SidebarIcon, number> = { queried: 0, empty: 1, inwork: 2, reviewed: 3, final: 4 };
 const newId = () => crypto.randomUUID();
+const todayISO = () => new Date().toISOString().slice(0, 10);
+
+// In-Work status icon — exact SVG from the style guide (docs/index.html), a blue
+// left-half "half-moon". Not a CSS conic-gradient.
+function InWorkIcon() {
+  return (
+    <svg className="si-inwork" width="16" height="16" viewBox="2 2 16 16" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+      <path fillRule="evenodd" clipRule="evenodd" d="M11.1423 17.9188C15.0196 17.3647 18.0003 14.0303 18.0003 9.99983C18.0003 5.58165 14.4186 2 10.0004 2C6.30023 2 3.18677 4.51215 2.27257 7.92394C2.0948 8.58662 2 9.28327 2 10.0021C2 14.4202 5.58165 18.0019 9.99983 18.0019C10.3887 18.0019 10.7712 17.9741 11.1452 17.9205L11.1423 17.9188ZM16.8574 9.99983C16.8574 6.21282 13.7874 3.14283 10.0004 3.14283C9.88547 3.14283 9.77117 3.14566 9.6576 3.15125C7.76505 4.82631 6.57193 7.27373 6.57193 9.99983C6.57193 12.7259 7.76505 15.1734 9.65759 16.8484C9.77117 16.854 9.88547 16.8568 10.0004 16.8568C13.7874 16.8568 16.8574 13.7868 16.8574 9.99983Z" fill="#4492CB" />
+    </svg>
+  );
+}
+
+// A field is source-data-verifiable when it's a number entry, or any field that
+// carries a vital key (those can be number or text). These get the SDV shield.
+function isSdvEligible(field: FormFieldRow): boolean {
+  return field.field_type === "number" || field.field_type === "integer" || !!field.validation?.vital;
+}
 
 export function SubjectRecord({ studyId, subjectId, initialFormId }: Props) {
   const router = useRouter();
-  const { study, activeRole } = useShell();
+  const { activeRole } = useShell();
   const { dataset, ready, update } = useStudySession();
 
   const [selectedFormId, setSelectedFormId] = useState<string | undefined>(initialFormId);
+  const [collapsedGroups, setCollapsedGroups] = useState<Set<string>>(new Set());
   const [remarksOpen, setRemarksOpen] = useState(false);
   const [modeQueries, setModeQueries] = useState(true);
   const [modeSdv, setModeSdv] = useState(false);
   const [edited, setEdited] = useState<Record<string, boolean>>({});
   const [panelFvId, setPanelFvId] = useState<string | null>(null); // query panel target
+  const [reply, setReply] = useState(""); // query-thread compose box
   const [deltaField, setDeltaField] = useState<{ name: string; code: string } | null>(null);
 
   const canSdv = activeRole === "CRA";
@@ -78,16 +100,80 @@ export function SubjectRecord({ studyId, subjectId, initialFormId }: Props) {
   }
   const species = subject.species ?? "";
 
-  // ─── Sidebar forms (store-derived) ─────────────────────────────────────────
+  // ─── Full-path breadcrumb (Data Entry → site → barn/stable → pen/stall → subject) ─
+  const bcSite = subject.site_id ? dataset.sites.find((s) => s.id === subject.site_id) : undefined;
+  const bcBarn = subject.barn_id ? dataset.barns.find((b) => b.id === subject.barn_id) : undefined;
+  const bcPen = subject.pen_id ? dataset.pens.find((p) => p.id === subject.pen_id) : undefined;
+  const bcSegments = [bcSite?.name, bcBarn?.name, bcPen?.name].filter(Boolean) as string[];
+
+  // ─── Sidebar forms — grouped tree (store-derived) ──────────────────────────
   const studyForms = dataset.forms.filter((f) => f.study_id === studyId).slice().sort((a, b) => a.sequence - b.sequence);
-  const sidebar = studyForms.map((f) => {
+  const groupIds = new Set(studyForms.map((f) => f.parent_form_id).filter(Boolean) as string[]);
+
+  // A single leaf (sub-form or standalone form): its status icon + open-query count.
+  function leafItem(f: { id: string; name: string }) {
     const inst = dataset.formInstances.find((i) => i.subject_id === subjectId && i.form_id === f.id);
     const openQ = inst ? dataset.queries.filter((q) => q.form_instance_id === inst.id && (q.status === "open" || q.status === "responded")) : [];
-    return { id: f.id, name: f.name, icon: (openQ.length ? "queried" : iconForInstance(inst?.status)) as SidebarIcon, queryCount: openQ.length };
-  });
+    const icon: SidebarIcon = openQ.length ? "queried" : iconForInstance(inst?.status);
+    return { id: f.id, name: f.name, icon, queryCount: openQ.length };
+  }
 
-  const activeFormId = selectedFormId ?? sidebar[0]?.id;
+  type LeafItem = ReturnType<typeof leafItem>;
+  interface SidebarNode { id: string; name: string; isGroup: boolean; icon: SidebarIcon; queryCount: number; children: LeafItem[] }
+
+  // Top-level = groups + standalone forms (those without a parent), in order.
+  const sidebarTree: SidebarNode[] = studyForms
+    .filter((f) => !f.parent_form_id)
+    .map((f) => {
+      if (groupIds.has(f.id)) {
+        const children = studyForms.filter((c) => c.parent_form_id === f.id).map(leafItem);
+        // Group status = worst (lowest-ranked) child status; badge = total open queries.
+        const worst = children.reduce<SidebarIcon>(
+          (acc, c) => (ICON_RANK[c.icon] < ICON_RANK[acc] ? c.icon : acc),
+          "final",
+        );
+        const queryCount = children.reduce((a, c) => a + c.queryCount, 0);
+        return { id: f.id, name: f.name, isGroup: true, icon: worst, queryCount, children };
+      }
+      const leaf = leafItem(f);
+      return { id: f.id, name: f.name, isGroup: false, icon: leaf.icon, queryCount: leaf.queryCount, children: [] };
+    });
+
+  // Flat ordered list of selectable leaves (children + standalones) for defaulting.
+  const orderedLeaves: LeafItem[] = sidebarTree.flatMap((n) => (n.isGroup ? n.children : [{ id: n.id, name: n.name, icon: n.icon, queryCount: n.queryCount }]));
+
+  const activeFormId = selectedFormId ?? orderedLeaves[0]?.id;
   const selectedForm = studyForms.find((f) => f.id === activeFormId);
+
+  function StatusGlyph({ icon }: { icon: SidebarIcon }) {
+    if (icon === "final") return <div className="status-final"><i className="ti ti-check"></i></div>;
+    if (icon === "inwork") return <InWorkIcon />;
+    return <div className={`status-${icon}`}></div>;
+  }
+  function toggleGroup(id: string) {
+    setCollapsedGroups((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
+  }
+  function renderLeaf(item: LeafItem) {
+    return (
+      <button
+        key={item.id}
+        className={`form-item${item.id === activeFormId ? " active" : ""}${item.icon === "final" ? " done" : ""}`}
+        onClick={() => setSelectedFormId(item.id)}
+        type="button"
+      >
+        <span className="form-item-label">{item.name}</span>
+        <div className="form-item-right">
+          {item.queryCount > 0 && <span className="issue-badge warning">{item.queryCount}</span>}
+          <StatusGlyph icon={item.icon} />
+        </div>
+      </button>
+    );
+  }
   const fields = dataset.formFields.filter((f) => f.form_id === activeFormId).slice().sort((a, b) => a.sequence - b.sequence);
   const instance = dataset.formInstances.find((i) => i.subject_id === subjectId && i.form_id === activeFormId);
 
@@ -95,10 +181,11 @@ export function SubjectRecord({ studyId, subjectId, initialFormId }: Props) {
     instance ? dataset.fieldValues.find((v) => v.form_instance_id === instance.id && v.form_field_id === fieldId) : undefined;
   const openQueryFor = (fvId: string | undefined) =>
     fvId ? dataset.queries.find((q) => q.field_value_id === fvId && (q.status === "open" || q.status === "responded")) : undefined;
-  const sdvVerified = (fvId: string | undefined) =>
-    fvId ? dataset.sdvRecords.some((r) => r.field_value_id === fvId && r.status === "verified") : false;
+  const sdvRecordFor = (fvId: string | undefined) =>
+    fvId ? dataset.sdvRecords.find((r) => r.field_value_id === fvId && r.status === "verified") : undefined;
+  const sdvVerified = (fvId: string | undefined) => !!sdvRecordFor(fvId);
 
-  const sdvFieldIds = fields.filter((f) => f.validation?.vital).map((f) => f.id);
+  const sdvFieldIds = fields.filter(isSdvEligible).map((f) => f.id);
   const verifiedCount = sdvFieldIds.filter((id) => sdvVerified(fvFor(id)?.id)).length;
   const sdvPct = sdvFieldIds.length ? Math.round((verifiedCount / sdvFieldIds.length) * 100) : 0;
 
@@ -150,24 +237,61 @@ export function SubjectRecord({ studyId, subjectId, initialFormId }: Props) {
     if (!fv) return; // nothing entered to verify
     update((d: Dataset) => {
       const rec = d.sdvRecords.find((r) => r.field_value_id === fv.id);
-      if (rec) rec.status = rec.status === "verified" ? "pending" : "verified";
-      else d.sdvRecords.push({ id: newId(), form_instance_id: fv.form_instance_id, field_value_id: fv.id, status: "verified" });
+      if (rec) {
+        const nowVerified = rec.status !== "verified";
+        rec.status = nowVerified ? "verified" : "pending";
+        rec.verified_by_name = nowVerified ? DEMO_USER.fullName : null;
+        rec.verified_at = nowVerified ? todayISO() : null;
+      } else {
+        d.sdvRecords.push({
+          id: newId(),
+          form_instance_id: fv.form_instance_id,
+          field_value_id: fv.id,
+          status: "verified",
+          verified_by_name: DEMO_USER.fullName,
+          verified_at: todayISO(),
+        });
+      }
     });
   }
 
   function respondQuery(queryId: string) {
+    const body = reply.trim() || `Response acknowledged by ${activeRole}.`;
     update((d: Dataset) => {
       const q = d.queries.find((x) => x.id === queryId);
       if (!q) return;
-      q.status = "responded";
-      d.queryMessages.push({ id: newId(), query_id: queryId, author_id: DEMO_USER_ID, body: `Response from ${activeRole}.`, created_at: new Date().toISOString() });
+      q.status = "responded"; // raised → responded
+      d.queryMessages.push({
+        id: newId(),
+        query_id: queryId,
+        author_id: DEMO_USER_ID,
+        author_name: DEMO_USER.fullName,
+        author_role: activeRole,
+        body,
+        created_at: new Date().toISOString(),
+      });
     });
+    setReply("");
   }
   function resolveQuery(queryId: string) {
+    const body = reply.trim();
     update((d: Dataset) => {
       const q = d.queries.find((x) => x.id === queryId);
-      if (q) q.status = "resolved";
+      if (!q) return;
+      if (body) {
+        d.queryMessages.push({
+          id: newId(),
+          query_id: queryId,
+          author_id: DEMO_USER_ID,
+          author_name: DEMO_USER.fullName,
+          author_role: activeRole,
+          body,
+          created_at: new Date().toISOString(),
+        });
+      }
+      q.status = "resolved";
     });
+    setReply("");
     setPanelFvId(null);
   }
 
@@ -207,24 +331,30 @@ export function SubjectRecord({ studyId, subjectId, initialFormId }: Props) {
       {/* Form sidebar */}
       <nav className="form-sidebar" aria-label="Forms">
         <div className="sidebar-label">Forms</div>
-        {sidebar.map((f) => (
-          <button
-            key={f.id}
-            className={`form-item${f.id === activeFormId ? " active" : ""}${f.icon === "final" ? " done" : ""}`}
-            onClick={() => setSelectedFormId(f.id)}
-            type="button"
-          >
-            <span className="form-item-label">{f.name}</span>
-            <div className="form-item-right">
-              {f.queryCount > 0 && <span className="issue-badge warning">{f.queryCount}</span>}
-              {f.icon === "final" ? (
-                <div className="status-final"><i className="ti ti-check"></i></div>
-              ) : (
-                <div className={`status-${f.icon}`}></div>
-              )}
+        {sidebarTree.map((node) => {
+          if (!node.isGroup) {
+            return renderLeaf({ id: node.id, name: node.name, icon: node.icon, queryCount: node.queryCount });
+          }
+          const collapsed = collapsedGroups.has(node.id);
+          return (
+            <div className="form-group" key={node.id}>
+              <button
+                className="form-group-header"
+                onClick={() => toggleGroup(node.id)}
+                aria-expanded={!collapsed}
+                type="button"
+              >
+                <i className={`ti ti-chevron-${collapsed ? "right" : "down"} form-group-caret`} aria-hidden="true"></i>
+                <span className="form-group-label">{node.name}</span>
+                <div className="form-item-right">
+                  {node.queryCount > 0 && <span className="issue-badge warning">{node.queryCount}</span>}
+                  <StatusGlyph icon={node.icon} />
+                </div>
+              </button>
+              {!collapsed && <div className="form-group-children">{node.children.map(renderLeaf)}</div>}
             </div>
-          </button>
-        ))}
+          );
+        })}
       </nav>
 
       {/* Form content */}
@@ -232,8 +362,12 @@ export function SubjectRecord({ studyId, subjectId, initialFormId }: Props) {
         <div className="form-sticky-header">
           <nav className="sr-bc" aria-label="Breadcrumb">
             <button className="bc-btn" onClick={() => router.push(`/study/${studyId}/data-entry`)} type="button"><span>Data Entry</span></button>
-            <span className="bc-sep"><i className="ti ti-chevron-right" style={{ fontSize: "11px" }}></i></span>
-            <span className="bc-btn"><span>{study.code}</span></span>
+            {bcSegments.map((seg) => (
+              <Fragment key={seg}>
+                <span className="bc-sep"><i className="ti ti-chevron-right" style={{ fontSize: "11px" }}></i></span>
+                <span className="bc-btn"><span>{seg}</span></span>
+              </Fragment>
+            ))}
             <span className="bc-sep"><i className="ti ti-chevron-right" style={{ fontSize: "11px" }}></i></span>
             <span>{subject.subject_code}</span>
           </nav>
@@ -295,7 +429,8 @@ export function SubjectRecord({ studyId, subjectId, initialFormId }: Props) {
               const value = fv?.value ?? "";
               const query = openQueryFor(fv?.id);
               const queried = !!query;
-              const verified = sdvVerified(fv?.id);
+              const sdvRec = sdvRecordFor(fv?.id);
+              const verified = !!sdvRec;
               const hint = rangeLabel(field, species, dataset.speciesRanges);
               const isWide = field.field_type === "textarea";
               return (
@@ -307,7 +442,7 @@ export function SubjectRecord({ studyId, subjectId, initialFormId }: Props) {
                   </label>
                   <div className="field-row">
                     {renderControl(field, value, queried)}
-                    {field.validation?.vital && (
+                    {isSdvEligible(field) && (
                       <button
                         className={`sdv-btn${modeSdv ? " visible" : ""}${verified ? " verified" : ""}`}
                         onClick={() => toggleSdv(field)}
@@ -342,7 +477,11 @@ export function SubjectRecord({ studyId, subjectId, initialFormId }: Props) {
                   ) : (
                     hint && <span className="field-hint">{hint}</span>
                   )}
-                  {modeSdv && verified && <span className="sdv-verified-note">Verified by E. Tron · 2026-05-09</span>}
+                  {modeSdv && verified && (
+                    <span className="sdv-verified-note">
+                      Verified by {sdvRec?.verified_by_name ?? DEMO_USER.fullName} · {sdvRec?.verified_at ?? todayISO()}
+                    </span>
+                  )}
                 </div>
               );
             })}
@@ -370,22 +509,34 @@ export function SubjectRecord({ studyId, subjectId, initialFormId }: Props) {
           <div className="fc-field">{panelQuery?.title}</div>
         </div>
         <div className="thread-body">
-          {panelMsgs.map((m) => (
-            <div className="message" key={m.id}>
-              <div className="msg-header">
-                <div className="msg-avatar av-auto">EC</div>
-                <span className="msg-author">Edit check</span>
-                <span className="msg-role">· Auto</span>
+          {panelMsgs.map((m) => {
+            const isHuman = !!m.author_role;
+            const name = m.author_name ?? "Edit check";
+            const initials = isHuman
+              ? name.split(/\s+/).map((p) => p[0]).join("").slice(0, 2).toUpperCase()
+              : "EC";
+            return (
+              <div className="message" key={m.id}>
+                <div className="msg-header">
+                  <div className={`msg-avatar${isHuman ? "" : " av-auto"}`}>{initials}</div>
+                  <span className="msg-author">{name}</span>
+                  <span className="msg-role">· {isHuman ? m.author_role : "Auto"}</span>
+                </div>
+                <div className="msg-bubble">{m.body}</div>
               </div>
-              <div className="msg-bubble">{m.body}</div>
-            </div>
-          ))}
+            );
+          })}
         </div>
         <div className="compose-area">
           {canRespond || canResolve ? (
             <>
               <div className="compose-context"><i className="ti ti-user-circle"></i> Acting as {activeRole}</div>
-              <textarea className="compose-textarea" placeholder="Add a response…"></textarea>
+              <textarea
+                className="compose-textarea"
+                placeholder="Add a response…"
+                value={reply}
+                onChange={(e) => setReply(e.target.value)}
+              ></textarea>
               <div className="compose-btns">
                 <span className="compose-sub">Shift+Enter for new line</span>
                 <div style={{ display: "flex", gap: "var(--space-2)" }}>

@@ -93,6 +93,8 @@ Arken's schema carries a single `study_type`: `companion`, `livestock_group`, or
 - **`livestock_group` →** a *group entry matrix* — the pen is the screen; measurements are entered across every animal in the pen in one pass, the way the work actually happens in the barn.
 - **`livestock_individual` →** *individual animal records* inside the livestock hierarchy — the depth of a subject record, reached through the barn/pen drill-down.
 
+**The vocabulary adapts.** Housing is named differently across species — a cattle study has *barns* and *pens*; a stabled-equine study has *stables* and *stalls*. Rather than hard-code labels, a small **terminology map keyed on species** drives every label, breadcrumb, and button in the hierarchy. The same `Site → Barn → Pen → Animal` engine renders `Site → Stable → Stall → Animal` for the equine study with no branching in the screens — one more thing the study type, not the user, decides.
+
 **Same components, recomposed.** The subject record, the drill-down, and the form sidebar are one component library; the study type composes them differently. That is the payoff of designing the data model before the screens: three operational realities, one coherent system, zero bolt-ons.
 
 ### Why it matters
@@ -103,4 +105,32 @@ It's the difference between software that *tolerates* veterinary research and so
 
 ---
 
-> **Case Studies 3 and 4 are coming** — **species-specific validation** (dynamic edit checks that change by species: a normal rectal-temperature range for cattle is not the range for horses) and **conditional demographics** (breed lists, age calculation, and production-purpose tags that appear and validate based on the animal). These will be written when the **form layer is built in Session 22**.
+## Case Study 3 — Species-Specific Validation & the Grouped Form Layer
+
+### The problem
+
+An edit check is the EDC's first line of data-quality defence: the moment a value is entered, the system asks *"is this plausible?"* and raises a query if it isn't. In human EDC the answer is a constant — a rectal temperature outside 36–38 °C is flagged, full stop. In **veterinary** EDC there is no such constant. A normal equine rectal temperature is 37.5–38.5 °C; for cattle it's 38.0–39.3 °C; a resting heart rate of 90 bpm is alarming in a horse (normal 28–44) and unremarkable in a dog (60–140). **The same field, on the same form, means different things for different animals.**
+
+Bolting per-species rules into the form definition is the obvious move and the wrong one: it forces a separate form per species, and the moment a study adds a species the form library forks. The validation has to be **data, not structure** — resolved at runtime from the subject in front of you.
+
+A second problem sits alongside it. A real veterinary protocol isn't a flat list of forms — it's a **visit schedule**: Animal Information, Screening, five dosing/follow-up visits, plus event-driven forms (adverse events, concomitant medications). Each visit bundles a physical exam with a visit-specific assessment. Rendered flat, a 24-form study is an undifferentiated wall in the sidebar; the structure that makes the protocol legible is lost.
+
+### The insight
+
+**The field declares *what* it measures; the species table declares *the range*.** A temperature field carries `validation: { vital: "temperature" }` — nothing more. A separate `species_ranges` table holds `(species, vital) → min/max`. At entry time the engine reads the subject's species, resolves the range, and compares. One pure function, `evaluateField(field, value, species, ranges)`, does the whole job; the form definition never mentions a number. Add a species → add five rows to a table, touch no forms.
+
+**Forms nest one level: a group is a container, a sub-form holds the fields.** A `parent_form_id` self-reference turns the flat form list into *Animal Information → {Demographics, Medical History}*, *Visit 1 — Dosing → {Physical Examination, Dosing Administration}*, and so on. A group has **no fields of its own**; its status is **rolled up from its children** — worst child wins, so a single queried sub-form surfaces an amber flag on the whole group without the user expanding it.
+
+### The solution
+
+**Validation as a resolved lookup.** `species_ranges` carries 20 rows (5 species × 4 vitals). A vital field stores only its `vital` key; a non-vital numeric field can still carry a static `{ min, max }` (a body-condition score of 1–9). When a value lands outside the resolved range the Subject Record **auto-raises an inline edit-check query** (the Case Study 1 pattern) — and when the value comes back in range, the query **auto-resolves**. Type `39.8` into a cattle temperature and a query appears; correct it and the query closes itself. The two case studies compose: validation produces the query, the query architecture displays it.
+
+**Groups as collapsible sections.** The form sidebar reads the `parent_form_id` tree and renders each group as a collapsible header carrying a **rolled-up status icon** and an open-query badge; sub-forms indent beneath it. Standalone forms (Adverse Event, Unscheduled Visit, ConMed) sit at the top level with no group. The protocol's shape is now visible at a glance — and the same tree drives all three studies, each with its own species-specific field definitions (114 / 113 / 138 fields).
+
+### Why it matters
+
+Species-specific validation is the single clearest answer to *"why can't we just use a human EDC?"* — the thing that platform literally cannot express becomes one table and one pure function here. And because the range is data, the grouped form layer stays **species-agnostic structure over species-specific data**: one form engine, one validation engine, three studies, five species, zero forked forms. It's Case Study 2's thesis — *the data model decides, not the user* — carried all the way down to the individual field.
+
+---
+
+> **Case Study 4 is coming** — **conditional demographics** (breed lists, age auto-calculation from date of birth, and production-purpose tags that appear and validate based on the animal). The form layer it builds on is now live.
