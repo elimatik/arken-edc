@@ -5,7 +5,7 @@ import { useRouter } from "next/navigation";
 import { ROLES, type Role } from "@/lib/permissions";
 import { DEMO_USER } from "@/lib/constants";
 import { useStudySession } from "@/lib/session-store/SessionStore";
-import { getPinnedStudy, setPinnedStudy } from "@/lib/pinned-study";
+import { getPinnedStudies, togglePinnedStudy } from "@/lib/pinned-study";
 import type { ShellSite, ShellStudy } from "./ShellContext";
 
 interface TopbarProps {
@@ -28,20 +28,24 @@ export function Topbar({
   const router = useRouter();
   const { dataset } = useStudySession();
   const [pickerOpen, setPickerOpen] = useState(false);
-  const [pinnedId, setPinnedId] = useState<string | null>(() => getPinnedStudy());
+  const [pinnedIds, setPinnedIds] = useState<string[]>(() => getPinnedStudies());
 
   function openPicker() {
-    setPinnedId(getPinnedStudy()); // refresh from storage in case it changed elsewhere
+    setPinnedIds(getPinnedStudies()); // refresh from storage in case it changed elsewhere
     setPickerOpen((o) => !o);
   }
-  function unpin() {
-    setPinnedStudy(null);
-    setPinnedId(null);
+  function unpin(id: string) {
+    setPinnedIds(togglePinnedStudy(id));
   }
 
-  const pinnedStudy = pinnedId ? dataset.studies.find((s) => s.id === pinnedId) : undefined;
-  // Studies you can switch to: everything except the one you're in and the pinned one (shown above).
-  const switchStudies = dataset.studies.filter((s) => s.id !== study.id && s.id !== pinnedId);
+  const pinnedSet = new Set(pinnedIds);
+  // All pinned studies, sorted by code.
+  const pinnedStudies = dataset.studies
+    .filter((s) => pinnedSet.has(s.id))
+    .slice()
+    .sort((a, b) => a.code.localeCompare(b.code));
+  // Studies you can switch to: everything except the one you're in and the pinned ones (shown above).
+  const switchStudies = dataset.studies.filter((s) => s.id !== study.id && !pinnedSet.has(s.id));
 
   return (
     <header className="topbar">
@@ -57,35 +61,37 @@ export function Topbar({
           type="button"
         >
           {study.code} — {study.name}
-          <i className="ti ti-chevron-down" aria-hidden="true"></i>
+          <i className="ti ti-chevron-right" aria-hidden="true"></i>
         </button>
         {pickerOpen && <div className="tb-picker-backdrop" onClick={() => setPickerOpen(false)} />}
         <div className={`tb-picker${pickerOpen ? " open" : ""}`} role="menu">
-          {pinnedStudy && (
+          {pinnedStudies.length > 0 && (
             <div className="tb-picker-section">
               <div className="tb-picker-label">Pinned</div>
-              <div className="tb-picker-study">
-                <button
-                  className="tb-pin-btn pinned"
-                  title="Pinned — click to unpin"
-                  aria-label="Unpin study"
-                  onClick={unpin}
-                  type="button"
-                >
-                  <i className="ti ti-pin-filled" aria-hidden="true"></i>
-                </button>
-                <button
-                  className="tb-picker-study-link"
-                  type="button"
-                  onClick={() => {
-                    setPickerOpen(false);
-                    router.push(`/study/${pinnedStudy.id}`);
-                  }}
-                >
-                  {pinnedStudy.name}
-                  <span className="study-id">{pinnedStudy.code}</span>
-                </button>
-              </div>
+              {pinnedStudies.map((p) => (
+                <div className="tb-picker-study" key={p.id}>
+                  <button
+                    className="tb-pin-btn pinned"
+                    title="Pinned — click to unpin"
+                    aria-label={`Unpin ${p.name}`}
+                    onClick={() => unpin(p.id)}
+                    type="button"
+                  >
+                    <i className="ti ti-pin-filled" aria-hidden="true"></i>
+                  </button>
+                  <button
+                    className="tb-picker-study-link"
+                    type="button"
+                    onClick={() => {
+                      setPickerOpen(false);
+                      router.push(`/study/${p.id}`);
+                    }}
+                  >
+                    {p.name}
+                    <span className="study-id">{p.code}</span>
+                  </button>
+                </div>
+              ))}
             </div>
           )}
           {switchStudies.length > 0 && (

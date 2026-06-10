@@ -4,16 +4,26 @@ import { useState, type KeyboardEvent } from "react";
 import { useRouter } from "next/navigation";
 import "./login.css";
 
+// One-time-per-tab portfolio agreement. Stored alongside name/company/timestamp.
+const NDA_KEY = "arken_nda_v1";
+
 export default function LoginPage() {
   const router = useRouter();
 
   // Pre-filled demo credentials, matching the prototype
-  const [email, setEmail] = useState("elisa@arken.io");
+  const [email, setEmail] = useState("edc@arken.com");
   const [password, setPassword] = useState("demo1234");
   const [showPassword, setShowPassword] = useState(false);
   const [inlineError, setInlineError] = useState(false);
   const [generalError, setGeneralError] = useState(false);
   const [loading, setLoading] = useState(false);
+
+  // Access-agreement (NDA) modal — shown once per tab after credentials validate.
+  const [ndaOpen, setNdaOpen] = useState(false);
+  const [ndaName, setNdaName] = useState("");
+  const [ndaCompany, setNdaCompany] = useState("");
+  const [ndaAgree, setNdaAgree] = useState(false);
+  const ndaCanContinue = ndaName.trim().length > 0 && ndaAgree;
 
   function attemptLogin() {
     // Clear previous errors
@@ -30,13 +40,48 @@ export default function LoginPage() {
     setLoading(true);
     setTimeout(() => {
       setLoading(false);
-      // Accept any non-empty credentials for demo
-      if (email.trim() && password) {
-        router.push("/studies");
-      } else {
+      if (!email.trim() || !password) {
         setGeneralError(true);
+        return;
       }
+      // Credentials valid → if the agreement was already accepted this tab, go
+      // straight in; otherwise show the one-time agreement first.
+      let agreed = false;
+      try {
+        agreed = !!sessionStorage.getItem(NDA_KEY);
+      } catch {
+        /* ignore */
+      }
+      if (agreed) router.push("/studies");
+      else setNdaOpen(true);
     }, 1100);
+  }
+
+  function confirmNda() {
+    if (!ndaCanContinue) return;
+    try {
+      sessionStorage.setItem(
+        NDA_KEY,
+        JSON.stringify({
+          name: ndaName.trim(),
+          company: ndaCompany.trim() || null,
+          agreedAt: new Date().toISOString(),
+          accessCode: email.trim(),
+        }),
+      );
+    } catch {
+      /* ignore quota / unavailable storage */
+    }
+    setNdaOpen(false);
+    router.push("/studies");
+  }
+
+  function cancelNda() {
+    // Return to the login screen (it's still underneath); reset the form.
+    setNdaOpen(false);
+    setNdaName("");
+    setNdaCompany("");
+    setNdaAgree(false);
   }
 
   function onLoginKey(e: KeyboardEvent<HTMLInputElement>) {
@@ -220,6 +265,67 @@ export default function LoginPage() {
           </div>
         </div>
       </div>
+
+      {/* One-time access agreement (NDA) — shown after credentials validate */}
+      {ndaOpen && (
+        <div className="nda-overlay" role="dialog" aria-modal="true" aria-labelledby="nda-title">
+          <div className="nda-card">
+            <div className="nda-brand">
+              <div className="brand-logo-mark"><span>Ar</span></div>
+              <div className="nda-brand-name">Arken EDC</div>
+            </div>
+
+            <h2 className="nda-title" id="nda-title">Before you continue</h2>
+
+            <p className="nda-body">
+              This project contains original work created by Elisa Tron, including UX design,
+              product architecture, clinical data system patterns, and interaction design solutions
+              developed for Arken EDC. By typing your name below you confirm that you will not
+              reproduce, copy, redistribute, or claim as your own any design, concept, pattern, or
+              intellectual property contained in this project. This work is shared exclusively for
+              portfolio evaluation purposes. Unauthorized use or reproduction of any part of this
+              work is prohibited.
+            </p>
+
+            <div className="nda-field">
+              <label className="nda-label" htmlFor="nda-name">Full name <span className="nda-req">*</span></label>
+              <input
+                id="nda-name"
+                className="nda-input"
+                value={ndaName}
+                onChange={(e) => setNdaName(e.target.value)}
+                placeholder="Your full name"
+                autoFocus
+              />
+            </div>
+
+            <div className="nda-field">
+              <label className="nda-label" htmlFor="nda-company">Company / Organization</label>
+              <input
+                id="nda-company"
+                className="nda-input"
+                value={ndaCompany}
+                onChange={(e) => setNdaCompany(e.target.value)}
+                placeholder="Company or organization"
+              />
+            </div>
+
+            <label className="nda-check">
+              <input type="checkbox" checked={ndaAgree} onChange={(e) => setNdaAgree(e.target.checked)} />
+              <span>I have read and agree to the above terms</span>
+            </label>
+
+            <button className="nda-btn" onClick={confirmNda} disabled={!ndaCanContinue} type="button">
+              Continue to project
+            </button>
+            <button className="nda-cancel" onClick={cancelNda} type="button">Cancel</button>
+
+            <div className="nda-foot">
+              Your name and the date of access are recorded with your session.
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

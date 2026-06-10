@@ -18,7 +18,7 @@
 truncate table users, studies, access_codes, species_ranges cascade;
 
 insert into users (id, full_name, email, initials, is_demo) values
-  ('10000000-0000-0000-0000-000000000001', 'Elisa Tron', 'elisa@arken.io', 'ET', true);
+  ('10000000-0000-0000-0000-000000000001', 'Elisa Tron', 'edc@arken.com', 'ET', true);
 
 insert into studies (id, code, name, sponsor, phase, type, species, status, enrollment_target, description) values
   ('20000000-0000-0000-0000-000000002401', 'AK-2401', 'BRD Cattle Phase II Efficacy Trial', 'AgriVet Sciences', 'Phase II', 'livestock_group', 'cattle', 'active', 120, 'Bovine respiratory disease — group-housed cattle, pen-level data capture'),

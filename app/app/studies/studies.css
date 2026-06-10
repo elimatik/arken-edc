@@ -28,17 +28,9 @@
 .studies-search input{border:none;outline:none;font-size:var(--text-sm);font-family:var(--font-sans);color:var(--color-text-primary);background:transparent;flex:1}
 .studies-search input::placeholder{color:var(--color-text-placeholder)}
 .studies-filter{height:36px;padding:0 32px 0 var(--space-3);font-size:var(--text-sm);font-family:var(--font-sans);border:1px solid var(--color-border);border-radius:var(--radius-md);background:var(--color-surface);color:var(--color-text-primary);cursor:pointer;appearance:none;background-image:url("data:image/svg+xml,%3Csvg width='8' height='12' viewBox='0 0 8 12' fill='none'%3E%3Cpath d='M1 1L6 6L1 11' stroke='%236D7480' stroke-width='1.5' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E");background-repeat:no-repeat;background-position:right 8px center;outline:none}
-.studies-count{font-size:var(--text-sm);color:var(--color-text-tertiary)}
+.studies-count{margin-left:auto;font-size:var(--text-sm);color:var(--color-text-tertiary)}
 
-/* View toggle (cards / table) */
-.studies-view-toggle{margin-left:auto;display:flex;border:1px solid var(--color-border);border-radius:var(--radius-md);overflow:hidden;background:var(--color-surface)}
-.view-btn{width:34px;height:36px;display:flex;align-items:center;justify-content:center;border:none;background:var(--color-surface);color:var(--color-text-tertiary);cursor:pointer;transition:background var(--duration-fast),color var(--duration-fast)}
-.view-btn:hover{background:var(--color-hover-bg);color:var(--color-text-secondary)}
-.view-btn.active{background:var(--color-cta-bg);color:#fff}
-.view-btn+.view-btn{border-left:1px solid var(--color-border)}
-.view-btn i{font-size:16px}
-
-/* Table view — interim; the full list experience comes from 14-list-pages.html */
+/* Table view (the only study-list view) */
 .studies-table-wrap{background:var(--color-surface);border:1px solid var(--color-border);border-radius:var(--radius-lg);overflow:hidden}
 .studies-table{width:100%;border-collapse:collapse;font-size:var(--text-sm)}
 .studies-table th{text-align:left;padding:var(--space-3) var(--space-4);font-size:var(--text-xs);font-weight:500;text-transform:uppercase;letter-spacing:var(--tracking-caps);color:var(--color-text-tertiary);border-bottom:1px solid var(--color-border);background:var(--color-page-bg);white-space:nowrap}
@@ -48,50 +40,15 @@
 .studies-table tbody tr:hover{background:var(--color-hover-bg)}
 .st-code{font-family:var(--font-mono);font-weight:500}
 .st-mono{font-family:var(--font-mono);color:var(--color-text-secondary)}
-.studies-table-note{font-size:var(--text-xs);color:var(--color-text-tertiary);margin-top:var(--space-3);display:flex;align-items:center;gap:var(--space-2)}
-.studies-table-note i{font-size:13px}
 
-/* Study cards grid */
-.studies-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(400px,1fr));gap:var(--space-4)}
-
-/* Study card */
-.study-card{background:var(--color-surface);border:1px solid var(--color-border);border-radius:var(--radius-lg);cursor:pointer;transition:box-shadow var(--duration-fast),border-color var(--duration-fast);display:flex;flex-direction:column;overflow:hidden}
-.study-card:hover{box-shadow:0 4px 16px rgba(14,18,28,0.10);border-color:#d0d0cd}
-.study-card.inactive{opacity:0.65}
-.study-card-top{padding:var(--space-4) var(--space-5);display:flex;align-items:flex-start;gap:var(--space-3);border-bottom:1px solid var(--color-border-subtle)}
-.study-card-icon{width:40px;height:40px;border-radius:var(--radius-md);display:flex;align-items:center;justify-content:center;flex-shrink:0;font-size:20px}
-.study-card-icon.cattle{background:#FFF8E7}
-.study-card-icon.swine{background:#FFF0E8}
-.study-card-icon.canine{background:#E8F4FF}
-.study-card-icon.aquatic{background:#EEFAF4}
-.study-card-icon.feline{background:#F0EEFF}
-.study-card-main{flex:1;min-width:0}
-.study-card-id{font-size:var(--text-xs);font-family:var(--font-mono);color:var(--color-text-tertiary);margin-bottom:3px}
-.study-card-name{font-size:var(--text-base);font-weight:500;color:var(--color-text-primary);line-height:1.3;margin-bottom:var(--space-1)}
-.study-card-sponsor{font-size:var(--text-xs);color:var(--color-text-tertiary)}
-.study-card-status{flex-shrink:0;margin-top:2px}
+/* Status badge (table cell) */
 .status-badge{display:inline-flex;align-items:center;gap:4px;height:20px;padding:0 var(--space-2);line-height:1;border-radius:var(--radius-full);font-size:var(--text-xs);font-weight:500;border:1px solid;white-space:nowrap}
 .sb-active  {background:var(--green-50);border-color:var(--green-200);color:var(--green-600)}
 .sb-setup   {background:var(--blue-50);border-color:var(--blue-200);color:var(--blue-600)}
 .sb-closed  {background:var(--slate-50);border-color:var(--slate-200);color:var(--slate-600)}
 .sb-paused  {background:var(--amber-50);border-color:var(--amber-200);color:var(--amber-700)}
 
-/* Card body — study details */
-.study-card-body{padding:var(--space-3) var(--space-5)}
-.study-card-meta{display:flex;gap:var(--space-5);flex-wrap:wrap}
-.study-meta-item{display:flex;flex-direction:column;gap:2px}
-.study-meta-val{font-size:var(--text-sm);font-weight:500;font-family:var(--font-mono);color:var(--color-text-primary)}
-.study-meta-val.warn{color:var(--amber-700)}
-.study-meta-lbl{font-size:var(--text-xs);color:var(--color-text-tertiary)}
-
-/* Enrollment bar inline */
-.study-enroll-bar{margin-top:var(--space-3)}
-.study-enroll-track{width:100%;height:4px;background:var(--color-border);border-radius:var(--radius-full);overflow:hidden}
-.study-enroll-fill{height:100%;border-radius:var(--radius-full);background:var(--blue-600)}
-.study-enroll-label{display:flex;justify-content:space-between;font-size:var(--text-xs);color:var(--color-text-tertiary);margin-top:4px;font-family:var(--font-mono)}
-
-/* Card footer — role chip + enter arrow */
-.study-card-footer{padding:var(--space-3) var(--space-5);border-top:1px solid var(--color-border-subtle);display:flex;align-items:center;justify-content:space-between;background:var(--color-page-bg)}
+/* Role chip (table cell) */
 .study-role-chip{display:inline-flex;align-items:center;gap:var(--space-1);height:20px;padding:0 var(--space-2);line-height:1;border-radius:var(--radius-full);font-size:var(--text-xs);font-weight:500;border:1px solid}
 .rc-crc   {background:var(--blue-50);border-color:var(--blue-200);color:var(--blue-600)}
 .rc-cra   {background:var(--purple-50);border-color:var(--purple-200);color:var(--purple-600)}
@@ -100,9 +57,6 @@
 .rc-pm    {background:var(--amber-50);border-color:var(--amber-200);color:var(--amber-700)}
 .rc-sponsor {background:var(--amber-50);border-color:var(--amber-200);color:var(--amber-700)}
 .rc-admin {background:var(--red-50);border-color:var(--red-200);color:var(--red-600)}
-.study-card-enter{font-size:var(--text-xs);color:var(--color-text-placeholder);display:flex;align-items:center;gap:4px;transition:color var(--duration-fast)}
-.study-card:hover .study-card-enter{color:var(--blue-600)}
-.study-card-enter i{font-size:14px}
 
 /* Empty state */
 .studies-empty{text-align:center;padding:var(--space-10) 0;color:var(--color-text-tertiary)}

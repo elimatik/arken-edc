@@ -3,7 +3,7 @@
 import { useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import { useStudySession } from "@/lib/session-store/SessionStore";
-import { getPinnedStudy, setPinnedStudy } from "@/lib/pinned-study";
+import { getPinnedStudies, togglePinnedStudy } from "@/lib/pinned-study";
 import "./studies.css";
 
 type Study = {
@@ -68,8 +68,7 @@ export default function StudiesPage() {
   const [search, setSearch] = useState("");
   const [statusFilter, setStatusFilter] = useState("");
   const [speciesFilter, setSpeciesFilter] = useState("");
-  const [view, setView] = useState<"cards" | "table">("table"); // table is default
-  const [pinnedId, setPinnedId] = useState<string | null>(() => getPinnedStudy());
+  const [pinnedIds, setPinnedIds] = useState<string[]>(() => getPinnedStudies());
   // Add-study modal
   const [addOpen, setAddOpen] = useState(false);
   const [newName, setNewName] = useState("");
@@ -123,20 +122,20 @@ export default function StudiesPage() {
     return matchQ && matchStatus && matchSpecies;
   });
 
-  // Pinned / active study (session-scoped, persisted in sessionStorage). No
-  // implicit default — pinned only when the user explicitly pins.
-  const pinned = pinnedId;
-  // Clicking the pin toggles: pin an unpinned study, unpin the pinned one.
+  // Pinned studies (session-scoped, persisted in sessionStorage). Multiple may be
+  // pinned; no implicit default — pinned only when the user explicitly pins.
+  const pinnedSet = new Set(pinnedIds);
   function togglePin(id: string) {
-    const next = pinnedId === id ? null : id;
-    setPinnedId(next);
-    setPinnedStudy(next);
+    setPinnedIds(togglePinnedStudy(id));
   }
 
-  // Pinned study always renders first in the table, regardless of sort.
-  const ordered = pinned
-    ? [...filtered].sort((a, b) => (a.id === pinned ? -1 : b.id === pinned ? 1 : 0))
-    : filtered;
+  // Pinned studies render first (sorted among themselves by code), then the rest.
+  const ordered = [...filtered].sort((a, b) => {
+    const ap = pinnedSet.has(a.id);
+    const bp = pinnedSet.has(b.id);
+    if (ap !== bp) return ap ? -1 : 1;
+    return a.code.localeCompare(b.code);
+  });
 
   function enterStudy(s: Study) {
     router.push(`/study/${s.id}`);
@@ -251,215 +250,75 @@ export default function StudiesPage() {
               <option value="Aquatic">Aquatic</option>
               <option value="Feline">Feline</option>
             </select>
-            <div className="studies-view-toggle" role="group" aria-label="View">
-              <button
-                className={`view-btn${view === "cards" ? " active" : ""}`}
-                onClick={() => setView("cards")}
-                title="Card view"
-                aria-pressed={view === "cards"}
-                type="button"
-              >
-                <i className="ti ti-layout-grid"></i>
-              </button>
-              <button
-                className={`view-btn${view === "table" ? " active" : ""}`}
-                onClick={() => setView("table")}
-                title="Table view"
-                aria-pressed={view === "table"}
-                type="button"
-              >
-                <i className="ti ti-list"></i>
-              </button>
-            </div>
             <span className="studies-count">
               {filtered.length} {filtered.length === 1 ? "study" : "studies"}
             </span>
           </div>
 
-          {/* Content — card view (default) or interim table view */}
+          {/* Content — table only */}
           {loading ? (
-            <div className="studies-grid">
-              <div className="studies-empty" style={{ gridColumn: "1/-1" }}>
-                <i
-                  className="ti ti-loader-2"
-                  style={{ animation: "spin 1s linear infinite" }}
-                ></i>
-                <div className="studies-empty-title">Loading studies…</div>
-              </div>
+            <div className="studies-empty">
+              <i className="ti ti-loader-2" style={{ animation: "spin 1s linear infinite" }}></i>
+              <div className="studies-empty-title">Loading studies…</div>
             </div>
           ) : filtered.length === 0 ? (
-            <div className="studies-grid">
-              <div className="studies-empty" style={{ gridColumn: "1/-1" }}>
-                <i className="ti ti-microscope"></i>
-                <div className="studies-empty-title">
-                  No studies match your filters
-                </div>
-                <div>Try adjusting the search or status filter</div>
-              </div>
-            </div>
-          ) : view === "table" ? (
-            <div>
-              <div className="studies-table-wrap">
-                <table className="studies-table">
-                  <thead>
-                    <tr>
-                      <th aria-label="Pinned"></th>
-                      <th>Study</th>
-                      <th>Name</th>
-                      <th>Sponsor</th>
-                      <th>Species</th>
-                      <th>Status</th>
-                      <th>Role</th>
-                      <th>Subjects</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {ordered.map((s) => {
-                      const statusCls = STATUS_CLS[s.status] || "sb-setup";
-                      const isPinned = s.id === pinned;
-                      return (
-                        <tr key={s.id} onClick={() => enterStudy(s)} className={isPinned ? "st-pinned" : undefined}>
-                          <td className="st-pin-cell">
-                            <button
-                              className={`st-pin${isPinned ? " pinned" : ""}`}
-                              title={isPinned ? "Pinned — click to unpin" : "Pin as active study"}
-                              aria-pressed={isPinned}
-                              onClick={(e) => { e.stopPropagation(); togglePin(s.id); }}
-                              type="button"
-                            >
-                              <i className={`ti ${isPinned ? "ti-pin-filled" : "ti-pin"}`}></i>
-                            </button>
-                          </td>
-                          <td className="st-code">{s.code}</td>
-                          <td>{s.name}</td>
-                          <td>{s.sponsor}</td>
-                          <td>{s.species}</td>
-                          <td>
-                            <span className={`status-badge ${statusCls}`}>{s.statusLabel}</span>
-                          </td>
-                          <td>
-                            <span className={`study-role-chip ${s.roleCls}`}>
-                              <i className="ti ti-user-circle" style={{ fontSize: "11px" }}></i> {s.role}
-                            </span>
-                          </td>
-                          <td className="st-mono">
-                            {s.enrolled} / {s.target}
-                          </td>
-                        </tr>
-                      );
-                    })}
-                  </tbody>
-                </table>
-              </div>
-              <div className="studies-table-note">
-                <i className="ti ti-info-circle"></i>
-                Table view is interim — the full list experience comes from
-                14-list-pages.html.
-              </div>
+            <div className="studies-empty">
+              <i className="ti ti-microscope"></i>
+              <div className="studies-empty-title">No studies match your filters</div>
+              <div>Try adjusting the search or status filter</div>
             </div>
           ) : (
-            <div className="studies-grid">
-              {filtered.map((s) => {
-                const pct =
-                  s.target > 0 ? Math.round((s.enrolled / s.target) * 100) : 0;
-                const statusCls = STATUS_CLS[s.status] || "sb-setup";
-                return (
-                  <div
-                    key={s.id}
-                    className={`study-card${s.status === "closed" ? " inactive" : ""}`}
-                    onClick={() => enterStudy(s)}
-                  >
-                    {/* Top */}
-                    <div className="study-card-top">
-                      <div className={`study-card-icon ${s.iconCls}`}>
-                        {s.icon}
-                      </div>
-                      <div className="study-card-main">
-                        <div className="study-card-id">
-                          {s.code} · {s.phase} · {s.species}
-                        </div>
-                        <div className="study-card-name">{s.name}</div>
-                        <div className="study-card-sponsor">{s.sponsor}</div>
-                      </div>
-                      <div className="study-card-status">
-                        <span className={`status-badge ${statusCls}`}>
-                          {s.statusLabel}
-                        </span>
-                      </div>
-                    </div>
-
-                    {/* Body */}
-                    <div className="study-card-body">
-                      <div className="study-card-meta">
-                        <div className="study-meta-item">
-                          <div className="study-meta-val">
-                            {s.enrolled}{" "}
-                            <span
-                              style={{
-                                fontSize: "var(--text-xs)",
-                                color: "var(--color-text-tertiary)",
-                                fontFamily: "var(--font-sans)",
-                              }}
-                            >
-                              / {s.target}
-                            </span>
-                          </div>
-                          <div className="study-meta-lbl">Subjects enrolled</div>
-                        </div>
-                        <div className="study-meta-item">
-                          <div className="study-meta-val">{s.sites}</div>
-                          <div className="study-meta-lbl">Sites</div>
-                        </div>
-                        <div className="study-meta-item">
-                          <div
-                            className={`study-meta-val${s.openQueries > 0 ? " warn" : ""}`}
+            <div className="studies-table-wrap">
+              <table className="studies-table">
+                <thead>
+                  <tr>
+                    <th aria-label="Pinned"></th>
+                    <th>Study</th>
+                    <th>Name</th>
+                    <th>Sponsor</th>
+                    <th>Species</th>
+                    <th>Status</th>
+                    <th>Role</th>
+                    <th>Subjects</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {ordered.map((s) => {
+                    const statusCls = STATUS_CLS[s.status] || "sb-setup";
+                    const isPinned = pinnedSet.has(s.id);
+                    return (
+                      <tr key={s.id} onClick={() => enterStudy(s)} className={isPinned ? "st-pinned" : undefined}>
+                        <td className="st-pin-cell">
+                          <button
+                            className={`st-pin${isPinned ? " pinned" : ""}`}
+                            title={isPinned ? "Pinned — click to unpin" : "Pin study"}
+                            aria-pressed={isPinned}
+                            onClick={(e) => { e.stopPropagation(); togglePin(s.id); }}
+                            type="button"
                           >
-                            {s.openQueries > 0 ? s.openQueries : "—"}
-                          </div>
-                          <div className="study-meta-lbl">Open queries</div>
-                        </div>
-                        <div className="study-meta-item">
-                          <div
-                            className="study-meta-val"
-                            style={{ fontSize: "var(--text-sm)" }}
-                          >
-                            {s.lastEntry}
-                          </div>
-                          <div className="study-meta-lbl">Last entry</div>
-                        </div>
-                      </div>
-                      {s.target > 0 && (
-                        <div className="study-enroll-bar">
-                          <div className="study-enroll-track">
-                            <div
-                              className="study-enroll-fill"
-                              style={{ width: `${pct}%` }}
-                            ></div>
-                          </div>
-                          <div className="study-enroll-label">
-                            <span>Enrollment</span>
-                            <span>{pct}% complete</span>
-                          </div>
-                        </div>
-                      )}
-                    </div>
-
-                    {/* Footer */}
-                    <div className="study-card-footer">
-                      <span className={`study-role-chip ${s.roleCls}`}>
-                        <i
-                          className="ti ti-user-circle"
-                          style={{ fontSize: "11px" }}
-                        ></i>{" "}
-                        {s.role}
-                      </span>
-                      <span className="study-card-enter">
-                        Open study <i className="ti ti-arrow-right"></i>
-                      </span>
-                    </div>
-                  </div>
-                );
-              })}
+                            <i className={`ti ${isPinned ? "ti-pin-filled" : "ti-pin"}`}></i>
+                          </button>
+                        </td>
+                        <td className="st-code">{s.code}</td>
+                        <td>{s.name}</td>
+                        <td>{s.sponsor}</td>
+                        <td>{s.species}</td>
+                        <td>
+                          <span className={`status-badge ${statusCls}`}>{s.statusLabel}</span>
+                        </td>
+                        <td>
+                          <span className={`study-role-chip ${s.roleCls}`}>
+                            <i className="ti ti-user-circle" style={{ fontSize: "11px" }}></i> {s.role}
+                          </span>
+                        </td>
+                        <td className="st-mono">
+                          {s.enrolled} / {s.target}
+                        </td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
             </div>
           )}
         </div>
