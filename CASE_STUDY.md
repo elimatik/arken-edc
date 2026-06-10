@@ -131,6 +131,12 @@ A second problem sits alongside it. A real veterinary protocol isn't a flat list
 
 Species-specific validation is the single clearest answer to *"why can't we just use a human EDC?"* — the thing that platform literally cannot express becomes one table and one pure function here. And because the range is data, the grouped form layer stays **species-agnostic structure over species-specific data**: one form engine, one validation engine, three studies, five species, zero forked forms. It's Case Study 2's thesis — *the data model decides, not the user* — carried all the way down to the individual field.
 
+### From definition to entry
+
+The same field definitions drive a complete data-entry surface, not just a preview. One renderer maps every `field_type` to the right control — number with a unit hint, a **Yes/No toggle** instead of a dropdown, **multiselect checkboxes**, **read-only calculated** values (age from date of birth, FEC % reduction), a **file upload**, and a **coded** field that opens a VeDDRA dictionary lookup (gated to the data manager). Required fields carry an asterisk; vitals carry their species range as a hint.
+
+Over the top sits the regulated lifecycle every clinical record needs: **Empty → In-Work → In-Review → Reviewed → Finalized → Locked**, each transition gated to the role that owns it, with an **electronic signature** to lock and a fully read-only form afterwards (21 CFR Part 11). And the **inclusion/exclusion** sub-form is live logic, not just fields — fail any criterion and the subject is flagged **ineligible for PI review**, surfaced on the record and back in the drill-down list. The point: the field metadata isn't documentation, it's the program — definition, validation, entry, and workflow all read from the same source.
+
 ---
 
 > **Case Study 4 is coming** — **conditional demographics** (breed lists, age auto-calculation from date of birth, and production-purpose tags that appear and validate based on the animal). The form layer it builds on is now live.

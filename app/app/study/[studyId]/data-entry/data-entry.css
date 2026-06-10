@@ -44,6 +44,7 @@
 .badge-success { background: var(--green-50); border-color: var(--green-200); color: var(--green-600); }
 .badge-hold { background: var(--amber-50); border-color: var(--amber-200); color: var(--amber-700); }
 .badge-closed { background: var(--slate-50); border-color: var(--slate-200); color: var(--slate-600); }
+.badge-ineligible { background: var(--red-50); border-color: var(--red-200); color: var(--red-600); }
 
 /* ─── Filter bar ── */
 .de-filter { padding: var(--space-3) var(--space-5); background: var(--color-surface); border-bottom: 1px solid var(--color-border); display: flex; align-items: center; gap: var(--space-3); flex-shrink: 0; }

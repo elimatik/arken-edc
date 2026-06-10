@@ -33,19 +33,50 @@ const STATUS_MAP: Record<string, { cls: string; label: string }> = {
   withdrawn: { cls: "status-screened", label: "Withdrawn" },
 };
 
-type SidebarIcon = "final" | "reviewed" | "inwork" | "empty" | "queried";
+type SidebarIcon = "final" | "reviewed" | "inreview" | "inwork" | "empty" | "queried";
 function iconForInstance(s: string | undefined): SidebarIcon {
   if (s === "finalized" || s === "locked") return "final";
   if (s === "reviewed") return "reviewed";
+  if (s === "in_review") return "inreview";
   if (s === "in_work") return "inwork";
   return "empty";
 }
 const QS_CLS: Record<string, string> = { open: "qs-open", responded: "qs-responded", resolved: "qs-resolved" };
 // Worst → best, for rolling a group's status up from its children (queried = most
 // attention-needing, final = done).
-const ICON_RANK: Record<SidebarIcon, number> = { queried: 0, empty: 1, inwork: 2, reviewed: 3, final: 4 };
+const ICON_RANK: Record<SidebarIcon, number> = { queried: 0, empty: 1, inwork: 2, inreview: 3, reviewed: 4, final: 5 };
 const newId = () => crypto.randomUUID();
 const todayISO = () => new Date().toISOString().slice(0, 10);
+
+// Form status progression: current status → the single advance action, gated by role.
+const STATUS_FLOW: Record<string, { next: string; label: string; roles: string[]; esign?: boolean }> = {
+  in_work: { next: "in_review", label: "Submit for Review", roles: ["CRC", "CRA"] },
+  in_review: { next: "reviewed", label: "Mark Reviewed", roles: ["CRA", "DM", "PI"] },
+  reviewed: { next: "finalized", label: "Finalize", roles: ["PI", "DM"] },
+  finalized: { next: "locked", label: "Lock", roles: ["DM"], esign: true },
+};
+const STATUS_BADGE: Record<string, { cls: string; label: string; icon?: string }> = {
+  empty: { cls: "fsb-empty", label: "Empty" },
+  in_work: { cls: "fsb-inwork", label: "In-Work" },
+  in_review: { cls: "fsb-inreview", label: "In-Review" },
+  reviewed: { cls: "fsb-reviewed", label: "Reviewed" },
+  finalized: { cls: "fsb-finalized", label: "Finalized", icon: "ti-check" },
+  locked: { cls: "fsb-locked", label: "Locked", icon: "ti-lock" },
+};
+// Stub VeDDRA dictionary for the coded-field "Look up" (DM coding).
+const VEDDRA_TERMS = [
+  "Pyrexia NOS", "Lethargy", "Inappetence / anorexia", "Vomiting", "Diarrhoea",
+  "Injection site reaction", "Lameness", "Coughing", "Nasal discharge", "Dyspnoea",
+];
+
+// In-Review status icon — amber right-half "half-moon" from the style guide.
+function InReviewIcon() {
+  return (
+    <svg className="si-inwork" width="16" height="16" viewBox="2 2 16 16" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+      <path fillRule="evenodd" clipRule="evenodd" d="M10 16.8574C13.7871 16.8574 16.8574 13.7871 16.8574 10C16.8574 6.2129 13.7871 3.14258 10 3.14258V10.0022V16.8574ZM7.60632 17.6357C8.37406 17.8765 9.18055 18.0022 10 18.0022V18C14.4183 18 18 14.4183 18 10C18 5.58172 14.4183 2 10 2C5.58172 2 2 5.58172 2 10C2 10.0004 2 10.0007 2 10.0011C2 10.0015 2 10.0019 2 10.0022C2 10.083 2.00122 10.1637 2.00366 10.2442C2.04632 11.6675 2.46075 12.9973 3.15316 14.14C3.48435 14.6881 3.8828 15.1987 4.34315 15.6591C5.07028 16.3862 5.92297 16.9589 6.85027 17.3561C7.09618 17.4615 7.34844 17.555 7.60632 17.6357Z" fill="#CF811E" />
+    </svg>
+  );
+}
 
 // In-Work status icon — exact SVG from the style guide (docs/index.html), a blue
 // left-half "half-moon". Not a CSS conic-gradient.
@@ -77,10 +108,14 @@ export function SubjectRecord({ studyId, subjectId, initialFormId }: Props) {
   const [panelFvId, setPanelFvId] = useState<string | null>(null); // query panel target
   const [reply, setReply] = useState(""); // query-thread compose box
   const [deltaField, setDeltaField] = useState<{ name: string; code: string } | null>(null);
+  const [lockModalOpen, setLockModalOpen] = useState(false); // e-signature modal
+  const [lockPassword, setLockPassword] = useState("");
+  const [lookupField, setLookupField] = useState<FormFieldRow | null>(null); // coded lookup target
 
   const canSdv = activeRole === "CRA";
   const canRespond = canQuery(activeRole, "respond");
   const canResolve = canQuery(activeRole, "resolve");
+  const canCode = activeRole === "DM"; // dictionary coding is a DM task
 
   if (!ready) {
     return (
@@ -149,6 +184,7 @@ export function SubjectRecord({ studyId, subjectId, initialFormId }: Props) {
   function StatusGlyph({ icon }: { icon: SidebarIcon }) {
     if (icon === "final") return <div className="status-final"><i className="ti ti-check"></i></div>;
     if (icon === "inwork") return <InWorkIcon />;
+    if (icon === "inreview") return <InReviewIcon />;
     return <div className={`status-${icon}`}></div>;
   }
   function toggleGroup(id: string) {
@@ -190,8 +226,69 @@ export function SubjectRecord({ studyId, subjectId, initialFormId }: Props) {
   const verifiedCount = sdvFieldIds.filter((id) => sdvVerified(fvFor(id)?.id)).length;
   const sdvPct = sdvFieldIds.length ? Math.round((verifiedCount / sdvFieldIds.length) * 100) : 0;
 
+  // ─── Form status (empty → in_work → in_review → reviewed → finalized → locked) ─
+  const currentStatus = instance?.status ?? "empty";
+  const locked = currentStatus === "locked";
+  const flow = STATUS_FLOW[currentStatus];
+  const canAdvance = !!flow && flow.roles.includes(activeRole);
+
+  // ─── Inclusion / Exclusion — a criterion answered "No" fails ────────────────
+  const critFields = fields.filter((f) => f.validation?.exclusion_criterion);
+  const isIEForm = critFields.length > 0;
+  const ineligibleNow = critFields.some((f) => fvFor(f.id)?.value === "No");
+
+  // ─── Calculated fields ──────────────────────────────────────────────────────
+  function numValFor(formId: string, fieldCode: string): number | undefined {
+    const f = dataset.formFields.find((x) => x.form_id === formId && x.code === fieldCode);
+    if (!f) return undefined;
+    const inst = dataset.formInstances.find((i) => i.subject_id === subjectId && i.form_id === formId);
+    if (!inst) return undefined;
+    const v = dataset.fieldValues.find((x) => x.form_instance_id === inst.id && x.form_field_id === f.id)?.value;
+    const n = Number(v);
+    return v != null && v !== "" && !Number.isNaN(n) ? n : undefined;
+  }
+  function calcValue(field: FormFieldRow): string {
+    if (field.code.includes("age")) {
+      const dobField = fields.find((f) => f.code === "dob" || f.code === "date_of_birth");
+      const dob = dobField ? fvFor(dobField.id)?.value : undefined;
+      if (!dob) return "—";
+      const d = new Date(dob);
+      if (Number.isNaN(d.getTime())) return "—";
+      const now = new Date();
+      let age = now.getFullYear() - d.getFullYear();
+      const m = now.getMonth() - d.getMonth();
+      if (m < 0 || (m === 0 && now.getDate() < d.getDate())) age--;
+      return age >= 0 ? `${age} years` : "—";
+    }
+    if (field.code.includes("fec_reduction")) {
+      const screeningPE = studyForms.find((f) => f.code === "F0201");
+      const baseline = screeningPE ? numValFor(screeningPE.id, "fec_epg") : undefined;
+      const siblingPE = activeParentId ? studyForms.find((f) => f.parent_form_id === activeParentId && f.code.endsWith("01")) : undefined;
+      const current = siblingPE ? numValFor(siblingPE.id, "fec_epg") : undefined;
+      if (baseline == null || current == null || baseline === 0) return "—";
+      return `${Math.round(((baseline - current) / baseline) * 100)}%`;
+    }
+    return "—";
+  }
+
+  // ─── Multiselect value (stored as a JSON array string) ──────────────────────
+  function parseMulti(v: string): string[] {
+    try {
+      const a = JSON.parse(v || "[]");
+      return Array.isArray(a) ? (a as string[]) : [];
+    } catch {
+      return v ? v.split(",").map((s) => s.trim()).filter(Boolean) : [];
+    }
+  }
+  function toggleMulti(field: FormFieldRow, opt: string, value: string) {
+    const cur = parseMulti(value);
+    const next = cur.includes(opt) ? cur.filter((x) => x !== opt) : [...cur, opt];
+    setFieldValue(field, JSON.stringify(next));
+  }
+
   // ─── Write actions (all via update() — session only) ───────────────────────
   function setFieldValue(field: FormFieldRow, value: string) {
+    if (locked) return; // locked forms are read-only
     update((d: Dataset) => {
       let inst = d.formInstances.find((i) => i.subject_id === subjectId && i.form_id === field.form_id);
       if (!inst) {
@@ -228,12 +325,46 @@ export function SubjectRecord({ studyId, subjectId, initialFormId }: Props) {
       } else if (existing) {
         existing.status = "resolved";
       }
+      // Inclusion/Exclusion: recompute eligibility from all criterion fields in
+      // this form — any "No" flags the subject ineligible (PI review).
+      if (field.validation?.exclusion_criterion) {
+        const critF = d.formFields.filter((x) => x.form_id === field.form_id && x.validation?.exclusion_criterion);
+        const fail = critF.some((cf) => {
+          const cv = d.fieldValues.find((v) => v.form_instance_id === inst!.id && v.form_field_id === cf.id);
+          return cv?.value === "No";
+        });
+        const subj = d.subjects.find((s) => s.id === subjectId);
+        if (subj) subj.ineligible = fail;
+      }
     });
     setEdited((e) => ({ ...e, [field.id]: true }));
   }
 
+  // ─── Form status transitions (persist via update()) ─────────────────────────
+  function advanceStatus() {
+    if (!flow || !canAdvance) return;
+    if (flow.esign) {
+      setLockModalOpen(true); // Lock requires e-signature confirmation
+      return;
+    }
+    const next = flow.next;
+    update((d: Dataset) => {
+      const inst = d.formInstances.find((i) => i.subject_id === subjectId && i.form_id === activeFormId);
+      if (inst) inst.status = next;
+    });
+  }
+  function confirmLock() {
+    if (!lockPassword.trim()) return; // e-signature required
+    update((d: Dataset) => {
+      const inst = d.formInstances.find((i) => i.subject_id === subjectId && i.form_id === activeFormId);
+      if (inst) inst.status = "locked";
+    });
+    setLockPassword("");
+    setLockModalOpen(false);
+  }
+
   function toggleSdv(field: FormFieldRow) {
-    if (!canSdv) return;
+    if (!canSdv || locked) return;
     const fv = fvFor(field.id);
     if (!fv) return; // nothing entered to verify
     update((d: Dataset) => {
@@ -303,12 +434,54 @@ export function SubjectRecord({ studyId, subjectId, initialFormId }: Props) {
 
   function renderControl(field: FormFieldRow, value: string, queried: boolean) {
     const onChange = (v: string) => setFieldValue(field, v);
-    if (field.field_type === "textarea") {
-      return <textarea className="field-input" style={{ height: 60, fontFamily: "var(--font-sans)" }} value={value} onChange={(e) => onChange(e.target.value)} />;
-    }
-    if (["select", "radio", "multiselect", "checkbox"].includes(field.field_type)) {
+    const ro = locked;
+    const type = field.field_type;
+    const isCoded = !!field.validation?.coded;
+
+    // calculated — read-only computed value
+    if (type === "calculated") {
       return (
-        <select className="field-select" value={value} onChange={(e) => onChange(e.target.value)}>
+        <div className="field-calc">
+          <span>{calcValue(field)}</span>
+          <span className="field-calc-tag">auto</span>
+        </div>
+      );
+    }
+    // textarea
+    if (type === "textarea") {
+      return <textarea className="field-input" style={{ height: 60, fontFamily: "var(--font-sans)" }} value={value} disabled={ro} onChange={(e) => onChange(e.target.value)} />;
+    }
+    // yes/no radio → two-button toggle
+    if (type === "radio") {
+      const opts = field.options?.length ? field.options : ["Yes", "No"];
+      return (
+        <div className="yn-toggle" role="group">
+          {opts.map((o) => (
+            <button key={o} type="button" disabled={ro} className={`yn-btn${value === o ? " active" : ""}`} onClick={() => onChange(value === o ? "" : o)}>
+              {o}
+            </button>
+          ))}
+        </div>
+      );
+    }
+    // multiselect / checkbox → checkbox group
+    if (type === "multiselect" || type === "checkbox") {
+      const sel = parseMulti(value);
+      return (
+        <div className="check-group">
+          {(field.options ?? []).map((o) => (
+            <label key={o} className="check-item">
+              <input type="checkbox" checked={sel.includes(o)} disabled={ro} onChange={() => toggleMulti(field, o, value)} />
+              <span>{o}</span>
+            </label>
+          ))}
+        </div>
+      );
+    }
+    // select dropdown
+    if (type === "select") {
+      return (
+        <select className="field-select" value={value} disabled={ro} onChange={(e) => onChange(e.target.value)}>
           <option value="">—</option>
           {(field.options ?? []).map((o) => (
             <option key={o} value={o}>{o}</option>
@@ -316,12 +489,50 @@ export function SubjectRecord({ studyId, subjectId, initialFormId }: Props) {
         </select>
       );
     }
-    const mono = field.field_type === "number" || field.field_type === "integer" || field.field_type === "date" || field.field_type === "datetime";
+    // file upload (stub — stores the filename)
+    if (type === "file") {
+      return value ? (
+        <div className="file-field">
+          <span className="file-name"><i className="ti ti-file"></i> {value}</span>
+          {!ro && <button type="button" className="file-clear" title="Remove" onClick={() => onChange("")}><i className="ti ti-x"></i></button>}
+        </div>
+      ) : (
+        <label className={`file-btn${ro ? " disabled" : ""}`}>
+          <i className="ti ti-upload"></i> Choose file
+          <input type="file" hidden disabled={ro} onChange={(e) => { const f = e.target.files?.[0]; if (f) onChange(f.name); }} />
+        </label>
+      );
+    }
+    // coded text → input + Look up (DM coding)
+    if (isCoded) {
+      return (
+        <div className="coded-field">
+          <input className={`field-input${queried ? " query" : ""}`} style={{ fontFamily: "var(--font-sans)" }} value={value} disabled={ro} onChange={(e) => onChange(e.target.value)} />
+          <button
+            type="button"
+            className="lookup-btn"
+            disabled={ro || !canCode}
+            title={canCode ? "Look up coded term (VeDDRA)" : "Dictionary coding — DM only"}
+            onClick={() => setLookupField(field)}
+          >
+            <i className="ti ti-search"></i> Look up
+          </button>
+        </div>
+      );
+    }
+    // date / datetime
+    if (type === "date" || type === "datetime") {
+      return <input type={type === "datetime" ? "datetime-local" : "date"} className={`field-input${queried ? " query" : ""}`} value={value} disabled={ro} onChange={(e) => onChange(e.target.value)} />;
+    }
+    // number / integer / text
+    const mono = type === "number" || type === "integer";
     return (
       <input
         className={`field-input${queried ? " query" : ""}`}
+        inputMode={mono ? "decimal" : undefined}
         style={mono ? undefined : { fontFamily: "var(--font-sans)" }}
         value={value}
+        disabled={ro}
         onChange={(e) => onChange(e.target.value)}
       />
     );
@@ -377,6 +588,9 @@ export function SubjectRecord({ studyId, subjectId, initialFormId }: Props) {
             <div className="species-icon">{SPECIES_ICON[species] || "🔬"}</div>
             <span className="subject-id">{subject.subject_code}</span>
             <span className={`subject-status ${statusInfo.cls}`}>{statusInfo.label}</span>
+            {subject.ineligible && (
+              <span className="subject-ineligible"><i className="ti ti-alert-triangle"></i> Ineligible — PI review</span>
+            )}
             <div className="subject-meta">
               <span className="meta-item">{species.charAt(0).toUpperCase() + species.slice(1)}</span>
               {subject.randomization_arm && (
@@ -416,14 +630,34 @@ export function SubjectRecord({ studyId, subjectId, initialFormId }: Props) {
                   </button>
                 </div>
               </div>
-              <button className="btn-secondary" type="button">Submit for review</button>
-              <button className="btn-primary" type="button">Run validations</button>
+              <span className={`form-status-badge ${STATUS_BADGE[currentStatus].cls}`} title={`Form status: ${STATUS_BADGE[currentStatus].label}`}>
+                {STATUS_BADGE[currentStatus].icon && <i className={`ti ${STATUS_BADGE[currentStatus].icon}`}></i>}
+                {STATUS_BADGE[currentStatus].label}
+              </span>
+              {flow && (
+                <button
+                  className="btn-primary"
+                  type="button"
+                  disabled={!canAdvance}
+                  onClick={advanceStatus}
+                  title={canAdvance ? undefined : `${flow.label} — not permitted for ${activeRole}`}
+                >
+                  {flow.esign && <i className="ti ti-lock"></i>}
+                  {flow.label}
+                </button>
+              )}
             </div>
           </div>
         </div>
 
         {/* Form body — real fields from form_fields */}
         <div className="form-body">
+          {isIEForm && ineligibleNow && (
+            <div className="ie-banner" role="alert">
+              <i className="ti ti-alert-triangle"></i>
+              Subject does not meet inclusion criteria — PI review required
+            </div>
+          )}
           <div className="field-grid-2">
             {fields.map((field) => {
               const fv = fvFor(field.id);
@@ -432,18 +666,18 @@ export function SubjectRecord({ studyId, subjectId, initialFormId }: Props) {
               const queried = !!query;
               const sdvRec = sdvRecordFor(fv?.id);
               const verified = !!sdvRec;
-              const hint = rangeLabel(field, species, dataset.speciesRanges);
-              const isWide = field.field_type === "textarea";
+              const numeric = field.field_type === "number" || field.field_type === "integer";
+              const hint = rangeLabel(field, species, dataset.speciesRanges) ?? (numeric && field.unit ? field.unit : null);
+              const isWide = field.field_type === "textarea" || field.field_type === "multiselect";
               return (
-                <div className={`field${isWide ? " full" : ""}`} key={field.id}>
+                <div className={`field${isWide ? " full" : ""}${locked ? " state-locked" : ""}`} key={field.id}>
                   <label className="field-label">
                     {field.label}
-                    {field.is_required && <span style={{ color: "var(--red-600)" }}> *</span>}
-                    {field.unit ? <span style={{ color: "var(--color-text-tertiary)" }}> ({field.unit})</span> : null}
+                    {field.is_required && <span className="field-req"> *</span>}
                   </label>
                   <div className="field-row">
                     {renderControl(field, value, queried)}
-                    {isSdvEligible(field) && (
+                    {isSdvEligible(field) && !locked && (
                       <button
                         className={`sdv-btn${modeSdv ? " visible" : ""}${verified ? " verified" : ""}`}
                         onClick={() => toggleSdv(field)}
@@ -453,14 +687,16 @@ export function SubjectRecord({ studyId, subjectId, initialFormId }: Props) {
                         <i className={`ti ${verified ? "ti-shield-check-filled" : "ti-shield"}`}></i>
                       </button>
                     )}
-                    <button
-                      className={`delta-btn${edited[field.id] ? " visible" : ""}`}
-                      onClick={() => setDeltaField({ name: field.label, code: field.code.toUpperCase() })}
-                      title="Change reason"
-                      type="button"
-                    >
-                      Δ
-                    </button>
+                    {!locked && (
+                      <button
+                        className={`delta-btn${edited[field.id] ? " visible" : ""}`}
+                        onClick={() => setDeltaField({ name: field.label, code: field.code.toUpperCase() })}
+                        title="Change reason"
+                        type="button"
+                      >
+                        Δ
+                      </button>
+                    )}
                     <button
                       className={`flag-btn${queried ? " flagged" : ""}`}
                       onClick={queried && fv ? () => setPanelFvId(fv.id) : undefined}
@@ -579,6 +815,51 @@ export function SubjectRecord({ studyId, subjectId, initialFormId }: Props) {
           </div>
         </div>
       </div>
+
+      {/* E-signature modal (Finalized → Locked) */}
+      {lockModalOpen && (
+        <div className="sr-modal-overlay" onClick={() => { setLockModalOpen(false); setLockPassword(""); }}>
+          <div className="sr-modal" onClick={(e) => e.stopPropagation()} role="dialog" aria-modal="true" aria-label="Electronic signature">
+            <div className="sr-modal-title"><i className="ti ti-lock"></i> Electronic signature</div>
+            <div className="sr-modal-body">
+              Locking finalizes this form and makes it read-only. Re-enter your password to sign (21 CFR Part 11).
+            </div>
+            <input
+              type="password"
+              className="sr-modal-input"
+              placeholder="Password"
+              value={lockPassword}
+              onChange={(e) => setLockPassword(e.target.value)}
+              onKeyDown={(e) => { if (e.key === "Enter") confirmLock(); }}
+              autoFocus
+            />
+            <div className="sr-modal-actions">
+              <button className="btn-secondary" type="button" onClick={() => { setLockModalOpen(false); setLockPassword(""); }}>Cancel</button>
+              <button className="btn-primary" type="button" disabled={!lockPassword.trim()} onClick={confirmLock}><i className="ti ti-lock"></i> Sign &amp; Lock</button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Coded-term (VeDDRA) lookup — stub dictionary */}
+      {lookupField && (
+        <div className="sr-modal-overlay" onClick={() => setLookupField(null)}>
+          <div className="sr-modal lookup" onClick={(e) => e.stopPropagation()} role="dialog" aria-modal="true" aria-label="VeDDRA lookup">
+            <div className="sr-modal-title"><i className="ti ti-book-2"></i> VeDDRA lookup — {lookupField.label}</div>
+            <div className="sr-modal-body">Select a coded term (demo dictionary).</div>
+            <div className="lookup-list">
+              {VEDDRA_TERMS.map((t) => (
+                <button key={t} className="lookup-term" type="button" onClick={() => { setFieldValue(lookupField, t); setLookupField(null); }}>
+                  {t}
+                </button>
+              ))}
+            </div>
+            <div className="sr-modal-actions">
+              <button className="btn-secondary" type="button" onClick={() => setLookupField(null)}>Close</button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

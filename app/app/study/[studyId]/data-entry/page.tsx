@@ -25,6 +25,7 @@ interface Node {
   subjectId?: string;
   arm?: string | null;
   forms?: FormItem[];
+  ineligible?: boolean;
 }
 
 // ─── Status mapping (instance_status → prototype's 3 buckets) ────────────────
@@ -113,6 +114,7 @@ export default function DataEntryPage() {
       subjectId: s.subject_code,
       arm: s.randomization_arm,
       forms: subjectForms(s.id),
+      ineligible: s.ineligible,
     });
 
     const map: Record<string, Node[]> = {};
@@ -373,7 +375,14 @@ export default function DataEntryPage() {
                         ) : (
                           <>
                             <td>
-                              <span className={`badge ${BADGE_CLS[n.status] || "badge-pending"}`}>{statusLabel(n.status)}</span>
+                              <span style={{ display: "inline-flex", alignItems: "center", gap: "var(--space-1)", flexWrap: "wrap" }}>
+                                <span className={`badge ${BADGE_CLS[n.status] || "badge-pending"}`}>{statusLabel(n.status)}</span>
+                                {n.ineligible && (
+                                  <span className="badge badge-ineligible" title="Does not meet inclusion criteria — PI review required">
+                                    <i className="ti ti-alert-triangle" style={{ fontSize: "11px" }}></i> Ineligible
+                                  </span>
+                                )}
+                              </span>
                             </td>
                             {type === "livestock" && (
                               <td>

@@ -1,6 +1,6 @@
 # Arken EDC — Session Handoff
 **Paste this entire file at the start of a new conversation.**
-Last updated: 2026-06-10 | Session 23 COMPLETE → Session 24 — Full forms deep dive
+Last updated: 2026-06-10 | Session 24 — forms deep dive (field types, status, I/E) DONE
 
 ---
 
@@ -123,17 +123,22 @@ Paste the full content of this file as your first message. It contains everythin
 - **"Create new study"** now creates an **empty** study (no sites/subjects/forms), enters as **Admin**, and lands on `/study/[id]/settings` (placeholder).
 - **Access-agreement (NDA) gate** — after login, a one-time-per-tab Arken-branded agreement (name required + company + checkbox) gates non-owner visitors. **`OWNER_CODES = ['ARKEN-ADMIN']`** (`app/lib/constants.ts`) bypasses it entirely. On accept, a row is written **directly to Supabase** `nda_agreements` (audit data, not the session store) via `app/supabase/migrations/20260610100000_nda_agreements.sql` (**file only — apply before the insert works**). The access code = the login credential.
 
-### Session 24 — NEXT ▶ — **Full forms deep dive**
-Make the form-entry experience complete and polished end-to-end:
-1. **Sidebar active states** — refine active child + active-parent + collapsed-group interplay; deep-link a sub-form expands/selects its group.
-2. **All field types** — render every `field_type` properly: `calculated` (read-only computed, e.g. `age_auto_calc` from DOB, `fec_reduction_pct`), `file` (upload control), `multiselect`, `date`/`datetime`, `integer` vs `number`.
-3. **Field-states vocabulary** — normal / required-empty / queried-amber / SDV-verified / delta-changed / locked, consistent across all field types (per the style guide).
-4. **Query panel full lifecycle** — open → responded → resolved with full thread, role-aware actions, re-open, and auto-resolve on back-in-range.
-5. **SDV panel** — a proper source-data-verification surface (not just the per-field shield): progress, per-field verify, bulk.
-6. **Change reason (Δ)** — wire the delta panel to actually record the reason + show change history (21 CFR Part 11).
-7. **Form status progression** — empty → in_work → reviewed → finalized → locked, with the right transitions/actions ("Submit for review", "Run validations", finalize/lock).
-8. **Inclusion / Exclusion logic** — evaluate the I/E sub-form (fail any criterion → ineligible + PI-review flag) and reflect eligibility on the subject.
-9. **Case Study 4 — conditional demographics** can fold in here (breed lists, age auto-calc, production-purpose tags).
+### Session 24 — forms deep dive ✅ (done)
+All in `components/subject-record/SubjectRecord.tsx` (+ `subject-record.css`), with seed/generator changes.
+1. **All field types** render in `renderControl`: `text`, `number` (+ unit hint), `date`/`datetime`, `select` (chevron dropdown), `radio` → **Yes/No two-button toggle** (`.yn-toggle`), `multiselect`/`checkbox` → **checkbox group** (value stored as a JSON array), `calculated` → **read-only computed** (`age_auto_calc` from DOB; `fec_reduction_pct` from screening vs same-visit FEC), `file` → **upload button + filename** (stores name), `coded` → **text + "Look up"** opening a stub **VeDDRA** modal (DM-only), `textarea`.
+2. **Required fields** — red asterisk (`.field-req`) on `is_required` labels. Seed: `vital()` + `visit_date` + `informed_consent` + I/E `consent_obtained` are required (via `generate-seed.mjs`).
+3. **Field hints** — under vitals show the species range "Normal: x–y unit" (`rangeLabel`); non-vital numbers show their unit; `var(--color-text-tertiary)`/`var(--text-xs)` (`.field-hint`).
+4. **Form status progression** — toolbar status **badge** + single role-gated **advance** button: `empty`→`in_work` (auto on first edit) → `in_review` ("Submit for Review", CRC/CRA) → `reviewed` ("Mark Reviewed", CRA/DM/PI) → `finalized` ("Finalize", PI/DM) → `locked` ("Lock", DM, **e-signature password modal**). All via `update()`. **Locked = every field read-only** (`.state-locked`, controls disabled, SDV/Δ hidden). New **In-Review** sidebar icon (amber SVG). Session-only `in_review` status (not in the DB enum — fine, never written back).
+5. **Inclusion/Exclusion** — I/E criteria flagged in the seed (`validation.exclusion_criterion`). Any criterion answered **"No"** → red **"Subject does not meet inclusion criteria — PI review required"** banner, persists `subject.ineligible` (session) → **"Ineligible" chip** in the subject header **and** a **warning badge** on the drill-down subject row.
+
+Seed: `generate-seed.mjs` adds `coded()` (→ `validation.coded`) and `crit()` (→ `validation.exclusion_criterion`) builders; `types.ts` gains `FieldValidation.coded/exclusion_criterion` + `SubjectRow.ineligible`; session key bumped to **v4**; applied via `db reset` (this also applied the `nda_agreements` migration). Verified: `tsc`, `next lint`, and **`next build` all clean**.
+
+### Session 25 — NEXT ▶ (remaining form polish)
+1. **SDV panel** — a dedicated source-data-verification surface (not just the per-field shield): progress, per-field verify, bulk.
+2. **Change reason (Δ)** — wire the delta panel to actually record the reason + show change history (21 CFR Part 11). (Currently the panel opens but doesn't persist.)
+3. **Sidebar deep-link** — opening a sub-form via URL should expand/select its group.
+4. **Query panel** — re-open a resolved query; richer thread.
+5. **Case Study 4 — conditional demographics** (breed lists, production-purpose tags that appear/validate per animal). Age auto-calc is already done.
 
 Notes:
 - Everything is in-session — no Supabase writes; edits reset on tab close.

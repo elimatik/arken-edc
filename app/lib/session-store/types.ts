@@ -52,6 +52,7 @@ export interface SubjectRow {
   species: string | null;
   status: string;
   randomization_arm: string | null;
+  ineligible?: boolean; // set when an inclusion/exclusion criterion fails (session-only)
 }
 
 export interface OwnerRow {
@@ -123,6 +124,8 @@ export interface FieldValidation {
   min?: number;
   max?: number;
   onViolation?: "query" | "block";
+  coded?: boolean; // text field that opens a dictionary (VeDDRA) lookup
+  exclusion_criterion?: boolean; // yes/no inclusion-exclusion criterion ("No" fails)
 }
 
 export interface FormFieldRow {

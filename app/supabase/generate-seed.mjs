@@ -32,6 +32,10 @@ const vital = (code, label, key, unit, req = true) =>
 const sel = (code, label, options, req = false) => ({ code, label, type: "select", options, req });
 const msel = (code, label, options, req = false) => ({ code, label, type: "multiselect", options, req });
 const yn = (code, label, req = false) => ({ code, label, type: "radio", options: ["Yes", "No"], req });
+// Coded text — a plain text field that opens a (stub) VeDDRA/dictionary lookup.
+const coded = (code, label, req = false) => ({ code, label, type: "text", req, validation: { coded: true } });
+// Inclusion/exclusion criterion — a yes/no where "No" fails the criterion.
+const crit = (code, label, req = false) => ({ code, label, type: "radio", options: ["Yes", "No"], req, validation: { exclusion_criterion: true } });
 
 const SEVERITY = ["Mild", "Moderate", "Severe", "Life-threatening"];
 const RELATIONSHIP = ["Unrelated", "Possible", "Probable", "Definite"];
@@ -92,7 +96,7 @@ const FIELDS = {
       file("consent_upload", "Consent upload"),
     ],
     medicalHistory: () => [
-      txt("previous_illnesses", "Previous illnesses (coded)"),
+      coded("previous_illnesses", "Previous illnesses (coded)"),
       txt("previous_treatments", "Previous treatments"),
       txt("vaccination_history", "Vaccination history"),
     ],
@@ -112,11 +116,11 @@ const FIELDS = {
     },
     inclusionExclusion: () => [
       date("visit_date", "Visit date", true),
-      yn("age_2_8_months", "Age 2–8 months"),
-      yn("brd_signs_present", "BRD signs present"),
-      yn("no_prior_treatment_7days", "No prior treatment (7 days)"),
-      yn("not_pregnant", "Not pregnant"),
-      yn("consent_obtained", "Consent obtained"),
+      crit("age_2_8_months", "Age 2–8 months"),
+      crit("brd_signs_present", "BRD signs present"),
+      crit("no_prior_treatment_7days", "No prior treatment (7 days)"),
+      crit("not_pregnant", "Not pregnant"),
+      crit("consent_obtained", "Consent obtained", true),
     ],
     dosing: (v) => {
       const f = [
@@ -143,7 +147,7 @@ const FIELDS = {
       txt("pen_affected", "Pen affected"),
       txt("event_description", "Event description"),
       date("onset_date", "Onset date"),
-      txt("veddra_coded_term", "VeDDRA coded term"),
+      coded("veddra_coded_term", "VeDDRA coded term"),
       sel("severity", "Severity", SEVERITY),
       sel("relationship_to_drug", "Relationship to drug", RELATIONSHIP),
       txt("action_taken", "Action taken"),
@@ -163,7 +167,7 @@ const FIELDS = {
     conmed: () => [
       date("start_date", "Start date"),
       date("end_date", "End date"),
-      txt("drug_name", "Drug name (coded)"),
+      coded("drug_name", "Drug name (coded)"),
       txt("dose", "Dose"),
       txt("route", "Route"),
       txt("frequency", "Frequency"),
@@ -191,7 +195,7 @@ const FIELDS = {
       file("consent_upload", "Consent upload"),
     ],
     medicalHistory: () => [
-      txt("previous_diagnoses", "Previous diagnoses (coded)"),
+      coded("previous_diagnoses", "Previous diagnoses (coded)"),
       txt("current_medications", "Current medications"),
       txt("surgical_history", "Surgical history"),
       txt("vaccination_status", "Vaccination status"),
@@ -221,13 +225,13 @@ const FIELDS = {
     },
     inclusionExclusion: () => [
       date("visit_date", "Visit date", true),
-      yn("age_1yr_plus", "Age ≥ 1 year"),
-      yn("oa_diagnosis_confirmed", "OA diagnosis confirmed"),
-      yn("radiographic_evidence", "Radiographic evidence"),
+      crit("age_1yr_plus", "Age ≥ 1 year"),
+      crit("oa_diagnosis_confirmed", "OA diagnosis confirmed"),
+      crit("radiographic_evidence", "Radiographic evidence"),
       file("radiograph_upload", "Radiograph upload"),
-      yn("no_corticosteroids_30days", "No corticosteroids (30 days)"),
-      yn("no_nsaids_14days", "No NSAIDs (14 days)"),
-      yn("owner_compliant", "Owner compliant"),
+      crit("no_corticosteroids_30days", "No corticosteroids (30 days)"),
+      crit("no_nsaids_14days", "No NSAIDs (14 days)"),
+      crit("owner_compliant", "Owner compliant"),
     ],
     dosing: (v) => {
       const f = [
@@ -256,7 +260,7 @@ const FIELDS = {
       txt("animal_id", "Animal ID"),
       txt("event_description", "Event description"),
       date("onset_date", "Onset date"),
-      txt("veddra_coded_term", "VeDDRA coded term"),
+      coded("veddra_coded_term", "VeDDRA coded term"),
       sel("severity", "Severity", SEVERITY),
       sel("relationship_to_drug", "Relationship to drug", RELATIONSHIP),
       txt("action_taken", "Action taken"),
@@ -275,7 +279,7 @@ const FIELDS = {
     conmed: () => [
       date("start_date", "Start date"),
       date("end_date", "End date"),
-      txt("drug_name", "Drug name (coded)"),
+      coded("drug_name", "Drug name (coded)"),
       txt("dose", "Dose"),
       txt("route", "Route"),
       txt("frequency", "Frequency"),
@@ -305,7 +309,7 @@ const FIELDS = {
     medicalHistory: () => [
       txt("fec_history", "FEC history"),
       txt("deworming_history_12mo", "Deworming history (12 mo)"),
-      txt("previous_diagnoses", "Previous diagnoses (coded)"),
+      coded("previous_diagnoses", "Previous diagnoses (coded)"),
       txt("current_medications", "Current medications"),
     ],
     physicalExam: (v) => {
@@ -357,12 +361,12 @@ const FIELDS = {
     },
     inclusionExclusion: () => [
       date("visit_date", "Visit date", true),
-      yn("fec_200epg_plus", "FEC ≥ 200 EPG"),
-      yn("age_6mo_plus", "Age ≥ 6 months"),
-      yn("no_anthelmintic_8wks", "No anthelmintic (8 weeks)"),
-      yn("not_pregnant", "Not pregnant"),
-      yn("no_gi_disease", "No GI disease"),
-      yn("consent_obtained", "Consent obtained"),
+      crit("fec_200epg_plus", "FEC ≥ 200 EPG"),
+      crit("age_6mo_plus", "Age ≥ 6 months"),
+      crit("no_anthelmintic_8wks", "No anthelmintic (8 weeks)"),
+      crit("not_pregnant", "Not pregnant"),
+      crit("no_gi_disease", "No GI disease"),
+      crit("consent_obtained", "Consent obtained", true),
     ],
     dosing: (v) => {
       const f = [
@@ -387,7 +391,7 @@ const FIELDS = {
       txt("animal_id", "Animal ID"),
       txt("event_description", "Event description"),
       date("onset_date", "Onset date"),
-      txt("veddra_coded_term", "VeDDRA coded term"),
+      coded("veddra_coded_term", "VeDDRA coded term"),
       sel("severity", "Severity", SEVERITY),
       sel("relationship_to_drug", "Relationship to drug", RELATIONSHIP),
       txt("action_taken", "Action taken"),
@@ -409,7 +413,7 @@ const FIELDS = {
     conmed: () => [
       date("start_date", "Start date"),
       date("end_date", "End date"),
-      txt("drug_name", "Drug name (coded)"),
+      coded("drug_name", "Drug name (coded)"),
       txt("dose", "Dose"),
       txt("route", "Route"),
       txt("frequency", "Frequency"),
