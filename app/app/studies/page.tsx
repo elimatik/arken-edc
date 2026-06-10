@@ -61,13 +61,24 @@ function cap(s: string): string {
   return s ? s.charAt(0).toUpperCase() + s.slice(1) : "";
 }
 
+const PIN_KEY = "arken_pinned_study_v1";
+
 export default function StudiesPage() {
   const router = useRouter();
-  const { dataset, ready } = useStudySession();
+  const { dataset, ready, update } = useStudySession();
   const [search, setSearch] = useState("");
   const [statusFilter, setStatusFilter] = useState("");
   const [speciesFilter, setSpeciesFilter] = useState("");
   const [view, setView] = useState<"cards" | "table">("cards"); // cards is default
+  const [pinnedId, setPinnedId] = useState<string | null>(() => {
+    if (typeof window === "undefined") return null;
+    try { return sessionStorage.getItem(PIN_KEY); } catch { return null; }
+  });
+  // Add-study modal
+  const [addOpen, setAddOpen] = useState(false);
+  const [newName, setNewName] = useState("");
+  const [newClient, setNewClient] = useState("");
+  const [newClientText, setNewClientText] = useState("");
   const loading = !ready;
 
   // Studies the demo user belongs to, derived from the session store
@@ -116,12 +127,66 @@ export default function StudiesPage() {
     return matchQ && matchStatus && matchSpecies;
   });
 
+  // Pinned / active study (session-scoped). Defaults to the first study.
+  const pinned = pinnedId ?? studies[0]?.id ?? null;
+  function pinStudy(id: string) {
+    setPinnedId(id);
+    try { sessionStorage.setItem(PIN_KEY, id); } catch { /* ignore */ }
+  }
+
   function enterStudy(s: Study) {
+    pinStudy(s.id); // entering a study makes it the active/pinned one
     router.push(`/study/${s.id}`);
   }
 
   function signOut() {
     router.push("/login");
+  }
+
+  // Distinct existing clients (sponsors) for the Add-study dropdown.
+  const clients = Array.from(new Set(dataset.studies.map((s) => s.sponsor).filter(Boolean))) as string[];
+  const resolvedClient = newClient === "__other" ? newClientText.trim() : newClient;
+  const canCreate = newName.trim().length > 0 && resolvedClient.length > 0;
+
+  function closeAdd() {
+    setAddOpen(false);
+    setNewName("");
+    setNewClient("");
+    setNewClientText("");
+  }
+
+  // Create a new session-based study (companion template) and navigate to it.
+  function confirmAdd() {
+    if (!canCreate) return;
+    const id = crypto.randomUUID();
+    const code = "NEW-" + id.slice(0, 4).toUpperCase();
+    const name = newName.trim();
+    const client = resolvedClient;
+    update((d) => {
+      d.studies.push({
+        id, code, name, sponsor: client, phase: null,
+        type: "companion", species: null, status: "setup",
+        enrollment_target: null, description: null,
+      });
+      d.memberships.push({ study_id: id, role: "CRC" });
+      const siteId = crypto.randomUUID();
+      d.sites.push({ id: siteId, study_id: id, code: "S01", name: "Site 01", status: "active" });
+      // Clone the standard grouped form template from the companion study.
+      const tmpl = "20000000-0000-0000-0000-000000001103";
+      const tmplForms = d.forms.filter((f) => f.study_id === tmpl);
+      const idMap: Record<string, string> = {};
+      tmplForms.forEach((f) => { idMap[f.id] = crypto.randomUUID(); });
+      tmplForms.forEach((f) =>
+        d.forms.push({ ...f, id: idMap[f.id], study_id: id, parent_form_id: f.parent_form_id ? idMap[f.parent_form_id] : null }),
+      );
+      const tmplFormIds = new Set(tmplForms.map((f) => f.id));
+      d.formFields
+        .filter((ff) => tmplFormIds.has(ff.form_id))
+        .forEach((ff) => d.formFields.push({ ...ff, id: crypto.randomUUID(), form_id: idMap[ff.form_id] }));
+    });
+    pinStudy(id);
+    closeAdd();
+    router.push(`/study/${id}`);
   }
 
   return (
@@ -148,10 +213,17 @@ export default function StudiesPage() {
       {/* Body */}
       <div className="studies-body">
         <div className="studies-content">
-          <div className="studies-heading">Your studies</div>
-          <div className="studies-sub">
-            Select a study to continue. Your role and data access are configured
-            per study.
+          <div className="studies-headrow">
+            <div>
+              <div className="studies-heading">Your studies</div>
+              <div className="studies-sub">
+                Select a study to continue. Your role and data access are configured
+                per study.
+              </div>
+            </div>
+            <button className="studies-add-btn" onClick={() => setAddOpen(true)} type="button">
+              <i className="ti ti-plus"></i> Add Study
+            </button>
           </div>
 
           {/* Toolbar */}
@@ -240,6 +312,7 @@ export default function StudiesPage() {
                 <table className="studies-table">
                   <thead>
                     <tr>
+                      <th aria-label="Pinned"></th>
                       <th>Study</th>
                       <th>Name</th>
                       <th>Sponsor</th>
@@ -252,8 +325,20 @@ export default function StudiesPage() {
                   <tbody>
                     {filtered.map((s) => {
                       const statusCls = STATUS_CLS[s.status] || "sb-setup";
+                      const isPinned = s.id === pinned;
                       return (
-                        <tr key={s.id} onClick={() => enterStudy(s)}>
+                        <tr key={s.id} onClick={() => enterStudy(s)} className={isPinned ? "st-pinned" : undefined}>
+                          <td className="st-pin-cell">
+                            <button
+                              className={`st-pin${isPinned ? " pinned" : ""}`}
+                              title={isPinned ? "Active study" : "Pin as active study"}
+                              aria-pressed={isPinned}
+                              onClick={(e) => { e.stopPropagation(); pinStudy(s.id); }}
+                              type="button"
+                            >
+                              <i className={`ti ${isPinned ? "ti-pin-filled" : "ti-pin"}`}></i>
+                            </button>
+                          </td>
                           <td className="st-code">{s.code}</td>
                           <td>{s.name}</td>
                           <td>{s.sponsor}</td>
@@ -388,6 +473,50 @@ export default function StudiesPage() {
           )}
         </div>
       </div>
+
+      {/* Add-study modal — session-based create */}
+      {addOpen && (
+        <div className="modal-overlay" onClick={closeAdd}>
+          <div className="modal-card" onClick={(e) => e.stopPropagation()} role="dialog" aria-modal="true" aria-label="Add study">
+            <div className="modal-head">
+              <div className="modal-title">Add study</div>
+              <button className="modal-close" onClick={closeAdd} aria-label="Close" type="button"><i className="ti ti-x"></i></button>
+            </div>
+            <div className="modal-body">
+              <label className="modal-label" htmlFor="add-name">Study name</label>
+              <input
+                id="add-name"
+                className="modal-input"
+                value={newName}
+                onChange={(e) => setNewName(e.target.value)}
+                placeholder="e.g. Feline Diabetes Pilot"
+                autoFocus
+              />
+              <label className="modal-label" htmlFor="add-client">Client</label>
+              <select id="add-client" className="modal-select" value={newClient} onChange={(e) => setNewClient(e.target.value)}>
+                <option value="">Select a client…</option>
+                {clients.map((c) => (
+                  <option key={c} value={c}>{c}</option>
+                ))}
+                <option value="__other">+ New client…</option>
+              </select>
+              {newClient === "__other" && (
+                <input
+                  className="modal-input"
+                  style={{ marginTop: "var(--space-2)" }}
+                  value={newClientText}
+                  onChange={(e) => setNewClientText(e.target.value)}
+                  placeholder="New client name"
+                />
+              )}
+            </div>
+            <div className="modal-foot">
+              <button className="modal-btn-secondary" onClick={closeAdd} type="button">Cancel</button>
+              <button className="modal-btn-primary" onClick={confirmAdd} disabled={!canCreate} type="button">Create study</button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

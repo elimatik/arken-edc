@@ -84,7 +84,6 @@ export function Topbar({
                 router.push("/studies");
               }}
             >
-              <i className="ti ti-list" style={{ fontSize: "13px" }} aria-hidden="true"></i>
               Go to study list
             </button>
           </div>

@@ -144,6 +144,7 @@ export function SubjectRecord({ studyId, subjectId, initialFormId }: Props) {
 
   const activeFormId = selectedFormId ?? orderedLeaves[0]?.id;
   const selectedForm = studyForms.find((f) => f.id === activeFormId);
+  const activeParentId = selectedForm?.parent_form_id ?? null; // group containing the active child
 
   function StatusGlyph({ icon }: { icon: SidebarIcon }) {
     if (icon === "final") return <div className="status-final"><i className="ti ti-check"></i></div>;
@@ -339,7 +340,7 @@ export function SubjectRecord({ studyId, subjectId, initialFormId }: Props) {
           return (
             <div className="form-group" key={node.id}>
               <button
-                className="form-group-header"
+                className={`form-group-header${node.id === activeParentId ? " active-parent" : ""}`}
                 onClick={() => toggleGroup(node.id)}
                 aria-expanded={!collapsed}
                 type="button"

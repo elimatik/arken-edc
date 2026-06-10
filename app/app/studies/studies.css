@@ -27,7 +27,7 @@
 .studies-search i{font-size:14px;color:var(--color-text-placeholder);flex-shrink:0}
 .studies-search input{border:none;outline:none;font-size:var(--text-sm);font-family:var(--font-sans);color:var(--color-text-primary);background:transparent;flex:1}
 .studies-search input::placeholder{color:var(--color-text-placeholder)}
-.studies-filter{height:36px;padding:0 24px 0 var(--space-3);font-size:var(--text-sm);font-family:var(--font-sans);border:1px solid var(--color-border);border-radius:var(--radius-md);background:var(--color-surface);color:var(--color-text-primary);cursor:pointer;appearance:none;background-image:url("data:image/svg+xml,%3Csvg width='8' height='12' viewBox='0 0 8 12' fill='none'%3E%3Cpath d='M1 1L6 6L1 11' stroke='%236D7480' stroke-width='1.5' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E");background-repeat:no-repeat;background-position:right 8px center;outline:none}
+.studies-filter{height:36px;padding:0 32px 0 var(--space-3);font-size:var(--text-sm);font-family:var(--font-sans);border:1px solid var(--color-border);border-radius:var(--radius-md);background:var(--color-surface);color:var(--color-text-primary);cursor:pointer;appearance:none;background-image:url("data:image/svg+xml,%3Csvg width='8' height='12' viewBox='0 0 8 12' fill='none'%3E%3Cpath d='M1 1L6 6L1 11' stroke='%236D7480' stroke-width='1.5' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E");background-repeat:no-repeat;background-position:right 8px center;outline:none}
 .studies-count{font-size:var(--text-sm);color:var(--color-text-tertiary)}
 
 /* View toggle (cards / table) */
@@ -108,3 +108,40 @@
 .studies-empty{text-align:center;padding:var(--space-10) 0;color:var(--color-text-tertiary)}
 .studies-empty i{font-size:40px;display:block;margin-bottom:var(--space-4);color:var(--color-border)}
 .studies-empty-title{font-size:var(--text-lg);font-weight:500;color:var(--color-text-secondary);margin-bottom:var(--space-2)}
+
+/* ─── Heading row + Add study button (S23.2) ─── */
+.studies-headrow{display:flex;align-items:flex-start;justify-content:space-between;gap:var(--space-4)}
+.studies-add-btn{display:inline-flex;align-items:center;gap:6px;height:36px;padding:0 var(--space-4);font-size:var(--text-sm);font-weight:var(--weight-medium);font-family:var(--font-sans);color:#fff;background:var(--color-cta-bg);border:1px solid var(--color-cta-bg);border-radius:var(--radius-md);cursor:pointer;white-space:nowrap;flex-shrink:0;transition:background var(--duration-fast)}
+.studies-add-btn:hover{background:var(--color-cta-hover)}
+.studies-add-btn i{font-size:15px}
+
+/* ─── Pin column (active/pinned study) ─── */
+.st-pin-cell{width:40px;text-align:center}
+.st-pin{display:inline-flex;align-items:center;justify-content:center;width:26px;height:26px;border:1px solid transparent;background:none;cursor:pointer;border-radius:var(--radius-sm);color:var(--color-text-placeholder);transition:all var(--duration-fast)}
+.st-pin:hover{color:var(--blue-600);background:var(--blue-50);border-color:var(--blue-200)}
+.st-pin.pinned{color:var(--blue-600)}
+.st-pin i{font-size:15px}
+.studies-table tbody tr.st-pinned{background:var(--blue-50)}
+.studies-table tbody tr.st-pinned:hover{background:var(--blue-50)}
+
+/* ─── Add-study modal ─── */
+.modal-overlay{position:fixed;inset:0;background:rgba(14,18,28,0.45);display:flex;align-items:center;justify-content:center;z-index:400;padding:var(--space-4)}
+.modal-card{background:var(--color-surface);border:1px solid var(--color-border);border-radius:var(--radius-lg);box-shadow:0 12px 40px rgba(14,18,28,0.25);width:100%;max-width:420px;overflow:hidden}
+.modal-head{display:flex;align-items:center;justify-content:space-between;padding:var(--space-4) var(--space-5);border-bottom:1px solid var(--color-border)}
+.modal-title{font-size:var(--text-lg);font-weight:var(--weight-bold);color:var(--color-text-primary)}
+.modal-close{width:28px;height:28px;display:flex;align-items:center;justify-content:center;border:none;background:none;cursor:pointer;color:var(--color-text-tertiary);border-radius:var(--radius-md)}
+.modal-close:hover{background:var(--color-hover-bg);color:var(--color-text-primary)}
+.modal-close i{font-size:18px}
+.modal-body{padding:var(--space-5);display:flex;flex-direction:column}
+.modal-label{font-size:var(--text-xs);font-weight:var(--weight-medium);text-transform:uppercase;letter-spacing:var(--tracking-caps);color:var(--color-text-tertiary);margin-bottom:var(--space-2)}
+.modal-label:not(:first-child){margin-top:var(--space-4)}
+.modal-input{height:36px;padding:0 var(--space-3);font-size:var(--text-sm);font-family:var(--font-sans);border:1px solid var(--color-border);border-radius:var(--radius-md);background:var(--color-surface);color:var(--color-text-primary);outline:none}
+.modal-input:focus{border-color:var(--color-focus-ring)}
+.modal-select{height:36px;padding:0 32px 0 var(--space-3);font-size:var(--text-sm);font-family:var(--font-sans);border:1px solid var(--color-border);border-radius:var(--radius-md);background:var(--color-surface);color:var(--color-text-primary);cursor:pointer;appearance:none;background-image:url("data:image/svg+xml,%3Csvg width='8' height='12' viewBox='0 0 8 12' fill='none'%3E%3Cpath d='M1 1L6 6L1 11' stroke='%236D7480' stroke-width='1.5' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E");background-repeat:no-repeat;background-position:right 8px center;outline:none}
+.modal-select:focus{border-color:var(--color-focus-ring)}
+.modal-foot{display:flex;justify-content:flex-end;gap:var(--space-2);padding:var(--space-4) var(--space-5);border-top:1px solid var(--color-border)}
+.modal-btn-secondary{height:36px;padding:0 var(--space-4);font-size:var(--text-sm);font-weight:var(--weight-medium);font-family:var(--font-sans);color:var(--color-text-secondary);background:var(--color-surface);border:1px solid var(--color-border);border-radius:var(--radius-md);cursor:pointer}
+.modal-btn-secondary:hover{background:var(--color-hover-bg)}
+.modal-btn-primary{height:36px;padding:0 var(--space-4);font-size:var(--text-sm);font-weight:var(--weight-medium);font-family:var(--font-sans);color:#fff;background:var(--color-cta-bg);border:1px solid var(--color-cta-bg);border-radius:var(--radius-md);cursor:pointer}
+.modal-btn-primary:hover{background:var(--color-cta-hover)}
+.modal-btn-primary:disabled{opacity:0.5;cursor:not-allowed}

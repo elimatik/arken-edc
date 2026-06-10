@@ -411,19 +411,22 @@ export default function DataEntryPage() {
                           </>
                         )}
                         <td>
-                          <div className="row-actions">
-                            <button
-                              className="btn-icon"
-                              title="Open"
-                              onClick={(e) => {
-                                e.stopPropagation();
-                                drillInto(n);
-                              }}
-                              type="button"
-                            >
-                              <i className="ti ti-pencil"></i>
-                            </button>
-                          </div>
+                          {/* Container rows get an open-record action; subject/animal rows have none. */}
+                          {!isSubjectRow && (
+                            <div className="row-actions">
+                              <button
+                                className="btn-icon"
+                                title={`Open ${levels[n.level].toLowerCase()} record`}
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  drillInto(n);
+                                }}
+                                type="button"
+                              >
+                                <i className="ti ti-file-description"></i>
+                              </button>
+                            </div>
+                          )}
                         </td>
                       </tr>
                     );

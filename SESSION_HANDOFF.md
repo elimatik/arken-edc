@@ -1,6 +1,6 @@
 # Arken EDC — Session Handoff
 **Paste this entire file at the start of a new conversation.**
-Last updated: 2026-06-10 | Session 23 COMPLETE → Session 24 — Create new study + Case Study 4
+Last updated: 2026-06-10 | Session 23 COMPLETE → Session 24 — Full forms deep dive
 
 ---
 
@@ -106,13 +106,29 @@ Paste the full content of this file as your first message. It contains everythin
 - Applied via `npx supabase db reset --linked --yes`. Verified: 72 forms / 365 fields live, group tree correct, cattle 39.8 °C and equine HR 90 both auto-raise.
 - **Case Study 3 written** in `CASE_STUDY.md` (species validation + grouped form layer).
 
-### Session 24 — NEXT ▶
-1. **"Create new study"** (deferred since Session 22) — a session-based `update()` that inserts a new study graph (study + hierarchy + the standard grouped form template).
-2. **Case Study 4 — conditional demographics** — breed lists, `age_auto_calc` from DOB (read-only calculated fields already seeded), production-purpose tags that appear/validate per animal.
-3. Optional: render `calculated` fields read-only with their computed value; wire `file` upload fields; **Animals list** + **Queries** screens.
+**Part 3 — UI polish (6 fixes):**
+1. **Study list pin** (`app/studies/`) — pin column shows `ti-pin-filled` on the active/pinned study (session-scoped `arken_pinned_study_v1`, defaults to the first study; entering a study pins it; click any pin to change).
+2. **Topbar picker** — "Go to study list" link is now text-only (icon removed).
+3. **Form sidebar active parent** — the group containing the open child form gets `var(--blue-600)` text + a 2px `var(--blue-600)` left accent (`.form-group-header.active-parent`), **no** `blue-50` fill, so a collapsed active group is still indicated.
+4. **Drill-down row actions** — container rows (site/barn/stable/pen/stall) use **`ti-file-description`**; subject/animal rows have **no** action icon (row still clickable).
+5. **"+ Add Study"** — primary button on the study list opens a modal (Study name + Client dropdown from existing sponsors, or "+ New client…"). Confirm builds a session study (companion template: study + membership + 1 site + cloned grouped forms/fields) and navigates to it. Logic in `app/studies/page.tsx`; modal CSS in `studies.css`.
+6. **Select chevrons** — audited every `<select>`; all carry the SVG chevron (`right 8px`); content selects + the modal select normalized to `padding-right: 32px`. Topbar selects already had compact chevrons.
+
+### Session 24 — NEXT ▶ — **Full forms deep dive**
+Make the form-entry experience complete and polished end-to-end:
+1. **Sidebar active states** — refine active child + active-parent + collapsed-group interplay; deep-link a sub-form expands/selects its group.
+2. **All field types** — render every `field_type` properly: `calculated` (read-only computed, e.g. `age_auto_calc` from DOB, `fec_reduction_pct`), `file` (upload control), `multiselect`, `date`/`datetime`, `integer` vs `number`.
+3. **Field-states vocabulary** — normal / required-empty / queried-amber / SDV-verified / delta-changed / locked, consistent across all field types (per the style guide).
+4. **Query panel full lifecycle** — open → responded → resolved with full thread, role-aware actions, re-open, and auto-resolve on back-in-range.
+5. **SDV panel** — a proper source-data-verification surface (not just the per-field shield): progress, per-field verify, bulk.
+6. **Change reason (Δ)** — wire the delta panel to actually record the reason + show change history (21 CFR Part 11).
+7. **Form status progression** — empty → in_work → reviewed → finalized → locked, with the right transitions/actions ("Submit for review", "Run validations", finalize/lock).
+8. **Inclusion / Exclusion logic** — evaluate the I/E sub-form (fail any criterion → ineligible + PI-review flag) and reflect eligibility on the subject.
+9. **Case Study 4 — conditional demographics** can fold in here (breed lists, age auto-calc, production-purpose tags).
 
 Notes:
 - Everything is in-session — no Supabase writes; edits reset on tab close.
+- **"Create new study" is now built** (Part 3, fix 5) — companion template only; livestock templates + richer setup can come later.
 - To change form definitions: edit `generate-seed.mjs`, run `node app/supabase/generate-seed.mjs`, then `npx supabase db reset --linked --yes`.
 
 ---
