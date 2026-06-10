@@ -4,9 +4,6 @@
    only the dashboard content (greeting, stat chips, cards, widget rows).
 ════════════════════════════════════════════════════════════════════════════ */
 
-/* ─── Location breadcrumb (same component as Data Entry) ── */
-.dashboard-bc { margin-bottom: var(--space-3); }
-
 /* ─── Greeting ── */
 .greeting { margin-bottom: var(--space-5); }
 .greeting-name { font-size: var(--text-3xl); font-weight: var(--weight-medium); }

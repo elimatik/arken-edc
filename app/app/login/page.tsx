@@ -2,6 +2,8 @@
 
 import { useState, type KeyboardEvent } from "react";
 import { useRouter } from "next/navigation";
+import { supabase } from "@/lib/supabase";
+import { OWNER_CODES } from "@/lib/constants";
 import "./login.css";
 
 // One-time-per-tab portfolio agreement. Stored alongside name/company/timestamp.
@@ -44,8 +46,14 @@ export default function LoginPage() {
         setGeneralError(true);
         return;
       }
-      // Credentials valid → if the agreement was already accepted this tab, go
-      // straight in; otherwise show the one-time agreement first.
+      // The credential entered is the access code. Owner codes bypass the
+      // agreement entirely (no modal, no record); everyone else must accept it
+      // once per tab.
+      const code = password.trim();
+      if (OWNER_CODES.includes(code)) {
+        router.push("/studies");
+        return;
+      }
       let agreed = false;
       try {
         agreed = !!sessionStorage.getItem(NDA_KEY);
@@ -57,17 +65,28 @@ export default function LoginPage() {
     }, 1100);
   }
 
-  function confirmNda() {
+  async function confirmNda() {
     if (!ndaCanContinue) return;
+    const agreedAt = new Date().toISOString();
+    const accessCode = password.trim();
+    const fullName = ndaName.trim();
+    const company = ndaCompany.trim() || null;
+
+    // Audit record — written straight to Supabase (NOT the session store).
+    // Best-effort: a failure (e.g. table not yet migrated) must not block entry.
+    try {
+      const { error } = await supabase
+        .from("nda_agreements")
+        .insert({ full_name: fullName, company, access_code: accessCode, agreed_at: agreedAt });
+      if (error) console.warn("nda_agreements insert failed:", error.message);
+    } catch (e) {
+      console.warn("nda_agreements insert error:", e);
+    }
+
     try {
       sessionStorage.setItem(
         NDA_KEY,
-        JSON.stringify({
-          name: ndaName.trim(),
-          company: ndaCompany.trim() || null,
-          agreedAt: new Date().toISOString(),
-          accessCode: email.trim(),
-        }),
+        JSON.stringify({ name: fullName, company, agreedAt, accessCode }),
       );
     } catch {
       /* ignore quota / unavailable storage */

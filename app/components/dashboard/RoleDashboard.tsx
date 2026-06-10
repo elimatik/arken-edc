@@ -17,7 +17,6 @@ import {
   CfgRow,
   SafetyItem,
 } from "./widgets";
-import { Breadcrumb } from "@/components/shell/Breadcrumb";
 import "./dashboard.css";
 
 const ROLE_LABEL: Record<Role, string> = {
@@ -38,9 +37,6 @@ interface Props {
 export function RoleDashboard({ role, studyName, today }: Props) {
   return (
     <div className="dashboard">
-      <div className="dashboard-bc">
-        <Breadcrumb trail={[{ label: "Dashboard" }]} />
-      </div>
       <div className="greeting">
         <div className="greeting-name">Good morning, Elisa</div>
         <div className="greeting-sub">

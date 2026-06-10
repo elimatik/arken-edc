@@ -40,7 +40,7 @@ This project is a **portfolio piece** — every screen, token, and interaction w
 ## How to explore it
 
 ### 1. Open the live app
-https://arken-edc.vercel.app — sign in (any credentials) lands you on the **study selector** with three studies. Pick one to enter the EDC shell.
+https://arken-edc.vercel.app — sign in with the prefilled demo credentials. On first sign-in per tab you'll see a one-time **access agreement** (see below); accept it to reach the **study selector** with three studies. Pick one to enter the EDC shell.
 
 ### 2. Switch roles live
 Use the **role switcher in the top bar** — it changes the active role instantly (no re-login) and re-shapes the sidenav and dashboard. The choice persists for the tab and resets on tab close.
@@ -57,6 +57,23 @@ The **living style guide** (https://elimatik.github.io/arken-edc/) documents the
 - **EQ-3302** — equine, individual records (Site → **Stable → Stall** → Animal — the same engine, species-relabelled)
 
 The design rationale behind the query workflow and the three enrollment modes is written up in **`CASE_STUDY.md`**.
+
+---
+
+## Access codes & the agreement gate
+
+### Access codes
+The login credential acts as an **access code**. The seeded codes map to roles — `ARKEN-CRC`, `ARKEN-CRA`, `ARKEN-PI`, `ARKEN-SPON`, `ARKEN-ADMIN` (in `access_codes`). **`ARKEN-ADMIN` is the owner code:** entering it **bypasses the access agreement** and goes straight to the study selector — no modal, nothing recorded. Owner codes are listed in `OWNER_CODES` (`app/lib/constants.ts`).
+
+### The access-agreement (NDA) gate
+Because the project is shared publicly for portfolio evaluation, every **non-owner** visitor passes through a one-time agreement before they can browse:
+
+- **When** — after the login credential validates, a full-screen, Arken-branded agreement appears. It is shown **once per tab** (the acceptance is flagged in `sessionStorage`); owner codes (`ARKEN-ADMIN`) skip it entirely.
+- **What's collected** — Full name (required), Company / Organization (optional), and an explicit "I agree" checkbox. "Continue to project" is disabled until the name is filled and the box is checked. Cancel returns to login.
+- **What's recorded** — on accept, a row is written **directly to Supabase** (not the session store — this is audit data) into the **`nda_agreements`** table: `full_name`, `company`, `access_code`, `agreed_at` (plus `id` / `created_at`).
+- **How to view agreements** — Supabase dashboard → **Table Editor → `nda_agreements`**.
+
+> The `nda_agreements` table is added by migration `20260610100000_nda_agreements.sql`. Apply it (`npx supabase db reset --linked --yes`, or `db push`) before the insert can succeed — until then the accept still proceeds (the insert fails best-effort and the visitor is not blocked).
 
 ---
 
@@ -92,6 +109,7 @@ The running app is a **session-based demo**: Supabase holds the canonical seed, 
 - The dataset lives in **`sessionStorage`** behind a React context — every screen reads it through **`useStudySession()`**, never calling Supabase directly.
 - **All visitor edits stay in the session** (`update()` mutates the in-memory dataset and persists to `sessionStorage`); **nothing is written back to Supabase**.
 - The session **resets on tab close** (native `sessionStorage` behaviour) — a fresh visitor always gets the clean seed.
+- **One deliberate exception:** the access-agreement acceptance is written **directly to Supabase** (`nda_agreements`) — it's audit data that must outlive the tab, so it does not go through the session store.
 
 So the demo is fully explorable and editable by anyone, with zero risk of one visitor's edits affecting another.
 
@@ -102,8 +120,9 @@ So the demo is fully explorable and editable by anyone, with zero risk of one vi
 | Route | Screen |
 |---|---|
 | `/login` | Login + study-selector entry |
-| `/studies` | Study selector (cards / table) |
+| `/studies` | Study selector (table; pin studies, + Add Study) |
 | `/study/[studyId]` | Role dashboard (varies by active role) |
+| `/study/[studyId]/settings` | Study settings (placeholder; landed on after "+ Add Study", as Admin) |
 | `/study/[studyId]/data-entry` | Hierarchy drill-down |
 | `/study/[studyId]/data-entry/[subjectId]` | Subject Record |
 | `/study/[studyId]/data-entry/[subjectId]/[formId]` | Subject Record, form pre-selected |
