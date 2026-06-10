@@ -1,7 +1,6 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { Breadcrumb } from "@/components/shell/Breadcrumb";
 import { RoleDashboard } from "@/components/dashboard/RoleDashboard";
 import { useShell } from "@/components/shell/ShellContext";
 
@@ -22,10 +21,5 @@ export default function StudyHome() {
     setToday(fmt.replace(",", ""));
   }, []);
 
-  return (
-    <>
-      <Breadcrumb trail={[{ label: "Dashboard" }]} />
-      <RoleDashboard role={activeRole} studyName={study.name} today={today} />
-    </>
-  );
+  return <RoleDashboard role={activeRole} studyName={study.name} today={today} />;
 }

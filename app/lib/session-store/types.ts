@@ -53,6 +53,7 @@ export interface SubjectRow {
   status: string;
   randomization_arm: string | null;
   ineligible?: boolean; // set when an inclusion/exclusion criterion fails (session-only)
+  override_reason?: string | null; // PI override reason (clears ineligibility, session-only)
 }
 
 export interface OwnerRow {

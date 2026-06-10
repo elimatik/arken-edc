@@ -1,6 +1,6 @@
 # Arken EDC — Session Handoff
 **Paste this entire file at the start of a new conversation.**
-Last updated: 2026-06-10 | Session 24 — forms deep dive + 20 form UI fixes (2 batches) DONE
+Last updated: 2026-06-10 | Session 24 — forms deep dive + 3 batches of form UI fixes DONE
 
 ---
 
@@ -158,6 +158,15 @@ Data: `types.ts` adds `DeltaRecordRow` + `Dataset.deltaRecords` (session-only, n
 7. **SDV shield on all field types** — `isSdvEligible` = every type **except** `file`, `coded`, `calculated`, `textarea` (so date/select/yes-no/multiselect now get the shield).
 8. **Δ for yes/no + select** — baseline now commits a field's first entry, so a later change to a toggle/select (or any type) surfaces Δ; no Δ on first entry.
 9. **SDV verify works for all types** — the handler is type-agnostic (keyed on `field_value_id`); broadening `isSdvEligible` made the shield appear + verifiable for date/select/yes-no/multiselect with a value.
+
+### Session 24 — form fixes batch 3 ✅ (22 items)
+**Dashboard / shell / drill-down:** breadcrumb moved into `RoleDashboard` as `.dashboard-bc` (link colour, no weight, `space-3` to greeting — matches Data Entry); topbar site-select chevron made a crisp right-chevron; **site-filtered Data Entry** — a pinned topbar site drills straight to the barn/pen level (`useEffect` on `selectedSiteId` in `data-entry/page.tsx`).
+**Form chrome:** `.form-sticky-header` border-bottom; `.form-body` already page-bg; **Manage dropdown** (Copy link / Add unscheduled visit / Print / Export / — / Lock / Sign off / — / **Withdraw** red) — stubs; `.meta-item.group` hidden; **Submit for Review** always shown, disabled until the form has data.
+**Status chip / PI override:** one chip at a time — **Ineligible replaces Active**; when ineligible + role **PI**, an **Override** button opens a modal (required reason) that clears `subject.ineligible` (+ `override_reason`) back to Active.
+**Change reason:** Δ now appears **on blur** (text) / on change (discrete), comparing a *committed* value, not each keystroke; baseline = **last saved/reasoned** value, so Yes→No→Yes each needs a reason; the **panel was rebuilt to file 30** (`.delta-panel`, 380px: `delta-status-bar` badge + desc, `delta-context` old→new, `delta-thread` history, `delta-compose`).
+**Queries:** clicking a **hollow flag opens a Raise Query** panel (CRA/DM create the query, creating the field value if needed); **resolved** shows the green `ti-flag-check` with **no inline text** (text only for raised/responded); the **query panel was rebuilt to file 30** (`panel-header-left` + `status-bar` + field-context with the value; role-aware raise/respond/resolve compose). Panel target is now a **field** (`panelField`), not an fvId.
+**SDV:** in SDV mode the toolbar shows **Verify all** (CRA) + **Mark SDV complete** (disabled until every *entered* eligible field is verified); the **VeDDRA lookup is now a 420px slide-in panel** (search + term list; opens for all roles, selection DM-only); the shield now shows on **coded** fields too (`isSdvEligible` only excludes file/calculated/textarea); SDV records are keyed on `field_value_id` (globally unique) so verification **persists across form navigation**.
+Verified: `tsc`, `next lint`, **`next build` all clean**. Read `30-subject-record.html` for the panel structures before rebuilding (items 14, 18). Data: `SubjectRow.override_reason` added.
 
 ### Session 25 — NEXT ▶ (remaining form polish)
 1. **SDV panel** — a dedicated source-data-verification surface (not just the per-field shield): progress, per-field verify, bulk.

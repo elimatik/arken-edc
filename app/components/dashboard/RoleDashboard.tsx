@@ -37,6 +37,9 @@ interface Props {
 export function RoleDashboard({ role, studyName, today }: Props) {
   return (
     <div className="dashboard">
+      <nav className="dashboard-bc" aria-label="Breadcrumb">
+        <span className="dashboard-bc-cur">Dashboard</span>
+      </nav>
       <div className="greeting">
         <div className="greeting-name">Good morning, Elisa</div>
         <div className="greeting-sub">

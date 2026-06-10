@@ -47,6 +47,7 @@ const QS_CLS: Record<string, string> = { open: "qs-open", responded: "qs-respond
 const ICON_RANK: Record<SidebarIcon, number> = { queried: 0, empty: 1, inwork: 2, inreview: 3, reviewed: 4, final: 5 };
 const newId = () => crypto.randomUUID();
 const todayISO = () => new Date().toISOString().slice(0, 10);
+const STATUS_CAP = (s: string) => s.charAt(0).toUpperCase() + s.slice(1);
 
 // Form status progression: current status → the single advance action, gated by role.
 const STATUS_FLOW: Record<string, { next: string; label: string; roles: string[]; esign?: boolean }> = {
@@ -88,10 +89,9 @@ function InWorkIcon() {
   );
 }
 
-// Source-data-verifiable: every entered field type except file uploads, coded
-// dictionary fields, calculated (derived) values, and free-text areas.
+// Source-data-verifiable: every entered field type (including coded dictionary
+// fields) except file uploads, calculated (derived) values, and free-text areas.
 function isSdvEligible(field: FormFieldRow): boolean {
-  if (field.validation?.coded) return false;
   return !["file", "calculated", "textarea"].includes(field.field_type);
 }
 
@@ -106,18 +106,24 @@ export function SubjectRecord({ studyId, subjectId, initialFormId }: Props) {
   const [remarksOpen, setRemarksOpen] = useState(false);
   const [modeQueries, setModeQueries] = useState(false); // remarks default OFF
   const [modeSdv, setModeSdv] = useState(false);
-  const [baseline, setBaseline] = useState<Record<string, string>>({}); // pre-edit values (for Δ)
-  const [panelFvId, setPanelFvId] = useState<string | null>(null); // query panel target
+  const [baseline, setBaseline] = useState<Record<string, string>>({}); // last saved/reasoned value (for Δ)
+  const [committed, setCommitted] = useState<Record<string, string>>({}); // settled value (on blur / discrete change)
+  const [panelField, setPanelField] = useState<FormFieldRow | null>(null); // query panel target field
   const [reply, setReply] = useState(""); // query-thread compose box
   const [deltaField, setDeltaField] = useState<FormFieldRow | null>(null);
   const [deltaReason, setDeltaReason] = useState(""); // change-reason compose box
   const [lockModalOpen, setLockModalOpen] = useState(false); // e-signature modal
   const [lockPassword, setLockPassword] = useState("");
-  const [lookupField, setLookupField] = useState<FormFieldRow | null>(null); // coded lookup target
+  const [lookupField, setLookupField] = useState<FormFieldRow | null>(null); // VeDDRA lookup panel target
+  const [lookupSearch, setLookupSearch] = useState("");
+  const [manageOpen, setManageOpen] = useState(false); // Manage dropdown
+  const [overrideOpen, setOverrideOpen] = useState(false); // PI override modal
+  const [overrideReason, setOverrideReason] = useState("");
 
   const canSdv = activeRole === "CRA";
   const canRespond = canQuery(activeRole, "respond");
   const canResolve = canQuery(activeRole, "resolve");
+  const canRaise = canQuery(activeRole, "raise");
   const canCode = activeRole === "DM"; // dictionary coding is a DM task
 
   if (!ready) {
@@ -246,12 +252,16 @@ export function SubjectRecord({ studyId, subjectId, initialFormId }: Props) {
     fvId ? dataset.sdvRecords.find((r) => r.field_value_id === fvId && r.status === "verified") : undefined;
   const sdvVerified = (fvId: string | undefined) => !!sdvRecordFor(fvId);
 
-  // Δ change-reason state for a field: null (no change) | pending (reason needed)
-  // | responded (reason submitted) | approved (DM signed off).
-  function deltaStateFor(fieldId: string, fvId: string | undefined, value: string): "pending" | "responded" | "approved" | null {
+  // Δ change-reason state for a field. Uses the *committed* value (settled on blur
+  // for text, immediately for discrete controls) — not the live keystroke value —
+  // so Δ only appears once the user leaves the field with a changed value.
+  // null (no change) | pending (reason needed) | responded (submitted) | approved (DM).
+  function deltaStateFor(fieldId: string, fvId: string | undefined): "pending" | "responded" | "approved" | null {
+    const settled = committed[fieldId];
+    if (settled === undefined) return null; // not committed yet
     const oldVal = baseline[fieldId];
-    if (oldVal === undefined || oldVal === "" || value === oldVal) return null;
-    const recs = fvId ? dataset.deltaRecords.filter((r) => r.field_value_id === fvId && r.new_value === value) : [];
+    if (oldVal === undefined || oldVal === "" || settled === oldVal) return null;
+    const recs = fvId ? dataset.deltaRecords.filter((r) => r.field_value_id === fvId && r.new_value === settled) : [];
     if (!recs.length) return "pending";
     return recs[recs.length - 1].status === "approved" ? "approved" : "responded";
   }
@@ -317,7 +327,17 @@ export function SubjectRecord({ studyId, subjectId, initialFormId }: Props) {
   function toggleMulti(field: FormFieldRow, opt: string, value: string) {
     const cur = parseMulti(value);
     const next = cur.includes(opt) ? cur.filter((x) => x !== opt) : [...cur, opt];
-    setFieldValue(field, JSON.stringify(next));
+    changeAndCommit(field, JSON.stringify(next));
+  }
+  // Discrete controls (select, yes/no, multiselect, date, file) commit immediately;
+  // text-like inputs commit on blur (commitField) so Δ waits until the user leaves.
+  function changeAndCommit(field: FormFieldRow, value: string) {
+    setFieldValue(field, value);
+    setCommitted((c) => ({ ...c, [field.id]: value }));
+  }
+  function commitField(field: FormFieldRow) {
+    const v = fvFor(field.id)?.value ?? "";
+    setCommitted((c) => ({ ...c, [field.id]: v }));
   }
 
   // ─── Write actions (all via update() — session only) ───────────────────────
@@ -399,6 +419,10 @@ export function SubjectRecord({ studyId, subjectId, initialFormId }: Props) {
         status: "responded",
       });
     });
+    // The new value becomes the saved baseline — a later change needs a new reason
+    // (Yes → No → Yes each requires justification).
+    setBaseline((b) => ({ ...b, [deltaField.id]: newVal }));
+    setCommitted((c) => ({ ...c, [deltaField.id]: newVal }));
     setDeltaReason("");
     setDeltaField(null);
   }
@@ -456,22 +480,35 @@ export function SubjectRecord({ studyId, subjectId, initialFormId }: Props) {
       }
     });
   }
+  // Bulk-verify every entered, SDV-eligible field on the active form (CRA).
+  function verifyAll() {
+    if (!canSdv || locked) return;
+    update((d: Dataset) => {
+      for (const f of fields.filter(isSdvEligible)) {
+        const inst = d.formInstances.find((i) => i.subject_id === subjectId && i.form_id === f.form_id);
+        const fv = inst ? d.fieldValues.find((v) => v.form_instance_id === inst.id && v.form_field_id === f.id) : undefined;
+        if (!fv || (fv.value ?? "") === "") continue;
+        const rec = d.sdvRecords.find((r) => r.field_value_id === fv.id);
+        if (rec) { rec.status = "verified"; rec.verified_by_name = DEMO_USER.fullName; rec.verified_at = todayISO(); }
+        else d.sdvRecords.push({ id: newId(), form_instance_id: fv.form_instance_id, field_value_id: fv.id, status: "verified", verified_by_name: DEMO_USER.fullName, verified_at: todayISO() });
+      }
+    });
+  }
 
+  function pushMsg(d: Dataset, queryId: string, body: string) {
+    d.queryMessages.push({
+      id: newId(), query_id: queryId, author_id: DEMO_USER_ID,
+      author_name: DEMO_USER.fullName, author_role: activeRole, body,
+      created_at: new Date().toISOString(),
+    });
+  }
   function respondQuery(queryId: string) {
     const body = reply.trim() || `Response acknowledged by ${activeRole}.`;
     update((d: Dataset) => {
       const q = d.queries.find((x) => x.id === queryId);
       if (!q) return;
       q.status = "responded"; // raised → responded
-      d.queryMessages.push({
-        id: newId(),
-        query_id: queryId,
-        author_id: DEMO_USER_ID,
-        author_name: DEMO_USER.fullName,
-        author_role: activeRole,
-        body,
-        created_at: new Date().toISOString(),
-      });
+      pushMsg(d, queryId, body);
     });
     setReply("");
   }
@@ -480,28 +517,53 @@ export function SubjectRecord({ studyId, subjectId, initialFormId }: Props) {
     update((d: Dataset) => {
       const q = d.queries.find((x) => x.id === queryId);
       if (!q) return;
-      if (body) {
-        d.queryMessages.push({
-          id: newId(),
-          query_id: queryId,
-          author_id: DEMO_USER_ID,
-          author_name: DEMO_USER.fullName,
-          author_role: activeRole,
-          body,
-          created_at: new Date().toISOString(),
-        });
-      }
+      if (body) pushMsg(d, queryId, body);
       q.status = "resolved";
     });
     setReply("");
-    setPanelFvId(null);
+    setPanelField(null);
+  }
+  // Raise a new (manual) query against a field — CRA / DM. Creates the field value
+  // if the field hasn't been entered yet.
+  function raiseQuery(field: FormFieldRow) {
+    if (!canRaise) return;
+    const body = reply.trim() || `Manual query raised by ${activeRole}.`;
+    update((d: Dataset) => {
+      let inst = d.formInstances.find((i) => i.subject_id === subjectId && i.form_id === field.form_id);
+      if (!inst) { inst = { id: newId(), form_id: field.form_id, subject_id: subjectId, status: "in_work" }; d.formInstances.push(inst); }
+      let fv = d.fieldValues.find((v) => v.form_instance_id === inst!.id && v.form_field_id === field.id);
+      if (!fv) { fv = { id: newId(), form_instance_id: inst.id, form_field_id: field.id, value: "" }; d.fieldValues.push(fv); }
+      const qid = newId();
+      d.queries.push({ id: qid, form_instance_id: inst.id, field_value_id: fv.id, status: "open", title: body });
+      pushMsg(d, qid, body);
+    });
+    setReply("");
+  }
+
+  // PI override — clears an inclusion/exclusion ineligibility back to Active, with
+  // a documented reason (stored on the subject).
+  function confirmOverride() {
+    if (activeRole !== "PI" || !overrideReason.trim()) return;
+    update((d: Dataset) => {
+      const subj = d.subjects.find((s) => s.id === subjectId);
+      if (subj) { subj.ineligible = false; subj.override_reason = overrideReason.trim(); }
+    });
+    setOverrideReason("");
+    setOverrideOpen(false);
   }
 
   // ─── Render ────────────────────────────────────────────────────────────────
   const statusInfo = STATUS_MAP[subject.status] || { cls: "status-screened", label: subject.status };
-  const panelQuery = fieldQueryFor(panelFvId ?? undefined);
+  const panelFv = panelField ? fvFor(panelField.id) : undefined;
+  const panelQuery = fieldQueryFor(panelFv?.id);
   const panelResolved = panelQuery?.status === "resolved";
   const panelMsgs = panelQuery ? dataset.queryMessages.filter((m) => m.query_id === panelQuery.id).slice().sort((a, b) => (a.created_at < b.created_at ? -1 : 1)) : [];
+
+  // Form has data? (Submit-for-Review enable). All *entered* eligible fields
+  // verified? (Mark SDV complete enable).
+  const formHasData = fields.some((f) => (fvFor(f.id)?.value ?? "") !== "");
+  const sdvEnteredIds = sdvFieldIds.filter((id) => (fvFor(id)?.value ?? "") !== "");
+  const sdvAllVerified = sdvEnteredIds.length > 0 && sdvEnteredIds.every((id) => sdvVerified(fvFor(id)?.id));
 
   // Δ change-reason panel
   const deltaFv = deltaField ? fvFor(deltaField.id) : undefined;
@@ -510,9 +572,12 @@ export function SubjectRecord({ studyId, subjectId, initialFormId }: Props) {
   const deltaHistory = deltaFv
     ? dataset.deltaRecords.filter((r) => r.field_value_id === deltaFv.id).slice().sort((a, b) => (a.created_at < b.created_at ? -1 : 1))
     : [];
+  const deltaCurState = deltaField ? deltaStateFor(deltaField.id, deltaFv?.id) : null;
 
   function renderControl(field: FormFieldRow, value: string, queried: boolean) {
-    const onChange = (v: string) => setFieldValue(field, v);
+    const commit = (v: string) => changeAndCommit(field, v); // discrete controls settle immediately
+    const typeChange = (v: string) => setFieldValue(field, v); // text inputs settle on blur
+    const onBlur = () => commitField(field);
     const ro = locked;
     const type = field.field_type;
     const isCoded = !!field.validation?.coded;
@@ -520,7 +585,7 @@ export function SubjectRecord({ studyId, subjectId, initialFormId }: Props) {
     // Pen / Lot ID — a select sourced from the study's pens (livestock_group only).
     if (field.code === "pen_lot_id" && isLivestockGroup) {
       return (
-        <select className="field-select" value={value} disabled={ro} onChange={(e) => onChange(e.target.value)}>
+        <select className="field-select" value={value} disabled={ro} onChange={(e) => commit(e.target.value)}>
           <option value="">—</option>
           {penOptions.map((o) => (
             <option key={o} value={o}>{o}</option>
@@ -539,7 +604,7 @@ export function SubjectRecord({ studyId, subjectId, initialFormId }: Props) {
     }
     // textarea
     if (type === "textarea") {
-      return <textarea className="field-input" style={{ height: 60, fontFamily: "var(--font-sans)" }} value={value} disabled={ro} onChange={(e) => onChange(e.target.value)} />;
+      return <textarea className="field-input" style={{ height: 60, fontFamily: "var(--font-sans)" }} value={value} disabled={ro} onChange={(e) => typeChange(e.target.value)} onBlur={onBlur} />;
     }
     // yes/no radio → two-button toggle
     if (type === "radio") {
@@ -547,7 +612,7 @@ export function SubjectRecord({ studyId, subjectId, initialFormId }: Props) {
       return (
         <div className="yn-toggle" role="group">
           {opts.map((o) => (
-            <button key={o} type="button" disabled={ro} className={`yn-btn${value === o ? " active" : ""}`} onClick={() => onChange(value === o ? "" : o)}>
+            <button key={o} type="button" disabled={ro} className={`yn-btn${value === o ? " active" : ""}`} onClick={() => commit(value === o ? "" : o)}>
               {o}
             </button>
           ))}
@@ -571,7 +636,7 @@ export function SubjectRecord({ studyId, subjectId, initialFormId }: Props) {
     // select dropdown
     if (type === "select") {
       return (
-        <select className="field-select" value={value} disabled={ro} onChange={(e) => onChange(e.target.value)}>
+        <select className="field-select" value={value} disabled={ro} onChange={(e) => commit(e.target.value)}>
           <option value="">—</option>
           {(field.options ?? []).map((o) => (
             <option key={o} value={o}>{o}</option>
@@ -584,26 +649,26 @@ export function SubjectRecord({ studyId, subjectId, initialFormId }: Props) {
       return value ? (
         <div className="file-field">
           <span className="file-name"><i className="ti ti-file"></i> {value}</span>
-          {!ro && <button type="button" className="file-clear" title="Remove" onClick={() => onChange("")}><i className="ti ti-x"></i></button>}
+          {!ro && <button type="button" className="file-clear" title="Remove" onClick={() => commit("")}><i className="ti ti-x"></i></button>}
         </div>
       ) : (
         <label className={`file-btn${ro ? " disabled" : ""}`}>
           <i className="ti ti-upload"></i> Choose file
-          <input type="file" hidden disabled={ro} onChange={(e) => { const f = e.target.files?.[0]; if (f) onChange(f.name); }} />
+          <input type="file" hidden disabled={ro} onChange={(e) => { const f = e.target.files?.[0]; if (f) commit(f.name); }} />
         </label>
       );
     }
-    // coded text → input + Look up (DM coding)
+    // coded text → input + Look up (opens the VeDDRA lookup panel)
     if (isCoded) {
       return (
         <div className="coded-field">
-          <input className={`field-input${queried ? " query" : ""}`} style={{ fontFamily: "var(--font-sans)" }} value={value} disabled={ro} onChange={(e) => onChange(e.target.value)} />
+          <input className={`field-input${queried ? " query" : ""}`} style={{ fontFamily: "var(--font-sans)" }} value={value} disabled={ro} onChange={(e) => typeChange(e.target.value)} onBlur={onBlur} />
           <button
             type="button"
             className="lookup-btn"
-            disabled={ro || !canCode}
-            title={canCode ? "Look up coded term (VeDDRA)" : "Dictionary coding — DM only"}
-            onClick={() => setLookupField(field)}
+            disabled={ro}
+            title="Look up coded term (VeDDRA)"
+            onClick={() => { setLookupSearch(""); setLookupField(field); }}
           >
             <i className="ti ti-search"></i> Look up
           </button>
@@ -618,12 +683,12 @@ export function SubjectRecord({ studyId, subjectId, initialFormId }: Props) {
           className={`field-input field-date${queried ? " query" : ""}`}
           value={value}
           disabled={ro}
-          onChange={(e) => onChange(e.target.value)}
+          onChange={(e) => commit(e.target.value)}
           onClick={(e) => { try { (e.currentTarget as HTMLInputElement & { showPicker?: () => void }).showPicker?.(); } catch { /* not supported */ } }}
         />
       );
     }
-    // number / integer / text
+    // number / integer / text — settle on blur
     const mono = type === "number" || type === "integer";
     return (
       <input
@@ -632,7 +697,8 @@ export function SubjectRecord({ studyId, subjectId, initialFormId }: Props) {
         style={mono ? undefined : { fontFamily: "var(--font-sans)" }}
         value={value}
         disabled={ro}
-        onChange={(e) => onChange(e.target.value)}
+        onChange={(e) => typeChange(e.target.value)}
+        onBlur={onBlur}
       />
     );
   }
@@ -686,9 +752,16 @@ export function SubjectRecord({ studyId, subjectId, initialFormId }: Props) {
           <div className="subject-header">
             <div className="species-icon">{SPECIES_ICON[species] || "🔬"}</div>
             <span className="subject-id">{subject.subject_code}</span>
-            <span className={`subject-status ${statusInfo.cls}`}>{statusInfo.label}</span>
-            {subject.ineligible && (
+            {/* One status chip at a time — Ineligible replaces the normal status */}
+            {subject.ineligible ? (
               <span className="subject-ineligible"><i className="ti ti-alert-triangle"></i> Ineligible — PI review</span>
+            ) : (
+              <span className={`subject-status ${statusInfo.cls}`}>{statusInfo.label}</span>
+            )}
+            {subject.ineligible && activeRole === "PI" && (
+              <button className="btn-secondary" onClick={() => { setOverrideReason(""); setOverrideOpen(true); }} type="button">
+                <i className="ti ti-shield-check" style={{ fontSize: "12px" }}></i> Override
+              </button>
             )}
             <div className="subject-meta">
               <span className="meta-item">{species.charAt(0).toUpperCase() + species.slice(1)}</span>
@@ -700,7 +773,23 @@ export function SubjectRecord({ studyId, subjectId, initialFormId }: Props) {
               )}
             </div>
             <div className="subject-actions">
-              <button className="btn-secondary" type="button">Manage <i className="ti ti-chevron-down" style={{ fontSize: "12px" }}></i></button>
+              <div className="manage-wrap">
+                <button className="btn-secondary" onClick={() => setManageOpen((o) => !o)} type="button">
+                  Manage <i className="ti ti-chevron-down" style={{ fontSize: "12px" }}></i>
+                </button>
+                {manageOpen && <div className="manage-backdrop" onClick={() => setManageOpen(false)} />}
+                <div className={`manage-menu${manageOpen ? " open" : ""}`} role="menu">
+                  <button className="manage-item" type="button" onClick={() => setManageOpen(false)}><i className="ti ti-link"></i> Copy link</button>
+                  <button className="manage-item" type="button" onClick={() => setManageOpen(false)}><i className="ti ti-calendar-plus"></i> Add unscheduled visit</button>
+                  <button className="manage-item" type="button" onClick={() => setManageOpen(false)}><i className="ti ti-printer"></i> Print subject summary</button>
+                  <button className="manage-item" type="button" onClick={() => setManageOpen(false)}><i className="ti ti-download"></i> Export subject data</button>
+                  <div className="manage-sep"></div>
+                  <button className="manage-item" type="button" onClick={() => setManageOpen(false)}><i className="ti ti-lock"></i> Lock record</button>
+                  <button className="manage-item" type="button" onClick={() => setManageOpen(false)}><i className="ti ti-signature"></i> Sign off record</button>
+                  <div className="manage-sep"></div>
+                  <button className="manage-item danger" type="button" onClick={() => setManageOpen(false)}><i className="ti ti-user-x"></i> Withdraw subject</button>
+                </div>
+              </div>
             </div>
           </div>
 
@@ -719,6 +808,7 @@ export function SubjectRecord({ studyId, subjectId, initialFormId }: Props) {
                   Remarks: {[modeQueries && "Queries", modeSdv && "SDV mode"].filter(Boolean).join(", ") || "Off"}
                   <i className="ti ti-chevron-down" style={{ fontSize: "11px", color: "var(--color-text-tertiary)" }}></i>
                 </button>
+                {remarksOpen && <div className="remarks-backdrop" onClick={() => setRemarksOpen(false)} />}
                 <div className={`remarks-menu${remarksOpen ? " open" : ""}`}>
                   <div className="remarks-section-label">Activate mode</div>
                   <button className={`remarks-item${modeQueries ? " active-mode" : ""}`} onClick={() => setModeQueries((m) => !m)} type="button">
@@ -729,7 +819,31 @@ export function SubjectRecord({ studyId, subjectId, initialFormId }: Props) {
                   </button>
                 </div>
               </div>
-              {flow && (
+
+              {/* SDV toolbar — only in SDV mode */}
+              {modeSdv && (
+                <>
+                  <button className="btn-secondary" type="button" disabled={!canSdv} onClick={verifyAll} title={canSdv ? "Verify all entered fields" : "SDV verify — CRA only"}>
+                    Verify all
+                  </button>
+                  <button className="btn-primary" type="button" disabled={!sdvAllVerified} title={sdvAllVerified ? undefined : "Verify all entered fields first"}>
+                    Mark SDV complete
+                  </button>
+                </>
+              )}
+
+              {/* Status advance — Submit for Review is always present (disabled when empty) */}
+              {currentStatus === "empty" || currentStatus === "in_work" ? (
+                <button
+                  className="btn-primary"
+                  type="button"
+                  disabled={currentStatus === "empty" || !formHasData || !STATUS_FLOW.in_work.roles.includes(activeRole)}
+                  onClick={advanceStatus}
+                  title={currentStatus === "empty" || !formHasData ? "Enter data before submitting for review" : STATUS_FLOW.in_work.roles.includes(activeRole) ? undefined : `Submit for Review — not permitted for ${activeRole}`}
+                >
+                  Submit for Review
+                </button>
+              ) : flow ? (
                 <button
                   className="btn-primary"
                   type="button"
@@ -740,7 +854,7 @@ export function SubjectRecord({ studyId, subjectId, initialFormId }: Props) {
                   {flow.esign && <i className="ti ti-lock"></i>}
                   {flow.label}
                 </button>
-              )}
+              ) : null}
             </div>
           </div>
         </div>
@@ -762,7 +876,7 @@ export function SubjectRecord({ studyId, subjectId, initialFormId }: Props) {
               const qCode = field.code.toUpperCase();
               const sdvRec = sdvRecordFor(fv?.id);
               const verified = !!sdvRec;
-              const dState = deltaStateFor(field.id, fv?.id, value);
+              const dState = deltaStateFor(field.id, fv?.id);
               const showInteractiveSdv = isSdvEligible(field) && !locked && modeSdv;
               const showStaticSdv = isSdvEligible(field) && verified && !showInteractiveSdv;
               const numeric = field.field_type === "number" || field.field_type === "integer";
@@ -795,27 +909,25 @@ export function SubjectRecord({ studyId, subjectId, initialFormId }: Props) {
                         Δ
                       </button>
                     )}
-                    {/* Flag: always shown if the field has any query; hollow flag only in Queries mode */}
+                    {/* Flag: always shown if the field has any query; hollow flag only in Queries mode.
+                        Clicking a hollow flag opens the Raise Query panel. */}
                     {(modeQueries || dispQ) && (
                       <button
                         className={`flag-btn${dispQ ? (dispQ.status === "resolved" ? " resolved" : " flagged") : ""}`}
-                        onClick={dispQ && fv ? () => setPanelFvId(fv.id) : undefined}
-                        title={dispQ ? (dispQ.status === "resolved" ? "Query resolved — click to view" : "Query — click to view") : "No query"}
+                        onClick={() => setPanelField(field)}
+                        title={dispQ ? (dispQ.status === "resolved" ? "Query resolved — click to view" : "Query — click to view") : "Raise a query"}
                         type="button"
                       >
                         <i className={`ti ${dispQ ? (dispQ.status === "resolved" ? "ti-flag-check" : "ti-flag-filled") : "ti-flag"}`}></i>
                       </button>
                     )}
                   </div>
-                  {dispQ && fv ? (
-                    <div className={`field-state ${dispQ.status === "resolved" ? "state-resolved" : "state-query"}`}>
-                      <i className={`ti ${dispQ.status === "resolved" ? "ti-flag-check" : "ti-info-circle"}`}></i>
-                      <span className="query-link" onClick={() => setPanelFvId(fv.id)}>
-                        {dispQ.status === "open"
-                          ? dispQ.title
-                          : dispQ.status === "responded"
-                          ? `${qCode} open — view thread`
-                          : `${qCode} resolved — view thread`}
+                  {/* Inline state: text for raised + responded only; resolved shows the green flag, no text */}
+                  {dispQ && dispQ.status !== "resolved" ? (
+                    <div className="field-state state-query">
+                      <i className="ti ti-info-circle"></i>
+                      <span className="query-link" onClick={() => setPanelField(field)}>
+                        {dispQ.status === "open" ? dispQ.title : `${qCode} open — view thread`}
                       </span>
                     </div>
                   ) : (
@@ -833,32 +945,45 @@ export function SubjectRecord({ studyId, subjectId, initialFormId }: Props) {
         </div>
       </div>
 
-      {/* Query thread panel */}
-      <div className={`panel-overlay${panelFvId ? " open" : ""}`} onClick={() => setPanelFvId(null)}></div>
-      <div className={`slide-panel${panelFvId ? " open" : ""}`}>
+      {/* Query thread / raise panel (Component 13, file 30) */}
+      <div className={`panel-overlay${panelField ? " open" : ""}`} onClick={() => { setPanelField(null); setReply(""); }}></div>
+      <div className={`slide-panel${panelField ? " open" : ""}`}>
         <div className="panel-header">
-          <div>
-            <div className="panel-title">Query thread</div>
+          <div className="panel-header-left">
+            <div className="panel-title">{panelQuery ? "Query thread" : "Raise a query"}</div>
             <div className="panel-title-meta">
-              <span className="query-id">{panelQuery ? panelQuery.id.slice(0, 8) : "—"}</span>
-              <span className={`query-status ${QS_CLS[panelQuery?.status || "open"] || "qs-open"}`}>
-                {(panelQuery?.status || "open").charAt(0).toUpperCase() + (panelQuery?.status || "open").slice(1)}
+              {panelQuery && <span className="query-id">Q-{panelQuery.id.slice(0, 6).toUpperCase()}</span>}
+              <span className={`query-status ${QS_CLS[panelQuery?.status ?? "open"] || "qs-open"}`}>
+                {panelQuery ? STATUS_CAP(panelQuery.status) : "New"}
               </span>
             </div>
           </div>
-          <button className="panel-close" onClick={() => setPanelFvId(null)} type="button"><i className="ti ti-x"></i></button>
+          <button className="panel-close" onClick={() => { setPanelField(null); setReply(""); }} type="button"><i className="ti ti-x"></i></button>
         </div>
+        {panelQuery && (
+          <div className="status-bar">
+            <span className="status-bar-label">Status</span>
+            <span className={`query-status ${QS_CLS[panelQuery.status] || "qs-open"}`}>{STATUS_CAP(panelQuery.status)}</span>
+            <span className="status-desc">
+              {panelQuery.status === "open" ? "Awaiting response" : panelQuery.status === "responded" ? "Awaiting CRA review" : "Resolved — no further action"}
+            </span>
+          </div>
+        )}
         <div className="field-context">
-          <div className="fc-label">Query</div>
-          <div className="fc-field">{panelQuery?.title}</div>
+          <div className="fc-label">Field</div>
+          <div style={{ display: "flex", alignItems: "center", gap: "var(--space-2)", marginBottom: "4px" }}>
+            <span className="fc-field">{panelField?.label}</span>
+            <span className="fc-code">{(panelField?.code ?? "").toUpperCase()}</span>
+          </div>
+          <div style={{ fontFamily: "var(--font-mono)", fontSize: "10px", lineHeight: 1.6, color: "var(--color-text-primary)" }}>
+            {panelFv?.value ? `${panelFv.value}${panelField?.unit ? ` ${panelField.unit}` : ""}` : "—"}
+          </div>
         </div>
         <div className="thread-body">
           {panelMsgs.map((m) => {
             const isHuman = !!m.author_role;
             const name = m.author_name ?? "Edit check";
-            const initials = isHuman
-              ? name.split(/\s+/).map((p) => p[0]).join("").slice(0, 2).toUpperCase()
-              : "EC";
+            const initials = isHuman ? name.split(/\s+/).map((p) => p[0]).join("").slice(0, 2).toUpperCase() : "EC";
             return (
               <div className="message" key={m.id}>
                 <div className="msg-header">
@@ -870,24 +995,33 @@ export function SubjectRecord({ studyId, subjectId, initialFormId }: Props) {
               </div>
             );
           })}
+          {!panelQuery && <p style={{ fontSize: "var(--text-sm)", color: "var(--color-text-tertiary)" }}>No query has been raised on this field yet.</p>}
         </div>
         <div className="compose-area">
           {panelResolved ? (
-            <div className="sr-perm-note"><i className="ti ti-flag-check"></i> This query is resolved.</div>
+            <div className="sr-perm-note"><i className="ti ti-flag-check"></i> This query is resolved — no further action.</div>
+          ) : !panelQuery ? (
+            canRaise ? (
+              <>
+                <div className="compose-context"><i className="ti ti-user-circle"></i> Raising as {activeRole}</div>
+                <textarea className="compose-textarea" placeholder="Describe the issue with this value…" value={reply} onChange={(e) => setReply(e.target.value)}></textarea>
+                <div className="compose-btns">
+                  <span className="compose-sub">Shift+Enter for new line</span>
+                  <button className="btn-respond" type="button" disabled={!reply.trim()} onClick={() => panelField && raiseQuery(panelField)}>Raise query</button>
+                </div>
+              </>
+            ) : (
+              <div className="sr-perm-note"><i className="ti ti-lock"></i> Your role ({activeRole}) cannot raise queries.</div>
+            )
           ) : canRespond || canResolve ? (
             <>
               <div className="compose-context"><i className="ti ti-user-circle"></i> Acting as {activeRole}</div>
-              <textarea
-                className="compose-textarea"
-                placeholder="Add a response…"
-                value={reply}
-                onChange={(e) => setReply(e.target.value)}
-              ></textarea>
+              <textarea className="compose-textarea" placeholder="Add a response…" value={reply} onChange={(e) => setReply(e.target.value)}></textarea>
               <div className="compose-btns">
                 <span className="compose-sub">Shift+Enter for new line</span>
                 <div style={{ display: "flex", gap: "var(--space-2)" }}>
-                  {canRespond && panelQuery && !panelResolved && <button className="btn-respond" type="button" onClick={() => respondQuery(panelQuery.id)}>Respond</button>}
-                  {canResolve && panelQuery && !panelResolved && <button className="btn-respond" type="button" onClick={() => resolveQuery(panelQuery.id)}>Resolve</button>}
+                  {canRespond && <button className="btn-respond" type="button" onClick={() => respondQuery(panelQuery.id)}>Respond</button>}
+                  {canResolve && <button className="btn-respond" type="button" onClick={() => resolveQuery(panelQuery.id)}>Resolve</button>}
                 </div>
               </div>
             </>
@@ -897,59 +1031,64 @@ export function SubjectRecord({ studyId, subjectId, initialFormId }: Props) {
         </div>
       </div>
 
-      {/* Change-reason (Δ) panel */}
+      {/* Change-reason (Δ) panel — structure from file 30 */}
       <div className={`panel-overlay${deltaField ? " open" : ""}`} onClick={() => { setDeltaField(null); setDeltaReason(""); }}></div>
-      <div className={`slide-panel delta${deltaField ? " open" : ""}`}>
-        <div className="panel-header">
-          <div>
-            <div className="panel-title">Change reason</div>
-            <div className="panel-title-meta"><span className="delta-chip">Δ-{(deltaField?.code ?? "").toUpperCase()}</span></div>
-          </div>
-          <button className="panel-close" onClick={() => { setDeltaField(null); setDeltaReason(""); }} type="button"><i className="ti ti-x"></i></button>
+      <div className={`delta-panel${deltaField ? " open" : ""}`}>
+        <div className="delta-panel-header">
+          <span className="delta-panel-name">Change reason</span>
+          <span className="delta-id">Δ-{(deltaField?.code ?? "").toUpperCase()}</span>
+          <button className="panel-close-btn" onClick={() => { setDeltaField(null); setDeltaReason(""); }} type="button"><i className="ti ti-x"></i></button>
+        </div>
+        <div className="delta-status-bar">
+          <span className={`delta-status-badge ${deltaCurState === "approved" ? "ds-approved" : deltaCurState === "responded" ? "ds-answered" : "ds-change-required"}`}>
+            {deltaCurState === "approved" ? "Approved" : deltaCurState === "responded" ? "Answered" : "Change reason"}
+          </span>
+          <span className="delta-status-desc">
+            {deltaCurState === "approved" ? "Approved by the data manager" : deltaCurState === "responded" ? "Awaiting DM review" : `${activeRole} must provide a reason for this change`}
+          </span>
         </div>
         <div className="delta-context">
-          <div className="fc-label">Field</div>
-          <div className="fc-field" style={{ marginBottom: "var(--space-2)" }}>{deltaField?.label}</div>
+          <div className="delta-context-label">Field</div>
+          <div style={{ display: "flex", alignItems: "center", gap: "var(--space-2)", marginBottom: "var(--space-1)" }}>
+            <span className="delta-field-name">{deltaField?.label}</span>
+            <span className="delta-field-code">{(deltaField?.code ?? "").toUpperCase()}</span>
+          </div>
           <div className="delta-values">
             <span className="delta-old">{deltaOld || "—"}</span>
-            <span className="delta-arrow"><i className="ti ti-arrow-right" style={{ fontSize: "13px" }}></i></span>
+            <span className="delta-arrow">→</span>
             <span className="delta-new">{deltaNew || "—"}</span>
           </div>
         </div>
-        <div className="delta-body">
-          <label className="delta-field-label">Reason for change <span className="field-req">*</span></label>
-          <textarea
-            className="compose-textarea"
-            placeholder="Describe why this value was changed..."
-            value={deltaReason}
-            onChange={(e) => setDeltaReason(e.target.value)}
-          ></textarea>
-          {deltaHistory.length > 0 && (
-            <div className="delta-history">
-              <div className="delta-history-label">Previous changes</div>
-              {deltaHistory.map((r) => (
-                <div className="delta-entry" key={r.id}>
-                  <div className="delta-entry-reason">{r.reason}</div>
-                  <div className="delta-entry-meta">
-                    <span>{r.author_name} · {r.author_role}</span>
-                    <span className="delta-entry-ts">{r.created_at.slice(0, 16).replace("T", " ")}</span>
-                  </div>
-                  <div className="delta-entry-foot">
-                    <span className={`delta-status-badge ${r.status === "approved" ? "ds-approved" : "ds-responded"}`}>
-                      {r.status === "approved" ? "DM approved" : "Awaiting DM review"}
-                    </span>
-                    {activeRole === "DM" && r.status !== "approved" && (
-                      <button className="delta-approve" type="button" onClick={() => approveDelta(r.id)}>Approve</button>
-                    )}
-                  </div>
+        <div className="delta-thread">
+          {deltaHistory.length > 0 ? (
+            deltaHistory.map((r) => (
+              <div className="delta-entry" key={r.id}>
+                <div className="delta-entry-reason">{r.reason}</div>
+                <div className="delta-entry-meta">
+                  <span>{r.author_name} · {r.author_role}</span>
+                  <span className="delta-entry-ts">{r.created_at.slice(0, 16).replace("T", " ")}</span>
                 </div>
-              ))}
-            </div>
+                <div className="delta-entry-foot">
+                  <span className={`delta-status-badge ${r.status === "approved" ? "ds-approved" : "ds-answered"}`}>
+                    {r.status === "approved" ? "DM approved" : "Awaiting DM review"}
+                  </span>
+                  {activeRole === "DM" && r.status !== "approved" && (
+                    <button className="delta-approve" type="button" onClick={() => approveDelta(r.id)}>Approve</button>
+                  )}
+                </div>
+              </div>
+            ))
+          ) : (
+            <p style={{ fontSize: "var(--text-sm)", color: "var(--color-text-tertiary)" }}>No prior change reason for this field.</p>
           )}
         </div>
-        <div className="delta-footer">
-          <button className="btn-secondary" type="button" onClick={() => { setDeltaField(null); setDeltaReason(""); }}>Cancel</button>
-          <button className="btn-primary" type="button" disabled={!deltaReason.trim()} onClick={submitDeltaReason}>Submit reason</button>
+        <div className="delta-compose">
+          <div className="delta-compose-hint">Responding as {activeRole} · {DEMO_USER.fullName} — explain the reason for this change</div>
+          <textarea className="delta-textarea" placeholder="Enter reason for change…" value={deltaReason} onChange={(e) => setDeltaReason(e.target.value)}></textarea>
+          <div className="delta-compose-actions">
+            <span className="delta-compose-sub">Shift+Enter for new line</span>
+            <button className="delta-btn-submit" type="button" disabled={!deltaReason.trim()} onClick={submitDeltaReason}>Submit reason</button>
+          </div>
         </div>
       </div>
 
@@ -978,21 +1117,55 @@ export function SubjectRecord({ studyId, subjectId, initialFormId }: Props) {
         </div>
       )}
 
-      {/* Coded-term (VeDDRA) lookup — stub dictionary */}
-      {lookupField && (
-        <div className="sr-modal-overlay" onClick={() => setLookupField(null)}>
-          <div className="sr-modal lookup" onClick={(e) => e.stopPropagation()} role="dialog" aria-modal="true" aria-label="VeDDRA lookup">
-            <div className="sr-modal-title"><i className="ti ti-book-2"></i> VeDDRA lookup — {lookupField.label}</div>
-            <div className="sr-modal-body">Select a coded term (demo dictionary).</div>
-            <div className="lookup-list">
-              {VEDDRA_TERMS.map((t) => (
-                <button key={t} className="lookup-term" type="button" onClick={() => { setFieldValue(lookupField, t); setLookupField(null); }}>
-                  {t}
-                </button>
-              ))}
+      {/* VeDDRA lookup — slide-in panel (420px). Opens for all roles; selecting a term is DM-only. */}
+      <div className={`panel-overlay${lookupField ? " open" : ""}`} onClick={() => setLookupField(null)}></div>
+      <div className={`slide-panel lookup-panel${lookupField ? " open" : ""}`}>
+        <div className="panel-header">
+          <div className="panel-header-left">
+            <div className="panel-title">VeDDRA lookup</div>
+            <div className="panel-title-meta"><span className="fc-code">{(lookupField?.code ?? "").toUpperCase()}</span></div>
+          </div>
+          <button className="panel-close" onClick={() => setLookupField(null)} type="button"><i className="ti ti-x"></i></button>
+        </div>
+        <div className="lookup-search">
+          <i className="ti ti-search"></i>
+          <input type="search" placeholder="Search coded terms…" value={lookupSearch} onChange={(e) => setLookupSearch(e.target.value)} />
+        </div>
+        <div className="lookup-panel-list">
+          {VEDDRA_TERMS.filter((t) => t.toLowerCase().includes(lookupSearch.toLowerCase())).map((t) => (
+            <button
+              key={t}
+              className="lookup-term"
+              type="button"
+              disabled={!canCode}
+              title={canCode ? undefined : "Coding is a DM task"}
+              onClick={() => { if (lookupField) { changeAndCommit(lookupField, t); setLookupField(null); } }}
+            >
+              <i className="ti ti-book-2"></i> {t}
+            </button>
+          ))}
+          {!canCode && <div className="sr-perm-note" style={{ padding: "var(--space-3)" }}><i className="ti ti-info-circle"></i> Coding is a DM task — terms are read-only for {activeRole}.</div>}
+        </div>
+      </div>
+
+      {/* PI override modal — clears ineligibility back to Active */}
+      {overrideOpen && (
+        <div className="sr-modal-overlay" onClick={() => { setOverrideOpen(false); setOverrideReason(""); }}>
+          <div className="sr-modal" onClick={(e) => e.stopPropagation()} role="dialog" aria-modal="true" aria-label="PI Override">
+            <div className="sr-modal-title"><i className="ti ti-shield-check"></i> PI Override — document your reason</div>
+            <div className="sr-modal-body">
+              The subject failed one or more inclusion/exclusion criteria. As Principal Investigator you may override this and restore the subject to <strong>Active</strong>. A documented reason is required.
             </div>
-            <div className="sr-modal-actions">
-              <button className="btn-secondary" type="button" onClick={() => setLookupField(null)}>Close</button>
+            <textarea
+              className="compose-textarea"
+              placeholder="Document the clinical justification for this override…"
+              value={overrideReason}
+              onChange={(e) => setOverrideReason(e.target.value)}
+              autoFocus
+            ></textarea>
+            <div className="sr-modal-actions" style={{ marginTop: "var(--space-4)" }}>
+              <button className="btn-secondary" type="button" onClick={() => { setOverrideOpen(false); setOverrideReason(""); }}>Cancel</button>
+              <button className="btn-primary" type="button" disabled={!overrideReason.trim()} onClick={confirmOverride}>Confirm override</button>
             </div>
           </div>
         </div>

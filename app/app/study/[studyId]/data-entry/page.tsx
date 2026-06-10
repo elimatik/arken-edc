@@ -1,6 +1,6 @@
 "use client";
 
-import { Fragment, useMemo, useState } from "react";
+import { Fragment, useEffect, useMemo, useState } from "react";
 import { useRouter, useParams } from "next/navigation";
 import { useShell } from "@/components/shell/ShellContext";
 import { useStudySession } from "@/lib/session-store/SessionStore";
@@ -52,7 +52,7 @@ export default function DataEntryPage() {
   const router = useRouter();
   const params = useParams();
   const studyId = String(params.studyId);
-  const { study } = useShell();
+  const { study, selectedSiteId } = useShell();
   const { dataset, ready } = useStudySession();
 
   const [nav, setNav] = useState<{ key: string; label: string }[]>([]);
@@ -60,6 +60,21 @@ export default function DataEntryPage() {
   const [statusFilter, setStatusFilter] = useState("");
 
   const loading = !ready;
+
+  // If a specific site is pinned in the topbar, skip the site-level table and drill
+  // straight into that site (barn/pen level for livestock; subjects for companion).
+  // Selecting "All Sites" returns to the site-level root.
+  useEffect(() => {
+    if (!ready) return;
+    if (selectedSiteId) {
+      const site = dataset.sites.find((s) => s.id === selectedSiteId && s.study_id === studyId);
+      setNav(site ? [{ key: site.id, label: site.name }] : []);
+    } else {
+      setNav([]);
+    }
+    setSearch("");
+    setStatusFilter("");
+  }, [selectedSiteId, ready, studyId, dataset.sites]);
 
   // ─── Build the hierarchy for this study from the session store ──────────────
   const { type, nodesByParent } = useMemo((): {

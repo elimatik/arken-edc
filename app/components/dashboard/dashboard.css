@@ -4,6 +4,10 @@
    only the dashboard content (greeting, stat chips, cards, widget rows).
 ════════════════════════════════════════════════════════════════════════════ */
 
+/* ─── Location breadcrumb — matches the Data Entry breadcrumb (link colour, no weight) ── */
+.dashboard-bc { display: flex; align-items: center; gap: var(--space-1); font-size: var(--text-sm); color: var(--color-text-tertiary); margin-bottom: var(--space-3); flex-wrap: wrap; }
+.dashboard-bc-cur { color: var(--color-link); }
+
 /* ─── Greeting ── */
 .greeting { margin-bottom: var(--space-5); }
 .greeting-name { font-size: var(--text-3xl); font-weight: var(--weight-medium); }
