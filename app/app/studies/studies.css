@@ -75,8 +75,7 @@
 .st-pin:hover{color:var(--blue-600);background:var(--blue-50);border-color:var(--blue-200)}
 .st-pin.pinned{color:var(--blue-600)}
 .st-pin i{font-size:15px}
-.studies-table tbody tr.st-pinned{background:var(--blue-50)}
-.studies-table tbody tr.st-pinned:hover{background:var(--blue-50)}
+/* Pinned rows are NOT highlighted — the filled pin icon is the only indicator. */
 
 /* ─── Add-study modal ─── */
 .modal-overlay{position:fixed;inset:0;background:rgba(14,18,28,0.45);display:flex;align-items:center;justify-content:center;z-index:400;padding:var(--space-4)}

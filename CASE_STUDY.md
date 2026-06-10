@@ -134,3 +134,9 @@ Species-specific validation is the single clearest answer to *"why can't we just
 ---
 
 > **Case Study 4 is coming** — **conditional demographics** (breed lists, age auto-calculation from date of birth, and production-purpose tags that appear and validate based on the animal). The form layer it builds on is now live.
+
+---
+
+### A note on sharing the work
+
+Because this case study is shared publicly for evaluation, the live app gates every non-owner visitor through a one-time **access agreement** before the study selector — name + agreement, recorded to a Supabase `nda_agreements` table — while an owner code (`ARKEN-ADMIN`) bypasses it. It's a small, deliberate decision: protect the originality of the design and patterns documented here without putting friction between a reviewer and the work. (Minor study-list affordances live alongside it — e.g. pinning studies to the top of the table, marked only by a filled pin icon, no row highlight.)

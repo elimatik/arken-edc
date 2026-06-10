@@ -40,7 +40,7 @@ This project is a **portfolio piece** — every screen, token, and interaction w
 ## How to explore it
 
 ### 1. Open the live app
-https://arken-edc.vercel.app — sign in with the prefilled demo credentials. On first sign-in per tab you'll see a one-time **access agreement** (see below); accept it to reach the **study selector** with three studies. Pick one to enter the EDC shell.
+https://arken-edc.vercel.app — sign in with the prefilled demo credentials. On first sign-in per tab you'll see a one-time **access agreement** (see below); accept it to reach the **study selector** with three studies. Pick one to enter the EDC shell. You can **pin** any studies (the pin column / topbar dropdown) — pinned studies sort to the top of the list; the filled pin icon is the only marker, the row keeps its normal styling.
 
 ### 2. Switch roles live
 Use the **role switcher in the top bar** — it changes the active role instantly (no re-login) and re-shapes the sidenav and dashboard. The choice persists for the tab and resets on tab close.

@@ -114,6 +114,15 @@ Paste the full content of this file as your first message. It contains everythin
 5. **"+ Add Study"** — primary button on the study list opens a modal (Study name + Client dropdown from existing sponsors, or "+ New client…"). Confirm builds a session study (companion template: study + membership + 1 site + cloned grouped forms/fields) and navigates to it. Logic in `app/studies/page.tsx`; modal CSS in `studies.css`.
 6. **Select chevrons** — audited every `<select>`; all carry the SVG chevron (`right 8px`); content selects + the modal select normalized to `padding-right: 32px`. Topbar selects already had compact chevrons.
 
+### Session 24 — interim quick fixes (done, before the forms deep dive)
+- **Demo email** → `edc@arken.com` (login prefill + seed/generator).
+- **Study list is table-only** — card view + view toggle + the interim table-note removed.
+- **Multiple pinned studies** — `app/lib/pinned-study.ts` stores an **array** in `sessionStorage` (`arken_pinned_studies_v1`); `getPinnedStudies` / `setPinnedStudies` / `togglePinnedStudy`. Pinned rows sort to the top (by code) and the topbar dropdown lists all pinned studies (each with its own unpin). **No implicit default; explicit pin/unpin only.** The **only** pinned indicator is the filled pin icon (`ti-pin-filled`) — pinned rows are **not** background-highlighted (`.st-pinned` has no fill).
+- **Topbar study-pill chevron** → `ti-chevron-right` (site dropdown SVG was already right-pointing).
+- **Dashboard breadcrumb** — single "Dashboard" location breadcrumb via the shared `Breadcrumb` component in `app/study/[studyId]/page.tsx` (the duplicate inside `RoleDashboard.tsx` was removed).
+- **"Create new study"** now creates an **empty** study (no sites/subjects/forms), enters as **Admin**, and lands on `/study/[id]/settings` (placeholder).
+- **Access-agreement (NDA) gate** — after login, a one-time-per-tab Arken-branded agreement (name required + company + checkbox) gates non-owner visitors. **`OWNER_CODES = ['ARKEN-ADMIN']`** (`app/lib/constants.ts`) bypasses it entirely. On accept, a row is written **directly to Supabase** `nda_agreements` (audit data, not the session store) via `app/supabase/migrations/20260610100000_nda_agreements.sql` (**file only — apply before the insert works**). The access code = the login credential.
+
 ### Session 24 — NEXT ▶ — **Full forms deep dive**
 Make the form-entry experience complete and polished end-to-end:
 1. **Sidebar active states** — refine active child + active-parent + collapsed-group interplay; deep-link a sub-form expands/selects its group.
