@@ -88,10 +88,11 @@ function InWorkIcon() {
   );
 }
 
-// A field is source-data-verifiable when it's a number entry, or any field that
-// carries a vital key (those can be number or text). These get the SDV shield.
+// Source-data-verifiable: every entered field type except file uploads, coded
+// dictionary fields, calculated (derived) values, and free-text areas.
 function isSdvEligible(field: FormFieldRow): boolean {
-  return field.field_type === "number" || field.field_type === "integer" || !!field.validation?.vital;
+  if (field.validation?.coded) return false;
+  return !["file", "calculated", "textarea"].includes(field.field_type);
 }
 
 export function SubjectRecord({ studyId, subjectId, initialFormId }: Props) {
@@ -142,6 +143,14 @@ export function SubjectRecord({ studyId, subjectId, initialFormId }: Props) {
   const bcBarn = subject.barn_id ? dataset.barns.find((b) => b.id === subject.barn_id) : undefined;
   const bcPen = subject.pen_id ? dataset.pens.find((p) => p.id === subject.pen_id) : undefined;
   const bcSegments = [bcSite?.name, bcBarn?.name, bcPen?.name].filter(Boolean) as string[];
+
+  // Pen / Lot options for livestock_group studies (the field is a select sourced
+  // from the study's seeded pens; other study types keep it as plain text).
+  const studyRow = dataset.studies.find((s) => s.id === studyId);
+  const isLivestockGroup = studyRow?.type === "livestock_group";
+  const studySiteIds = new Set(dataset.sites.filter((s) => s.study_id === studyId).map((s) => s.id));
+  const studyBarnIds = new Set(dataset.barns.filter((b) => studySiteIds.has(b.site_id)).map((b) => b.id));
+  const penOptions = dataset.pens.filter((p) => studyBarnIds.has(p.barn_id)).map((p) => p.name);
 
   // ─── Sidebar forms — grouped tree (store-derived) ──────────────────────────
   const studyForms = dataset.forms.filter((f) => f.study_id === studyId).slice().sort((a, b) => a.sequence - b.sequence);
@@ -223,8 +232,6 @@ export function SubjectRecord({ studyId, subjectId, initialFormId }: Props) {
 
   const fvFor = (fieldId: string) =>
     instance ? dataset.fieldValues.find((v) => v.form_instance_id === instance.id && v.form_field_id === fieldId) : undefined;
-  const openQueryFor = (fvId: string | undefined) =>
-    fvId ? dataset.queries.find((q) => q.field_value_id === fvId && (q.status === "open" || q.status === "responded")) : undefined;
   // Any query on the field (open/responded preferred, else the latest resolved) —
   // so a resolved query keeps a green flag instead of resetting to hollow.
   const fieldQueryFor = (fvId: string | undefined) => {
@@ -316,9 +323,12 @@ export function SubjectRecord({ studyId, subjectId, initialFormId }: Props) {
   // ─── Write actions (all via update() — session only) ───────────────────────
   function setFieldValue(field: FormFieldRow, value: string) {
     if (locked) return; // locked forms are read-only
-    // Capture the pre-edit (saved) value once, so Δ only appears on a real change.
+    // Capture the baseline once per field (any type). A field loaded with a value
+    // keeps that as the baseline (any edit is a change → Δ). A field that was empty
+    // commits its first entry as the baseline (first entry isn't a change, but the
+    // next change is). Drives Δ for text, number, date, select, yes/no, multiselect.
     const prev = fvFor(field.id)?.value ?? "";
-    setBaseline((b) => (field.id in b ? b : { ...b, [field.id]: prev }));
+    setBaseline((b) => (field.id in b ? b : { ...b, [field.id]: prev !== "" ? prev : value }));
     update((d: Dataset) => {
       let inst = d.formInstances.find((i) => i.subject_id === subjectId && i.form_id === field.form_id);
       if (!inst) {
@@ -507,6 +517,17 @@ export function SubjectRecord({ studyId, subjectId, initialFormId }: Props) {
     const type = field.field_type;
     const isCoded = !!field.validation?.coded;
 
+    // Pen / Lot ID — a select sourced from the study's pens (livestock_group only).
+    if (field.code === "pen_lot_id" && isLivestockGroup) {
+      return (
+        <select className="field-select" value={value} disabled={ro} onChange={(e) => onChange(e.target.value)}>
+          <option value="">—</option>
+          {penOptions.map((o) => (
+            <option key={o} value={o}>{o}</option>
+          ))}
+        </select>
+      );
+    }
     // calculated — read-only computed value
     if (type === "calculated") {
       return (
@@ -736,9 +757,9 @@ export function SubjectRecord({ studyId, subjectId, initialFormId }: Props) {
             {fields.map((field) => {
               const fv = fvFor(field.id);
               const value = fv?.value ?? "";
-              const openQ = openQueryFor(fv?.id); // open/responded
-              const dispQ = fieldQueryFor(fv?.id); // any query, incl. resolved (drives the flag icon)
-              const inputQueried = modeQueries && !!openQ; // amber input only in Queries mode + open
+              const dispQ = fieldQueryFor(fv?.id); // any query: open | responded | resolved
+              const raised = dispQ?.status === "open"; // only an unacknowledged query tints the field amber
+              const qCode = field.code.toUpperCase();
               const sdvRec = sdvRecordFor(fv?.id);
               const verified = !!sdvRec;
               const dState = deltaStateFor(field.id, fv?.id, value);
@@ -755,7 +776,7 @@ export function SubjectRecord({ studyId, subjectId, initialFormId }: Props) {
                     {field.is_required && <span className="field-req"> *</span>}
                   </label>
                   <div className="field-row">
-                    {renderControl(field, value, inputQueried)}
+                    {renderControl(field, value, raised)}
                     {showInteractiveSdv && (
                       <button
                         className={`sdv-btn visible${verified ? " verified" : ""}`}
@@ -774,21 +795,28 @@ export function SubjectRecord({ studyId, subjectId, initialFormId }: Props) {
                         Δ
                       </button>
                     )}
-                    {modeQueries && (
+                    {/* Flag: always shown if the field has any query; hollow flag only in Queries mode */}
+                    {(modeQueries || dispQ) && (
                       <button
                         className={`flag-btn${dispQ ? (dispQ.status === "resolved" ? " resolved" : " flagged") : ""}`}
                         onClick={dispQ && fv ? () => setPanelFvId(fv.id) : undefined}
-                        title={dispQ ? (dispQ.status === "resolved" ? "Query resolved — click to view" : "Query open — click to view") : "No query"}
+                        title={dispQ ? (dispQ.status === "resolved" ? "Query resolved — click to view" : "Query — click to view") : "No query"}
                         type="button"
                       >
                         <i className={`ti ${dispQ ? (dispQ.status === "resolved" ? "ti-flag-check" : "ti-flag-filled") : "ti-flag"}`}></i>
                       </button>
                     )}
                   </div>
-                  {inputQueried && fv ? (
-                    <div className="field-state state-query">
-                      <i className="ti ti-info-circle"></i>
-                      <span className="query-link" onClick={() => setPanelFvId(fv.id)}>{openQ!.title}</span>
+                  {dispQ && fv ? (
+                    <div className={`field-state ${dispQ.status === "resolved" ? "state-resolved" : "state-query"}`}>
+                      <i className={`ti ${dispQ.status === "resolved" ? "ti-flag-check" : "ti-info-circle"}`}></i>
+                      <span className="query-link" onClick={() => setPanelFvId(fv.id)}>
+                        {dispQ.status === "open"
+                          ? dispQ.title
+                          : dispQ.status === "responded"
+                          ? `${qCode} open — view thread`
+                          : `${qCode} resolved — view thread`}
+                      </span>
                     </div>
                   ) : (
                     hint && <span className="field-hint">{hint}</span>

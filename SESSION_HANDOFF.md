@@ -1,6 +1,6 @@
 # Arken EDC — Session Handoff
 **Paste this entire file at the start of a new conversation.**
-Last updated: 2026-06-10 | Session 24 — forms deep dive + 11 form UI fixes DONE
+Last updated: 2026-06-10 | Session 24 — forms deep dive + 20 form UI fixes (2 batches) DONE
 
 ---
 
@@ -147,6 +147,17 @@ Seed: `generate-seed.mjs` adds `coded()` (→ `validation.coded`) and `crit()` (
 11. **Verified SDV icon persists** — when SDV mode is off, verified fields show a static blue `ti-shield-check-filled` (`.sdv-static`); only the interactive shield buttons hide. Verification is permanent across mode toggles.
 
 Data: `types.ts` adds `DeltaRecordRow` + `Dataset.deltaRecords` (session-only, not from Supabase); `hydrate.ts` seeds it `[]`; session key → **v5**. Verified: `tsc`, `next lint`, **`next build` all clean**.
+
+### Session 24 — form fixes batch 2 ✅ (9 fixes, `SubjectRecord.tsx` + `subject-record.css`)
+1. **Pen / Lot ID** — for `livestock_group` studies it renders as a **select** sourced from the study's seeded pens (`penOptions`); other study types keep it as text.
+2. **Form body** background → `var(--color-page-bg)` (fields sit on grey, inputs stay white).
+3. **`.form-header`** → `display:flex; align-items:center; justify-content:space-between; gap:var(--space-4); flex-wrap:wrap` (dropped the old border/padding now that the page-bg body separates it).
+4. **Δ panel old→new** now displays reliably — the pre-edit value is captured into `baseline` for every field type and read into the context bar (old strikethrough mono → new bold mono).
+5. **Query flag persistence** — flag visibility = `modeQueries || fieldHasAnyQuery`. A field with any query (open/responded/resolved) always shows its flag; only never-queried fields hide it when Remarks is off.
+6. **Inline query message states** — open: full query text (amber); responded: `[CODE] open — view thread` (amber); resolved: `[CODE] resolved — view thread` (green, `.state-resolved`). Amber field background now clears on **responded** (only `open`/raised tints the field).
+7. **SDV shield on all field types** — `isSdvEligible` = every type **except** `file`, `coded`, `calculated`, `textarea` (so date/select/yes-no/multiselect now get the shield).
+8. **Δ for yes/no + select** — baseline now commits a field's first entry, so a later change to a toggle/select (or any type) surfaces Δ; no Δ on first entry.
+9. **SDV verify works for all types** — the handler is type-agnostic (keyed on `field_value_id`); broadening `isSdvEligible` made the shield appear + verifiable for date/select/yes-no/multiselect with a value.
 
 ### Session 25 — NEXT ▶ (remaining form polish)
 1. **SDV panel** — a dedicated source-data-verification surface (not just the per-field shield): progress, per-field verify, bulk.

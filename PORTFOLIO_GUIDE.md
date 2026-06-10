@@ -156,7 +156,7 @@ cd app && npx supabase db reset --linked --yes
 **Built:** login (+ access agreement), study selector, role-aware app shell, role dashboards, Data Entry drill-down, Subject Record, the session-store data layer, and the **grouped form layer** — real field definitions across all 3 studies (114 / 113 / 138 fields), forms nested into collapsible visit/info **groups** (`parent_form_id`), and **species-specific validation** (`species_ranges`) that auto-raises and auto-resolves inline edit-check queries.
 
 **Form entry, in depth** (the Subject Record renders a real eCRF):
-- **Every field type** — text, number (with unit hint), date, select, **Yes/No toggle**, **multiselect checkboxes**, **calculated** (read-only — age from DOB, FEC reduction %), **file upload**, **coded** (text + a VeDDRA "Look up", DM-only), textarea.
+- **Every field type** — text, number (with unit hint), date (native picker), select, **Yes/No toggle**, **multiselect checkboxes**, **calculated** (read-only — age from DOB, FEC reduction %), **file upload**, **coded** (text + a VeDDRA "Look up", DM-only), textarea. Some fields are **study-type-aware** — e.g. Pen / Lot ID becomes a dropdown of the study's pens for group-housed livestock, plain text otherwise.
 - **Required fields** flagged with a red asterisk; **vital hints** show the species normal range ("Normal: 38.0–39.3 °C").
 - **Form status lifecycle** — Empty → In-Work → In-Review → Reviewed → Finalized → Locked, with **role-gated** advance actions and an **e-signature** confirmation to lock; a locked form is fully read-only.
 - **Inclusion/Exclusion logic** — failing any criterion flags the subject **ineligible** (red banner + PI-review chip on the record and a warning badge in the drill-down list).
