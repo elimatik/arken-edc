@@ -708,10 +708,15 @@ export function SubjectRecord({ studyId, subjectId, initialFormId }: Props) {
   const deltaHistory = deltaFv
     ? dataset.deltaRecords.filter((r) => r.field_value_id === deltaFv.id).slice().sort((a, b) => (a.created_at < b.created_at ? -1 : 1))
     : [];
+  const deltaPendingRecs = deltaHistory.filter((r) => r.status === "pending");
+  const deltaPendingCount = deltaPendingRecs.length;
+  // Adaptive layout: a single pending change uses the original clean design (top
+  // context + one bottom compose); 2+ pending changes each get their own red card.
+  const singlePending = deltaPendingCount === 1 ? deltaPendingRecs[0] : null;
   const deltaLatest = deltaHistory[deltaHistory.length - 1];
-  const deltaOld = deltaLatest?.old_value ?? "";
-  const deltaNew = deltaLatest?.new_value ?? (deltaFv?.value ?? "");
-  const deltaPendingCount = deltaHistory.filter((r) => r.status === "pending").length;
+  const deltaCtx = singlePending ?? deltaLatest;
+  const deltaOld = deltaCtx?.old_value ?? "";
+  const deltaNew = deltaCtx?.new_value ?? (deltaFv?.value ?? "");
   const deltaCurState = deltaField ? deltaStateFor(deltaField.id, deltaFv?.id) : null;
 
   function renderControl(field: FormFieldRow, value: string, queried: boolean) {
@@ -1314,52 +1319,76 @@ export function SubjectRecord({ studyId, subjectId, initialFormId }: Props) {
           </div>
         </div>
         <div className="delta-thread">
-          {deltaHistory.length > 0 ? (
-            deltaHistory.map((r) => (
-              <div className={`delta-entry${r.status === "pending" ? " pending" : ""}`} key={r.id}>
-                {/* The specific transition this card is for (item 2) */}
+          {deltaHistory.length === 0 && (
+            <p style={{ fontSize: "var(--text-sm)", color: "var(--color-text-tertiary)" }}>No change reason for this field.</p>
+          )}
+          {deltaHistory.map((r) => {
+            // A lone pending change is reasoned via the clean bottom compose, not a card.
+            if (r.status === "pending" && singlePending) return null;
+            // Pending cards (only when 2+ pending) get the red dashed treatment.
+            if (r.status === "pending") {
+              return (
+                <div className="delta-entry pending" key={r.id}>
+                  <div className="delta-entry-change">
+                    <span className="delta-entry-old">{r.old_value || "—"}</span>
+                    <span className="delta-entry-arrow">→</span>
+                    <span className="delta-entry-new">{r.new_value || "—"}</span>
+                  </div>
+                  <div className="delta-compose-hint">Reason for this change — {activeRole} · {ndaName}</div>
+                  <textarea
+                    className="delta-textarea"
+                    placeholder="Enter reason for this change…"
+                    value={recordReasons[r.id] ?? ""}
+                    onChange={(e) => setRecordReasons((prev) => ({ ...prev, [r.id]: e.target.value }))}
+                  ></textarea>
+                  <div className="delta-compose-actions">
+                    <span className="delta-status-badge ds-change-required">Reason required</span>
+                    <button className="delta-btn-submit" type="button" disabled={!(recordReasons[r.id] ?? "").trim()} onClick={() => submitReasonForRecord(r.id)}>Submit reason</button>
+                  </div>
+                </div>
+              );
+            }
+            // Responded / approved → always a card.
+            return (
+              <div className="delta-entry" key={r.id}>
                 <div className="delta-entry-change">
                   <span className="delta-entry-old">{r.old_value || "—"}</span>
                   <span className="delta-entry-arrow">→</span>
                   <span className="delta-entry-new">{r.new_value || "—"}</span>
                 </div>
-                {r.status === "pending" ? (
-                  <>
-                    <div className="delta-compose-hint">Reason for this change — {activeRole} · {ndaName}</div>
-                    <textarea
-                      className="delta-textarea"
-                      placeholder="Enter reason for this change…"
-                      value={recordReasons[r.id] ?? ""}
-                      onChange={(e) => setRecordReasons((prev) => ({ ...prev, [r.id]: e.target.value }))}
-                    ></textarea>
-                    <div className="delta-compose-actions">
-                      <span className="delta-status-badge ds-change-required">Reason required</span>
-                      <button className="delta-btn-submit" type="button" disabled={!(recordReasons[r.id] ?? "").trim()} onClick={() => submitReasonForRecord(r.id)}>Submit reason</button>
-                    </div>
-                  </>
-                ) : (
-                  <>
-                    <div className="delta-entry-reason">{r.reason}</div>
-                    <div className="delta-entry-meta">
-                      <span>{r.author_name} · {r.author_role}</span>
-                      <span className="delta-entry-ts">{r.created_at.slice(0, 16).replace("T", " ")}</span>
-                    </div>
-                    <div className="delta-entry-foot">
-                      <span className={`delta-status-badge ${r.status === "approved" ? "ds-approved" : "ds-answered"}`}>
-                        {r.status === "approved" ? "DM approved" : "Awaiting DM review"}
-                      </span>
-                      {activeRole === "DM" && r.status !== "approved" && (
-                        <button className="delta-approve" type="button" onClick={() => approveDelta(r.id)}>Approve</button>
-                      )}
-                    </div>
-                  </>
-                )}
+                <div className="delta-entry-reason">{r.reason}</div>
+                <div className="delta-entry-meta">
+                  <span>{r.author_name} · {r.author_role}</span>
+                  <span className="delta-entry-ts">{r.created_at.slice(0, 16).replace("T", " ")}</span>
+                </div>
+                <div className="delta-entry-foot">
+                  <span className={`delta-status-badge ${r.status === "approved" ? "ds-approved" : "ds-answered"}`}>
+                    {r.status === "approved" ? "DM approved" : "Awaiting DM review"}
+                  </span>
+                  {activeRole === "DM" && r.status !== "approved" && (
+                    <button className="delta-approve" type="button" onClick={() => approveDelta(r.id)}>Approve</button>
+                  )}
+                </div>
               </div>
-            ))
-          ) : (
-            <p style={{ fontSize: "var(--text-sm)", color: "var(--color-text-tertiary)" }}>No change reason for this field.</p>
-          )}
+            );
+          })}
         </div>
+        {/* Single pending change → original clean compose (top context shows old→new) */}
+        {singlePending && (
+          <div className="delta-compose">
+            <div className="delta-compose-hint">Responding as {activeRole} · {ndaName} — explain the reason for this change</div>
+            <textarea
+              className="delta-textarea"
+              placeholder="Enter reason for change…"
+              value={recordReasons[singlePending.id] ?? ""}
+              onChange={(e) => setRecordReasons((prev) => ({ ...prev, [singlePending.id]: e.target.value }))}
+            ></textarea>
+            <div className="delta-compose-actions">
+              <span className="delta-compose-sub">Shift+Enter for new line</span>
+              <button className="delta-btn-submit" type="button" disabled={!(recordReasons[singlePending.id] ?? "").trim()} onClick={() => submitReasonForRecord(singlePending.id)}>Submit reason</button>
+            </div>
+          </div>
+        )}
       </div>
 
       {/* E-signature modal (Finalized → Locked) */}

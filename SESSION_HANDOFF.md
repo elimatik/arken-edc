@@ -216,6 +216,7 @@ The change-reason model moved from a single baseline-vs-current comparison to **
 - **Panel** shows every transition chronologically; each **pending** card has its own reason textarea + Submit (`submitReasonForRecord` → responded), each responded/approved card shows reason + meta + (DM) Approve. Per-record drafts in `recordReasons`. The single bottom compose is gone. Top context shows the latest transition.
 - **First entry** still raises no Δ; **same-value** changes are never recorded (item 4 preserved).
 - CSS `.delta-entry.pending`. Session key → **v8** (shape changed). Verified: `tsc`, `next lint`, **`next build` all clean**.
+- **Adaptive panel layout** (follow-up): a **single** pending change uses the original clean design — top old→new context + one bottom compose (no red card); **2+** pending changes each render as a dashed-red card with their own old→new + reason box + Submit. Responded/approved always render as cards.
 
 ### Session 25 — NEXT ▶ (remaining form polish)
 1. **SDV panel** — a dedicated source-data-verification surface (not just the per-field shield): progress, per-field verify, bulk.
