@@ -384,3 +384,9 @@
 
 /* PI-override amber banner (Inclusion/Exclusion form, replaces the red one) */
 .ie-banner.override { background: var(--amber-50); border-color: var(--amber-200); color: var(--amber-700); }
+
+/* Queried (amber) state for non-input controls (batch 5, item 3) */
+.field-select.query { background: var(--amber-50); border-color: var(--amber-700); color: #7A4F00; }
+.yn-toggle.query { border-color: var(--amber-700); background: var(--amber-50); }
+.yn-toggle.query .yn-btn:not(.active) { background: var(--amber-50); color: var(--amber-700); }
+.check-group.query { background: var(--amber-50); border: 1px solid var(--amber-700); border-radius: var(--radius-md); padding: var(--space-2) var(--space-3); }

@@ -258,17 +258,20 @@ export function SubjectRecord({ studyId, subjectId, initialFormId }: Props) {
   const sdvVerified = (fvId: string | undefined) => !!sdvRecordFor(fvId);
 
   // Δ change-reason state. Baseline lives in the store (persists across navigation);
-  // the value is "settled" except while the field is actively focused (so Δ waits
-  // for blur on text inputs and appears immediately on discrete controls).
+  // the value is "settled" except while the field is actively focused.
+  // A submitted reason keeps the Δ visible (blue=responded → green=approved); it
+  // only disappears if the value matches baseline with no reason on record.
   // null (no change) | pending | responded | approved.
   function deltaStateFor(fieldId: string, fvId: string | undefined): "pending" | "responded" | "approved" | null {
     if (editingFieldId === fieldId) return null; // actively typing → not settled
     const cur = fvFor(fieldId)?.value ?? "";
+    // A reason already submitted for the current value → stay blue (or green) — does
+    // not vanish after submit, even though baseline now equals the value.
+    const recs = fvId ? dataset.deltaRecords.filter((r) => r.field_value_id === fvId && r.new_value === cur) : [];
+    if (recs.length) return recs[recs.length - 1].status === "approved" ? "approved" : "responded";
     const oldVal = fvId ? dataset.fieldBaselines[fvId] : undefined;
     if (oldVal === undefined || oldVal === "" || cur === oldVal) return null;
-    const recs = fvId ? dataset.deltaRecords.filter((r) => r.field_value_id === fvId && r.new_value === cur) : [];
-    if (!recs.length) return "pending";
-    return recs[recs.length - 1].status === "approved" ? "approved" : "responded";
+    return "pending"; // changed from baseline, no reason yet
   }
 
   const sdvFieldIds = fields.filter(isSdvEligible).map((f) => f.id);
@@ -569,11 +572,14 @@ export function SubjectRecord({ studyId, subjectId, initialFormId }: Props) {
   const panelResolved = panelQuery?.status === "resolved";
   const panelMsgs = panelQuery ? dataset.queryMessages.filter((m) => m.query_id === panelQuery.id).slice().sort((a, b) => (a.created_at < b.created_at ? -1 : 1)) : [];
 
-  // Form has data? (Submit-for-Review enable). All *entered* eligible fields
-  // verified? (Mark SDV complete enable).
   const formHasData = fields.some((f) => (fvFor(f.id)?.value ?? "") !== "");
-  const sdvEnteredIds = sdvFieldIds.filter((id) => (fvFor(id)?.value ?? "") !== "");
-  const sdvAllVerified = sdvEnteredIds.length > 0 && sdvEnteredIds.every((id) => sdvVerified(fvFor(id)?.id));
+  // Submit for Review is blocked by unresolved edit checks, pending change reasons,
+  // or empty required fields — but NOT by open manual queries (those don't block).
+  const hasOpenEditCheck = fields.some((f) => !!editCheckFor(fvFor(f.id)?.id));
+  const hasPendingDelta = fields.some((f) => deltaStateFor(f.id, fvFor(f.id)?.id) === "pending");
+  const hasEmptyRequired = fields.some((f) => f.is_required && (fvFor(f.id)?.value ?? "") === "");
+  const submitBlocked = hasOpenEditCheck || hasPendingDelta || hasEmptyRequired;
+  const submitBlockReason = hasEmptyRequired ? "Complete all required fields first" : hasOpenEditCheck ? "Resolve all edit checks first" : hasPendingDelta ? "Provide all change reasons first" : undefined;
 
   // Δ change-reason panel
   const deltaFv = deltaField ? fvFor(deltaField.id) : undefined;
@@ -598,7 +604,7 @@ export function SubjectRecord({ studyId, subjectId, initialFormId }: Props) {
     // Pen / Lot ID — a select sourced from the study's pens (livestock_group only).
     if (field.code === "pen_lot_id" && isLivestockGroup) {
       return (
-        <select className="field-select" value={value} disabled={ro} onChange={(e) => commit(e.target.value)}>
+        <select className={`field-select${queried ? " query" : ""}`} value={value} disabled={ro} onChange={(e) => commit(e.target.value)}>
           <option value="">—</option>
           {penOptions.map((o) => (
             <option key={o} value={o}>{o}</option>
@@ -623,7 +629,7 @@ export function SubjectRecord({ studyId, subjectId, initialFormId }: Props) {
     if (type === "radio") {
       const opts = field.options?.length ? field.options : ["Yes", "No"];
       return (
-        <div className="yn-toggle" role="group">
+        <div className={`yn-toggle${queried ? " query" : ""}`} role="group">
           {opts.map((o) => (
             <button key={o} type="button" disabled={ro} className={`yn-btn${value === o ? " active" : ""}`} onClick={() => commit(value === o ? "" : o)}>
               {o}
@@ -636,7 +642,7 @@ export function SubjectRecord({ studyId, subjectId, initialFormId }: Props) {
     if (type === "multiselect" || type === "checkbox") {
       const sel = parseMulti(value);
       return (
-        <div className="check-group">
+        <div className={`check-group${queried ? " query" : ""}`}>
           {(field.options ?? []).map((o) => (
             <label key={o} className="check-item">
               <input type="checkbox" checked={sel.includes(o)} disabled={ro} onChange={() => toggleMulti(field, o, value)} />
@@ -649,7 +655,7 @@ export function SubjectRecord({ studyId, subjectId, initialFormId }: Props) {
     // select dropdown
     if (type === "select") {
       return (
-        <select className="field-select" value={value} disabled={ro} onChange={(e) => commit(e.target.value)}>
+        <select className={`field-select${queried ? " query" : ""}`} value={value} disabled={ro} onChange={(e) => commit(e.target.value)}>
           <option value="">—</option>
           {(field.options ?? []).map((o) => (
             <option key={o} value={o}>{o}</option>
@@ -840,7 +846,7 @@ export function SubjectRecord({ studyId, subjectId, initialFormId }: Props) {
                   <button className="btn-secondary" type="button" disabled={!canSdv} onClick={verifyAll} title={canSdv ? "Verify all entered fields" : "SDV verify — CRA only"}>
                     Verify all
                   </button>
-                  <button className="btn-primary" type="button" disabled={!sdvAllVerified} title={sdvAllVerified ? undefined : "Verify all entered fields first"}>
+                  <button className="btn-primary" type="button" title="Mark source-data verification complete for this form">
                     Mark SDV complete
                   </button>
                 </>
@@ -852,9 +858,14 @@ export function SubjectRecord({ studyId, subjectId, initialFormId }: Props) {
                 <button
                   className="btn-primary"
                   type="button"
-                  disabled={currentStatus === "empty" || !formHasData || !STATUS_FLOW.in_work.roles.includes(activeRole)}
+                  disabled={currentStatus === "empty" || !formHasData || submitBlocked || !STATUS_FLOW.in_work.roles.includes(activeRole)}
                   onClick={advanceStatus}
-                  title={currentStatus === "empty" || !formHasData ? "Enter data before submitting for review" : STATUS_FLOW.in_work.roles.includes(activeRole) ? undefined : `Submit for Review — not permitted for ${activeRole}`}
+                  title={
+                    currentStatus === "empty" || !formHasData
+                      ? "Enter data before submitting for review"
+                      : submitBlockReason
+                      ?? (STATUS_FLOW.in_work.roles.includes(activeRole) ? undefined : `Submit for Review — not permitted for ${activeRole}`)
+                  }
                 >
                   Submit for Review
                 </button>
@@ -1062,7 +1073,18 @@ export function SubjectRecord({ studyId, subjectId, initialFormId }: Props) {
               </div>
             </>
           ) : panelResolved ? (
-            <div className="sr-perm-note"><i className="ti ti-flag-check"></i> This query is resolved — no further action.</div>
+            canRaise ? (
+              <>
+                <div className="compose-context"><i className="ti ti-flag-check"></i> This query is resolved — raise a new query if a fresh issue remains (as {activeRole})</div>
+                <textarea className="compose-textarea" placeholder="Describe a new issue with this value…" value={reply} onChange={(e) => setReply(e.target.value)}></textarea>
+                <div className="compose-btns">
+                  <span className="compose-sub">Opens a new query</span>
+                  <button className="btn-respond" type="button" disabled={!reply.trim()} onClick={() => panelField && raiseQuery(panelField)}>Raise new query</button>
+                </div>
+              </>
+            ) : (
+              <div className="sr-perm-note"><i className="ti ti-flag-check"></i> This query is resolved — no further action.</div>
+            )
           ) : !panelQuery ? (
             canRaise ? (
               <>

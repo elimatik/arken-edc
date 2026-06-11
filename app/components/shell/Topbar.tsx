@@ -28,7 +28,11 @@ export function Topbar({
   const router = useRouter();
   const { dataset } = useStudySession();
   const [pickerOpen, setPickerOpen] = useState(false);
+  const [siteMenuOpen, setSiteMenuOpen] = useState(false);
   const [pinnedIds, setPinnedIds] = useState<string[]>(() => getPinnedStudies());
+
+  const selectedSite = sites.find((s) => s.id === selectedSiteId);
+  const siteLabel = selectedSite ? selectedSite.name : "All Sites";
 
   function openPicker() {
     setPinnedIds(getPinnedStudies()); // refresh from storage in case it changed elsewhere
@@ -128,19 +132,35 @@ export function Topbar({
         </div>
       </div>
 
-      <select
-        className="tb-site-select"
-        value={selectedSiteId ?? ""}
-        onChange={(e) => onSelectSite(e.target.value || null)}
-        aria-label="Select site"
-      >
-        <option value="">All Sites</option>
-        {sites.map((site) => (
-          <option key={site.id} value={site.id}>
-            {site.name}
-          </option>
-        ))}
-      </select>
+      <div className="tb-site-wrap">
+        <button
+          className="tb-site-btn"
+          onClick={() => setSiteMenuOpen((o) => !o)}
+          aria-haspopup="menu"
+          aria-expanded={siteMenuOpen}
+          aria-label={`Site: ${siteLabel} — change site`}
+          type="button"
+        >
+          {siteLabel}
+          <i className="ti ti-chevron-right" aria-hidden="true"></i>
+        </button>
+        {siteMenuOpen && <div className="tb-picker-backdrop" onClick={() => setSiteMenuOpen(false)} />}
+        <div className={`tb-site-menu${siteMenuOpen ? " open" : ""}`} role="menu">
+          <button className={`tb-site-item${selectedSiteId === null ? " active" : ""}`} type="button" onClick={() => { onSelectSite(null); setSiteMenuOpen(false); }}>
+            All Sites
+          </button>
+          {sites.map((site) => (
+            <button
+              key={site.id}
+              className={`tb-site-item${selectedSiteId === site.id ? " active" : ""}`}
+              type="button"
+              onClick={() => { onSelectSite(site.id); setSiteMenuOpen(false); }}
+            >
+              {site.name}
+            </button>
+          ))}
+        </div>
+      </div>
 
       {/* Right: utilities + role switcher + avatar */}
       <div className="tb-right">

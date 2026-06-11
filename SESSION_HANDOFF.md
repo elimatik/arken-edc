@@ -1,6 +1,6 @@
 # Arken EDC — Session Handoff
 **Paste this entire file at the start of a new conversation.**
-Last updated: 2026-06-11 | Session 24 — forms deep dive + 4 batches of fixes (incl. edit-check/query split) DONE
+Last updated: 2026-06-11 | Session 24 — forms deep dive + 5 batches of fixes (incl. edit-check/query split) DONE
 
 ---
 
@@ -172,6 +172,15 @@ Verified: `tsc`, `next lint`, **`next build` all clean**. Read `30-subject-recor
 **Architectural split — edit checks vs queries.** Auto out-of-range alerts are now **edit checks** (`Dataset.editChecks`, `EditCheckRow`), separate from manual **queries**. Field shows an **orange `ti-alert-circle`** (`EC-` prefix); manual/converted queries use **flag** icons (`Q-` prefix, `from_edit_check` on the query). `hydrate.ts` converts seeded "Auto edit-check:" queries → editChecks. Resolution: (A) correct the value → edit check resolves + Δ fires; (B) click the alert → **Edit Check panel** (title "Edit Check", EC- id, the auto message) → explain → **converts to a query** (open) that follows raised→responded→resolved. Validation engine unchanged; `setFieldValue` now raises/resolves an edit check (not a query).
 **Δ baseline persistence** — moved to the store (`Dataset.fieldBaselines`, keyed by `field_value_id`), so Δ survives navigation. Δ uses the stored value (settled), suppressed only while the field is focused (`editingFieldId`) — so text settles on blur, discrete (incl. **select**) settles on change. Baseline becomes the new value on reason submit (Yes→No→Yes each needs a reason).
 **Other:** dashboard breadcrumb underlined (item 1); topbar site selector auto-width, chevron right after text (item 2); query/EC panel header shows **only the ID chip** (status badge removed — status row keeps it, item 5); inline format `[Q-XXXX] …` / `[EC-XXXX] …`, resolved = green flag with **no text** (items 6, 7); panel buttons role-aware — **CRA** Resolve(primary)+Respond(secondary), **CRC** Respond, **DM** Resolve+Manage (item 8, `.btn-comment`); **SDV mode hides Submit for Review** (item 9); **PI override** now shows a persistent **amber banner** on the I/E form (`PI [name] … on [date]`) replacing the red one (item 10). New token `--orange-600`. Session key → **v6**.
+Verified: `tsc`, `next lint`, **`next build` all clean**.
+
+### Session 24 — form fixes batch 5 ✅
+1. **Δ stays after submit** — `deltaStateFor` checks the change-reason records first: a submitted reason keeps the Δ button **solid blue (responded)** → green when DM approves; it no longer vanishes when baseline updates to the new value.
+2. **Mark SDV complete always enabled** — removed the all-verified gate (SDV scope varies by study/site); Verify all stays secondary.
+3. **Queried styling on all controls** — the amber queried state now applies to `select`, the pen select, `yes/no` toggles, and multiselect groups (`.field-select.query` / `.yn-toggle.query` / `.check-group.query`), not just text/number inputs.
+4. **Re-raise after resolved** — a resolved query's panel shows the resolved thread + a fresh compose to raise a **new** query (new `Q-` id) for CRA/DM; the panel then tracks the new query.
+5. **Topbar site selector** — replaced the native `<select>` (which sized to the widest option, leaving empty space) with a **fit-content button + dropdown** (`.tb-site-btn` / `.tb-site-menu`), so the chevron sits immediately after the site name.
+6. **Submit for Review gate** — disabled when there's any **unresolved edit check**, any **pending change reason**, or any **empty required field**; **open manual queries do NOT block** submission. (`submitBlocked` / `submitBlockReason` in `SubjectRecord.tsx`.)
 Verified: `tsc`, `next lint`, **`next build` all clean**.
 
 ### Session 25 — NEXT ▶ (remaining form polish)

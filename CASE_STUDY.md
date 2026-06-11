@@ -65,6 +65,8 @@ Not every anomaly deserves a query. When a value lands outside the species range
 
 The reason this split matters is the **query log is a quality metric** — monitors and sponsors read its size as a signal of data trouble. If every out-of-range keystroke auto-filed a query, the log would fill with typos and drown the queries that actually need a clinician's judgement. By catching the anomaly at entry but letting a human decide *typo or finding*, every clinical anomaly is still either **corrected (with an audit reason)** or **formally documented (as a query)** — and nothing false ever pollutes the log. The machine flags; the human classifies.
 
+The split even changes what *blocks* a form. Submitting a form for review is gated on the things that mean the data isn't ready — an **unresolved edit check**, a **pending change reason**, an **empty required field** — but *not* on open queries. A query is a conversation already in motion between roles; it shouldn't freeze the form. An unaddressed edit check, by contrast, is an anomaly nobody has looked at yet. So the gate enforces exactly the right thing: every anomaly is acknowledged before review, while work-in-progress dialogue is allowed to continue.
+
 ---
 
 ## Case Study 2 — Dual-Mode Enrollment Architecture

@@ -250,26 +250,16 @@
 .tb-picker-footer { padding: var(--space-2) var(--space-3); border-top: 1px solid var(--color-border); }
 .tb-picker-link { font-size: var(--text-sm); color: var(--color-link); background: none; border: none; cursor: pointer; padding: var(--space-1) 0; text-decoration: underline; text-underline-offset: 2px; display: inline-flex; align-items: center; gap: var(--space-1); }
 
-/* Site dropdown — plain white text on dark, white chevron */
-.tb-site-select {
-  appearance: none;
-  -webkit-appearance: none;
-  background-color: transparent;
-  background-image: url("data:image/svg+xml,%3Csvg width='8' height='13' viewBox='0 0 8 13' fill='none' xmlns='http://www.w3.org/2000/svg'%3E%3Cpath d='M1.5 1.5L6 6.5L1.5 11.5' stroke='%23FFFFFF' stroke-width='1.75' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E");
-  background-repeat: no-repeat;
-  background-position: right 1px center;
-  border: none;
-  color: #ffffff;
-  font-size: var(--text-base);
-  font-family: var(--font-sans);
-  cursor: pointer;
-  width: auto;
-  padding: 0 14px 0 0;
-  outline: none;
-  white-space: nowrap;
-}
-.tb-site-select:hover { color: rgba(255, 255, 255, 0.7); }
-.tb-site-select option { color: var(--color-text-primary); }
+/* Site dropdown — a fit-content button (chevron sits right after the site name) */
+.tb-site-wrap { position: relative; display: inline-flex; }
+.tb-site-btn { display: inline-flex; align-items: center; gap: 4px; width: auto; padding: 0; border: none; background: none; color: #ffffff; font-size: var(--text-base); font-family: var(--font-sans); cursor: pointer; white-space: nowrap; }
+.tb-site-btn:hover { color: rgba(255, 255, 255, 0.75); }
+.tb-site-btn i { font-size: 11px; opacity: 0.8; }
+.tb-site-menu { display: none; position: absolute; top: calc(100% + 8px); left: 0; min-width: 200px; background: var(--color-surface); border: 1px solid var(--color-border); border-radius: var(--radius-lg); box-shadow: 0 8px 24px rgba(14, 18, 28, 0.15); z-index: 300; overflow: hidden; padding: var(--space-1); }
+.tb-site-menu.open { display: block; }
+.tb-site-item { display: block; width: 100%; text-align: left; padding: var(--space-2) var(--space-3); font-size: var(--text-sm); font-family: var(--font-sans); color: var(--color-text-primary); background: none; border: none; cursor: pointer; border-radius: var(--radius-md); white-space: nowrap; }
+.tb-site-item:hover { background: var(--color-hover-bg); }
+.tb-site-item.active { color: var(--blue-600); font-weight: var(--weight-medium); }
 
 /* Right cluster */
 .tb-right { margin-left: auto; display: flex; align-items: center; gap: var(--space-3); }
