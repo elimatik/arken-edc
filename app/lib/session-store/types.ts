@@ -79,6 +79,7 @@ export interface FormInstanceRow {
   form_id: string;
   subject_id: string;
   status: string; // empty | in_work | reviewed | finalized | locked
+  sdv_complete?: boolean; // form marked SDV-complete (session-only)
 }
 
 export interface FieldValueRow {
@@ -95,6 +96,7 @@ export interface QueryRow {
   status: string; // open | responded | resolved
   title: string;
   from_edit_check?: boolean; // true when this query was converted from an edit check
+  created_at?: string; // for chronological ordering of multiple queries on a field
 }
 
 // Auto-raised validation alert (out-of-range), distinct from a manual query.

@@ -1,6 +1,6 @@
 # Arken EDC — Session Handoff
 **Paste this entire file at the start of a new conversation.**
-Last updated: 2026-06-11 | Session 24 — forms deep dive + 5 batches of fixes (incl. edit-check/query split) DONE
+Last updated: 2026-06-11 | Session 24 — forms deep dive + 6 batches of fixes (incl. edit-check/query split) DONE
 
 ---
 
@@ -182,6 +182,17 @@ Verified: `tsc`, `next lint`, **`next build` all clean**.
 5. **Topbar site selector** — replaced the native `<select>` (which sized to the widest option, leaving empty space) with a **fit-content button + dropdown** (`.tb-site-btn` / `.tb-site-menu`), so the chevron sits immediately after the site name.
 6. **Submit for Review gate** — disabled when there's any **unresolved edit check**, any **pending change reason**, or any **empty required field**; **open manual queries do NOT block** submission. (`submitBlocked` / `submitBlockReason` in `SubjectRecord.tsx`.)
 Verified: `tsc`, `next lint`, **`next build` all clean**.
+
+### Session 24 — form fixes batch 6 ✅
+1. **NDA name throughout** — `app/lib/use-nda-name.ts` (`useNdaName()` / `getNdaName()`) reads the visitor's name from `sessionStorage` (`arken_nda_v1`). Used for the dashboard greeting (now "Good [morning/afternoon/evening], [first name]"), SDV verified-by, and the author on **new** queries / responses / resolutions / change reasons (seeded/historical records keep their original names; falls back to the demo user).
+2. **Change reason — full fix** — `deltaStateFor` is now **pending whenever the value differs from the last submitted baseline** (so A→B→A each needs a reason); only shows responded/approved when the value equals the baseline *and* the latest record set it. Full delta history is kept; the Δ never auto-clears on revert.
+3. **SDV on untouched fields** — `toggleSdv` / `verifyAll` create the instance + field value if missing, so any eligible field can be verified.
+4. **SDV blocking** — a field can't be verified while it has an **open edit check**, a **pending change reason**, or an **open query**; the shield is disabled with a tooltip (`sdvBlockReason`).
+5. **Multiple queries per field** — the panel lists **every** query on the field in chronological order (`QueryRow.created_at`), each as a `.query-block` with its full thread; compose for the next at the bottom. Never replaces previous queries.
+6. **Sidebar SDV icons** — a shield slot per form row, only when Remarks SDV is on: outline `ti-shield` (partial), filled `ti-shield-check-filled` (form marked complete via the new `instance.sdv_complete`), none otherwise. "Mark SDV complete" now actually sets the flag.
+7. **Edit-check icon removal** — confirmed `editCheckFor` looks up by `field_value_id` + open status, so a resolved/converted check clears its orange icon immediately.
+8. **DM query Manage dropdown** — replaced the auto-resolve button with a menu: **Respond** (comment), **Resolve** (only after a response exists), **Close without response** (required reason modal → stored as a system message on the thread), **Reassign** / **Escalate to PI** (stubs → toast). Never auto-resolves.
+Data: `QueryRow.created_at`, `FormInstanceRow.sdv_complete`; session key → **v7**. Verified: `tsc`, `next lint`, **`next build` all clean**.
 
 ### Session 25 — NEXT ▶ (remaining form polish)
 1. **SDV panel** — a dedicated source-data-verification surface (not just the per-field shield): progress, per-field verify, bulk.

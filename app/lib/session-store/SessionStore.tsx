@@ -10,7 +10,7 @@ import type { Role } from "@/lib/permissions";
 // visit it hydrates from Supabase; thereafter ALL reads/writes are in-session —
 // nothing is written back to Supabase.
 // Bump the version when the dataset shape changes (forces a fresh hydrate).
-const DATA_KEY = "arken_session_store_v6"; // v6: + editChecks + fieldBaselines (edit-check/query split)
+const DATA_KEY = "arken_session_store_v7"; // v7: + query.created_at, instance.sdv_complete
 const ROLE_KEY = "arken_active_role_v1";
 
 interface StudySessionValue {

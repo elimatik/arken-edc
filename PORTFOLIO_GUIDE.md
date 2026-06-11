@@ -70,6 +70,7 @@ Because the project is shared publicly for portfolio evaluation, every **non-own
 
 - **When** — after the login credential validates, a full-screen, Arken-branded agreement appears. It is shown **once per tab** (the acceptance is flagged in `sessionStorage`); owner codes (`ARKEN-ADMIN`) skip it entirely.
 - **What's collected** — Full name (required), Company / Organization (optional), and an explicit "I agree" checkbox. "Continue to project" is disabled until the name is filled and the box is checked. Cancel returns to login.
+- **It becomes you** — that name is the **acting user** for the rest of the session: the dashboard greeting, every query / response / change reason you author, and your SDV verifications are attributed to it (seeded/historical records keep their original names).
 - **What's recorded** — on accept, a row is written **directly to Supabase** (not the session store — this is audit data) into the **`nda_agreements`** table: `full_name`, `company`, `access_code`, `agreed_at` (plus `id` / `created_at`).
 - **How to view agreements** — Supabase dashboard → **Table Editor → `nda_agreements`**.
 

@@ -390,3 +390,29 @@
 .yn-toggle.query { border-color: var(--amber-700); background: var(--amber-50); }
 .yn-toggle.query .yn-btn:not(.active) { background: var(--amber-50); color: var(--amber-700); }
 .check-group.query { background: var(--amber-50); border: 1px solid var(--amber-700); border-radius: var(--radius-md); padding: var(--space-2) var(--space-3); }
+
+/* ════════════════════════════════════════════════════════════════════════════
+   Batch 6 — multi-query panel, sidebar SDV, DM manage dropdown, toast
+════════════════════════════════════════════════════════════════════════════ */
+
+/* Multiple queries in one panel — each query is its own block */
+.query-block { display: flex; flex-direction: column; gap: var(--space-3); padding-bottom: var(--space-3); border-bottom: 1px solid var(--color-border-subtle); }
+.query-block:last-child { border-bottom: none; padding-bottom: 0; }
+.query-block-head { display: flex; align-items: center; gap: var(--space-2); }
+
+/* Sidebar SDV shield slot (between query badge and status icon) */
+.sidebar-sdv-icon { font-size: 14px; color: var(--blue-600); flex-shrink: 0; }
+
+/* Blocked / disabled per-field SDV shield */
+.sdv-btn:disabled { cursor: not-allowed; opacity: 0.5; }
+.sdv-btn.blocked { color: var(--color-text-placeholder); }
+
+/* DM query "Manage" dropdown — opens upward (it sits at the bottom of the panel) */
+.manage-q-wrap { position: relative; display: inline-flex; }
+.manage-q-backdrop { position: fixed; inset: 0; z-index: 240; }
+.manage-q-menu { display: none; position: absolute; bottom: calc(100% + 6px); right: 0; min-width: 220px; background: var(--color-surface); border: 1px solid var(--color-border); border-radius: var(--radius-lg); box-shadow: 0 8px 24px rgba(14, 18, 28, 0.15); z-index: 250; overflow: hidden; padding: var(--space-1); }
+.manage-q-menu.open { display: block; }
+.manage-q-menu .manage-item:disabled { opacity: 0.45; cursor: not-allowed; }
+
+/* Toast (transient stubs) */
+.sr-toast { position: fixed; bottom: var(--space-6); left: 50%; transform: translateX(-50%); z-index: 400; background: var(--color-nav-bg); color: #fff; font-size: var(--text-sm); padding: var(--space-2) var(--space-4); border-radius: var(--radius-md); box-shadow: 0 8px 24px rgba(14, 18, 28, 0.25); }

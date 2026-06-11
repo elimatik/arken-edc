@@ -67,6 +67,8 @@ The reason this split matters is the **query log is a quality metric** — monit
 
 The split even changes what *blocks* a form. Submitting a form for review is gated on the things that mean the data isn't ready — an **unresolved edit check**, a **pending change reason**, an **empty required field** — but *not* on open queries. A query is a conversation already in motion between roles; it shouldn't freeze the form. An unaddressed edit check, by contrast, is an anomaly nobody has looked at yet. So the gate enforces exactly the right thing: every anomaly is acknowledged before review, while work-in-progress dialogue is allowed to continue.
 
+The same principle guards **source-data verification**: a monitor can't tick the SDV shield on a field that still carries an open edit check, a pending change reason, or an open query. Verifying means *"this matches the source and is settled"* — so the field must actually be settled first. The shield greys out with a reason until it is. It's a small interlock, but it's the difference between SDV that means something and a checkbox that doesn't.
+
 ---
 
 ## Case Study 2 — Dual-Mode Enrollment Architecture
