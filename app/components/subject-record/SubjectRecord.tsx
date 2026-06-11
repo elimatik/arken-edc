@@ -708,15 +708,10 @@ export function SubjectRecord({ studyId, subjectId, initialFormId }: Props) {
   const deltaHistory = deltaFv
     ? dataset.deltaRecords.filter((r) => r.field_value_id === deltaFv.id).slice().sort((a, b) => (a.created_at < b.created_at ? -1 : 1))
     : [];
-  const deltaPendingRecs = deltaHistory.filter((r) => r.status === "pending");
-  const deltaPendingCount = deltaPendingRecs.length;
-  // Adaptive layout: a single pending change uses the original clean design (top
-  // context + one bottom compose); 2+ pending changes each get their own red card.
-  const singlePending = deltaPendingCount === 1 ? deltaPendingRecs[0] : null;
+  const deltaPendingCount = deltaHistory.filter((r) => r.status === "pending").length;
   const deltaLatest = deltaHistory[deltaHistory.length - 1];
-  const deltaCtx = singlePending ?? deltaLatest;
-  const deltaOld = deltaCtx?.old_value ?? "";
-  const deltaNew = deltaCtx?.new_value ?? (deltaFv?.value ?? "");
+  const deltaOld = deltaLatest?.old_value ?? "";
+  const deltaNew = deltaLatest?.new_value ?? (deltaFv?.value ?? "");
   const deltaCurState = deltaField ? deltaStateFor(deltaField.id, deltaFv?.id) : null;
 
   function renderControl(field: FormFieldRow, value: string, queried: boolean) {
@@ -1323,9 +1318,9 @@ export function SubjectRecord({ studyId, subjectId, initialFormId }: Props) {
             <p style={{ fontSize: "var(--text-sm)", color: "var(--color-text-tertiary)" }}>No change reason for this field.</p>
           )}
           {deltaHistory.map((r) => {
-            // A lone pending change is reasoned via the clean bottom compose, not a card.
-            if (r.status === "pending" && singlePending) return null;
-            // Pending cards (only when 2+ pending) get the red dashed treatment.
+            // Every pending transition renders as its own dashed-red card — one
+            // consistent format regardless of how many changes are pending (mirrors
+            // the paper-CRF correction convention; rationale in CASE_STUDY.md).
             if (r.status === "pending") {
               return (
                 <div className="delta-entry pending" key={r.id}>
@@ -1373,22 +1368,6 @@ export function SubjectRecord({ studyId, subjectId, initialFormId }: Props) {
             );
           })}
         </div>
-        {/* Single pending change → original clean compose (top context shows old→new) */}
-        {singlePending && (
-          <div className="delta-compose">
-            <div className="delta-compose-hint">Responding as {activeRole} · {ndaName} — explain the reason for this change</div>
-            <textarea
-              className="delta-textarea"
-              placeholder="Enter reason for change…"
-              value={recordReasons[singlePending.id] ?? ""}
-              onChange={(e) => setRecordReasons((prev) => ({ ...prev, [singlePending.id]: e.target.value }))}
-            ></textarea>
-            <div className="delta-compose-actions">
-              <span className="delta-compose-sub">Shift+Enter for new line</span>
-              <button className="delta-btn-submit" type="button" disabled={!(recordReasons[singlePending.id] ?? "").trim()} onClick={() => submitReasonForRecord(singlePending.id)}>Submit reason</button>
-            </div>
-          </div>
-        )}
       </div>
 
       {/* E-signature modal (Finalized → Locked) */}

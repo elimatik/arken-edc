@@ -1,6 +1,6 @@
 # Arken EDC — Session Handoff
 **Paste this entire file at the start of a new conversation.**
-Last updated: 2026-06-11 | Session 24 — forms deep dive + 8 batches of fixes (incl. edit-check/query split) DONE
+Last updated: 2026-06-11 | Session 24 COMPLETE — forms deep dive + 8 batches of fixes (incl. edit-check/query split, per-transition change reasons). NEXT: Session 25 = Animals list.
 
 ---
 
@@ -216,13 +216,16 @@ The change-reason model moved from a single baseline-vs-current comparison to **
 - **Panel** shows every transition chronologically; each **pending** card has its own reason textarea + Submit (`submitReasonForRecord` → responded), each responded/approved card shows reason + meta + (DM) Approve. Per-record drafts in `recordReasons`. The single bottom compose is gone. Top context shows the latest transition.
 - **First entry** still raises no Δ; **same-value** changes are never recorded (item 4 preserved).
 - CSS `.delta-entry.pending`. Session key → **v8** (shape changed). Verified: `tsc`, `next lint`, **`next build` all clean**.
-- **Adaptive panel layout** (follow-up): a **single** pending change uses the original clean design — top old→new context + one bottom compose (no red card); **2+** pending changes each render as a dashed-red card with their own old→new + reason box + Submit. Responded/approved always render as cards.
+- **Consistent card format** (final): the Δ panel **always** uses one dashed-red card per pending transition (own old→new + reason box + Submit), regardless of count — no single-vs-multiple adaptation. Mirrors the paper-CRF correction convention; rationale documented in `CASE_STUDY.md`. Responded/approved always render as cards.
 
-### Session 25 — NEXT ▶ (remaining form polish)
-1. **SDV panel** — a dedicated source-data-verification surface (not just the per-field shield): progress, per-field verify, bulk.
-2. **Sidebar deep-link** — opening a sub-form via URL should expand/select its group.
-3. **Query panel** — re-open a resolved query; richer thread.
-4. **Case Study 4 — conditional demographics** (breed lists, production-purpose tags that appear/validate per animal). Age auto-calc is already done.
+### Session 25 — NEXT ▶ Animals list
+**Build the Animals list screen from `29-animals-list.html`.** Translate the prototype into a React route (a study-wide animals table) using the session store (`useStudySession()`), consistent with the existing Data Entry drill-down and Subject Record. Wire row → Subject Record navigation.
+
+Deferred form polish (after Animals list):
+- **SDV panel** — a dedicated source-data-verification surface (not just the per-field shield): progress, per-field verify, bulk.
+- **Sidebar deep-link** — opening a sub-form via URL should expand/select its group.
+- **Query panel** — re-open a resolved query; richer thread.
+- **Case Study 4 — conditional demographics** (breed lists, production-purpose tags that appear/validate per animal). Age auto-calc is already done.
 
 Notes:
 - Everything is in-session — no Supabase writes; edits reset on tab close.
