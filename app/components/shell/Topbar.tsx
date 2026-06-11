@@ -3,7 +3,7 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { ROLES, type Role } from "@/lib/permissions";
-import { DEMO_USER } from "@/lib/constants";
+import { useNdaName, useNdaInitials } from "@/lib/use-nda-name";
 import { useStudySession } from "@/lib/session-store/SessionStore";
 import { getPinnedStudies, togglePinnedStudy } from "@/lib/pinned-study";
 import type { ShellSite, ShellStudy } from "./ShellContext";
@@ -27,6 +27,8 @@ export function Topbar({
 }: TopbarProps) {
   const router = useRouter();
   const { dataset } = useStudySession();
+  const userName = useNdaName();
+  const userInitials = useNdaInitials();
   const [pickerOpen, setPickerOpen] = useState(false);
   const [siteMenuOpen, setSiteMenuOpen] = useState(false);
   const [pinnedIds, setPinnedIds] = useState<string[]>(() => getPinnedStudies());
@@ -188,12 +190,12 @@ export function Topbar({
 
         <div
           className="tb-avatar"
-          title={`${DEMO_USER.fullName} — account menu`}
+          title={`${userName} — account menu`}
           role="button"
           tabIndex={0}
           aria-label="Account menu"
         >
-          {DEMO_USER.initials}
+          {userInitials}
         </div>
       </div>
     </header>

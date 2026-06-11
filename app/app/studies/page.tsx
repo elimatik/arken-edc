@@ -4,6 +4,7 @@ import { useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import { useStudySession } from "@/lib/session-store/SessionStore";
 import { getPinnedStudies, togglePinnedStudy } from "@/lib/pinned-study";
+import { useNdaName, useNdaInitials } from "@/lib/use-nda-name";
 import "./studies.css";
 
 type Study = {
@@ -56,6 +57,8 @@ function cap(s: string): string {
 export default function StudiesPage() {
   const router = useRouter();
   const { dataset, ready, update, setActiveRole } = useStudySession();
+  const userName = useNdaName();
+  const userInitials = useNdaInitials();
   const [search, setSearch] = useState("");
   const [statusFilter, setStatusFilter] = useState("");
   const [speciesFilter, setSpeciesFilter] = useState("");
@@ -182,8 +185,8 @@ export default function StudiesPage() {
         </div>
         <div className="studies-topbar-right">
           <div className="studies-user">
-            <div className="studies-user-avatar">ET</div>
-            <span>Elisa Tron</span>
+            <div className="studies-user-avatar">{userInitials}</div>
+            <span>{userName}</span>
           </div>
           <button className="studies-signout" onClick={signOut} type="button">
             Sign out

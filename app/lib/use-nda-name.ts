@@ -22,6 +22,16 @@ export function getNdaName(): string {
   }
 }
 
+// Initials for an avatar: first letter of the first name + first letter of the
+// last name when present, otherwise just the first letter. Upper-cased.
+export function initialsFromName(name: string): string {
+  const parts = name.trim().split(/\s+/).filter(Boolean);
+  if (parts.length === 0) return DEMO_USER.initials;
+  const first = parts[0][0] ?? "";
+  const last = parts.length > 1 ? parts[parts.length - 1][0] ?? "" : "";
+  return (first + last).toUpperCase() || DEMO_USER.initials;
+}
+
 // Hook form — reads on mount (sessionStorage isn't available during SSR).
 export function useNdaName(): string {
   const [name, setName] = useState<string>(DEMO_USER.fullName);
@@ -29,4 +39,10 @@ export function useNdaName(): string {
     setName(getNdaName());
   }, []);
   return name;
+}
+
+// Hook form for avatar initials derived from the NDA name.
+export function useNdaInitials(): string {
+  const name = useNdaName();
+  return initialsFromName(name);
 }

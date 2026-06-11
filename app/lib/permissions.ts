@@ -101,3 +101,9 @@ export const QUERY_PERMISSIONS: Record<Role, QueryAction[]> = {
 export function canQuery(role: Role, action: QueryAction): boolean {
   return QUERY_PERMISSIONS[role].includes(action);
 }
+
+// Source-data verification is a CRA-only responsibility (mirrors the SDV nav item).
+// Used to gate per-field verify, Verify all, and the "SDV mode" remarks option.
+export function canSDV(role: Role): boolean {
+  return role === "CRA";
+}

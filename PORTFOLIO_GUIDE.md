@@ -70,7 +70,7 @@ Because the project is shared publicly for portfolio evaluation, every **non-own
 
 - **When** — after the login credential validates, a full-screen, Arken-branded agreement appears. It is shown **once per tab** (the acceptance is flagged in `sessionStorage`); owner codes (`ARKEN-ADMIN`) skip it entirely.
 - **What's collected** — Full name (required), Company / Organization (optional), and an explicit "I agree" checkbox. "Continue to project" is disabled until the name is filled and the box is checked. Cancel returns to login.
-- **It becomes you** — that name is the **acting user** for the rest of the session: the dashboard greeting, every query / response / change reason you author, and your SDV verifications are attributed to it (seeded/historical records keep their original names).
+- **It becomes you** — that name is the **acting user** for the rest of the session: the study-selector and topbar **avatar + name** (initials derived from it), the dashboard greeting, every query / response / change reason you author, and your SDV verifications are all attributed to it (seeded/historical records keep their original names).
 - **What's recorded** — on accept, a row is written **directly to Supabase** (not the session store — this is audit data) into the **`nda_agreements`** table: `full_name`, `company`, `access_code`, `agreed_at` (plus `id` / `created_at`).
 - **How to view agreements** — Supabase dashboard → **Table Editor → `nda_agreements`**.
 
@@ -163,7 +163,7 @@ cd app && npx supabase db reset --linked --yes
 - **Inclusion/Exclusion logic** — failing any criterion flags the subject **ineligible** (red banner + PI-review chip on the record and a warning badge in the drill-down list).
 - **Change reason (Δ)** — changing a saved value (on blur) requires a reason; the Δ panel (rebuilt from the design prototype) shows old → new, records the reason with author + timestamp, and tracks a **pending → answered → DM-approved** state (21 CFR Part 11). Yes→No→Yes each needs a fresh reason.
 - **Edit checks vs queries** — an out-of-range value raises a lightweight **edit check** (orange `alert-circle`, `EC-`), not a query. Correct it (logged under a change reason) or explain it to **convert it to a formal query** — so the query log stays clean while every anomaly is still corrected or documented (see Case Study 1).
-- **Query lifecycle** — raise (CRA/DM, from a hollow flag) → respond (CRC/PI) → resolve (CRA/DM), in a role-aware thread panel; flags persist (resolved → green check). **SDV** runs in Remarks mode with per-field verify, **Verify all**, and a **Mark SDV complete** gate; verification persists across forms. A coded field opens a **VeDDRA lookup** slide panel.
+- **Query lifecycle** — raise (CRA/DM, from a hollow flag) → respond (CRC/PI) → resolve (CRA/DM), in a role-aware thread panel; flags persist (resolved → green check). **SDV** is a **CRA-only** Remarks mode (hidden for other roles) with per-field verify, **Verify all**, and a **Mark SDV complete** gate; you can only verify a field that has a **saved value** and is clean (no open edit check, pending change reason, or open query), and verification persists across forms. A coded field opens a **VeDDRA lookup** slide panel.
 - **Eligibility & PI override** — a failed inclusion/exclusion criterion flags the subject **Ineligible** (one status chip at a time); a **PI** can **Override** with a documented reason to restore Active.
 
 **Pending:**

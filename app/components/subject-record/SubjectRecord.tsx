@@ -4,7 +4,7 @@ import { Fragment, useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { useShell } from "@/components/shell/ShellContext";
 import { useStudySession } from "@/lib/session-store/SessionStore";
-import { canQuery } from "@/lib/permissions";
+import { canQuery, canSDV } from "@/lib/permissions";
 import { DEMO_USER_ID } from "@/lib/constants";
 import { useNdaName } from "@/lib/use-nda-name";
 import { evaluateField, rangeLabel } from "@/lib/forms/validation";
@@ -134,7 +134,12 @@ export function SubjectRecord({ studyId, subjectId, initialFormId }: Props) {
     return () => clearTimeout(t);
   }, [toast]);
 
-  const canSdv = activeRole === "CRA";
+  const canSdv = canSDV(activeRole);
+  // If the role changes to one without SDV permission, leave SDV mode so a non-CRA
+  // is never stuck in a mode they can't use (item 4).
+  useEffect(() => {
+    if (!canSdv) setModeSdv(false);
+  }, [canSdv]);
   const canRespond = canQuery(activeRole, "respond");
   const canResolve = canQuery(activeRole, "resolve");
   const canRaise = canQuery(activeRole, "raise");
@@ -300,11 +305,13 @@ export function SubjectRecord({ studyId, subjectId, initialFormId }: Props) {
     // Changed from the last SUBMITTED value → always pending (dashed red), even when
     // reverting to a previously-used value (A→B→A each needs its own reason).
     if (cur !== oldVal) return "pending";
-    // At the baseline. If the last submitted reason set this exact value, keep the Δ
-    // visible (blue=responded → green=approved); else it's the original entry (no Δ).
-    const recs = fvId ? dataset.deltaRecords.filter((r) => r.field_value_id === fvId) : [];
+    // At the baseline. Reflect the status of the most recent reason that set THIS
+    // value (blue=responded → green=approved after DM signs off); else it's the
+    // original entry (no Δ). Keying on the current value — not just the last record
+    // overall — means a DM approval flips the field to green even across A→B→A.
+    const recs = fvId ? dataset.deltaRecords.filter((r) => r.field_value_id === fvId && r.new_value === cur) : [];
     const last = recs[recs.length - 1];
-    return last && last.new_value === cur ? (last.status === "approved" ? "approved" : "responded") : null;
+    return last ? (last.status === "approved" ? "approved" : "responded") : null;
   }
 
   const sdvFieldIds = fields.filter(isSdvEligible).map((f) => f.id);
@@ -388,9 +395,11 @@ export function SubjectRecord({ studyId, subjectId, initialFormId }: Props) {
       } else {
         fv.value = value;
       }
-      // Persist the Δ baseline once per field value (a loaded value is the baseline,
-      // any edit is a change; an empty field commits its first entry as baseline).
-      if (!(fv.id in d.fieldBaselines)) d.fieldBaselines[fv.id] = prev !== "" ? prev : value;
+      // Persist the Δ baseline for a previously-SAVED value only: editing a loaded /
+      // already-entered value makes that prior value the baseline (this edit is a
+      // change). A first entry into an EMPTY field sets no baseline here — it is
+      // captured on commit (blur / discrete change) so no Δ appears mid-typing.
+      if (!(fv.id in d.fieldBaselines) && prev !== "") d.fieldBaselines[fv.id] = prev;
 
       // Live EDIT CHECK (not a query): out of range → raise/keep an open edit check;
       // back in range → resolve it. (Converting to a query is a separate user action.)
@@ -417,6 +426,18 @@ export function SubjectRecord({ studyId, subjectId, initialFormId }: Props) {
         const subj = d.subjects.find((s) => s.id === subjectId);
         if (subj) subj.ineligible = fail;
       }
+    });
+  }
+
+  // Capture the baseline at the moment a field is first COMMITTED (text: on blur;
+  // discrete: on change). Until a non-empty value is committed there is no baseline,
+  // so the Δ never appears while the first value is still being typed (item 3).
+  function commitBaseline(field: FormFieldRow) {
+    update((d: Dataset) => {
+      const inst = d.formInstances.find((i) => i.subject_id === subjectId && i.form_id === field.form_id);
+      if (!inst) return;
+      const fv = d.fieldValues.find((v) => v.form_instance_id === inst.id && v.form_field_id === field.id);
+      if (fv && (fv.value ?? "") !== "" && !(fv.id in d.fieldBaselines)) d.fieldBaselines[fv.id] = fv.value ?? "";
     });
   }
 
@@ -488,14 +509,15 @@ export function SubjectRecord({ studyId, subjectId, initialFormId }: Props) {
   function toggleSdv(field: FormFieldRow) {
     if (!canSdv || locked) return;
     const fv0 = fvFor(field.id);
-    if (sdvBlockReason(field, fv0?.id)) return; // field not clean
+    // A field must carry a saved, non-empty value before it can be verified (items
+    // 5/6) — SDV confirms entered data against source, so there is nothing to verify
+    // on an empty field. Never create a field value on verify.
+    if (!fv0 || (fv0.value ?? "") === "") return;
+    if (sdvBlockReason(field, fv0.id)) return; // field not clean
     update((d: Dataset) => {
-      // Create the instance / field value if the field has never been edited (item 3).
-      let inst = d.formInstances.find((i) => i.subject_id === subjectId && i.form_id === field.form_id);
-      if (!inst) { inst = { id: newId(), form_id: field.form_id, subject_id: subjectId, status: "in_work" }; d.formInstances.push(inst); }
-      let fv = d.fieldValues.find((v) => v.form_instance_id === inst!.id && v.form_field_id === field.id);
-      if (!fv) { fv = { id: newId(), form_instance_id: inst.id, form_field_id: field.id, value: "" }; d.fieldValues.push(fv); }
-      const rec = d.sdvRecords.find((r) => r.field_value_id === fv!.id);
+      const fv = d.fieldValues.find((v) => v.id === fv0.id);
+      if (!fv) return;
+      const rec = d.sdvRecords.find((r) => r.field_value_id === fv.id);
       if (rec) {
         const nowVerified = rec.status !== "verified";
         rec.status = nowVerified ? "verified" : "pending";
@@ -506,19 +528,18 @@ export function SubjectRecord({ studyId, subjectId, initialFormId }: Props) {
       }
     });
   }
-  // Bulk-verify every clean SDV-eligible field on the active form (CRA), creating
-  // field values for untouched fields. Skips fields with a block reason.
+  // Bulk-verify every clean SDV-eligible field that HAS a saved value on the active
+  // form (CRA). Empty/never-entered fields and un-clean fields are skipped (item 5).
   function verifyAll() {
     if (!canSdv || locked) return;
+    const inst = dataset.formInstances.find((i) => i.subject_id === subjectId && i.form_id === activeFormId);
+    if (!inst) return; // no instance → nothing entered → nothing to verify
     update((d: Dataset) => {
-      let inst = d.formInstances.find((i) => i.subject_id === subjectId && i.form_id === activeFormId);
-      if (!inst && activeFormId) { inst = { id: newId(), form_id: activeFormId, subject_id: subjectId, status: "in_work" }; d.formInstances.push(inst); }
-      if (!inst) return;
       for (const f of fields.filter(isSdvEligible)) {
-        let fv = d.fieldValues.find((v) => v.form_instance_id === inst!.id && v.form_field_id === f.id);
-        if (sdvBlockReason(f, fv?.id)) continue; // skip un-clean fields
-        if (!fv) { fv = { id: newId(), form_instance_id: inst.id, form_field_id: f.id, value: "" }; d.fieldValues.push(fv); }
-        const rec = d.sdvRecords.find((r) => r.field_value_id === fv!.id);
+        const fv = d.fieldValues.find((v) => v.form_instance_id === inst.id && v.form_field_id === f.id);
+        if (!fv || (fv.value ?? "") === "") continue; // only fields with a saved value
+        if (sdvBlockReason(f, fv.id)) continue; // skip un-clean fields
+        const rec = d.sdvRecords.find((r) => r.field_value_id === fv.id);
         if (rec) { rec.status = "verified"; rec.verified_by_name = ndaName; rec.verified_at = todayISO(); }
         else d.sdvRecords.push({ id: newId(), form_instance_id: fv.form_instance_id, field_value_id: fv.id, status: "verified", verified_by_name: ndaName, verified_at: todayISO() });
       }
@@ -670,12 +691,13 @@ export function SubjectRecord({ studyId, subjectId, initialFormId }: Props) {
   const deltaCurState = deltaField ? deltaStateFor(deltaField.id, deltaFv?.id) : null;
 
   function renderControl(field: FormFieldRow, value: string, queried: boolean) {
-    // Discrete controls write directly (settle on change). Text inputs also write on
-    // change but suppress Δ until blur via editingFieldId (onFocus/onBlur).
-    const commit = (v: string) => setFieldValue(field, v);
+    // Discrete controls write directly and settle on change (commit baseline now).
+    // Text inputs write on change but suppress Δ until blur via editingFieldId, and
+    // commit their baseline on blur (the first full entry, not the first keystroke).
+    const commit = (v: string) => { setFieldValue(field, v); commitBaseline(field); };
     const typeChange = (v: string) => setFieldValue(field, v);
     const onFocus = () => setEditingFieldId(field.id);
-    const onBlur = () => setEditingFieldId(null);
+    const onBlur = () => { setEditingFieldId(null); commitBaseline(field); };
     const ro = locked;
     const type = field.field_type;
     const isCoded = !!field.validation?.coded;
@@ -914,9 +936,12 @@ export function SubjectRecord({ studyId, subjectId, initialFormId }: Props) {
                   <button className={`remarks-item${modeQueries ? " active-mode" : ""}`} onClick={() => setModeQueries((m) => !m)} type="button">
                     <span>Queries</span>{modeQueries && <i className="ti ti-check" style={{ fontSize: "13px", color: "var(--blue-600)" }}></i>}
                   </button>
-                  <button className={`remarks-item${modeSdv ? " active-mode" : ""}`} onClick={() => setModeSdv((m) => !m)} type="button">
-                    <span>SDV mode</span>{modeSdv && <i className="ti ti-check" style={{ fontSize: "13px", color: "var(--blue-600)" }}></i>}
-                  </button>
+                  {/* SDV mode is a CRA-only responsibility — hidden for every other role (item 4) */}
+                  {canSdv && (
+                    <button className={`remarks-item${modeSdv ? " active-mode" : ""}`} onClick={() => setModeSdv((m) => !m)} type="button">
+                      <span>SDV mode</span>{modeSdv && <i className="ti ti-check" style={{ fontSize: "13px", color: "var(--blue-600)" }}></i>}
+                    </button>
+                  )}
                 </div>
               </div>
 
@@ -1006,10 +1031,10 @@ export function SubjectRecord({ studyId, subjectId, initialFormId }: Props) {
                     {renderControl(field, value, raised)}
                     {showInteractiveSdv && (
                       <button
-                        className={`sdv-btn visible${verified ? " verified" : ""}${sdvBlock && !verified ? " blocked" : ""}`}
+                        className={`sdv-btn visible${verified ? " verified" : ""}${(sdvBlock || value.trim() === "") && !verified ? " blocked" : ""}`}
                         onClick={() => toggleSdv(field)}
-                        disabled={!canSdv || (!!sdvBlock && !verified)}
-                        title={!canSdv ? "SDV verify — CRA only" : verified ? "SDV verified — click to undo" : sdvBlock ?? "SDV: click to verify"}
+                        disabled={!canSdv || (!verified && (value.trim() === "" || !!sdvBlock))}
+                        title={!canSdv ? "SDV verify — CRA only" : verified ? "SDV verified — click to undo" : value.trim() === "" ? "Enter a value before verifying" : sdvBlock ?? "SDV: click to verify"}
                         type="button"
                       >
                         <i className={`ti ${verified ? "ti-shield-check-filled" : "ti-shield"}`}></i>

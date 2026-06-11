@@ -1,6 +1,6 @@
 # Arken EDC — Session Handoff
 **Paste this entire file at the start of a new conversation.**
-Last updated: 2026-06-11 | Session 24 — forms deep dive + 6 batches of fixes (incl. edit-check/query split) DONE
+Last updated: 2026-06-11 | Session 24 — forms deep dive + 7 batches of fixes (incl. edit-check/query split) DONE
 
 ---
 
@@ -193,6 +193,14 @@ Verified: `tsc`, `next lint`, **`next build` all clean**.
 7. **Edit-check icon removal** — confirmed `editCheckFor` looks up by `field_value_id` + open status, so a resolved/converted check clears its orange icon immediately.
 8. **DM query Manage dropdown** — replaced the auto-resolve button with a menu: **Respond** (comment), **Resolve** (only after a response exists), **Close without response** (required reason modal → stored as a system message on the thread), **Reassign** / **Escalate to PI** (stubs → toast). Never auto-resolves.
 Data: `QueryRow.created_at`, `FormInstanceRow.sdv_complete`; session key → **v7**. Verified: `tsc`, `next lint`, **`next build` all clean**.
+
+### Session 24 — form fixes batch 7 ✅
+1. **NDA name in the shell** — `useNdaName()` / new `useNdaInitials()` + `initialsFromName()` (`app/lib/use-nda-name.ts`). The studies-list top-right name + avatar and the app **topbar avatar** now show the visitor's name and derived initials (first+last initial, else first letter) instead of the hardcoded "Elisa Tron / ET". (The team-roster `UserRow` on the dashboard is seeded data — left as-is.)
+2. **Toggle change log / approved → green** — `deltaStateFor` now reflects the most recent reason **matching the current value** (not just the last record overall), so a DM approval flips the field Δ to green even across A→B→A. Each toggle change is still its own delta record, visible chronologically with its own Approve.
+3. **Baseline on commit, not keystroke** — `setFieldValue` no longer baselines an empty field's first keystroke; new `commitBaseline(field)` captures the baseline on **commit** (text → onBlur, discrete → onChange) only when the value is non-empty. Result: **no Δ appears while typing the first value**; Δ only after a previously-saved value is changed and the field is left.
+4. **Remarks SDV option CRA-only** — new `canSDV(role)` in `permissions.ts` (CRA). The "SDV mode" remarks item is hidden for every other role, and an effect drops `modeSdv` if the active role loses SDV permission.
+5/6. **SDV requires a saved value** — reverted batch-6's create-field-value-on-verify. `toggleSdv` and `verifyAll` now skip / refuse fields with no non-empty value (never create a field value); the per-field shield is disabled with an "Enter a value before verifying" tooltip on empty fields.
+No data-shape change → session key stays **v7**. Verified: `tsc`, `next lint`, **`next build` all clean**.
 
 ### Session 25 — NEXT ▶ (remaining form polish)
 1. **SDV panel** — a dedicated source-data-verification surface (not just the per-field shield): progress, per-field verify, bulk.
