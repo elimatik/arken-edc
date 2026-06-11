@@ -361,3 +361,26 @@
 .delta-compose-sub { font-size: var(--text-xs); color: var(--color-text-placeholder); }
 .delta-btn-submit { height: 30px; padding: 0 var(--space-3); font-size: var(--text-xs); font-weight: var(--weight-medium); font-family: var(--font-sans); border: none; border-radius: var(--radius-md); background: var(--color-cta-bg); color: #fff; cursor: pointer; }
 .delta-btn-submit:disabled { opacity: 0.5; cursor: not-allowed; }
+
+/* ════════════════════════════════════════════════════════════════════════════
+   EDIT CHECK vs QUERY split (batch 4)
+════════════════════════════════════════════════════════════════════════════ */
+
+/* Edit-check indicator — orange alert-circle, right of the field */
+.ec-btn { width: 24px; height: 24px; flex-shrink: 0; border: none; background: none; cursor: pointer; border-radius: var(--radius-md); color: var(--orange-600); display: flex; align-items: center; justify-content: center; transition: background var(--duration-fast); }
+.ec-btn i { font-size: 17px; }
+.ec-btn:hover { background: var(--orange-50); }
+
+/* Inline edit-check text (orange) */
+.state-editcheck { color: var(--orange-600); }
+.ec-link { color: var(--orange-600); text-decoration: underline; text-underline-offset: 2px; cursor: pointer; }
+
+/* Edit-check status badge in the panel */
+.qs-editcheck { background: var(--orange-50); border-color: var(--orange-200); color: var(--orange-600); }
+
+/* Secondary compose button (Respond when Resolve is primary; DM Manage) */
+.btn-comment { height: 30px; padding: 0 var(--space-3); font-size: var(--text-xs); font-weight: var(--weight-medium); font-family: var(--font-sans); border: 1px solid var(--color-border); border-radius: var(--radius-md); background: var(--color-surface); color: var(--color-text-primary); cursor: pointer; }
+.btn-comment:hover { background: var(--color-hover-bg); }
+
+/* PI-override amber banner (Inclusion/Exclusion form, replaces the red one) */
+.ie-banner.override { background: var(--amber-50); border-color: var(--amber-200); color: var(--amber-700); }

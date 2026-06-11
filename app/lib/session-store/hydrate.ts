@@ -42,6 +42,29 @@ export async function hydrateFromSupabase(): Promise<Dataset> {
     supabase.from("species_ranges").select("species, vital, min, max, unit"),
   ]);
 
+  const rawQueries = (queries.data ?? []) as Dataset["queries"];
+  const rawMsgs = (queryMessages.data ?? []) as Dataset["queryMessages"];
+
+  // Split: a seeded "auto edit-check" query is really an edit check, not a query.
+  // Detect it by its first message (Auto edit-check: …) and move it to editChecks.
+  const editChecks: Dataset["editChecks"] = [];
+  const splitQueries = rawQueries.filter((q) => {
+    const first = rawMsgs.find((m) => m.query_id === q.id);
+    const isAuto = first?.body?.startsWith("Auto edit-check:") ?? false;
+    if (isAuto && q.status !== "resolved" && q.field_value_id) {
+      editChecks.push({
+        id: q.id,
+        form_instance_id: q.form_instance_id,
+        field_value_id: q.field_value_id,
+        message: q.title,
+        status: "open",
+        created_at: first?.created_at ?? new Date().toISOString(),
+      });
+      return false; // remove from queries
+    }
+    return true;
+  });
+
   return {
     studies: (studies.data ?? []) as Dataset["studies"],
     sites: (sites.data ?? []) as Dataset["sites"],
@@ -53,10 +76,12 @@ export async function hydrateFromSupabase(): Promise<Dataset> {
     formFields: (formFields.data ?? []) as Dataset["formFields"],
     formInstances: (formInstances.data ?? []) as Dataset["formInstances"],
     fieldValues: (fieldValues.data ?? []) as Dataset["fieldValues"],
-    queries: (queries.data ?? []) as Dataset["queries"],
-    queryMessages: (queryMessages.data ?? []) as Dataset["queryMessages"],
+    queries: splitQueries,
+    queryMessages: rawMsgs,
+    editChecks,
     sdvRecords: (sdvRecords.data ?? []) as Dataset["sdvRecords"],
     deltaRecords: [], // session-only — not sourced from Supabase
+    fieldBaselines: {},
     memberships: (memberships.data ?? []) as Dataset["memberships"],
     speciesRanges: (speciesRanges.data ?? []) as Dataset["speciesRanges"],
   };

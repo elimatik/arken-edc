@@ -1,6 +1,6 @@
 # Arken EDC — Session Handoff
 **Paste this entire file at the start of a new conversation.**
-Last updated: 2026-06-10 | Session 24 — forms deep dive + 3 batches of form UI fixes DONE
+Last updated: 2026-06-11 | Session 24 — forms deep dive + 4 batches of fixes (incl. edit-check/query split) DONE
 
 ---
 
@@ -167,6 +167,12 @@ Data: `types.ts` adds `DeltaRecordRow` + `Dataset.deltaRecords` (session-only, n
 **Queries:** clicking a **hollow flag opens a Raise Query** panel (CRA/DM create the query, creating the field value if needed); **resolved** shows the green `ti-flag-check` with **no inline text** (text only for raised/responded); the **query panel was rebuilt to file 30** (`panel-header-left` + `status-bar` + field-context with the value; role-aware raise/respond/resolve compose). Panel target is now a **field** (`panelField`), not an fvId.
 **SDV:** in SDV mode the toolbar shows **Verify all** (CRA) + **Mark SDV complete** (disabled until every *entered* eligible field is verified); the **VeDDRA lookup is now a 420px slide-in panel** (search + term list; opens for all roles, selection DM-only); the shield now shows on **coded** fields too (`isSdvEligible` only excludes file/calculated/textarea); SDV records are keyed on `field_value_id` (globally unique) so verification **persists across form navigation**.
 Verified: `tsc`, `next lint`, **`next build` all clean**. Read `30-subject-record.html` for the panel structures before rebuilding (items 14, 18). Data: `SubjectRow.override_reason` added.
+
+### Session 24 — form fixes batch 4 + edit-check/query split ✅
+**Architectural split — edit checks vs queries.** Auto out-of-range alerts are now **edit checks** (`Dataset.editChecks`, `EditCheckRow`), separate from manual **queries**. Field shows an **orange `ti-alert-circle`** (`EC-` prefix); manual/converted queries use **flag** icons (`Q-` prefix, `from_edit_check` on the query). `hydrate.ts` converts seeded "Auto edit-check:" queries → editChecks. Resolution: (A) correct the value → edit check resolves + Δ fires; (B) click the alert → **Edit Check panel** (title "Edit Check", EC- id, the auto message) → explain → **converts to a query** (open) that follows raised→responded→resolved. Validation engine unchanged; `setFieldValue` now raises/resolves an edit check (not a query).
+**Δ baseline persistence** — moved to the store (`Dataset.fieldBaselines`, keyed by `field_value_id`), so Δ survives navigation. Δ uses the stored value (settled), suppressed only while the field is focused (`editingFieldId`) — so text settles on blur, discrete (incl. **select**) settles on change. Baseline becomes the new value on reason submit (Yes→No→Yes each needs a reason).
+**Other:** dashboard breadcrumb underlined (item 1); topbar site selector auto-width, chevron right after text (item 2); query/EC panel header shows **only the ID chip** (status badge removed — status row keeps it, item 5); inline format `[Q-XXXX] …` / `[EC-XXXX] …`, resolved = green flag with **no text** (items 6, 7); panel buttons role-aware — **CRA** Resolve(primary)+Respond(secondary), **CRC** Respond, **DM** Resolve+Manage (item 8, `.btn-comment`); **SDV mode hides Submit for Review** (item 9); **PI override** now shows a persistent **amber banner** on the I/E form (`PI [name] … on [date]`) replacing the red one (item 10). New token `--orange-600`. Session key → **v6**.
+Verified: `tsc`, `next lint`, **`next build` all clean**.
 
 ### Session 25 — NEXT ▶ (remaining form polish)
 1. **SDV panel** — a dedicated source-data-verification surface (not just the per-field shield): progress, per-field verify, bulk.

@@ -56,6 +56,15 @@ The three layers are one system because they are one data model. A query has a s
 
 The query state machine is deliberately short — **Raised → Responded → Resolved** — with role-scoped actions (CRC responds; CRA raises and resolves; DM raises, resolves, and manages). I cut the "Closed" state legacy systems carry: in practice a second terminal state only confuses users about whether a query is *done*. **Resolved is terminal.** Fewer states, less ambiguity, faster clean data.
 
+### Edit checks vs queries — keeping the query log clean
+
+Not every anomaly deserves a query. When a value lands outside the species range, the system raises an **edit check**, not a query — a distinct, lighter object shown as an **orange `alert-circle`** beside the field (`EC-` prefix), separate from manual queries (which always use **flag** icons, `Q-` prefix). The edit check then forks on the person who knows best — the one entering the data:
+
+- **It's a typo →** they correct the value. The alert clears, the correction is captured under a **change reason** (the Δ flow fires automatically), and *no query is ever created*.
+- **It's a real finding →** they open the edit check, explain it, and on submit it **converts to a formal query** — the orange alert becomes an amber raised flag, and it follows the normal Raised → Responded → Resolved lifecycle.
+
+The reason this split matters is the **query log is a quality metric** — monitors and sponsors read its size as a signal of data trouble. If every out-of-range keystroke auto-filed a query, the log would fill with typos and drown the queries that actually need a clinician's judgement. By catching the anomaly at entry but letting a human decide *typo or finding*, every clinical anomaly is still either **corrected (with an audit reason)** or **formally documented (as a query)** — and nothing false ever pollutes the log. The machine flags; the human classifies.
+
 ---
 
 ## Case Study 2 — Dual-Mode Enrollment Architecture

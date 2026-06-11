@@ -48,6 +48,8 @@ const ICON_RANK: Record<SidebarIcon, number> = { queried: 0, empty: 1, inwork: 2
 const newId = () => crypto.randomUUID();
 const todayISO = () => new Date().toISOString().slice(0, 10);
 const STATUS_CAP = (s: string) => s.charAt(0).toUpperCase() + s.slice(1);
+const qCodeFor = (id: string) => `Q-${id.slice(0, 4).toUpperCase()}`;
+const ecCodeFor = (id: string) => `EC-${id.slice(0, 4).toUpperCase()}`;
 
 // Form status progression: current status → the single advance action, gated by role.
 const STATUS_FLOW: Record<string, { next: string; label: string; roles: string[]; esign?: boolean }> = {
@@ -106,9 +108,9 @@ export function SubjectRecord({ studyId, subjectId, initialFormId }: Props) {
   const [remarksOpen, setRemarksOpen] = useState(false);
   const [modeQueries, setModeQueries] = useState(false); // remarks default OFF
   const [modeSdv, setModeSdv] = useState(false);
-  const [baseline, setBaseline] = useState<Record<string, string>>({}); // last saved/reasoned value (for Δ)
-  const [committed, setCommitted] = useState<Record<string, string>>({}); // settled value (on blur / discrete change)
-  const [panelField, setPanelField] = useState<FormFieldRow | null>(null); // query panel target field
+  const [editingFieldId, setEditingFieldId] = useState<string | null>(null); // field currently being typed (no Δ until blur)
+  const [panelField, setPanelField] = useState<FormFieldRow | null>(null); // query/edit-check panel target field
+  const [panelKind, setPanelKind] = useState<"query" | "edit_check">("query");
   const [reply, setReply] = useState(""); // query-thread compose box
   const [deltaField, setDeltaField] = useState<FormFieldRow | null>(null);
   const [deltaReason, setDeltaReason] = useState(""); // change-reason compose box
@@ -238,8 +240,8 @@ export function SubjectRecord({ studyId, subjectId, initialFormId }: Props) {
 
   const fvFor = (fieldId: string) =>
     instance ? dataset.fieldValues.find((v) => v.form_instance_id === instance.id && v.form_field_id === fieldId) : undefined;
-  // Any query on the field (open/responded preferred, else the latest resolved) —
-  // so a resolved query keeps a green flag instead of resetting to hollow.
+  // Any *query* on the field (manual or converted-from-edit-check): open/responded
+  // preferred, else the latest resolved (so a resolved query keeps a green flag).
   const fieldQueryFor = (fvId: string | undefined) => {
     if (!fvId) return undefined;
     const qs = dataset.queries.filter((q) => q.field_value_id === fvId);
@@ -248,20 +250,23 @@ export function SubjectRecord({ studyId, subjectId, initialFormId }: Props) {
     const resolved = qs.filter((q) => q.status === "resolved");
     return resolved.length ? resolved[resolved.length - 1] : undefined;
   };
+  // The open *edit check* (auto validation alert) on a field, if any.
+  const editCheckFor = (fvId: string | undefined) =>
+    fvId ? dataset.editChecks.find((e) => e.field_value_id === fvId && e.status === "open") : undefined;
   const sdvRecordFor = (fvId: string | undefined) =>
     fvId ? dataset.sdvRecords.find((r) => r.field_value_id === fvId && r.status === "verified") : undefined;
   const sdvVerified = (fvId: string | undefined) => !!sdvRecordFor(fvId);
 
-  // Δ change-reason state for a field. Uses the *committed* value (settled on blur
-  // for text, immediately for discrete controls) — not the live keystroke value —
-  // so Δ only appears once the user leaves the field with a changed value.
-  // null (no change) | pending (reason needed) | responded (submitted) | approved (DM).
+  // Δ change-reason state. Baseline lives in the store (persists across navigation);
+  // the value is "settled" except while the field is actively focused (so Δ waits
+  // for blur on text inputs and appears immediately on discrete controls).
+  // null (no change) | pending | responded | approved.
   function deltaStateFor(fieldId: string, fvId: string | undefined): "pending" | "responded" | "approved" | null {
-    const settled = committed[fieldId];
-    if (settled === undefined) return null; // not committed yet
-    const oldVal = baseline[fieldId];
-    if (oldVal === undefined || oldVal === "" || settled === oldVal) return null;
-    const recs = fvId ? dataset.deltaRecords.filter((r) => r.field_value_id === fvId && r.new_value === settled) : [];
+    if (editingFieldId === fieldId) return null; // actively typing → not settled
+    const cur = fvFor(fieldId)?.value ?? "";
+    const oldVal = fvId ? dataset.fieldBaselines[fvId] : undefined;
+    if (oldVal === undefined || oldVal === "" || cur === oldVal) return null;
+    const recs = fvId ? dataset.deltaRecords.filter((r) => r.field_value_id === fvId && r.new_value === cur) : [];
     if (!recs.length) return "pending";
     return recs[recs.length - 1].status === "approved" ? "approved" : "responded";
   }
@@ -277,9 +282,7 @@ export function SubjectRecord({ studyId, subjectId, initialFormId }: Props) {
   const canAdvance = !!flow && flow.roles.includes(activeRole);
 
   // ─── Inclusion / Exclusion — a criterion answered "No" fails ────────────────
-  const critFields = fields.filter((f) => f.validation?.exclusion_criterion);
-  const isIEForm = critFields.length > 0;
-  const ineligibleNow = critFields.some((f) => fvFor(f.id)?.value === "No");
+  const isIEForm = fields.some((f) => f.validation?.exclusion_criterion);
 
   // ─── Calculated fields ──────────────────────────────────────────────────────
   function numValFor(formId: string, fieldCode: string): number | undefined {
@@ -327,28 +330,12 @@ export function SubjectRecord({ studyId, subjectId, initialFormId }: Props) {
   function toggleMulti(field: FormFieldRow, opt: string, value: string) {
     const cur = parseMulti(value);
     const next = cur.includes(opt) ? cur.filter((x) => x !== opt) : [...cur, opt];
-    changeAndCommit(field, JSON.stringify(next));
-  }
-  // Discrete controls (select, yes/no, multiselect, date, file) commit immediately;
-  // text-like inputs commit on blur (commitField) so Δ waits until the user leaves.
-  function changeAndCommit(field: FormFieldRow, value: string) {
-    setFieldValue(field, value);
-    setCommitted((c) => ({ ...c, [field.id]: value }));
-  }
-  function commitField(field: FormFieldRow) {
-    const v = fvFor(field.id)?.value ?? "";
-    setCommitted((c) => ({ ...c, [field.id]: v }));
+    setFieldValue(field, JSON.stringify(next));
   }
 
   // ─── Write actions (all via update() — session only) ───────────────────────
   function setFieldValue(field: FormFieldRow, value: string) {
     if (locked) return; // locked forms are read-only
-    // Capture the baseline once per field (any type). A field loaded with a value
-    // keeps that as the baseline (any edit is a change → Δ). A field that was empty
-    // commits its first entry as the baseline (first entry isn't a change, but the
-    // next change is). Drives Δ for text, number, date, select, yes/no, multiselect.
-    const prev = fvFor(field.id)?.value ?? "";
-    setBaseline((b) => (field.id in b ? b : { ...b, [field.id]: prev !== "" ? prev : value }));
     update((d: Dataset) => {
       let inst = d.formInstances.find((i) => i.subject_id === subjectId && i.form_id === field.form_id);
       if (!inst) {
@@ -358,32 +345,30 @@ export function SubjectRecord({ studyId, subjectId, initialFormId }: Props) {
         inst.status = "in_work";
       }
       let fv = d.fieldValues.find((v) => v.form_instance_id === inst!.id && v.form_field_id === field.id);
+      const prev = fv?.value ?? "";
       if (!fv) {
         fv = { id: newId(), form_instance_id: inst.id, form_field_id: field.id, value };
         d.fieldValues.push(fv);
       } else {
         fv.value = value;
       }
-      // Live edit-check: out of range → raise/keep an open query; back in range → resolve it.
+      // Persist the Δ baseline once per field value (a loaded value is the baseline,
+      // any edit is a change; an empty field commits its first entry as baseline).
+      if (!(fv.id in d.fieldBaselines)) d.fieldBaselines[fv.id] = prev !== "" ? prev : value;
+
+      // Live EDIT CHECK (not a query): out of range → raise/keep an open edit check;
+      // back in range → resolve it. (Converting to a query is a separate user action.)
       const check = evaluateField(field, value, species, d.speciesRanges);
-      const existing = d.queries.find((q) => q.field_value_id === fv!.id && (q.status === "open" || q.status === "responded"));
+      const ec = d.editChecks.find((e) => e.field_value_id === fv!.id && e.status === "open");
+      const hasConvertedQ = d.queries.some((q) => q.field_value_id === fv!.id && (q.status === "open" || q.status === "responded"));
       if (check) {
-        if (!existing) {
-          const qid = newId();
-          d.queries.push({ id: qid, form_instance_id: inst.id, field_value_id: fv.id, status: "open", title: check.message });
-          const unit = field.unit ? ` ${field.unit}` : "";
-          d.queryMessages.push({
-            id: newId(),
-            query_id: qid,
-            author_id: DEMO_USER_ID,
-            body: `Auto edit-check: ${field.label} ${value}${unit} is outside the expected range (${check.range.min}–${check.range.max}${unit}) for ${species}. Please verify against the source document.`,
-            created_at: new Date().toISOString(),
-          });
-        } else {
-          existing.title = check.message;
+        if (!ec && !hasConvertedQ) {
+          d.editChecks.push({ id: newId(), form_instance_id: inst.id, field_value_id: fv.id, message: check.message, status: "open", created_at: new Date().toISOString() });
+        } else if (ec) {
+          ec.message = check.message;
         }
-      } else if (existing) {
-        existing.status = "resolved";
+      } else if (ec) {
+        ec.status = "resolved"; // value corrected
       }
       // Inclusion/Exclusion: recompute eligibility from all criterion fields in
       // this form — any "No" flags the subject ineligible (PI review).
@@ -404,13 +389,12 @@ export function SubjectRecord({ studyId, subjectId, initialFormId }: Props) {
     if (!deltaField || !deltaReason.trim()) return;
     const fv = fvFor(deltaField.id);
     if (!fv) return;
-    const oldVal = baseline[deltaField.id] ?? "";
     const newVal = fv.value ?? "";
     update((d: Dataset) => {
       d.deltaRecords.push({
         id: newId(),
         field_value_id: fv.id,
-        old_value: oldVal,
+        old_value: d.fieldBaselines[fv.id] ?? "",
         new_value: newVal,
         reason: deltaReason.trim(),
         author_name: DEMO_USER.fullName,
@@ -418,11 +402,10 @@ export function SubjectRecord({ studyId, subjectId, initialFormId }: Props) {
         created_at: new Date().toISOString(),
         status: "responded",
       });
+      // The new value becomes the saved baseline — a later change needs a new reason
+      // (Yes → No → Yes each requires justification).
+      d.fieldBaselines[fv.id] = newVal;
     });
-    // The new value becomes the saved baseline — a later change needs a new reason
-    // (Yes → No → Yes each requires justification).
-    setBaseline((b) => ({ ...b, [deltaField.id]: newVal }));
-    setCommitted((c) => ({ ...c, [deltaField.id]: newVal }));
     setDeltaReason("");
     setDeltaField(null);
   }
@@ -534,10 +517,30 @@ export function SubjectRecord({ studyId, subjectId, initialFormId }: Props) {
       let fv = d.fieldValues.find((v) => v.form_instance_id === inst!.id && v.form_field_id === field.id);
       if (!fv) { fv = { id: newId(), form_instance_id: inst.id, form_field_id: field.id, value: "" }; d.fieldValues.push(fv); }
       const qid = newId();
-      d.queries.push({ id: qid, form_instance_id: inst.id, field_value_id: fv.id, status: "open", title: body });
+      d.queries.push({ id: qid, form_instance_id: inst.id, field_value_id: fv.id, status: "open", title: body, from_edit_check: false });
       pushMsg(d, qid, body);
     });
     setReply("");
+  }
+  // Convert an edit check to a formal query — the user has explained the anomaly.
+  function convertEditCheck(field: FormFieldRow) {
+    const explanation = reply.trim();
+    if (!explanation) return;
+    update((d: Dataset) => {
+      const inst = d.formInstances.find((i) => i.subject_id === subjectId && i.form_id === field.form_id);
+      if (!inst) return;
+      const fv = d.fieldValues.find((v) => v.form_instance_id === inst.id && v.form_field_id === field.id);
+      if (!fv) return;
+      const ec = d.editChecks.find((e) => e.field_value_id === fv.id && e.status === "open");
+      if (!ec) return;
+      ec.status = "converted";
+      const qid = newId();
+      d.queries.push({ id: qid, form_instance_id: inst.id, field_value_id: fv.id, status: "open", title: ec.message, from_edit_check: true });
+      d.queryMessages.push({ id: newId(), query_id: qid, author_id: DEMO_USER_ID, body: `Auto edit-check: ${ec.message}`, created_at: ec.created_at });
+      pushMsg(d, qid, explanation);
+    });
+    setReply("");
+    setPanelKind("query"); // it is now a formal query
   }
 
   // PI override — clears an inclusion/exclusion ineligibility back to Active, with
@@ -546,7 +549,12 @@ export function SubjectRecord({ studyId, subjectId, initialFormId }: Props) {
     if (activeRole !== "PI" || !overrideReason.trim()) return;
     update((d: Dataset) => {
       const subj = d.subjects.find((s) => s.id === subjectId);
-      if (subj) { subj.ineligible = false; subj.override_reason = overrideReason.trim(); }
+      if (subj) {
+        subj.ineligible = false;
+        subj.override_reason = overrideReason.trim();
+        subj.override_by = DEMO_USER.fullName;
+        subj.override_at = todayISO();
+      }
     });
     setOverrideReason("");
     setOverrideOpen(false);
@@ -556,6 +564,8 @@ export function SubjectRecord({ studyId, subjectId, initialFormId }: Props) {
   const statusInfo = STATUS_MAP[subject.status] || { cls: "status-screened", label: subject.status };
   const panelFv = panelField ? fvFor(panelField.id) : undefined;
   const panelQuery = fieldQueryFor(panelFv?.id);
+  const panelEC = editCheckFor(panelFv?.id);
+  const isECPanel = panelKind === "edit_check" && !!panelEC; // edit-check panel (not yet converted)
   const panelResolved = panelQuery?.status === "resolved";
   const panelMsgs = panelQuery ? dataset.queryMessages.filter((m) => m.query_id === panelQuery.id).slice().sort((a, b) => (a.created_at < b.created_at ? -1 : 1)) : [];
 
@@ -567,7 +577,7 @@ export function SubjectRecord({ studyId, subjectId, initialFormId }: Props) {
 
   // Δ change-reason panel
   const deltaFv = deltaField ? fvFor(deltaField.id) : undefined;
-  const deltaOld = deltaField ? (baseline[deltaField.id] ?? "") : "";
+  const deltaOld = deltaFv ? (dataset.fieldBaselines[deltaFv.id] ?? "") : "";
   const deltaNew = deltaFv?.value ?? "";
   const deltaHistory = deltaFv
     ? dataset.deltaRecords.filter((r) => r.field_value_id === deltaFv.id).slice().sort((a, b) => (a.created_at < b.created_at ? -1 : 1))
@@ -575,9 +585,12 @@ export function SubjectRecord({ studyId, subjectId, initialFormId }: Props) {
   const deltaCurState = deltaField ? deltaStateFor(deltaField.id, deltaFv?.id) : null;
 
   function renderControl(field: FormFieldRow, value: string, queried: boolean) {
-    const commit = (v: string) => changeAndCommit(field, v); // discrete controls settle immediately
-    const typeChange = (v: string) => setFieldValue(field, v); // text inputs settle on blur
-    const onBlur = () => commitField(field);
+    // Discrete controls write directly (settle on change). Text inputs also write on
+    // change but suppress Δ until blur via editingFieldId (onFocus/onBlur).
+    const commit = (v: string) => setFieldValue(field, v);
+    const typeChange = (v: string) => setFieldValue(field, v);
+    const onFocus = () => setEditingFieldId(field.id);
+    const onBlur = () => setEditingFieldId(null);
     const ro = locked;
     const type = field.field_type;
     const isCoded = !!field.validation?.coded;
@@ -604,7 +617,7 @@ export function SubjectRecord({ studyId, subjectId, initialFormId }: Props) {
     }
     // textarea
     if (type === "textarea") {
-      return <textarea className="field-input" style={{ height: 60, fontFamily: "var(--font-sans)" }} value={value} disabled={ro} onChange={(e) => typeChange(e.target.value)} onBlur={onBlur} />;
+      return <textarea className="field-input" style={{ height: 60, fontFamily: "var(--font-sans)" }} value={value} disabled={ro} onChange={(e) => typeChange(e.target.value)} onFocus={onFocus} onBlur={onBlur} />;
     }
     // yes/no radio → two-button toggle
     if (type === "radio") {
@@ -662,7 +675,7 @@ export function SubjectRecord({ studyId, subjectId, initialFormId }: Props) {
     if (isCoded) {
       return (
         <div className="coded-field">
-          <input className={`field-input${queried ? " query" : ""}`} style={{ fontFamily: "var(--font-sans)" }} value={value} disabled={ro} onChange={(e) => typeChange(e.target.value)} onBlur={onBlur} />
+          <input className={`field-input${queried ? " query" : ""}`} style={{ fontFamily: "var(--font-sans)" }} value={value} disabled={ro} onChange={(e) => typeChange(e.target.value)} onFocus={onFocus} onBlur={onBlur} />
           <button
             type="button"
             className="lookup-btn"
@@ -698,6 +711,7 @@ export function SubjectRecord({ studyId, subjectId, initialFormId }: Props) {
         value={value}
         disabled={ro}
         onChange={(e) => typeChange(e.target.value)}
+        onFocus={onFocus}
         onBlur={onBlur}
       />
     );
@@ -832,8 +846,9 @@ export function SubjectRecord({ studyId, subjectId, initialFormId }: Props) {
                 </>
               )}
 
-              {/* Status advance — Submit for Review is always present (disabled when empty) */}
-              {currentStatus === "empty" || currentStatus === "in_work" ? (
+              {/* Status advance — hidden in SDV mode (the SDV buttons take its place).
+                  Submit for Review is otherwise always present (disabled when empty). */}
+              {modeSdv ? null : currentStatus === "empty" || currentStatus === "in_work" ? (
                 <button
                   className="btn-primary"
                   type="button"
@@ -861,19 +876,25 @@ export function SubjectRecord({ studyId, subjectId, initialFormId }: Props) {
 
         {/* Form body — real fields from form_fields */}
         <div className="form-body">
-          {isIEForm && ineligibleNow && (
+          {isIEForm && subject.ineligible && (
             <div className="ie-banner" role="alert">
               <i className="ti ti-alert-triangle"></i>
               Subject does not meet inclusion criteria — PI review required
+            </div>
+          )}
+          {isIEForm && !subject.ineligible && subject.override_reason && (
+            <div className="ie-banner override" role="status">
+              <i className="ti ti-shield-check"></i>
+              Eligibility override — PI {subject.override_by ?? "—"} documented a reason for override on {subject.override_at ?? "—"}. This subject was initially flagged as ineligible.
             </div>
           )}
           <div className="field-grid-2">
             {fields.map((field) => {
               const fv = fvFor(field.id);
               const value = fv?.value ?? "";
+              const ec = editCheckFor(fv?.id); // open auto edit-check (orange alert)
               const dispQ = fieldQueryFor(fv?.id); // any query: open | responded | resolved
-              const raised = dispQ?.status === "open"; // only an unacknowledged query tints the field amber
-              const qCode = field.code.toUpperCase();
+              const raised = dispQ?.status === "open"; // an open query tints the field amber (edit checks use the orange indicator)
               const sdvRec = sdvRecordFor(fv?.id);
               const verified = !!sdvRec;
               const dState = deltaStateFor(field.id, fv?.id);
@@ -909,12 +930,22 @@ export function SubjectRecord({ studyId, subjectId, initialFormId }: Props) {
                         Δ
                       </button>
                     )}
-                    {/* Flag: always shown if the field has any query; hollow flag only in Queries mode.
-                        Clicking a hollow flag opens the Raise Query panel. */}
-                    {(modeQueries || dispQ) && (
+                    {/* Edit check indicator — orange alert-circle (auto validation alert). */}
+                    {ec && (
+                      <button
+                        className="ec-btn"
+                        onClick={() => { setPanelField(field); setPanelKind("edit_check"); }}
+                        title="Edit check — out of range. Click to review."
+                        type="button"
+                      >
+                        <i className="ti ti-alert-circle"></i>
+                      </button>
+                    )}
+                    {/* Manual / converted query flag. Hollow flag (no query) only in Queries mode → Raise Query. */}
+                    {!ec && (modeQueries || dispQ) && (
                       <button
                         className={`flag-btn${dispQ ? (dispQ.status === "resolved" ? " resolved" : " flagged") : ""}`}
-                        onClick={() => setPanelField(field)}
+                        onClick={() => { setPanelField(field); setPanelKind("query"); }}
                         title={dispQ ? (dispQ.status === "resolved" ? "Query resolved — click to view" : "Query — click to view") : "Raise a query"}
                         type="button"
                       >
@@ -922,12 +953,19 @@ export function SubjectRecord({ studyId, subjectId, initialFormId }: Props) {
                       </button>
                     )}
                   </div>
-                  {/* Inline state: text for raised + responded only; resolved shows the green flag, no text */}
-                  {dispQ && dispQ.status !== "resolved" ? (
+                  {/* Inline state. Edit check: orange. Query: amber raised/responded, none when resolved. */}
+                  {ec ? (
+                    <div className="field-state state-editcheck">
+                      <i className="ti ti-alert-circle"></i>
+                      <span className="ec-link" onClick={() => { setPanelField(field); setPanelKind("edit_check"); }}>
+                        [{ecCodeFor(ec.id)}] Value outside expected range
+                      </span>
+                    </div>
+                  ) : dispQ && dispQ.status !== "resolved" ? (
                     <div className="field-state state-query">
                       <i className="ti ti-info-circle"></i>
-                      <span className="query-link" onClick={() => setPanelField(field)}>
-                        {dispQ.status === "open" ? dispQ.title : `${qCode} open — view thread`}
+                      <span className="query-link" onClick={() => { setPanelField(field); setPanelKind("query"); }}>
+                        {dispQ.status === "open" ? `[${qCodeFor(dispQ.id)}] ${dispQ.title}` : `[${qCodeFor(dispQ.id)}] open — view thread`}
                       </span>
                     </div>
                   ) : (
@@ -945,22 +983,27 @@ export function SubjectRecord({ studyId, subjectId, initialFormId }: Props) {
         </div>
       </div>
 
-      {/* Query thread / raise panel (Component 13, file 30) */}
+      {/* Edit-check / query / raise panel (Component 13, file 30) */}
       <div className={`panel-overlay${panelField ? " open" : ""}`} onClick={() => { setPanelField(null); setReply(""); }}></div>
       <div className={`slide-panel${panelField ? " open" : ""}`}>
         <div className="panel-header">
           <div className="panel-header-left">
-            <div className="panel-title">{panelQuery ? "Query thread" : "Raise a query"}</div>
+            <div className="panel-title">{isECPanel ? "Edit Check" : panelQuery ? "Query thread" : "Raise a query"}</div>
+            {/* Only the ID chip — no status badge here (the status row carries it). */}
             <div className="panel-title-meta">
-              {panelQuery && <span className="query-id">Q-{panelQuery.id.slice(0, 6).toUpperCase()}</span>}
-              <span className={`query-status ${QS_CLS[panelQuery?.status ?? "open"] || "qs-open"}`}>
-                {panelQuery ? STATUS_CAP(panelQuery.status) : "New"}
-              </span>
+              {isECPanel && panelEC && <span className="query-id">{ecCodeFor(panelEC.id)}</span>}
+              {!isECPanel && panelQuery && <span className="query-id">{qCodeFor(panelQuery.id)}</span>}
             </div>
           </div>
           <button className="panel-close" onClick={() => { setPanelField(null); setReply(""); }} type="button"><i className="ti ti-x"></i></button>
         </div>
-        {panelQuery && (
+        {isECPanel ? (
+          <div className="status-bar">
+            <span className="status-bar-label">Status</span>
+            <span className="query-status qs-editcheck">Edit check</span>
+            <span className="status-desc">Out of range — correct the value or explain it</span>
+          </div>
+        ) : panelQuery ? (
           <div className="status-bar">
             <span className="status-bar-label">Status</span>
             <span className={`query-status ${QS_CLS[panelQuery.status] || "qs-open"}`}>{STATUS_CAP(panelQuery.status)}</span>
@@ -968,7 +1011,7 @@ export function SubjectRecord({ studyId, subjectId, initialFormId }: Props) {
               {panelQuery.status === "open" ? "Awaiting response" : panelQuery.status === "responded" ? "Awaiting CRA review" : "Resolved — no further action"}
             </span>
           </div>
-        )}
+        ) : null}
         <div className="field-context">
           <div className="fc-label">Field</div>
           <div style={{ display: "flex", alignItems: "center", gap: "var(--space-2)", marginBottom: "4px" }}>
@@ -980,25 +1023,45 @@ export function SubjectRecord({ studyId, subjectId, initialFormId }: Props) {
           </div>
         </div>
         <div className="thread-body">
-          {panelMsgs.map((m) => {
-            const isHuman = !!m.author_role;
-            const name = m.author_name ?? "Edit check";
-            const initials = isHuman ? name.split(/\s+/).map((p) => p[0]).join("").slice(0, 2).toUpperCase() : "EC";
-            return (
-              <div className="message" key={m.id}>
-                <div className="msg-header">
-                  <div className={`msg-avatar${isHuman ? "" : " av-auto"}`}>{initials}</div>
-                  <span className="msg-author">{name}</span>
-                  <span className="msg-role">· {isHuman ? m.author_role : "Auto"}</span>
-                </div>
-                <div className="msg-bubble">{m.body}</div>
+          {isECPanel && panelEC ? (
+            <div className="message">
+              <div className="msg-header">
+                <div className="msg-avatar av-auto">EC</div>
+                <span className="msg-author">Edit check</span>
+                <span className="msg-role">· Auto</span>
               </div>
-            );
-          })}
-          {!panelQuery && <p style={{ fontSize: "var(--text-sm)", color: "var(--color-text-tertiary)" }}>No query has been raised on this field yet.</p>}
+              <div className="msg-bubble">{panelEC.message}</div>
+            </div>
+          ) : (
+            panelMsgs.map((m) => {
+              const isHuman = !!m.author_role;
+              const name = m.author_name ?? "Edit check";
+              const initials = isHuman ? name.split(/\s+/).map((p) => p[0]).join("").slice(0, 2).toUpperCase() : "EC";
+              return (
+                <div className="message" key={m.id}>
+                  <div className="msg-header">
+                    <div className={`msg-avatar${isHuman ? "" : " av-auto"}`}>{initials}</div>
+                    <span className="msg-author">{name}</span>
+                    <span className="msg-role">· {isHuman ? m.author_role : "Auto"}</span>
+                  </div>
+                  <div className="msg-bubble">{m.body}</div>
+                </div>
+              );
+            })
+          )}
+          {!isECPanel && !panelQuery && <p style={{ fontSize: "var(--text-sm)", color: "var(--color-text-tertiary)" }}>No query has been raised on this field yet.</p>}
         </div>
         <div className="compose-area">
-          {panelResolved ? (
+          {isECPanel ? (
+            <>
+              <div className="compose-context"><i className="ti ti-user-circle"></i> Explain this value, or correct it in the form to clear the check</div>
+              <textarea className="compose-textarea" placeholder="Explain why this value is correct — this escalates to a formal query…" value={reply} onChange={(e) => setReply(e.target.value)}></textarea>
+              <div className="compose-btns">
+                <span className="compose-sub">Converting raises a formal query</span>
+                <button className="btn-respond" type="button" disabled={!reply.trim()} onClick={() => panelField && convertEditCheck(panelField)}>Convert to query</button>
+              </div>
+            </>
+          ) : panelResolved ? (
             <div className="sr-perm-note"><i className="ti ti-flag-check"></i> This query is resolved — no further action.</div>
           ) : !panelQuery ? (
             canRaise ? (
@@ -1013,15 +1076,19 @@ export function SubjectRecord({ studyId, subjectId, initialFormId }: Props) {
             ) : (
               <div className="sr-perm-note"><i className="ti ti-lock"></i> Your role ({activeRole}) cannot raise queries.</div>
             )
-          ) : canRespond || canResolve ? (
+          ) : canRespond || canResolve || activeRole === "CRA" ? (
             <>
               <div className="compose-context"><i className="ti ti-user-circle"></i> Acting as {activeRole}</div>
               <textarea className="compose-textarea" placeholder="Add a response…" value={reply} onChange={(e) => setReply(e.target.value)}></textarea>
               <div className="compose-btns">
                 <span className="compose-sub">Shift+Enter for new line</span>
                 <div style={{ display: "flex", gap: "var(--space-2)" }}>
-                  {canRespond && <button className="btn-respond" type="button" onClick={() => respondQuery(panelQuery.id)}>Respond</button>}
+                  {/* Respond — primary for CRC/PI, secondary when Resolve is also shown (CRA) */}
+                  {(canRespond || activeRole === "CRA") && (
+                    <button className={canResolve ? "btn-comment" : "btn-respond"} type="button" onClick={() => respondQuery(panelQuery.id)}>Respond</button>
+                  )}
                   {canResolve && <button className="btn-respond" type="button" onClick={() => resolveQuery(panelQuery.id)}>Resolve</button>}
+                  {activeRole === "DM" && <button className="btn-comment" type="button" onClick={() => resolveQuery(panelQuery.id)} title="DM query management (stub)">Manage</button>}
                 </div>
               </div>
             </>
@@ -1139,7 +1206,7 @@ export function SubjectRecord({ studyId, subjectId, initialFormId }: Props) {
               type="button"
               disabled={!canCode}
               title={canCode ? undefined : "Coding is a DM task"}
-              onClick={() => { if (lookupField) { changeAndCommit(lookupField, t); setLookupField(null); } }}
+              onClick={() => { if (lookupField) { setFieldValue(lookupField, t); setLookupField(null); } }}
             >
               <i className="ti ti-book-2"></i> {t}
             </button>

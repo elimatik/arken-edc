@@ -54,6 +54,8 @@ export interface SubjectRow {
   randomization_arm: string | null;
   ineligible?: boolean; // set when an inclusion/exclusion criterion fails (session-only)
   override_reason?: string | null; // PI override reason (clears ineligibility, session-only)
+  override_by?: string | null; // PI who overrode
+  override_at?: string | null; // YYYY-MM-DD of override
 }
 
 export interface OwnerRow {
@@ -92,6 +94,18 @@ export interface QueryRow {
   field_value_id: string | null;
   status: string; // open | responded | resolved
   title: string;
+  from_edit_check?: boolean; // true when this query was converted from an edit check
+}
+
+// Auto-raised validation alert (out-of-range), distinct from a manual query.
+// Resolves when the value is corrected; converts to a query when the user explains it.
+export interface EditCheckRow {
+  id: string;
+  form_instance_id: string;
+  field_value_id: string;
+  message: string;
+  status: string; // open | resolved | converted
+  created_at: string;
 }
 
 export interface QueryMessageRow {
@@ -178,8 +192,11 @@ export interface Dataset {
   fieldValues: FieldValueRow[];
   queries: QueryRow[];
   queryMessages: QueryMessageRow[];
+  editChecks: EditCheckRow[];
   sdvRecords: SdvRecordRow[];
   deltaRecords: DeltaRecordRow[];
+  /** Δ baseline (pre-edit saved value) per field value — persists across navigation. */
+  fieldBaselines: Record<string, string>;
   memberships: MembershipRow[];
   speciesRanges: SpeciesRangeRow[];
 }
@@ -197,8 +214,10 @@ export const EMPTY_DATASET: Dataset = {
   fieldValues: [],
   queries: [],
   queryMessages: [],
+  editChecks: [],
   sdvRecords: [],
   deltaRecords: [],
+  fieldBaselines: {},
   memberships: [],
   speciesRanges: [],
 };

@@ -6,7 +6,7 @@
 
 /* ─── Location breadcrumb — matches the Data Entry breadcrumb (link colour, no weight) ── */
 .dashboard-bc { display: flex; align-items: center; gap: var(--space-1); font-size: var(--text-sm); color: var(--color-text-tertiary); margin-bottom: var(--space-3); flex-wrap: wrap; }
-.dashboard-bc-cur { color: var(--color-link); }
+.dashboard-bc-cur { color: var(--color-link); text-decoration: underline; text-underline-offset: 2px; }
 
 /* ─── Greeting ── */
 .greeting { margin-bottom: var(--space-5); }
