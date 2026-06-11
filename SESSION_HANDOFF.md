@@ -1,6 +1,6 @@
 # Arken EDC — Session Handoff
 **Paste this entire file at the start of a new conversation.**
-Last updated: 2026-06-11 | Session 24 — forms deep dive + 7 batches of fixes (incl. edit-check/query split) DONE
+Last updated: 2026-06-11 | Session 24 — forms deep dive + 8 batches of fixes (incl. edit-check/query split) DONE
 
 ---
 
@@ -201,6 +201,13 @@ Data: `QueryRow.created_at`, `FormInstanceRow.sdv_complete`; session key → **v
 4. **Remarks SDV option CRA-only** — new `canSDV(role)` in `permissions.ts` (CRA). The "SDV mode" remarks item is hidden for every other role, and an effect drops `modeSdv` if the active role loses SDV permission.
 5/6. **SDV requires a saved value** — reverted batch-6's create-field-value-on-verify. `toggleSdv` and `verifyAll` now skip / refuse fields with no non-empty value (never create a field value); the per-field shield is disabled with an "Enter a value before verifying" tooltip on empty fields.
 No data-shape change → session key stays **v7**. Verified: `tsc`, `next lint`, **`next build` all clean**.
+
+### Session 24 — form fixes batch 8 ✅ (change-reason Δ correctness)
+1. **No Δ on first entry (real fix)** — the baseline is now captured only from a *previously-saved* value, never mid-typing. `setFieldValue` takes `captureBaseline` (true only for discrete controls, whose pre-edit value is the baseline); text/coded/textarea inputs capture on **focus** via `captureBaselineOnFocus()` (empty at focus → no baseline). So a brand-new entry — even after blur — raises no Δ; a later edit of the now-saved value does. (Replaces batch-7's `commitBaseline`, which baselined the first keystroke.)
+2. **Per-reason data change in the panel** — each reason card now shows its own `old_value → new_value` transition (monospace, above the reason) from the `DeltaRecordRow`; the top context shows the most recent change.
+3. **Δ green only when ALL records approved** — `deltaStateFor` at baseline returns `approved` only if **every** delta record for the field is DM-approved; if any is still responded it stays blue. (Was: keyed on the latest record only.)
+4. **No same-value Δ** — top context shows the latest *real* transition, never `X → X`; `submitDeltaReason` refuses `new === old`; discrete `captureBaseline` skips `prev === value`; the compose box disables with "No pending change to explain" when the value matches the baseline.
+CSS: `.delta-entry-change/-old/-arrow/-new`. No data-shape change → session key stays **v7**. Verified: `tsc`, `next lint`, **`next build` all clean**.
 
 ### Session 25 — NEXT ▶ (remaining form polish)
 1. **SDV panel** — a dedicated source-data-verification surface (not just the per-field shield): progress, per-field verify, bulk.

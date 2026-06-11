@@ -305,13 +305,12 @@ export function SubjectRecord({ studyId, subjectId, initialFormId }: Props) {
     // Changed from the last SUBMITTED value → always pending (dashed red), even when
     // reverting to a previously-used value (A→B→A each needs its own reason).
     if (cur !== oldVal) return "pending";
-    // At the baseline. Reflect the status of the most recent reason that set THIS
-    // value (blue=responded → green=approved after DM signs off); else it's the
-    // original entry (no Δ). Keying on the current value — not just the last record
-    // overall — means a DM approval flips the field to green even across A→B→A.
-    const recs = fvId ? dataset.deltaRecords.filter((r) => r.field_value_id === fvId && r.new_value === cur) : [];
-    const last = recs[recs.length - 1];
-    return last ? (last.status === "approved" ? "approved" : "responded") : null;
+    // At the baseline, with change history. The marker is GREEN only when EVERY delta
+    // record for this field has been DM-approved; if any record is still awaiting
+    // approval it stays solid blue (responded). No records → original entry (no Δ).
+    const recs = fvId ? dataset.deltaRecords.filter((r) => r.field_value_id === fvId) : [];
+    if (recs.length === 0) return null;
+    return recs.every((r) => r.status === "approved") ? "approved" : "responded";
   }
 
   const sdvFieldIds = fields.filter(isSdvEligible).map((f) => f.id);
@@ -373,11 +372,15 @@ export function SubjectRecord({ studyId, subjectId, initialFormId }: Props) {
   function toggleMulti(field: FormFieldRow, opt: string, value: string) {
     const cur = parseMulti(value);
     const next = cur.includes(opt) ? cur.filter((x) => x !== opt) : [...cur, opt];
-    setFieldValue(field, JSON.stringify(next));
+    setFieldValue(field, JSON.stringify(next), true); // discrete commit → capture baseline
   }
 
   // ─── Write actions (all via update() — session only) ───────────────────────
-  function setFieldValue(field: FormFieldRow, value: string) {
+  // `captureBaseline` is set only by discrete controls (select / yes-no), whose every
+  // change is an atomic commit — so the pre-edit value `prev` IS the last saved value
+  // and becomes the Δ baseline. Text inputs never capture here (they would baseline a
+  // half-typed first entry); they capture on focus instead (captureBaselineOnFocus).
+  function setFieldValue(field: FormFieldRow, value: string, captureBaseline = false) {
     if (locked) return; // locked forms are read-only
     update((d: Dataset) => {
       let inst = d.formInstances.find((i) => i.subject_id === subjectId && i.form_id === field.form_id);
@@ -395,11 +398,12 @@ export function SubjectRecord({ studyId, subjectId, initialFormId }: Props) {
       } else {
         fv.value = value;
       }
-      // Persist the Δ baseline for a previously-SAVED value only: editing a loaded /
-      // already-entered value makes that prior value the baseline (this edit is a
-      // change). A first entry into an EMPTY field sets no baseline here — it is
-      // captured on commit (blur / discrete change) so no Δ appears mid-typing.
-      if (!(fv.id in d.fieldBaselines) && prev !== "") d.fieldBaselines[fv.id] = prev;
+      // Δ baseline (discrete controls only): the pre-edit value of an already-saved
+      // field becomes the baseline, so this change is justified. A first selection
+      // into an empty field (prev === "") sets nothing → no Δ on first entry.
+      if (captureBaseline && prev !== "" && prev !== value && !(fv.id in d.fieldBaselines)) {
+        d.fieldBaselines[fv.id] = prev;
+      }
 
       // Live EDIT CHECK (not a query): out of range → raise/keep an open edit check;
       // back in range → resolve it. (Converting to a query is a separate user action.)
@@ -429,15 +433,17 @@ export function SubjectRecord({ studyId, subjectId, initialFormId }: Props) {
     });
   }
 
-  // Capture the baseline at the moment a field is first COMMITTED (text: on blur;
-  // discrete: on change). Until a non-empty value is committed there is no baseline,
-  // so the Δ never appears while the first value is still being typed (item 3).
-  function commitBaseline(field: FormFieldRow) {
+  // Text inputs capture their Δ baseline when the field is FOCUSED, from the value
+  // already saved (a real, previously-committed entry). A first entry is empty at
+  // focus → no baseline, so no Δ ever appears for the very first value (item 1). On
+  // re-focus the now-saved value becomes the baseline, so a later edit raises Δ.
+  function captureBaselineOnFocus(field: FormFieldRow) {
+    const fv = fvFor(field.id);
+    const saved = fv?.value ?? "";
+    if (!fv || saved === "" || fv.id in dataset.fieldBaselines) return; // nothing to capture
     update((d: Dataset) => {
-      const inst = d.formInstances.find((i) => i.subject_id === subjectId && i.form_id === field.form_id);
-      if (!inst) return;
-      const fv = d.fieldValues.find((v) => v.form_instance_id === inst.id && v.form_field_id === field.id);
-      if (fv && (fv.value ?? "") !== "" && !(fv.id in d.fieldBaselines)) d.fieldBaselines[fv.id] = fv.value ?? "";
+      const f = d.fieldValues.find((v) => v.id === fv.id);
+      if (f && !(f.id in d.fieldBaselines)) d.fieldBaselines[f.id] = saved;
     });
   }
 
@@ -447,6 +453,8 @@ export function SubjectRecord({ studyId, subjectId, initialFormId }: Props) {
     const fv = fvFor(deltaField.id);
     if (!fv) return;
     const newVal = fv.value ?? "";
+    const oldVal = dataset.fieldBaselines[fv.id] ?? "";
+    if (newVal === oldVal) return; // never record a same-value change (item 4)
     update((d: Dataset) => {
       d.deltaRecords.push({
         id: newId(),
@@ -683,21 +691,27 @@ export function SubjectRecord({ studyId, subjectId, initialFormId }: Props) {
 
   // Δ change-reason panel
   const deltaFv = deltaField ? fvFor(deltaField.id) : undefined;
-  const deltaOld = deltaFv ? (dataset.fieldBaselines[deltaFv.id] ?? "") : "";
-  const deltaNew = deltaFv?.value ?? "";
+  const deltaBaseline = deltaFv ? (dataset.fieldBaselines[deltaFv.id] ?? "") : "";
+  const deltaValue = deltaFv?.value ?? "";
   const deltaHistory = deltaFv
     ? dataset.deltaRecords.filter((r) => r.field_value_id === deltaFv.id).slice().sort((a, b) => (a.created_at < b.created_at ? -1 : 1))
     : [];
+  const deltaLatest = deltaHistory[deltaHistory.length - 1];
+  // Top context shows the MOST RECENT change: the in-progress edit when one is pending
+  // (baseline ≠ current), else the latest recorded transition. Never X → X (item 4).
+  const deltaPending = deltaValue !== deltaBaseline;
+  const deltaOld = deltaPending ? deltaBaseline : (deltaLatest?.old_value ?? deltaBaseline);
+  const deltaNew = deltaPending ? deltaValue : (deltaLatest?.new_value ?? deltaValue);
   const deltaCurState = deltaField ? deltaStateFor(deltaField.id, deltaFv?.id) : null;
 
   function renderControl(field: FormFieldRow, value: string, queried: boolean) {
-    // Discrete controls write directly and settle on change (commit baseline now).
-    // Text inputs write on change but suppress Δ until blur via editingFieldId, and
-    // commit their baseline on blur (the first full entry, not the first keystroke).
-    const commit = (v: string) => { setFieldValue(field, v); commitBaseline(field); };
+    // Discrete controls write directly and settle on change → capture the baseline
+    // atomically (pre-edit value). Text inputs write on change but suppress Δ until
+    // blur via editingFieldId; they capture the baseline on focus, never mid-typing.
+    const commit = (v: string) => setFieldValue(field, v, true);
     const typeChange = (v: string) => setFieldValue(field, v);
-    const onFocus = () => setEditingFieldId(field.id);
-    const onBlur = () => { setEditingFieldId(null); commitBaseline(field); };
+    const onFocus = () => { setEditingFieldId(field.id); captureBaselineOnFocus(field); };
+    const onBlur = () => setEditingFieldId(null);
     const ro = locked;
     const type = field.field_type;
     const isCoded = !!field.validation?.coded;
@@ -1289,6 +1303,12 @@ export function SubjectRecord({ studyId, subjectId, initialFormId }: Props) {
           {deltaHistory.length > 0 ? (
             deltaHistory.map((r) => (
               <div className="delta-entry" key={r.id}>
+                {/* The specific data change this reason was written for (item 2) */}
+                <div className="delta-entry-change">
+                  <span className="delta-entry-old">{r.old_value || "—"}</span>
+                  <span className="delta-entry-arrow">→</span>
+                  <span className="delta-entry-new">{r.new_value || "—"}</span>
+                </div>
                 <div className="delta-entry-reason">{r.reason}</div>
                 <div className="delta-entry-meta">
                   <span>{r.author_name} · {r.author_role}</span>
@@ -1309,11 +1329,13 @@ export function SubjectRecord({ studyId, subjectId, initialFormId }: Props) {
           )}
         </div>
         <div className="delta-compose">
-          <div className="delta-compose-hint">Responding as {activeRole} · {ndaName} — explain the reason for this change</div>
-          <textarea className="delta-textarea" placeholder="Enter reason for change…" value={deltaReason} onChange={(e) => setDeltaReason(e.target.value)}></textarea>
+          <div className="delta-compose-hint">
+            {deltaPending ? `Responding as ${activeRole} · ${ndaName} — explain the reason for this change` : "No pending change to explain — the current value matches the last saved value."}
+          </div>
+          <textarea className="delta-textarea" placeholder="Enter reason for change…" value={deltaReason} disabled={!deltaPending} onChange={(e) => setDeltaReason(e.target.value)}></textarea>
           <div className="delta-compose-actions">
             <span className="delta-compose-sub">Shift+Enter for new line</span>
-            <button className="delta-btn-submit" type="button" disabled={!deltaReason.trim()} onClick={submitDeltaReason}>Submit reason</button>
+            <button className="delta-btn-submit" type="button" disabled={!deltaPending || !deltaReason.trim()} onClick={submitDeltaReason}>Submit reason</button>
           </div>
         </div>
       </div>
