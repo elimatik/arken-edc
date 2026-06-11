@@ -129,8 +129,10 @@ export interface SdvRecordRow {
   verified_at?: string | null; // YYYY-MM-DD of verification
 }
 
-// Change-reason (Δ) record — captured when a saved value is changed (21 CFR Part 11).
-// status: responded (reason submitted, awaiting DM) | approved (DM signed off).
+// Change-reason (Δ) record — one per value transition of an already-saved field
+// (21 CFR Part 11). A change pushes a `pending` record (reason empty); providing the
+// reason makes it `responded`; a DM sign-off makes it `approved`. `reason` is "" while
+// pending. A→B→C without reasons in between yields two records (A→B, B→C).
 export interface DeltaRecordRow {
   id: string;
   field_value_id: string;
@@ -140,7 +142,7 @@ export interface DeltaRecordRow {
   author_name: string;
   author_role: string;
   created_at: string;
-  status: "responded" | "approved";
+  status: "pending" | "responded" | "approved";
 }
 
 export interface MembershipRow {
@@ -197,8 +199,6 @@ export interface Dataset {
   editChecks: EditCheckRow[];
   sdvRecords: SdvRecordRow[];
   deltaRecords: DeltaRecordRow[];
-  /** Δ baseline (pre-edit saved value) per field value — persists across navigation. */
-  fieldBaselines: Record<string, string>;
   memberships: MembershipRow[];
   speciesRanges: SpeciesRangeRow[];
 }
@@ -219,7 +219,6 @@ export const EMPTY_DATASET: Dataset = {
   editChecks: [],
   sdvRecords: [],
   deltaRecords: [],
-  fieldBaselines: {},
   memberships: [],
   speciesRanges: [],
 };

@@ -209,6 +209,14 @@ No data-shape change → session key stays **v7**. Verified: `tsc`, `next lint`,
 4. **No same-value Δ** — top context shows the latest *real* transition, never `X → X`; `submitDeltaReason` refuses `new === old`; discrete `captureBaseline` skips `prev === value`; the compose box disables with "No pending change to explain" when the value matches the baseline.
 CSS: `.delta-entry-change/-old/-arrow/-new`. No data-shape change → session key stays **v7**. Verified: `tsc`, `next lint`, **`next build` all clean**.
 
+### Session 24 — form fixes batch 8b ✅ (multi-transition Δ tracking)
+The change-reason model moved from a single baseline-vs-current comparison to **one delta record per transition**. `DeltaRecordRow.status` gains `pending`; `Dataset.fieldBaselines` is **removed**.
+- **Every change records its own transition.** `recordTransition(d, fvId, prev, next)` pushes a `pending` record (reason ""), skipping first entries (`prev === ""`) and no-ops (`prev === next`). Discrete controls record on change (`setFieldValue(…, true)`); text inputs snapshot the value on **focus** and record one transition per **blur** (`snapshotTextFocus` / `recordTextEdit`). So **A→B→C without reasons = two records** (A→B, B→C), each owed its own reason. Applies to all field types.
+- **`deltaStateFor`** is now derived purely from records: any `pending` → red; all `approved` → green; else blue; none → null.
+- **Panel** shows every transition chronologically; each **pending** card has its own reason textarea + Submit (`submitReasonForRecord` → responded), each responded/approved card shows reason + meta + (DM) Approve. Per-record drafts in `recordReasons`. The single bottom compose is gone. Top context shows the latest transition.
+- **First entry** still raises no Δ; **same-value** changes are never recorded (item 4 preserved).
+- CSS `.delta-entry.pending`. Session key → **v8** (shape changed). Verified: `tsc`, `next lint`, **`next build` all clean**.
+
 ### Session 25 — NEXT ▶ (remaining form polish)
 1. **SDV panel** — a dedicated source-data-verification surface (not just the per-field shield): progress, per-field verify, bulk.
 2. **Sidebar deep-link** — opening a sub-form via URL should expand/select its group.

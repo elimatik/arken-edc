@@ -81,7 +81,6 @@ export async function hydrateFromSupabase(): Promise<Dataset> {
     editChecks,
     sdvRecords: (sdvRecords.data ?? []) as Dataset["sdvRecords"],
     deltaRecords: [], // session-only — not sourced from Supabase
-    fieldBaselines: {},
     memberships: (memberships.data ?? []) as Dataset["memberships"],
     speciesRanges: (speciesRanges.data ?? []) as Dataset["speciesRanges"],
   };

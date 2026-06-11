@@ -290,6 +290,8 @@
 .delta-history { margin-top: var(--space-5); }
 .delta-history-label { font-size: var(--text-xs); font-weight: var(--weight-medium); text-transform: uppercase; letter-spacing: var(--tracking-caps); color: var(--color-text-placeholder); margin-bottom: var(--space-2); }
 .delta-entry { border: 1px solid var(--color-border); border-radius: var(--radius-md); padding: var(--space-3); margin-bottom: var(--space-2); }
+/* A transition still owed a reason (batch 8b) */
+.delta-entry.pending { border-color: var(--red-200); background: var(--red-50); }
 /* The specific A→B transition each reason was written for (item 2, batch 8) */
 .delta-entry-change { display: flex; align-items: center; gap: var(--space-2); font-family: var(--font-mono); font-size: var(--text-xs); margin-bottom: var(--space-2); padding-bottom: var(--space-2); border-bottom: 1px dashed var(--color-border-subtle); }
 .delta-entry-old { text-decoration: line-through; text-decoration-color: #B8BDC9; color: var(--color-text-secondary); }

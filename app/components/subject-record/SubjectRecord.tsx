@@ -1,6 +1,6 @@
 "use client";
 
-import { Fragment, useEffect, useState } from "react";
+import { Fragment, useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { useShell } from "@/components/shell/ShellContext";
 import { useStudySession } from "@/lib/session-store/SessionStore";
@@ -115,7 +115,11 @@ export function SubjectRecord({ studyId, subjectId, initialFormId }: Props) {
   const [panelKind, setPanelKind] = useState<"query" | "edit_check">("query");
   const [reply, setReply] = useState(""); // query-thread compose box
   const [deltaField, setDeltaField] = useState<FormFieldRow | null>(null);
-  const [deltaReason, setDeltaReason] = useState(""); // change-reason compose box
+  // Draft reason text per pending delta record (each transition is reasoned on its own).
+  const [recordReasons, setRecordReasons] = useState<Record<string, string>>({});
+  // Value of a text field at the moment it was focused — the start of an edit. The
+  // transition (focus value → blur value) becomes one pending delta record on blur.
+  const editStartRef = useRef<{ fieldId: string; value: string } | null>(null);
   const [lockModalOpen, setLockModalOpen] = useState(false); // e-signature modal
   const [lockPassword, setLockPassword] = useState("");
   const [lookupField, setLookupField] = useState<FormFieldRow | null>(null); // VeDDRA lookup panel target
@@ -292,24 +296,18 @@ export function SubjectRecord({ studyId, subjectId, initialFormId }: Props) {
     fvId ? dataset.sdvRecords.find((r) => r.field_value_id === fvId && r.status === "verified") : undefined;
   const sdvVerified = (fvId: string | undefined) => !!sdvRecordFor(fvId);
 
-  // Δ change-reason state. Baseline lives in the store (persists across navigation);
-  // the value is "settled" except while the field is actively focused.
-  // A submitted reason keeps the Δ visible (blue=responded → green=approved); it
-  // only disappears if the value matches baseline with no reason on record.
-  // null (no change) | pending | responded | approved.
+  // Δ change-reason state, derived entirely from the per-transition delta records.
+  // Every value change of an already-saved field pushes one PENDING record; providing
+  // its reason moves it to RESPONDED; a DM sign-off moves it to APPROVED.
+  //   • any record still pending  → "pending"  (dashed red — a reason is owed)
+  //   • every record approved     → "approved" (green)
+  //   • otherwise                 → "responded"(solid blue — awaiting DM)
+  //   • no records                → null       (original entry, nothing to explain)
   function deltaStateFor(fieldId: string, fvId: string | undefined): "pending" | "responded" | "approved" | null {
-    if (editingFieldId === fieldId) return null; // actively typing → not settled
-    const cur = fvFor(fieldId)?.value ?? "";
-    const oldVal = fvId ? dataset.fieldBaselines[fvId] : undefined;
-    if (oldVal === undefined) return null; // never touched
-    // Changed from the last SUBMITTED value → always pending (dashed red), even when
-    // reverting to a previously-used value (A→B→A each needs its own reason).
-    if (cur !== oldVal) return "pending";
-    // At the baseline, with change history. The marker is GREEN only when EVERY delta
-    // record for this field has been DM-approved; if any record is still awaiting
-    // approval it stays solid blue (responded). No records → original entry (no Δ).
+    if (editingFieldId === fieldId) return null; // actively typing → settle on blur
     const recs = fvId ? dataset.deltaRecords.filter((r) => r.field_value_id === fvId) : [];
     if (recs.length === 0) return null;
+    if (recs.some((r) => r.status === "pending")) return "pending";
     return recs.every((r) => r.status === "approved") ? "approved" : "responded";
   }
 
@@ -372,15 +370,34 @@ export function SubjectRecord({ studyId, subjectId, initialFormId }: Props) {
   function toggleMulti(field: FormFieldRow, opt: string, value: string) {
     const cur = parseMulti(value);
     const next = cur.includes(opt) ? cur.filter((x) => x !== opt) : [...cur, opt];
-    setFieldValue(field, JSON.stringify(next), true); // discrete commit → capture baseline
+    setFieldValue(field, JSON.stringify(next), true); // discrete commit → record transition
+  }
+
+  // Push one PENDING delta record for a value change. Skips first entries (prev === "")
+  // and no-op changes (prev === next), so the very first value never raises a Δ and a
+  // same-value "change" is never recorded. Each call captures its own old→new pair, so
+  // A→B→C without reasons yields two records (A→B, B→C) — multi-transition tracking.
+  function recordTransition(d: Dataset, fvId: string, prev: string, next: string) {
+    if (prev === "" || prev === next) return;
+    d.deltaRecords.push({
+      id: newId(),
+      field_value_id: fvId,
+      old_value: prev,
+      new_value: next,
+      reason: "",
+      author_name: ndaName,
+      author_role: activeRole,
+      created_at: new Date().toISOString(),
+      status: "pending",
+    });
   }
 
   // ─── Write actions (all via update() — session only) ───────────────────────
-  // `captureBaseline` is set only by discrete controls (select / yes-no), whose every
-  // change is an atomic commit — so the pre-edit value `prev` IS the last saved value
-  // and becomes the Δ baseline. Text inputs never capture here (they would baseline a
-  // half-typed first entry); they capture on focus instead (captureBaselineOnFocus).
-  function setFieldValue(field: FormFieldRow, value: string, captureBaseline = false) {
+  // `recordChange` is set only by discrete controls (select / yes-no / multiselect /
+  // date / file), whose every change is an atomic commit → record the transition now.
+  // Text inputs pass false (they would record a half-typed entry) and instead record
+  // one transition per focus→blur edit via recordTextEdit().
+  function setFieldValue(field: FormFieldRow, value: string, recordChange = false) {
     if (locked) return; // locked forms are read-only
     update((d: Dataset) => {
       let inst = d.formInstances.find((i) => i.subject_id === subjectId && i.form_id === field.form_id);
@@ -398,12 +415,9 @@ export function SubjectRecord({ studyId, subjectId, initialFormId }: Props) {
       } else {
         fv.value = value;
       }
-      // Δ baseline (discrete controls only): the pre-edit value of an already-saved
-      // field becomes the baseline, so this change is justified. A first selection
-      // into an empty field (prev === "") sets nothing → no Δ on first entry.
-      if (captureBaseline && prev !== "" && prev !== value && !(fv.id in d.fieldBaselines)) {
-        d.fieldBaselines[fv.id] = prev;
-      }
+      // Δ (discrete controls only): every change of an already-saved field records its
+      // own pending transition (prev → value). First entry / no-op changes are skipped.
+      if (recordChange) recordTransition(d, fv.id, prev, value);
 
       // Live EDIT CHECK (not a query): out of range → raise/keep an open edit check;
       // back in range → resolve it. (Converting to a query is a separate user action.)
@@ -433,46 +447,45 @@ export function SubjectRecord({ studyId, subjectId, initialFormId }: Props) {
     });
   }
 
-  // Text inputs capture their Δ baseline when the field is FOCUSED, from the value
-  // already saved (a real, previously-committed entry). A first entry is empty at
-  // focus → no baseline, so no Δ ever appears for the very first value (item 1). On
-  // re-focus the now-saved value becomes the baseline, so a later edit raises Δ.
-  function captureBaselineOnFocus(field: FormFieldRow) {
+  // Text fields: snapshot the saved value when focused (the start of an edit); on blur,
+  // record the focus→blur transition as one pending delta. Typing the first value into
+  // an empty field starts from "" → recordTransition skips it (no Δ on first entry).
+  function snapshotTextFocus(field: FormFieldRow) {
+    editStartRef.current = { fieldId: field.id, value: fvFor(field.id)?.value ?? "" };
+  }
+  function recordTextEdit(field: FormFieldRow) {
+    const snap = editStartRef.current;
+    editStartRef.current = null;
+    if (!snap || snap.fieldId !== field.id) return;
     const fv = fvFor(field.id);
-    const saved = fv?.value ?? "";
-    if (!fv || saved === "" || fv.id in dataset.fieldBaselines) return; // nothing to capture
+    if (!fv) return;
+    const cur = fv.value ?? "";
+    if (cur === snap.value) return; // no net change this edit
     update((d: Dataset) => {
       const f = d.fieldValues.find((v) => v.id === fv.id);
-      if (f && !(f.id in d.fieldBaselines)) d.fieldBaselines[f.id] = saved;
+      if (f) recordTransition(d, f.id, snap.value, cur);
     });
   }
 
   // ─── Change reason (Δ) ──────────────────────────────────────────────────────
-  function submitDeltaReason() {
-    if (!deltaField || !deltaReason.trim()) return;
-    const fv = fvFor(deltaField.id);
-    if (!fv) return;
-    const newVal = fv.value ?? "";
-    const oldVal = dataset.fieldBaselines[fv.id] ?? "";
-    if (newVal === oldVal) return; // never record a same-value change (item 4)
+  // Provide the reason for ONE pending transition: pending → responded.
+  function submitReasonForRecord(recordId: string) {
+    const text = (recordReasons[recordId] ?? "").trim();
+    if (!text) return;
     update((d: Dataset) => {
-      d.deltaRecords.push({
-        id: newId(),
-        field_value_id: fv.id,
-        old_value: d.fieldBaselines[fv.id] ?? "",
-        new_value: newVal,
-        reason: deltaReason.trim(),
-        author_name: ndaName,
-        author_role: activeRole,
-        created_at: new Date().toISOString(),
-        status: "responded",
-      });
-      // The new value becomes the saved baseline — a later change needs a new reason
-      // (Yes → No → Yes each requires justification).
-      d.fieldBaselines[fv.id] = newVal;
+      const r = d.deltaRecords.find((x) => x.id === recordId);
+      if (r && r.status === "pending") {
+        r.reason = text;
+        r.author_name = ndaName;
+        r.author_role = activeRole;
+        r.status = "responded";
+      }
     });
-    setDeltaReason("");
-    setDeltaField(null);
+    setRecordReasons((prev) => {
+      const next = { ...prev };
+      delete next[recordId];
+      return next;
+    });
   }
   function approveDelta(recordId: string) {
     if (activeRole !== "DM") return;
@@ -689,29 +702,26 @@ export function SubjectRecord({ studyId, subjectId, initialFormId }: Props) {
   const submitBlocked = hasOpenEditCheck || hasPendingDelta || hasEmptyRequired;
   const submitBlockReason = hasEmptyRequired ? "Complete all required fields first" : hasOpenEditCheck ? "Resolve all edit checks first" : hasPendingDelta ? "Provide all change reasons first" : undefined;
 
-  // Δ change-reason panel
+  // Δ change-reason panel — all records for the field, chronological. Each pending
+  // record is reasoned on its own; the top context shows the most recent transition.
   const deltaFv = deltaField ? fvFor(deltaField.id) : undefined;
-  const deltaBaseline = deltaFv ? (dataset.fieldBaselines[deltaFv.id] ?? "") : "";
-  const deltaValue = deltaFv?.value ?? "";
   const deltaHistory = deltaFv
     ? dataset.deltaRecords.filter((r) => r.field_value_id === deltaFv.id).slice().sort((a, b) => (a.created_at < b.created_at ? -1 : 1))
     : [];
   const deltaLatest = deltaHistory[deltaHistory.length - 1];
-  // Top context shows the MOST RECENT change: the in-progress edit when one is pending
-  // (baseline ≠ current), else the latest recorded transition. Never X → X (item 4).
-  const deltaPending = deltaValue !== deltaBaseline;
-  const deltaOld = deltaPending ? deltaBaseline : (deltaLatest?.old_value ?? deltaBaseline);
-  const deltaNew = deltaPending ? deltaValue : (deltaLatest?.new_value ?? deltaValue);
+  const deltaOld = deltaLatest?.old_value ?? "";
+  const deltaNew = deltaLatest?.new_value ?? (deltaFv?.value ?? "");
+  const deltaPendingCount = deltaHistory.filter((r) => r.status === "pending").length;
   const deltaCurState = deltaField ? deltaStateFor(deltaField.id, deltaFv?.id) : null;
 
   function renderControl(field: FormFieldRow, value: string, queried: boolean) {
-    // Discrete controls write directly and settle on change → capture the baseline
-    // atomically (pre-edit value). Text inputs write on change but suppress Δ until
-    // blur via editingFieldId; they capture the baseline on focus, never mid-typing.
+    // Discrete controls write directly and settle on change → record the transition
+    // atomically (pre-edit → new). Text inputs write per keystroke but record one
+    // transition per focus→blur edit (snapshot on focus, record on blur).
     const commit = (v: string) => setFieldValue(field, v, true);
     const typeChange = (v: string) => setFieldValue(field, v);
-    const onFocus = () => { setEditingFieldId(field.id); captureBaselineOnFocus(field); };
-    const onBlur = () => setEditingFieldId(null);
+    const onFocus = () => { setEditingFieldId(field.id); snapshotTextFocus(field); };
+    const onBlur = () => { setEditingFieldId(null); recordTextEdit(field); };
     const ro = locked;
     const type = field.field_type;
     const isCoded = !!field.validation?.coded;
@@ -1271,20 +1281,24 @@ export function SubjectRecord({ studyId, subjectId, initialFormId }: Props) {
         </div>
       </div>
 
-      {/* Change-reason (Δ) panel — structure from file 30 */}
-      <div className={`panel-overlay${deltaField ? " open" : ""}`} onClick={() => { setDeltaField(null); setDeltaReason(""); }}></div>
+      {/* Change-reason (Δ) panel — one card per transition, each reasoned on its own */}
+      <div className={`panel-overlay${deltaField ? " open" : ""}`} onClick={() => setDeltaField(null)}></div>
       <div className={`delta-panel${deltaField ? " open" : ""}`}>
         <div className="delta-panel-header">
           <span className="delta-panel-name">Change reason</span>
           <span className="delta-id">Δ-{(deltaField?.code ?? "").toUpperCase()}</span>
-          <button className="panel-close-btn" onClick={() => { setDeltaField(null); setDeltaReason(""); }} type="button"><i className="ti ti-x"></i></button>
+          <button className="panel-close-btn" onClick={() => setDeltaField(null)} type="button"><i className="ti ti-x"></i></button>
         </div>
         <div className="delta-status-bar">
           <span className={`delta-status-badge ${deltaCurState === "approved" ? "ds-approved" : deltaCurState === "responded" ? "ds-answered" : "ds-change-required"}`}>
             {deltaCurState === "approved" ? "Approved" : deltaCurState === "responded" ? "Answered" : "Change reason"}
           </span>
           <span className="delta-status-desc">
-            {deltaCurState === "approved" ? "Approved by the data manager" : deltaCurState === "responded" ? "Awaiting DM review" : `${activeRole} must provide a reason for this change`}
+            {deltaCurState === "approved"
+              ? "All changes approved by the data manager"
+              : deltaPendingCount > 0
+                ? `${deltaPendingCount} change${deltaPendingCount > 1 ? "s" : ""} need${deltaPendingCount > 1 ? "" : "s"} a reason from ${activeRole}`
+                : "Awaiting DM review"}
           </span>
         </div>
         <div className="delta-context">
@@ -1302,41 +1316,49 @@ export function SubjectRecord({ studyId, subjectId, initialFormId }: Props) {
         <div className="delta-thread">
           {deltaHistory.length > 0 ? (
             deltaHistory.map((r) => (
-              <div className="delta-entry" key={r.id}>
-                {/* The specific data change this reason was written for (item 2) */}
+              <div className={`delta-entry${r.status === "pending" ? " pending" : ""}`} key={r.id}>
+                {/* The specific transition this card is for (item 2) */}
                 <div className="delta-entry-change">
                   <span className="delta-entry-old">{r.old_value || "—"}</span>
                   <span className="delta-entry-arrow">→</span>
                   <span className="delta-entry-new">{r.new_value || "—"}</span>
                 </div>
-                <div className="delta-entry-reason">{r.reason}</div>
-                <div className="delta-entry-meta">
-                  <span>{r.author_name} · {r.author_role}</span>
-                  <span className="delta-entry-ts">{r.created_at.slice(0, 16).replace("T", " ")}</span>
-                </div>
-                <div className="delta-entry-foot">
-                  <span className={`delta-status-badge ${r.status === "approved" ? "ds-approved" : "ds-answered"}`}>
-                    {r.status === "approved" ? "DM approved" : "Awaiting DM review"}
-                  </span>
-                  {activeRole === "DM" && r.status !== "approved" && (
-                    <button className="delta-approve" type="button" onClick={() => approveDelta(r.id)}>Approve</button>
-                  )}
-                </div>
+                {r.status === "pending" ? (
+                  <>
+                    <div className="delta-compose-hint">Reason for this change — {activeRole} · {ndaName}</div>
+                    <textarea
+                      className="delta-textarea"
+                      placeholder="Enter reason for this change…"
+                      value={recordReasons[r.id] ?? ""}
+                      onChange={(e) => setRecordReasons((prev) => ({ ...prev, [r.id]: e.target.value }))}
+                    ></textarea>
+                    <div className="delta-compose-actions">
+                      <span className="delta-status-badge ds-change-required">Reason required</span>
+                      <button className="delta-btn-submit" type="button" disabled={!(recordReasons[r.id] ?? "").trim()} onClick={() => submitReasonForRecord(r.id)}>Submit reason</button>
+                    </div>
+                  </>
+                ) : (
+                  <>
+                    <div className="delta-entry-reason">{r.reason}</div>
+                    <div className="delta-entry-meta">
+                      <span>{r.author_name} · {r.author_role}</span>
+                      <span className="delta-entry-ts">{r.created_at.slice(0, 16).replace("T", " ")}</span>
+                    </div>
+                    <div className="delta-entry-foot">
+                      <span className={`delta-status-badge ${r.status === "approved" ? "ds-approved" : "ds-answered"}`}>
+                        {r.status === "approved" ? "DM approved" : "Awaiting DM review"}
+                      </span>
+                      {activeRole === "DM" && r.status !== "approved" && (
+                        <button className="delta-approve" type="button" onClick={() => approveDelta(r.id)}>Approve</button>
+                      )}
+                    </div>
+                  </>
+                )}
               </div>
             ))
           ) : (
-            <p style={{ fontSize: "var(--text-sm)", color: "var(--color-text-tertiary)" }}>No prior change reason for this field.</p>
+            <p style={{ fontSize: "var(--text-sm)", color: "var(--color-text-tertiary)" }}>No change reason for this field.</p>
           )}
-        </div>
-        <div className="delta-compose">
-          <div className="delta-compose-hint">
-            {deltaPending ? `Responding as ${activeRole} · ${ndaName} — explain the reason for this change` : "No pending change to explain — the current value matches the last saved value."}
-          </div>
-          <textarea className="delta-textarea" placeholder="Enter reason for change…" value={deltaReason} disabled={!deltaPending} onChange={(e) => setDeltaReason(e.target.value)}></textarea>
-          <div className="delta-compose-actions">
-            <span className="delta-compose-sub">Shift+Enter for new line</span>
-            <button className="delta-btn-submit" type="button" disabled={!deltaPending || !deltaReason.trim()} onClick={submitDeltaReason}>Submit reason</button>
-          </div>
         </div>
       </div>
 
