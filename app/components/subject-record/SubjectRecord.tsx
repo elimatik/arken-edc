@@ -34,6 +34,15 @@ const STATUS_MAP: Record<string, { cls: string; label: string }> = {
   withdrawn: { cls: "status-screened", label: "Withdrawn" },
 };
 
+// Repeating (log) forms — rendered as a table of entries (one form instance each)
+// with Add / Edit / Delete, instead of a single field grid. Summary columns per form.
+const REPEATING_FORMS = ["ConMed", "Adverse Event", "Protocol Deviation"];
+const REPEATING_COLUMNS: Record<string, [string, string][]> = {
+  ConMed: [["medication_name", "Drug name"], ["dose", "Dose"], ["route", "Route"], ["start_date", "Start date"], ["ongoing", "Ongoing"]],
+  "Adverse Event": [["event_term", "Event term"], ["severity", "Severity"], ["relatedness", "Relatedness"], ["outcome", "Outcome"], ["sae_flag", "SAE"]],
+  "Protocol Deviation": [["deviation_type", "Type"], ["deviation_date", "Date"], ["major_minor", "Major / Minor"], ["description", "Description"]],
+};
+
 type SidebarIcon = "final" | "reviewed" | "inreview" | "inwork" | "empty" | "queried";
 function iconForInstance(s: string | undefined): SidebarIcon {
   if (s === "finalized" || s === "locked") return "final";
@@ -137,6 +146,8 @@ export function SubjectRecord({ studyId, subjectId, initialFormId }: Props) {
   const [manageOpen, setManageOpen] = useState(false); // Manage dropdown
   const [switcherOpen, setSwitcherOpen] = useState(false); // subject switcher popover
   const [switcherSearch, setSwitcherSearch] = useState("");
+  const [entryInstanceId, setEntryInstanceId] = useState<string | null>(null); // repeating-form entry being edited
+  const [deleteEntryId, setDeleteEntryId] = useState<string | null>(null); // repeating-form entry pending delete
   const [overrideOpen, setOverrideOpen] = useState(false); // PI override modal
   const [overrideReason, setOverrideReason] = useState("");
   const [manageOpenQuery, setManageOpenQuery] = useState(false); // DM query Manage dropdown
@@ -183,7 +194,14 @@ export function SubjectRecord({ studyId, subjectId, initialFormId }: Props) {
   const bcSite = subject.site_id ? dataset.sites.find((s) => s.id === subject.site_id) : undefined;
   const bcBarn = subject.barn_id ? dataset.barns.find((b) => b.id === subject.barn_id) : undefined;
   const bcPen = subject.pen_id ? dataset.pens.find((p) => p.id === subject.pen_id) : undefined;
-  const bcSegments = [bcSite?.name, bcBarn?.name, bcPen?.name].filter(Boolean) as string[];
+  // Clickable breadcrumb segments. The site (and any barn/pen) link back to the
+  // Data Entry drill-down with that site pre-filtered (?site=<id>).
+  const bcEntry = `/study/${studyId}/data-entry`;
+  const bcSegments: { label: string; href: string }[] = [
+    bcSite && { label: bcSite.name, href: `${bcEntry}?site=${bcSite.id}` },
+    bcBarn && bcSite && { label: bcBarn.name, href: `${bcEntry}?site=${bcSite.id}` },
+    bcPen && bcSite && { label: bcPen.name, href: `${bcEntry}?site=${bcSite.id}` },
+  ].filter(Boolean) as { label: string; href: string }[];
 
   // Pen / Lot options for livestock_group studies (the field is a select sourced
   // from the study's seeded pens; other study types keep it as plain text).
@@ -370,6 +388,63 @@ export function SubjectRecord({ studyId, subjectId, initialFormId }: Props) {
 
   // ─── Inclusion / Exclusion — a criterion answered "No" fails ────────────────
   const isIEForm = fields.some((f) => f.validation?.exclusion_criterion);
+
+  // ─── Repeating (log) forms — ConMed / Adverse Event / Protocol Deviation ────
+  const isRepeatingForm = REPEATING_FORMS.includes(selectedForm?.name ?? "");
+  const repeatingEntries = isRepeatingForm
+    ? dataset.formInstances.filter((i) => i.subject_id === subjectId && i.form_id === activeFormId)
+    : [];
+  const repeatingCols = REPEATING_COLUMNS[selectedForm?.name ?? ""] ?? [];
+  const fieldByCode = (code: string) => fields.find((f) => f.code === code);
+  function entryVal(instId: string, fieldId: string): string {
+    return dataset.fieldValues.find((v) => v.form_instance_id === instId && v.form_field_id === fieldId)?.value ?? "";
+  }
+  function setEntryVal(instId: string, field: FormFieldRow, value: string) {
+    if (readOnly) return;
+    update((d) => {
+      const fv = d.fieldValues.find((v) => v.form_instance_id === instId && v.form_field_id === field.id);
+      if (fv) fv.value = value;
+      else d.fieldValues.push({ id: newId(), form_instance_id: instId, form_field_id: field.id, value });
+      const inst = d.formInstances.find((i) => i.id === instId);
+      if (inst && inst.status === "empty") inst.status = "in_work";
+    });
+  }
+  function addEntry() {
+    if (readOnly || !activeFormId) return;
+    const id = newId();
+    update((d) => { d.formInstances.push({ id, form_id: activeFormId, subject_id: subjectId, status: "in_work" }); });
+    setEntryInstanceId(id);
+  }
+  function confirmDeleteEntry() {
+    const instId = deleteEntryId;
+    if (!instId) return;
+    update((d) => {
+      d.formInstances = d.formInstances.filter((i) => i.id !== instId);
+      d.fieldValues = d.fieldValues.filter((v) => v.form_instance_id !== instId);
+      d.queries = d.queries.filter((q) => q.form_instance_id !== instId);
+      d.editChecks = d.editChecks.filter((e) => e.form_instance_id !== instId);
+      d.sdvRecords = d.sdvRecords.filter((r) => r.form_instance_id !== instId);
+    });
+    if (entryInstanceId === instId) setEntryInstanceId(null);
+    setDeleteEntryId(null);
+  }
+  function renderEntryControl(field: FormFieldRow, instId: string) {
+    const v = entryVal(instId, field.id);
+    const t = field.field_type;
+    if (t === "textarea") return <textarea className="field-input" style={{ height: 60, fontFamily: "var(--font-sans)" }} value={v} disabled={readOnly} onChange={(e) => setEntryVal(instId, field, e.target.value)} />;
+    if (t === "date" || t === "datetime") return <input className="field-input field-date" type="date" value={v} disabled={readOnly} onChange={(e) => setEntryVal(instId, field, e.target.value)} />;
+    if (t === "select" || t === "radio") {
+      const opts = field.options ?? (t === "radio" ? ["Yes", "No"] : []);
+      return (
+        <select className="field-select" value={v} disabled={readOnly} onChange={(e) => setEntryVal(instId, field, e.target.value)}>
+          <option value="">—</option>
+          {opts.map((o) => <option key={o} value={o}>{o}</option>)}
+        </select>
+      );
+    }
+    if (t === "number" || t === "integer") return <input className="field-input" type="number" value={v} disabled={readOnly} onChange={(e) => setEntryVal(instId, field, e.target.value)} />;
+    return <input className="field-input" type="text" value={v} disabled={readOnly} onChange={(e) => setEntryVal(instId, field, e.target.value)} />;
+  }
 
   // Visual section dividers (item 10) — forms with vital fields get logical
   // clusters: fields before the vitals (Examination), the vitals (Vital Signs),
@@ -944,15 +1019,15 @@ export function SubjectRecord({ studyId, subjectId, initialFormId }: Props) {
       <div className="form-content">
         <div className="form-sticky-header">
           <nav className="sr-bc" aria-label="Breadcrumb">
-            <button className="bc-btn" onClick={() => router.push(`/study/${studyId}/data-entry`)} type="button"><span>Data Entry</span></button>
+            <button className="bc-btn" onClick={() => router.push(bcEntry)} type="button"><span>Data Entry</span></button>
             {bcSegments.map((seg) => (
-              <Fragment key={seg}>
+              <Fragment key={seg.label}>
                 <span className="bc-sep"><i className="ti ti-chevron-right" style={{ fontSize: "11px" }}></i></span>
-                <span className="bc-btn"><span>{seg}</span></span>
+                <button className="bc-btn" onClick={() => router.push(seg.href)} type="button"><span>{seg.label}</span></button>
               </Fragment>
             ))}
             <span className="bc-sep"><i className="ti ti-chevron-right" style={{ fontSize: "11px" }}></i></span>
-            <span>{subject.subject_code}</span>
+            <span className="bc-cur">{subject.subject_code}</span>
           </nav>
 
           <div className="subject-header">
@@ -1051,7 +1126,9 @@ export function SubjectRecord({ studyId, subjectId, initialFormId }: Props) {
 
           <div className="form-header">
             <h1 className="form-title">{selectedForm?.name || "Form"}</h1>
-            <div className="form-actions">
+            {/* Repeating (log) forms manage entries via the table's own Add button —
+                the per-form Remarks / SDV / advance toolbar doesn't apply. */}
+            <div className="form-actions" style={isRepeatingForm ? { display: "none" } : undefined}>
               <div className="remarks-wrap">
                 <button className="btn-secondary" onClick={() => setRemarksOpen((o) => !o)} type="button">
                   Remarks: {[modeQueries && "Queries", modeSdv && "SDV mode"].filter(Boolean).join(", ") || "Off"}
@@ -1152,6 +1229,56 @@ export function SubjectRecord({ studyId, subjectId, initialFormId }: Props) {
               Eligibility override — PI {subject.override_by ?? "—"} documented a reason for override on {subject.override_at ?? "—"}. This subject was initially flagged as ineligible.
             </div>
           )}
+          {isRepeatingForm ? (
+            <div className="repeat-form">
+              <div className="repeat-toolbar">
+                <span className="repeat-count">
+                  {repeatingEntries.length} {selectedForm?.name} {repeatingEntries.length === 1 ? "entry" : "entries"}
+                </span>
+                {!readOnly && (
+                  <button className="btn-primary" type="button" onClick={addEntry}>
+                    <i className="ti ti-plus"></i> Add {selectedForm?.name}
+                  </button>
+                )}
+              </div>
+              {repeatingEntries.length === 0 ? (
+                <div className="repeat-empty">
+                  <i className="ti ti-table"></i>
+                  No {selectedForm?.name} entries yet.{!readOnly && " Use “Add” to create one."}
+                </div>
+              ) : (
+                <table className="repeat-table">
+                  <thead>
+                    <tr>
+                      {repeatingCols.map(([code, label]) => <th key={code}>{label}</th>)}
+                      <th aria-label="Actions"></th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {repeatingEntries.map((inst) => (
+                      <tr key={inst.id} onClick={() => setEntryInstanceId(inst.id)}>
+                        {repeatingCols.map(([code]) => {
+                          const f = fieldByCode(code);
+                          const val = f ? entryVal(inst.id, f.id) : "";
+                          return <td key={code}>{val ? <span className="repeat-val">{val}</span> : <span className="muted">—</span>}</td>;
+                        })}
+                        <td className="repeat-actions" onClick={(e) => e.stopPropagation()}>
+                          <button className="repeat-btn" title="Edit entry" type="button" onClick={() => setEntryInstanceId(inst.id)}>
+                            <i className="ti ti-pencil"></i>
+                          </button>
+                          {!readOnly && (
+                            <button className="repeat-btn" title="Delete entry" type="button" onClick={() => setDeleteEntryId(inst.id)}>
+                              <i className="ti ti-trash"></i>
+                            </button>
+                          )}
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              )}
+            </div>
+          ) : (
           <div className="field-grid-2">
             {fields.map((field, fIdx) => {
               const section = sectionForIdx(fIdx);
@@ -1251,8 +1378,54 @@ export function SubjectRecord({ studyId, subjectId, initialFormId }: Props) {
               );
             })}
           </div>
+          )}
         </div>
       </div>
+
+      {/* Repeating-form entry panel (420px slide-in — full field set for one entry) */}
+      <div className={`panel-overlay${entryInstanceId ? " open" : ""}`} onClick={() => setEntryInstanceId(null)}></div>
+      <div className={`slide-panel entry-panel${entryInstanceId ? " open" : ""}`}>
+        {entryInstanceId && (
+          <>
+            <div className="panel-header">
+              <div className="panel-header-left">
+                <div className="panel-title">{selectedForm?.name} entry</div>
+              </div>
+              <button className="panel-close" onClick={() => setEntryInstanceId(null)} type="button"><i className="ti ti-x"></i></button>
+            </div>
+            <div className="entry-panel-body">
+              {fields.map((field) => (
+                <div className="entry-field" key={field.id}>
+                  <label className="field-label">
+                    {field.label}
+                    {field.is_required && <span className="field-req"> *</span>}
+                  </label>
+                  {renderEntryControl(field, entryInstanceId)}
+                </div>
+              ))}
+            </div>
+            <div className="entry-panel-footer">
+              <button className="btn-primary" type="button" onClick={() => setEntryInstanceId(null)}>Done</button>
+            </div>
+          </>
+        )}
+      </div>
+
+      {/* Delete-entry confirmation */}
+      {deleteEntryId && (
+        <div className="sr-modal-overlay" onClick={() => setDeleteEntryId(null)}>
+          <div className="sr-modal" onClick={(e) => e.stopPropagation()} role="dialog" aria-modal="true" aria-label="Delete entry">
+            <div className="sr-modal-title"><i className="ti ti-trash"></i> Delete {selectedForm?.name} entry?</div>
+            <div className="sr-modal-body">
+              This removes the entry and its data from the session. This can’t be undone.
+            </div>
+            <div className="sr-modal-actions">
+              <button className="btn-secondary" type="button" onClick={() => setDeleteEntryId(null)}>Cancel</button>
+              <button className="btn-primary danger" type="button" onClick={confirmDeleteEntry}><i className="ti ti-trash"></i> Delete</button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Edit-check / query / raise panel (Component 13, file 30) */}
       <div className={`panel-overlay${panelField ? " open" : ""}`} onClick={() => { setPanelField(null); setReply(""); }}></div>

@@ -1,7 +1,7 @@
 "use client";
 
 import { Fragment, useEffect, useMemo, useState } from "react";
-import { useRouter, useParams } from "next/navigation";
+import { useRouter, useParams, useSearchParams } from "next/navigation";
 import { useShell } from "@/components/shell/ShellContext";
 import { useStudySession } from "@/lib/session-store/SessionStore";
 import { hierarchyLevels } from "@/lib/terminology";
@@ -54,6 +54,7 @@ export default function DataEntryPage() {
   const studyId = String(params.studyId);
   const { study, selectedSiteId } = useShell();
   const { dataset, ready } = useStudySession();
+  const siteParam = useSearchParams().get("site"); // ?site=<id> pre-filters a site (e.g. from the Subject Record breadcrumb)
 
   const [nav, setNav] = useState<{ key: string; label: string }[]>([]);
   const [search, setSearch] = useState("");
@@ -61,20 +62,21 @@ export default function DataEntryPage() {
 
   const loading = !ready;
 
-  // If a specific site is pinned in the topbar, skip the site-level table and drill
-  // straight into that site (barn/pen level for livestock; subjects for companion).
-  // Selecting "All Sites" returns to the site-level root.
+  // Drill straight into a site when one is pre-selected — either pinned in the
+  // topbar or passed via ?site=<id> (the breadcrumb link). Otherwise start at the
+  // site-level root.
   useEffect(() => {
     if (!ready) return;
-    if (selectedSiteId) {
-      const site = dataset.sites.find((s) => s.id === selectedSiteId && s.study_id === studyId);
+    const targetSiteId = siteParam || selectedSiteId;
+    if (targetSiteId) {
+      const site = dataset.sites.find((s) => s.id === targetSiteId && s.study_id === studyId);
       setNav(site ? [{ key: site.id, label: site.name }] : []);
     } else {
       setNav([]);
     }
     setSearch("");
     setStatusFilter("");
-  }, [selectedSiteId, ready, studyId, dataset.sites]);
+  }, [siteParam, selectedSiteId, ready, studyId, dataset.sites]);
 
   // ─── Build the hierarchy for this study from the session store ──────────────
   const { type, nodesByParent } = useMemo((): {

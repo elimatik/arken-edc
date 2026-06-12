@@ -189,10 +189,10 @@ const CA_RENDERERS: Partial<Record<Role, (agg: StudyAggregates) => JSX.Element>>
 };
 
 const ENROLL_COLORS = {
-  active: "var(--blue-600)",
-  completed: "var(--green-600)",
-  withdrawn: "var(--amber-600)",
-  screenFail: "var(--color-text-tertiary)",
+  active: "var(--blue-400)",
+  completed: "var(--green-200)",
+  withdrawn: "var(--red-200)",
+  screenFail: "var(--color-border)",
 };
 
 // The four aggregate groups shared across the CA-0801 CRC/PI/DM dashboards:
@@ -224,7 +224,7 @@ function CaAggregates({ agg }: { agg: StudyAggregates }) {
       <Card title="Compliance" icon="ti-checklist">
         <SdvRow name="Form completeness" pct={formCompletePct} />
         <SdvRow name="Forms reviewed" pct={startedForms > 0 ? Math.round((agg.reviewedForms / Math.max(1, startedForms)) * 100) : 0} />
-        <div style={{ fontSize: "var(--text-xs)", color: "var(--color-text-tertiary)", marginTop: "var(--space-2)" }}>
+        <div className="card-note">
           Derived from {agg.reviewedForms} reviewed of {startedForms} started forms.
         </div>
       </Card>
@@ -281,7 +281,7 @@ function renderCaCRC(agg: StudyAggregates) {
         <Chip val={String(agg.target)} label="Enrollment target" />
       </div>
       <CaAggregates agg={agg} />
-      <div className="dash-grid dash-2col" style={{ marginTop: "var(--space-4)" }}>
+      <div style={{ display: "grid", gridTemplateColumns: "repeat(2, 1fr)", gap: "var(--space-4)", marginTop: "var(--space-4)" }}>
         <div className="dash-col">
           <CaQueryCard agg={agg} />
         </div>
@@ -315,7 +315,7 @@ function renderCaPI(agg: StudyAggregates) {
         <Chip val={String(agg.openQueries)} label="Open queries" accent={agg.openQueries ? "warn" : ""} />
       </div>
       <CaAggregates agg={agg} />
-      <div className="dash-grid dash-2col" style={{ marginTop: "var(--space-4)" }}>
+      <div style={{ display: "grid", gridTemplateColumns: "repeat(2, 1fr)", gap: "var(--space-4)", marginTop: "var(--space-4)" }}>
         <div className="dash-col">
           <Card title="Site enrollment" icon="ti-building-hospital">
             <table className="dash-table">
@@ -361,7 +361,7 @@ function renderCaDM(agg: StudyAggregates) {
         <Chip val={String(agg.readyToLock)} label="Ready to lock" accent="blue" />
       </div>
       <CaAggregates agg={agg} />
-      <div className="dash-grid dash-2col" style={{ marginTop: "var(--space-4)" }}>
+      <div style={{ display: "grid", gridTemplateColumns: "repeat(2, 1fr)", gap: "var(--space-4)", marginTop: "var(--space-4)" }}>
         <div className="dash-col">
           <CaQueryCard agg={agg} />
         </div>

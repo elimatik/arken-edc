@@ -59,16 +59,16 @@
 .enroll-legend { display: flex; gap: var(--space-4); flex-wrap: wrap; }
 .enroll-leg { display: flex; align-items: center; gap: var(--space-1); font-size: var(--text-xs); color: var(--color-text-secondary); }
 .enroll-leg-dot { width: 8px; height: 8px; border-radius: 50%; flex-shrink: 0; }
-.enroll-leg-dot.dashed { border-radius: 0; width: 0; height: 10px; background: none; border-left: 2px dashed var(--color-text-tertiary); }
-/* Stacked enrollment bar + dashed target marker */
-.enroll-track.stacked { display: flex; position: relative; overflow: visible; height: 8px; }
+/* Stacked enrollment bar (no legend / target line) */
+.enroll-track.stacked { display: flex; overflow: hidden; height: 8px; border-radius: var(--radius-full); }
 .enroll-track.stacked .enroll-seg { height: 100%; transition: width 0.4s; }
-.enroll-track.stacked .enroll-seg:first-child { border-top-left-radius: var(--radius-full); border-bottom-left-radius: var(--radius-full); }
-.enroll-target-line { position: absolute; top: -3px; bottom: -3px; width: 0; border-left: 2px dashed var(--color-text-secondary); }
+
+/* Card content note — consistent 16px horizontal inset (item 2). */
+.card-note { padding: var(--space-2) var(--space-4); font-size: var(--text-xs); color: var(--color-text-tertiary); }
 
 /* Compact query list (tight one-row-per-query, matches card density) */
 .dq-list { display: flex; flex-direction: column; }
-.dq-row { display: flex; align-items: center; gap: var(--space-3); padding: var(--space-2) 0; border-bottom: 1px solid var(--color-border-subtle); font-size: var(--text-sm); }
+.dq-row { display: flex; align-items: center; gap: var(--space-3); padding: var(--space-2) var(--space-4); border-bottom: 1px solid var(--color-border-subtle); font-size: var(--text-sm); }
 .dq-row:last-child { border-bottom: none; }
 .dq-id { font-weight: var(--weight-medium); color: var(--color-text-primary); white-space: nowrap; }
 .dq-code { font-size: var(--text-xs); color: var(--color-text-tertiary); white-space: nowrap; }
@@ -77,7 +77,7 @@
 .dq-status.open { background: var(--amber-50); border-color: var(--amber-200); color: var(--amber-700); }
 .dq-status.responded { background: var(--blue-50); border-color: var(--blue-200); color: var(--blue-600); }
 .dq-age { font-size: var(--text-xs); color: var(--color-text-tertiary); white-space: nowrap; }
-.dq-empty { font-size: var(--text-sm); color: var(--color-text-tertiary); padding: var(--space-3) 0; }
+.dq-empty { font-size: var(--text-sm); color: var(--color-text-tertiary); padding: var(--space-3) var(--space-4); }
 
 /* ─── Mini bar ── */
 .mini-bar-wrap { display: flex; align-items: center; gap: var(--space-2); }

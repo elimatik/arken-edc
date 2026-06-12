@@ -1,6 +1,6 @@
 # Arken EDC — Session Handoff
 **Paste this entire file at the start of a new conversation.**
-Last updated: 2026-06-12 | Session 28 COMPLETE — 12 structural fixes (live dashboard data + stacked enrollment graph, subject switcher, Reviewed icon, completed/withdrawn read-only, form section headers, +6 queries). NEXT: deferred form polish (SDV panel, sidebar deep-link, query re-open, conditional demographics).
+Last updated: 2026-06-12 | Session 29 COMPLETE — structural fixes batch 2 (enrollment-graph restyle, card padding, clickable breadcrumbs, **repeating-table forms** for ConMed/AE/Protocol Deviation). NEXT: deferred form polish (SDV panel, sidebar deep-link, query re-open, conditional demographics).
 
 ---
 
@@ -274,6 +274,14 @@ The change-reason model moved from a single baseline-vs-current comparison to **
 11. **+6 queries** (2 per study, different subjects/fields, mix of raised + responded): PH (feed-additive-lot **open**, dead-bird-count **responded**), HF (injection-batch **open**, screening-weight **responded**), CA (Cooper PVAS **open**, Bella body-weight **responded**). Generator's `query` helper emits **open** when no `response` is given. **12 query rows** total in the seed.
 12. **Animals list** — Subject ID (`subject_code`, e.g. `CA-0801-101-01`) is already the clickable `cell-link` first column (no name column); confirmed.
 Session key → **v11**. Applied via `db reset`. Verified in-browser (Playwright): real enrollment graph + chips, compact query list, breadcrumb, switcher (13 items), Reviewed SVG, section headers, withdrawn banner + hidden Submit, select 14px. `tsc`, `next lint`, **`next build` all clean**.
+
+### Session 29 — COMPLETE ✅ (structural fixes batch 2)
+1. **Enrollment graph restyle** — `StackedEnrollBar` drops the legend + dashed target line; segment colours now **Active `--blue-400` (new token) / Completed `--green-200` / Withdrawn `--red-200` / Screen-failures `--color-border`**.
+2. **Card padding** — `.dq-row` / `.dq-empty` → 16px L/R; inline notes → `.card-note` (16px). Audited the other card widgets — already 16px (`enroll-wrap`, `agg-list`, `safety-list`, `sdv-row`, `dash-table` cells).
+3. **Equal-width dashboard cards** — the CA CRC/PI/DM bottom rows use `grid repeat(2,1fr)` (was `dash-2col` 2fr/1fr), so the **Open queries card matches the cards above** (all 575px).
+4. **Clickable breadcrumb segments** (Subject Record) — **Data Entry** → `/data-entry`; **Site** (and any barn/pen) → `/data-entry?site=<id>`; subject ID is the current page (`.bc-cur`, not a link). `data-entry/page.tsx` reads `?site=` (via `useSearchParams`) to pre-drill into that site.
+5. **Repeating-table forms** — **ConMed · Adverse Event · Protocol Deviation** now render as a **table of entries** (one form instance each) instead of a single field grid: summary columns (`REPEATING_COLUMNS`), an **"+ Add [form]"** button, **Edit** (pencil → 420px `slide-panel entry-panel` with the full field set) and **Delete** (trash → confirm modal) per row. Entries are real **session form instances** — `addEntry()` pushes a new instance, `setEntryVal()` writes per-instance values, `confirmDeleteEntry()` removes the instance + its values/queries/edit-checks/SDV. The per-form Remarks/SDV/advance toolbar is hidden for these forms. `REPEATING_FORMS` gates it by form name; closed (completed/withdrawn) subjects keep Add/Delete hidden (read-only).
+Verified in-browser (Playwright): enrollment colours + no legend/target line, dq 16px, all cards 575px, breadcrumb site link → `?site=`, ConMed add→row→panel(9 fields). `tsc`, `next lint`, **`next build` all clean**. No seed/session-key change.
 
 Deferred form polish (after Animals list):
 - **SDV panel** — a dedicated source-data-verification surface (not just the per-field shield): progress, per-field verify, bulk.
