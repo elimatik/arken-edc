@@ -539,12 +539,17 @@ const CA_EXTRA = {
     { key: "screen_eligibility", status: "reviewed", values: { age_1yr_plus: "Yes", cad_diagnosis: "Yes", chronic_itching_6mo: "Yes", pruritus_5plus: "Yes", owner_daily_assessments: "Yes", severe_systemic_illness: "No", recent_immunotherapy: "No", active_mange: "No", pregnant_breeding: "No", another_study_30d: "No", eligibility_status: "Eligible", investigator_approval: "Yes" } },
     { key: "screen_labs", status: "reviewed", values: { cbc: "Normal", chemistry_panel: "Normal", urinalysis: "Normal", investigator_review: "Yes" } },
     { key: "randomization", status: "reviewed", values: { randomization_number: "101-001", treatment_arm: "DermAlliv™ Active", randomization_date: "2026-03-09", drug_kit_assigned: "KIT-1042" } },
-    { key: "baseline_clinical", status: "in_work", values: { cadesi04_score: ["58", 58], pvas_score: ["7.2", 7.2], disease_severity: "Severe", iga: "4" } },
+    { key: "baseline_clinical", status: "in_work", values: { cadesi04_score: ["58", 58], pvas_score: ["7.2", 7.2], disease_severity: "Severe", iga: "4" },
+      query: { field: "pvas_score", title: "Baseline PVAS vs owner diary",
+        raise: "Baseline owner PVAS of 7.2 is higher than the average of the pre-baseline diary entries (≈5.8). Please confirm the score was transcribed from the correct diary week." } },
     { key: "drug_dispensation", status: "reviewed", values: { drug_kit_number: "KIT-1042", quantity_dispensed: ["84", 84], dispensation_date: "2026-03-09" } },
   ],
   // Bella — completed Screening + Randomization (#2) + End of Study = Completed
   "CA-0801-101-03": [
-    { key: "screen_pe", status: "reviewed", values: { visit_date: "2026-02-18", temperature: ["38.5", 38.5], heart_rate: ["88", 88], respiratory_rate: ["18", 18], body_weight: ["31.2", 31.2], body_condition_score: ["6", 6], general_health: "Normal", significant_findings: "Chronic otitis and pedal pruritus; otherwise unremarkable." } },
+    { key: "screen_pe", status: "reviewed", values: { visit_date: "2026-02-18", temperature: ["38.5", 38.5], heart_rate: ["88", 88], respiratory_rate: ["18", 18], body_weight: ["31.2", 31.2], body_condition_score: ["6", 6], general_health: "Normal", significant_findings: "Chronic otitis and pedal pruritus; otherwise unremarkable." },
+      query: { field: "body_weight", title: "Screening weight vs referral record",
+        raise: "Screening weight 31.2 kg differs from the referral record (29.4 kg). Confirm the scale reading and recent weight history.",
+        response: "Re-weighed on a calibrated scale at 31.2 kg; owner reports recent weight gain on the current diet. Value confirmed." } },
     { key: "screen_eligibility", status: "reviewed", values: { age_1yr_plus: "Yes", cad_diagnosis: "Yes", chronic_itching_6mo: "Yes", pruritus_5plus: "Yes", owner_daily_assessments: "Yes", severe_systemic_illness: "No", recent_immunotherapy: "No", active_mange: "No", pregnant_breeding: "No", another_study_30d: "No", eligibility_status: "Eligible", investigator_approval: "Yes" } },
     { key: "randomization", status: "reviewed", values: { randomization_number: "101-003", treatment_arm: "DermAlliv™ Active", randomization_date: "2026-02-25", drug_kit_assigned: "KIT-1051" } },
     { key: "eos_completion", status: "reviewed", values: { completion_status: "Completed", investigator_final: "Subject completed all six visits. CADESI-04 improved 58 → 14 and owner PVAS 7.0 → 2.1 by Day 84. No drug-related adverse events." } },
@@ -562,6 +567,10 @@ const CA_EXTRA = {
   // Milo — screen failure (fails the baseline pruritus inclusion criterion)
   "CA-0801-101-05": [
     { key: "screen_eligibility", status: "in_work", values: { age_1yr_plus: "Yes", cad_diagnosis: "Yes", chronic_itching_6mo: "Yes", pruritus_5plus: "No", owner_daily_assessments: "Yes", severe_systemic_illness: "No", recent_immunotherapy: "No", active_mange: "No", pregnant_breeding: "No", another_study_30d: "No", eligibility_status: "Screen Failure", investigator_approval: "No" } },
+  ],
+  // Molly — withdrawn: Subject Status carries the withdrawal date + reason (drives the banner).
+  "CA-0801-102-03": [
+    { key: "subject_status", status: "reviewed", values: { current_status: "Withdrawn", withdrawal_date: "2026-04-18", withdrawal_reason: "Owner Request", comments: "Owner relocated out of the catchment area and is unable to attend the remaining visits." } },
   ],
 };
 
@@ -616,7 +625,9 @@ const STUDIES = [
           randomization_date: "2026-03-01", randomization_number: "PH-R-001",
           treatment_group_assignment: "Treatment", block_id_assignment: "Block 1",
           feed_additive_lot: "FA-7781", randomization_method: "Computer-generated",
-          performed_by: "Elisa Tron", blinding_status: "Double-blind" } },
+          performed_by: "Elisa Tron", blinding_status: "Double-blind" },
+          query: { field: "feed_additive_lot", title: "Feed additive lot vs inventory",
+            raise: "Feed additive lot FA-7781 is not yet logged in the inventory module. Please confirm the lot was received and reconcile against the shipment manifest." } },
       ] },
       { subject: "PH-2401-P02", forms: [
         { key: "demographics", status: "in_work", values: {
@@ -625,7 +636,10 @@ const STUDIES = [
         { key: "v1_pe", status: "in_work", values: {
           visit_date: "2026-03-01", total_pen_weight: ["1.05", 1.05], dead_bird_count: ["1", 1],
           litter_moisture_score: ["3", 3], ammonia_level: ["32", 32] },
-          editCheck: { field: "ammonia_level", message: "Ammonia 32 ppm exceeds the broiler range (0–25 ppm) — check house ventilation and re-measure." } },
+          editCheck: { field: "ammonia_level", message: "Ammonia 32 ppm exceeds the broiler range (0–25 ppm) — check house ventilation and re-measure." },
+          query: { field: "dead_bird_count", title: "Dead bird count vs daily mortality log",
+            raise: "Dead bird count of 1 does not match the daily mortality log (2 on this date). Please reconcile.",
+            response: "Reconciled — one mortality was a cull recorded separately on the AE form; pen count of 1 is correct." } },
       ] },
       { subject: "PH-2401-P03", forms: [
         { key: "demographics", status: "in_work", values: {
@@ -672,7 +686,9 @@ const STUDIES = [
         { key: "randomization", status: "in_work", values: {
           randomization_date: "2026-04-05", randomization_number: "HF-R-014",
           treatment_group_assignment: "Mineral Injection", injection_batch_number: "MIN-2204",
-          semen_straw_lot: "SS-8841", randomization_method: "IVRS", performed_by: "Elisa Tron" } },
+          semen_straw_lot: "SS-8841", randomization_method: "IVRS", performed_by: "Elisa Tron" },
+          query: { field: "injection_batch_number", title: "Injection batch vs inventory log",
+            raise: "Injection batch MIN-2204 is not on the current inventory receipt log. Confirm the batch number and that it is within its expiry window." } },
       ] },
       { subject: "840003202500102", forms: [
         { key: "demographics", status: "in_work", values: {
@@ -681,7 +697,10 @@ const STUDIES = [
         { key: "screen_pe", status: "in_work", values: {
           visit_date: "2026-04-02", screening_weight: ["344", 344], body_condition_score: ["5.0", 5.0],
           temperature: ["40.1", 40.1], heart_rate: ["72", 72] },
-          editCheck: { field: "temperature", message: "Temperature 40.1 °C is above the expected range for cattle (38.0–39.3 °C) — verify against source and rule out febrile illness." } },
+          editCheck: { field: "temperature", message: "Temperature 40.1 °C is above the expected range for cattle (38.0–39.3 °C) — verify against source and rule out febrile illness." },
+          query: { field: "screening_weight", title: "Screening weight near lower eligibility bound",
+            raise: "Screening weight 344 kg is close to the 250–450 kg eligibility window lower margin after the BCS adjustment. Confirm the scale calibration and the recorded value.",
+            response: "Scale re-zeroed and the heifer re-weighed at 344 kg — value confirmed and within the eligibility window." } },
       ] },
       { subject: "840003202500103", forms: [
         { key: "demographics", status: "in_work", values: {

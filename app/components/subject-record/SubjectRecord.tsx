@@ -92,6 +92,16 @@ function InWorkIcon() {
   );
 }
 
+// Reviewed status icon — exact SVG from the style guide (docs/index.html), a
+// purple partial-fill "half-moon" (distinct from In-Work's blue).
+function ReviewedIcon() {
+  return (
+    <svg className="si-reviewed-icon" width="16" height="16" viewBox="2 2 16 16" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+      <path fillRule="evenodd" clipRule="evenodd" d="M10.3522 16.8489C13.9788 16.6689 16.8641 13.6712 16.8641 10C16.8641 6.32673 13.9756 3.32779 10.3462 3.15084C12.2407 4.826 13.4353 7.27477 13.4353 10.0025C13.4353 12.7274 12.2433 15.1738 10.3522 16.8489ZM7.16743 2.51848C4.14722 3.66218 2 6.58161 2 10.0025C2 14.035 4.9835 17.3706 8.86352 17.9224C9.24018 17.9726 9.62024 18 10.0067 18C14.425 18 18.0067 14.4183 18.0067 10C18.0067 5.58172 14.425 2 10.0067 2C9.00682 2 8.0498 2.18343 7.16743 2.51848Z" fill="#BF65D5" />
+    </svg>
+  );
+}
+
 // Source-data-verifiable: every entered field type (including coded dictionary
 // fields) except file uploads, calculated (derived) values, and free-text areas.
 function isSdvEligible(field: FormFieldRow): boolean {
@@ -125,6 +135,8 @@ export function SubjectRecord({ studyId, subjectId, initialFormId }: Props) {
   const [lookupField, setLookupField] = useState<FormFieldRow | null>(null); // VeDDRA lookup panel target
   const [lookupSearch, setLookupSearch] = useState("");
   const [manageOpen, setManageOpen] = useState(false); // Manage dropdown
+  const [switcherOpen, setSwitcherOpen] = useState(false); // subject switcher popover
+  const [switcherSearch, setSwitcherSearch] = useState("");
   const [overrideOpen, setOverrideOpen] = useState(false); // PI override modal
   const [overrideReason, setOverrideReason] = useState("");
   const [manageOpenQuery, setManageOpenQuery] = useState(false); // DM query Manage dropdown
@@ -237,6 +249,7 @@ export function SubjectRecord({ studyId, subjectId, initialFormId }: Props) {
     if (icon === "final") inner = <div className="status-final"><i className="ti ti-check"></i></div>;
     else if (icon === "inwork") inner = <InWorkIcon />;
     else if (icon === "inreview") inner = <InReviewIcon />;
+    else if (icon === "reviewed") inner = <ReviewedIcon />;
     else inner = <div className={`status-${icon}`}></div>;
     return <span className="status-glyph" title={title}>{inner}</span>;
   }
@@ -325,10 +338,49 @@ export function SubjectRecord({ studyId, subjectId, initialFormId }: Props) {
   // portal, so the Subject Record shows an info note and disabled fields.
   const activeForm = dataset.forms.find((f) => f.id === activeFormId);
   const isEproForm = (activeForm?.name ?? "").startsWith("ePRO");
-  const readOnly = locked || isEproForm; // fields are non-editable when true
+
+  // Completed / withdrawn subjects are closed: every form is read-only, data-entry
+  // actions (Submit/Finalize/Lock, new SDV, new change reasons) are hidden, and a
+  // persistent banner explains the state. Existing queries can still be managed
+  // (the query panel isn't gated by read-only) so a DM can resolve open items.
+  const subjectClosed = subject.status === "completed" || subject.status === "withdrawn";
+  const readOnly = locked || isEproForm || subjectClosed; // fields are non-editable when true
+
+  // Withdrawal details for the banner — sourced from any field value the subject
+  // carries for these codes (Subject Status / End of Study forms).
+  function subjectValueByCode(code: string): string | undefined {
+    const fieldIds = new Set(
+      dataset.formFields.filter((f) => f.code === code).map((f) => f.id),
+    );
+    const instIds = new Set(dataset.formInstances.filter((i) => i.subject_id === subjectId).map((i) => i.id));
+    return dataset.fieldValues.find((v) => instIds.has(v.form_instance_id) && fieldIds.has(v.form_field_id) && v.value)?.value ?? undefined;
+  }
+  const withdrawalDate = subject.status === "withdrawn" ? subjectValueByCode("withdrawal_date") : undefined;
+  const withdrawalReason = subject.status === "withdrawn" ? subjectValueByCode("withdrawal_reason") : undefined;
+  const completionDate = subject.status === "completed" ? subjectValueByCode("visit_date") : undefined;
+
+  // Subject switcher — the study's subjects, for quick navigation between records.
+  const switcherSubjects = dataset.subjects
+    .filter((s) => s.study_id === studyId)
+    .slice()
+    .sort((a, b) => a.subject_code.localeCompare(b.subject_code));
+  const switcherFiltered = switcherSubjects.filter((s) =>
+    s.subject_code.toLowerCase().includes(switcherSearch.toLowerCase().trim()),
+  );
 
   // ─── Inclusion / Exclusion — a criterion answered "No" fails ────────────────
   const isIEForm = fields.some((f) => f.validation?.exclusion_criterion);
+
+  // Visual section dividers (item 10) — forms with vital fields get logical
+  // clusters: fields before the vitals (Examination), the vitals (Vital Signs),
+  // and the rest (Assessment). Forms without vitals render flat (no headers).
+  const firstVitalIdx = fields.findIndex((f) => f.validation?.vital);
+  const sectioned = firstVitalIdx >= 0;
+  const sectionForIdx = (idx: number): string | null => {
+    if (!sectioned || idx < 0 || idx >= fields.length) return null;
+    if (fields[idx].validation?.vital) return "Vital Signs";
+    return idx < firstVitalIdx ? "Examination" : "Assessment";
+  };
 
   // ─── Calculated fields ──────────────────────────────────────────────────────
   function numValFor(formId: string, fieldCode: string): number | undefined {
@@ -905,7 +957,50 @@ export function SubjectRecord({ studyId, subjectId, initialFormId }: Props) {
 
           <div className="subject-header">
             <div className="species-icon">{SPECIES_ICON[species] || "🔬"}</div>
-            <span className="subject-id">{subject.subject_code}</span>
+            <div className="subject-id-row">
+              <span className="subject-id">{subject.subject_code}</span>
+              <button className="subject-switch" onClick={() => setSwitcherOpen((o) => !o)} title="Switch subject" type="button">
+                <i className="ti ti-arrows-exchange"></i>
+              </button>
+              {switcherOpen && (
+                <>
+                  <div className="switcher-backdrop" onClick={() => setSwitcherOpen(false)} />
+                  <div className="subject-switcher" role="menu">
+                    <div className="switcher-header">
+                      <span className="switcher-label">Switch subject</span>
+                      <input
+                        className="switcher-search"
+                        type="search"
+                        placeholder="Search ID…"
+                        value={switcherSearch}
+                        onChange={(e) => setSwitcherSearch(e.target.value)}
+                        autoFocus
+                      />
+                    </div>
+                    <div className="switcher-list">
+                      {switcherFiltered.map((s) => {
+                        const si = STATUS_MAP[s.status] || { cls: "status-screened", label: s.status };
+                        const isActive = s.id === subjectId;
+                        return (
+                          <button
+                            key={s.id}
+                            className={`switcher-item${isActive ? " active-item" : ""}`}
+                            type="button"
+                            onClick={() => { setSwitcherOpen(false); router.push(`/study/${studyId}/data-entry/${s.id}`); }}
+                          >
+                            <span className="switcher-id">{s.subject_code}</span>
+                            <span className="switcher-meta">{s.randomization_arm || (s.species ?? "")}</span>
+                            <span className={`switcher-status ${si.cls}`}>{si.label}</span>
+                            {isActive && <i className="ti ti-check" style={{ fontSize: 12, color: "var(--blue-600)", marginLeft: "auto" }}></i>}
+                          </button>
+                        );
+                      })}
+                      {switcherFiltered.length === 0 && <div className="switcher-empty">No matching subjects</div>}
+                    </div>
+                  </div>
+                </>
+              )}
+            </div>
             {/* One status chip at a time — Ineligible replaces the normal status */}
             {subject.ineligible ? (
               <span className="subject-ineligible"><i className="ti ti-alert-triangle"></i> Ineligible — PI review</span>
@@ -977,8 +1072,8 @@ export function SubjectRecord({ studyId, subjectId, initialFormId }: Props) {
                 </div>
               </div>
 
-              {/* SDV toolbar — only in SDV mode */}
-              {modeSdv && (
+              {/* SDV toolbar — only in SDV mode, hidden for closed (completed/withdrawn) subjects */}
+              {modeSdv && !subjectClosed && (
                 <>
                   <button className="btn-secondary" type="button" disabled={!canSdv} onClick={verifyAll} title={canSdv ? "Verify all entered fields" : "SDV verify — CRA only"}>
                     Verify all
@@ -989,9 +1084,10 @@ export function SubjectRecord({ studyId, subjectId, initialFormId }: Props) {
                 </>
               )}
 
-              {/* Status advance — hidden in SDV mode (the SDV buttons take its place).
+              {/* Status advance — hidden in SDV mode (the SDV buttons take its place)
+                  and for closed (completed/withdrawn) subjects (no Submit/Finalize/Lock).
                   Submit for Review is otherwise always present (disabled when empty). */}
-              {modeSdv ? null : currentStatus === "empty" || currentStatus === "in_work" ? (
+              {subjectClosed || modeSdv ? null : currentStatus === "empty" || currentStatus === "in_work" ? (
                 <button
                   className="btn-primary"
                   type="button"
@@ -1024,6 +1120,19 @@ export function SubjectRecord({ studyId, subjectId, initialFormId }: Props) {
 
         {/* Form body — real fields from form_fields */}
         <div className="form-body">
+          {subject.status === "withdrawn" && (
+            <div className="ie-banner withdrawn" role="status">
+              <i className="ti ti-user-x"></i>
+              Subject withdrawn{withdrawalDate ? ` on ${withdrawalDate}` : ""}
+              {withdrawalReason ? ` — ${withdrawalReason}` : ""}. Data collected prior to withdrawal is preserved for analysis.
+            </div>
+          )}
+          {subject.status === "completed" && (
+            <div className="ie-banner override" role="status">
+              <i className="ti ti-circle-check"></i>
+              Subject completed the study{completionDate ? ` (last visit ${completionDate})` : ""}. All forms are read-only.
+            </div>
+          )}
           {isEproForm && (
             <div className="ie-banner override" role="status">
               <i className="ti ti-device-mobile"></i>
@@ -1044,7 +1153,9 @@ export function SubjectRecord({ studyId, subjectId, initialFormId }: Props) {
             </div>
           )}
           <div className="field-grid-2">
-            {fields.map((field) => {
+            {fields.map((field, fIdx) => {
+              const section = sectionForIdx(fIdx);
+              const showSection = !!section && section !== sectionForIdx(fIdx - 1);
               const fv = fvFor(field.id);
               const value = fv?.value ?? "";
               const ec = editCheckFor(fv?.id); // open auto edit-check (orange alert)
@@ -1061,7 +1172,9 @@ export function SubjectRecord({ studyId, subjectId, initialFormId }: Props) {
               const isWide = field.field_type === "textarea" || field.field_type === "multiselect";
               const deltaTitle = dState === "approved" ? "Change approved by DM" : dState === "responded" ? "Change reason submitted — awaiting DM review" : "Change reason required";
               return (
-                <div className={`field${isWide ? " full" : ""}${readOnly ? " state-locked" : ""}`} key={field.id}>
+                <Fragment key={field.id}>
+                  {showSection && <div className="form-section-title">{section}</div>}
+                <div className={`field${isWide ? " full" : ""}${readOnly ? " state-locked" : ""}`}>
                   <label className="field-label">
                     {field.label}
                     {field.is_required && <span className="field-req"> *</span>}
@@ -1134,6 +1247,7 @@ export function SubjectRecord({ studyId, subjectId, initialFormId }: Props) {
                     </span>
                   )}
                 </div>
+                </Fragment>
               );
             })}
           </div>

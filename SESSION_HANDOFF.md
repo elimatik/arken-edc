@@ -1,6 +1,6 @@
 # Arken EDC — Session Handoff
 **Paste this entire file at the start of a new conversation.**
-Last updated: 2026-06-12 | Session 27 COMPLETE — rebuilt CA-0801 as a rich multi-site companion study (DermAlliv™ — 3 sites, 13 dogs, 53-form eCRF, wired CRC/PI/DM dashboards, ePRO read-only stub). NEXT: deferred form polish (SDV panel, sidebar deep-link, query re-open, conditional demographics).
+Last updated: 2026-06-12 | Session 28 COMPLETE — 12 structural fixes (live dashboard data + stacked enrollment graph, subject switcher, Reviewed icon, completed/withdrawn read-only, form section headers, +6 queries). NEXT: deferred form polish (SDV panel, sidebar deep-link, query re-open, conditional demographics).
 
 ---
 
@@ -259,6 +259,21 @@ The change-reason model moved from a single baseline-vs-current comparison to **
 - **ePRO read-only stub** — the Subject Record renders the **ePRO — Owner Daily Diary** form with an info-note banner + **all fields disabled** (`readOnly = locked || isEproForm`); editability levers (`ro`, `state-locked`, SDV, Δ) all key off `readOnly`.
 - **Animals list** — Age column now computes whole-year age from a stored DOB when age is a calculated/unstored field (`ageFromDob`).
 - Session key → **v10**. Applied via `db reset`. Verified in-browser (Playwright): 13 dogs across 3 sites, status mix + screen failure, rich tree, edit check, ePRO read-only, all 3 CA dashboards. `tsc`, `next lint`, **`next build` all clean**.
+
+### Session 28 — COMPLETE ✅ (12 structural fixes — visual + data, mostly CA-0801)
+1. **`.studies-content` → 960px** (`studies.css`).
+2. **Reviewed status icon** — added `ReviewedIcon` (exact purple `#BF65D5` half-moon SVG from `docs/index.html`); `StatusGlyph` now renders it for `reviewed` (was a CSS div).
+3. **Enrollment graph — real + restyled.** New `StackedEnrollBar` widget: segments **Active (blue-600) / Completed (green-600) / Withdrawn (amber-600) / Screen failures (text-tertiary)**, the **enrollment target is a dashed line**, not a colour (removed the "target met" green). Counts derived from the store. New token **`--amber-600`**.
+4. **Compact open-queries card** — dense one-row-per-query list (`.dq-*`): subject · `Q-xxxx` ref · field label · status · age. Replaces the big QueryRow cards.
+5. **Subject Record breadcrumb** — confirmed full path **Data Entry › [Site] › [Subject ID]** (`.sr-bc`, already store-derived; verified working).
+6. **Subject switcher** — `ti-arrows-exchange` button beside the subject ID opens a searchable popover of the study's subjects (`.subject-id-row` / `.subject-switcher`, ported from file 30); selecting navigates to that record.
+7. **Dashboard from real data** — `RoleDashboard` computes `StudyAggregates` from the session store (`computeAggregates`): enrollment by status, open queries/edit-checks, per-site enrolled, arms, form-status counts, AEs/SAEs. CA-0801 CRC/PI/DM render entirely from it (no hardcoded counts). *(CA real counts are small — 12 randomized / 8 active — because only 13 dogs are seeded; that's the point of "derive from the store, not the protocol target of 60.")*
+8. **Select font-size** — `.field-select` → `var(--text-base)` to match `.field-input`.
+9. **Completed / withdrawn subjects are read-only** — `subjectClosed = status completed|withdrawn` folds into `readOnly`, so all fields disable, **Submit/Finalize/Lock + SDV-action buttons hide**, and the Δ/SDV affordances drop. Persistent banners: withdrawn → amber *"Subject withdrawn on [date] — [reason]. Data collected prior to withdrawal is preserved for analysis."* (date/reason sourced from the Subject Status form — seeded Molly's withdrawal); completed → *"Subject completed the study … All forms are read-only."* Existing queries stay manageable via the query panel (not gated by read-only). *(Simplification: the whole closed subject is read-only; per-visit "forms after the withdrawal date" gating is not modelled.)*
+10. **Form section headers** — forms with vital fields render visual clusters: **Examination → Vital Signs → Assessment** (`.form-section-title`, derived from `validation.vital`, no reordering, no seed change). Forms without vitals stay flat.
+11. **+6 queries** (2 per study, different subjects/fields, mix of raised + responded): PH (feed-additive-lot **open**, dead-bird-count **responded**), HF (injection-batch **open**, screening-weight **responded**), CA (Cooper PVAS **open**, Bella body-weight **responded**). Generator's `query` helper emits **open** when no `response` is given. **12 query rows** total in the seed.
+12. **Animals list** — Subject ID (`subject_code`, e.g. `CA-0801-101-01`) is already the clickable `cell-link` first column (no name column); confirmed.
+Session key → **v11**. Applied via `db reset`. Verified in-browser (Playwright): real enrollment graph + chips, compact query list, breadcrumb, switcher (13 items), Reviewed SVG, section headers, withdrawn banner + hidden Submit, select 14px. `tsc`, `next lint`, **`next build` all clean**.
 
 Deferred form polish (after Animals list):
 - **SDV panel** — a dedicated source-data-verification surface (not just the per-field shield): progress, per-field verify, bulk.

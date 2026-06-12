@@ -16,7 +16,7 @@
 .studies-signout:hover{color:rgba(255,255,255,0.7)}
 
 .studies-body{flex:1;overflow-y:auto;padding:var(--space-10) var(--space-6)}
-.studies-content{max-width:900px;margin:0 auto}
+.studies-content{max-width:960px;margin:0 auto}
 .studies-heading{font-size:var(--text-3xl);font-weight:500;color:var(--color-text-primary);margin-bottom:var(--space-2)}
 .studies-sub{font-size:var(--text-sm);color:var(--color-text-tertiary);margin-bottom:var(--space-6)}
 

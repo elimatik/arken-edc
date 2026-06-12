@@ -104,6 +104,53 @@ export function EnrollBar({
   );
 }
 
+// ─── Stacked enrollment bar (with a dashed target marker) ────────────────────
+// Segments stack left-to-right against a denominator = max(target, total). The
+// enrollment target is a dashed line, not a colour. Counts shown in the legend.
+export function StackedEnrollBar({
+  segments,
+  total,
+  target,
+}: {
+  segments: { label: string; count: number; color: string }[];
+  total: number;
+  target: number;
+}) {
+  const denom = Math.max(target, total, 1);
+  const targetPct = Math.min(100, (target / denom) * 100);
+  return (
+    <div className="enroll-wrap">
+      <div className="enroll-nums">
+        <span className="enroll-big">{total}</span>
+        <span className="enroll-tgt">/ {target} target</span>
+      </div>
+      <div className="enroll-track stacked">
+        {segments.map((s, i) => (
+          <div
+            key={i}
+            className="enroll-seg"
+            style={{ width: `${(s.count / denom) * 100}%`, background: s.color }}
+            title={`${s.label}: ${s.count}`}
+          ></div>
+        ))}
+        <div className="enroll-target-line" style={{ left: `${targetPct}%` }} title={`Target: ${target}`}></div>
+      </div>
+      <div className="enroll-legend">
+        {segments.map((s, i) => (
+          <div className="enroll-leg" key={i}>
+            <div className="enroll-leg-dot" style={{ background: s.color }}></div>
+            {s.label} — <span className="mono">{s.count}</span>
+          </div>
+        ))}
+        <div className="enroll-leg">
+          <div className="enroll-leg-dot dashed"></div>
+          Target — <span className="mono">{target}</span>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 // ─── Query row ───────────────────────────────────────────────────────────────
 export function QueryRow({
   subject,
