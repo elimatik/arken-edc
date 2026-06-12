@@ -1,16 +1,22 @@
 // ════════════════════════════════════════════════════════════════════════════
 // Seed generator for Arken EDC. Emits app/supabase/seed.sql deterministically.
 //
-// The three studies share one form TREE (7 visit/info groups + 3 standalone
-// forms). Each leaf sub-form's fields are study-specific (transcribed below).
-// Groups are containers with no fields (parent_form_id links children → group).
-//
 //   node generate-seed.mjs   →   writes seed.sql
 //
+// Three clinically-realistic, session-based studies. Unlike the previous build,
+// each study now defines its OWN form tree (different visit counts, sub-forms,
+// and a Randomization form), so the tree is per-study rather than shared.
+//
+//   PH-2401  livestock_group       chicken   Site → House → Pen   (broiler pens)
+//   HF-3001  livestock_individual  bovine    Site → Barn → Pen → Animal (RFID heifers)
+//   CA-0801  companion             canine    Site → Subject (+ owner, at-home dogs)
+//
 // UUID scheme:
-//   form id   61<GG><SS>00-0000-0000-0000-<study>   (SS=00 → group/standalone)
-//   field id  62<GG><SS><FF>-0000-0000-0000-<study>
-//   <study> = 000000002401 (AK) | 000000001103 (CA) | 000000003302 (EQ)
+//   study   20000000-0000-0000-0000-<suffix>
+//   form    61<GG><SS>00-0000-0000-0000-<suffix>   (SS=00 → group container / standalone)
+//   field   62<GG><SS><FF>-0000-0000-0000-<suffix>
+//   site/barn/pen/owner/subject  3X<NN>0000-0000-0000-0000-<suffix>
+//   demo instance/value/query/msg  6X/70/71<NNNNNN>-0000-0000-0000-<suffix>
 // ════════════════════════════════════════════════════════════════════════════
 import { writeFileSync } from "node:fs";
 import { fileURLToPath } from "node:url";
@@ -25,435 +31,565 @@ const date = (code, label, req = false) => ({ code, label, type: "date", req });
 const file = (code, label, req = false) => ({ code, label, type: "file", req });
 const calc = (code, label, unit = null) => ({ code, label, type: "calculated", unit });
 const num = (code, label, unit = null, req = false) => ({ code, label, type: "number", unit, req });
+// Static (species-independent) numeric range — raises a query when out of bounds.
 const rng = (code, label, min, max, unit = null, req = false) =>
   ({ code, label, type: "number", unit, req, validation: { min, max, onViolation: "query" } });
-const vital = (code, label, key, unit, req = true) =>
+// Species-resolved vital — the range comes from species_ranges at runtime (CS3).
+const vital = (code, label, key, unit, req = false) =>
   ({ code, label, type: "number", unit, req, validation: { vital: key, onViolation: "query" } });
 const sel = (code, label, options, req = false) => ({ code, label, type: "select", options, req });
 const msel = (code, label, options, req = false) => ({ code, label, type: "multiselect", options, req });
 const yn = (code, label, req = false) => ({ code, label, type: "radio", options: ["Yes", "No"], req });
-// Coded text — a plain text field that opens a (stub) VeDDRA/dictionary lookup.
+// Coded text — a plain text field that opens a (stub) VeDDRA / dictionary lookup.
 const coded = (code, label, req = false) => ({ code, label, type: "text", req, validation: { coded: true } });
-// Inclusion/exclusion criterion — a yes/no where "No" fails the criterion.
-const crit = (code, label, req = false) => ({ code, label, type: "radio", options: ["Yes", "No"], req, validation: { exclusion_criterion: true } });
+// Inclusion/exclusion criterion. By default "No" fails (positive inclusion
+// criterion); for "exclusion if Yes" criteria pass failOn = "Yes".
+const crit = (code, label, req = false, failOn = "No") =>
+  ({ code, label, type: "radio", options: ["Yes", "No"], req, validation: { exclusion_criterion: true, exclusion_if: failOn } });
+const excl = (code, label, req = false) => crit(code, label, req, "Yes");
 
-const SEVERITY = ["Mild", "Moderate", "Severe", "Life-threatening"];
-const RELATIONSHIP = ["Unrelated", "Possible", "Probable", "Definite"];
-const PRESENT_ABSENT = ["Present", "Absent"];
-const GRADE_0_3 = ["0", "1", "2", "3"];
-const ONE_TO_FIVE = ["1", "2", "3", "4", "5"];
+// ─── Tree node builders ──────────────────────────────────────────────────────
+const grp = (name, children) => ({ name, children });
+const leaf = (key, name, fields) => ({ key, name, fields });
+const alone = (key, name, fields) => ({ key, name, fields, standalone: true });
 
-// ─── The shared form tree (group → sub-forms; or standalone) ─────────────────
-// resolver names map to per-study field functions below.
-const TREE = [
-  { gg: "01", name: "Animal Information", children: [
-    { ss: "01", name: "Demographics", resolver: "demographics" },
-    { ss: "02", name: "Medical History", resolver: "medicalHistory" },
-  ] },
-  { gg: "02", name: "Screening", children: [
-    { ss: "01", name: "Physical Examination", resolver: "physicalExam", visit: 0 },
-    { ss: "02", name: "Inclusion / Exclusion", resolver: "inclusionExclusion" },
-  ] },
-  { gg: "03", name: "Visit 1 — Dosing", children: [
-    { ss: "01", name: "Physical Examination", resolver: "physicalExam", visit: 1 },
-    { ss: "02", name: "Dosing Administration", resolver: "dosing", visit: 1 },
-  ] },
-  { gg: "04", name: "Visit 2 — Dosing", children: [
-    { ss: "01", name: "Physical Examination", resolver: "physicalExam", visit: 2 },
-    { ss: "02", name: "Dosing Administration", resolver: "dosing", visit: 2 },
-  ] },
-  { gg: "05", name: "Visit 3 — Follow-up", children: [
-    { ss: "01", name: "Physical Examination", resolver: "physicalExam", visit: 3 },
-    { ss: "02", name: "Follow-up Assessment", resolver: "followupAssessment", visit: 3 },
-  ] },
-  { gg: "06", name: "Visit 4 — Follow-up", children: [
-    { ss: "01", name: "Physical Examination", resolver: "physicalExam", visit: 4 },
-    { ss: "02", name: "Follow-up Assessment", resolver: "followupAssessment", visit: 4 },
-  ] },
-  { gg: "07", name: "Visit 5 — Follow-up", children: [
-    { ss: "01", name: "Physical Examination", resolver: "physicalExam", visit: 5 },
-    { ss: "02", name: "Follow-up Assessment", resolver: "followupAssessment", visit: 5 },
-  ] },
-  { gg: "08", name: "Adverse Event", resolver: "adverseEvent" },
-  { gg: "09", name: "Unscheduled Visit", resolver: "unscheduledVisit" },
-  { gg: "0A", name: "ConMed", resolver: "conmed" },
+const RAND_METHOD = ["Computer-generated", "Envelope", "IVRS"];
+
+// ═══════════════════════════════════════════════════════════════════════════
+// STUDY 1 — PH-2401  Phytogenic Feed Additive Broiler Trial (chicken, group)
+// ═══════════════════════════════════════════════════════════════════════════
+const phPE = () => [
+  date("visit_date", "Visit date", true),
+  rng("total_pen_weight", "Total pen weight", 0.8, 70.0, "kg"),
+  rng("dead_bird_count", "Dead bird count", 0, 5),
+  rng("litter_moisture_score", "Litter moisture score", 1, 5),
+  vital("ammonia_level", "Ammonia level", "ammonia_level", "ppm"),
+];
+const phMeas = (finalWeight = false) => {
+  const f = [
+    rng("total_feed_offered", "Total feed offered", 10.0, 150.0, "kg", true),
+    rng("feed_refusal_weight", "Feed refusal weight", 0.0, 50.0, "kg", true),
+    calc("feed_consumed", "Feed consumed", "kg"),
+    calc("weight_gain", "Weight gain since last visit", "kg"),
+    calc("fcr", "FCR"),
+    calc("cumulative_mortality_pct", "Cumulative mortality", "%"),
+  ];
+  if (finalWeight) f.push(num("final_processing_weight", "Final processing weight", "kg"));
+  return f;
+};
+const phAdditive = () => [
+  yn("additive_added", "Feed additive added to ration"),
+  yn("inclusion_rate_confirmed", "Additive inclusion rate confirmed (0.05%)"),
+  txt("lot_number_verified", "Lot number verified"),
+];
+const phVisit = (n, day, finalWeight = false) =>
+  grp(`Visit ${n} — Day ${day}`, [
+    leaf(`v${n}_pe`, "Physical Examination", phPE()),
+    leaf(`v${n}_meas`, "Measurement", phMeas(finalWeight)),
+    leaf(`v${n}_additive`, "Feed Additive Administration", phAdditive()),
+  ]);
+
+const PH_TREE = [
+  grp("Animal Information", [
+    leaf("demographics", "Demographics", [
+      rng("pen_number", "Pen ID", 1, 20),
+      rng("initial_bird_count", "Initial bird count", 20, 22),
+      date("hatch_date", "Hatch date"),
+      sel("breed_strain", "Breed strain", ["Ross 308", "Cobb 500"]),
+      txt("hatchery_id", "Hatchery ID"),
+      sel("litter_type", "Litter type", ["Wood shavings", "Rice hulls"]),
+      txt("block_id", "Block ID", true),
+      sel("treatment_group", "Treatment group", ["Control", "Treatment"]),
+    ]),
+    leaf("med_history", "Medical History", [
+      txt("prior_flock_health", "Prior flock health issues"),
+      txt("vaccination_history", "Vaccination history"),
+    ]),
+  ]),
+  grp("Screening", [
+    leaf("screen_pe", "Physical Examination", [
+      yn("feeder_functional", "Feeder functional"),
+      yn("drinker_functional", "Drinker functional"),
+      yn("target_count_verified", "Target count verified"),
+    ]),
+    leaf("screen_ie", "Inclusion / Exclusion", [
+      excl("prior_antibiotics", "Prior antibiotics exposure"),
+      excl("visible_runts", "Visible runts present"),
+    ]),
+  ]),
+  alone("randomization", "Randomization", [
+    date("randomization_date", "Randomization date", true),
+    txt("randomization_number", "Randomization number", true),
+    sel("treatment_group_assignment", "Treatment group assignment", ["Control", "Treatment"], true),
+    txt("block_id_assignment", "Block ID assignment", true),
+    txt("feed_additive_lot", "Feed additive lot number"),
+    sel("randomization_method", "Randomization method", RAND_METHOD),
+    txt("performed_by", "Performed by"),
+    sel("blinding_status", "Blinding status", ["Open-label", "Single-blind", "Double-blind"]),
+    ta("notes", "Notes"),
+  ]),
+  phVisit(1, 0),
+  phVisit(2, 14),
+  phVisit(3, 28),
+  phVisit(4, 42, true),
+  alone("adverse_event", "Adverse Event", [
+    rng("daily_mortality_count", "Daily mortality count", 0, 20),
+    rng("daily_cull_count", "Daily cull count", 0, 20),
+    sel("culling_reason", "Culling reason", ["Lameness", "Ascites", "Injury"]),
+    ta("necropsy_findings", "Necropsy findings"),
+  ]),
+  alone("unscheduled", "Unscheduled Visit", [
+    sel("reason_code", "Reason code", ["Equipment", "Climate", "Disease"]),
+    yn("drinker_line_failure", "Drinker line failure"),
+    yn("feed_system_malfunction", "Feed system malfunction"),
+    rng("room_temp_spike", "Room temperature spike", 15.0, 45.0, "°C"),
+  ]),
+  alone("conmed", "ConMed", [
+    yn("flock_vaccine_administered", "Flock vaccine administered"),
+    sel("vaccine_target_disease", "Vaccine target disease", ["Newcastle", "Gumboro"]),
+    yn("therapeutic_medication_added", "Therapeutic medication added"),
+    txt("drug_active_ingredient", "Drug active ingredient"),
+    rng("inclusion_rate_mgl", "Inclusion rate", 0.0, 1000.0, "mg/L"),
+    rng("treatment_duration_days", "Treatment duration", 1, 14, "days"),
+  ]),
 ];
 
-// ═══ Per-study field definitions ═════════════════════════════════════════════
-const FIELDS = {
-  // ── AK-2401 — Bovine livestock group ──────────────────────────────────────
-  AK: {
-    demographics: () => [
+// ═══════════════════════════════════════════════════════════════════════════
+// STUDY 2 — HF-3001  Beef Heifer Trace Mineral Trial (bovine, individual)
+// ═══════════════════════════════════════════════════════════════════════════
+const hfPE = (n) => {
+  const f = [
+    date("visit_date", "Visit date", true),
+    sel("study_day", "Study day", ["-30", "0", "35", "60", "90"]),
+    rng("individual_scale_weight", "Individual scale weight", 250.0, 600.0, "kg"),
+    rng("body_condition_score", "Body condition score", 1.0, 9.0),
+    vital("temperature", "Temperature", "temperature", "°C"),
+    vital("heart_rate", "Heart rate", "heart_rate", "bpm"),
+  ];
+  if (n >= 2) {
+    f.push(sel("estrus_detection_status", "Estrus detection status", ["Detected", "Not detected"]));
+    f.push(txt("ai_sire_code", "AI sire code"));
+  }
+  if (n >= 3) f.push(sel("pregnancy_ultrasound_status", "Pregnancy ultrasound status", ["Open", "Pregnant", "Pending"]));
+  if (n === 5) f.push(rng("calving_ease_score", "Calving ease score", 1, 5));
+  return f;
+};
+const hfLab = () => [
+  txt("blood_tube_barcode", "Blood tube barcode"),
+  date("sample_collection_date", "Sample collection date"),
+  sel("sample_type", "Sample type", ["Serum", "Whole Blood"]),
+  date("lab_submission_date", "Lab submission date"),
+];
+const hfTreat = () => [
+  txt("mineral_injection_batch", "Mineral injection batch"),
+  sel("injection_site", "Injection site", ["Subcutaneous neck", "Subcutaneous rump"]),
+  txt("injection_administered_by", "Injection administered by"),
+];
+const hfVisit = (n, day) =>
+  grp(`Visit ${n} — Day ${day}`, [
+    leaf(`v${n}_pe`, "Physical Examination", hfPE(n)),
+    leaf(`v${n}_lab`, "Lab Samples", hfLab()),
+    leaf(`v${n}_treat`, "Treatment Administration", hfTreat()),
+  ]);
+
+const HF_TREE = [
+  grp("Animal Information", [
+    leaf("demographics", "Demographics", [
+      txt("rfid_tag", "RFID tag number", true),
+      rng("visual_tag_id", "Visual tag ID", 1, 999),
+      date("dob", "Date of birth"),
+      calc("age_auto_calc", "Age (auto)", "years"),
+      sel("breed_type", "Breed type", ["Purebred Angus", "Angus Cross"]),
+      txt("sire_id", "Sire ID"),
+      sel("treatment_group", "Treatment group", ["Control", "Treatment"]),
+    ]),
+    leaf("med_history", "Medical History", [
+      coded("prior_health_issues", "Prior health issues (coded)"),
+      txt("current_medications", "Current medications at enrollment"),
+      txt("vaccination_status", "Vaccination status"),
+    ]),
+  ]),
+  grp("Screening", [
+    leaf("screen_pe", "Physical Examination", [
       date("visit_date", "Visit date", true),
-      txt("pen_lot_id", "Pen / lot ID"),
-      num("head_count", "Head count"),
-      num("avg_age_months", "Average age", "months"),
-      txt("sex_distribution", "Sex distribution"),
-      sel("species", "Species", ["Bovine"], true),
-      sel("breed", "Breed", ["Angus", "Holstein", "Hereford", "Charolais", "Other"]),
-      sel("production_purpose", "Production purpose", ["Beef", "Dairy", "Breeding"]),
+      rng("screening_weight", "Screening weight", 250.0, 450.0, "kg"),
+      rng("body_condition_score", "Body condition score", 1.0, 9.0),
+      rng("reproductive_tract_score", "Reproductive tract score", 1, 5),
+      rng("pelvic_area", "Pelvic area", 100, 300, "cm²"),
+      yn("active_lameness_signs", "Active lameness signs"),
+      vital("temperature", "Temperature", "temperature", "°C"),
+      vital("heart_rate", "Heart rate", "heart_rate", "bpm"),
+    ]),
+    leaf("screen_ie", "Inclusion / Exclusion", [
+      crit("screening_weight_in_range", "Screening weight 250–450 kg"),
+      crit("repro_tract_score_2plus", "Reproductive tract score ≥ 2"),
+      excl("active_lameness", "Active lameness signs"),
+      excl("prior_hormone_therapy", "Prior hormone therapy"),
+      crit("owner_consent", "Owner consent", true),
+    ]),
+  ]),
+  alone("randomization", "Randomization", [
+    date("randomization_date", "Randomization date", true),
+    txt("randomization_number", "Randomization number", true),
+    sel("treatment_group_assignment", "Treatment group assignment", ["Mineral Injection", "Saline Placebo"], true),
+    txt("injection_batch_number", "Injection batch number"),
+    txt("semen_straw_lot", "Semen straw lot"),
+    sel("randomization_method", "Randomization method", RAND_METHOD),
+    txt("performed_by", "Performed by"),
+    ta("notes", "Notes"),
+  ]),
+  hfVisit(1, -30),
+  hfVisit(2, 0),
+  hfVisit(3, 35),
+  hfVisit(4, 60),
+  hfVisit(5, 90),
+  alone("adverse_event", "Adverse Event", [
+    rng("injection_site_swelling", "Injection site swelling", 0.0, 20.0, "cm"),
+    sel("severity_grade", "Severity grade", ["Mild", "Moderate", "Severe"]),
+    yn("systemic_anaphylaxis", "Systemic anaphylaxis signs"),
+    sel("event_outcome", "Event outcome", ["Resolved", "Ongoing", "Fatal"]),
+    coded("veddra_coded_term", "VeDDRA coded term"),
+    sel("relationship_to_drug", "Relationship to drug", ["Unrelated", "Possible", "Probable", "Definite"]),
+  ]),
+  alone("unscheduled", "Unscheduled Visit", [
+    sel("chute_restraint_reason", "Chute restraint reason", ["Injury", "Illness", "Tag Loss"]),
+    ta("injury_location", "Injury location"),
+    rng("pinkeye_severity_score", "Pinkeye severity score", 0, 4),
+  ]),
+  alone("conmed", "ConMed", [
+    sel("routine_herd_parasiticide", "Routine herd parasiticide", ["Ivermectin", "Albendazole", "None"]),
+    txt("fly_tag_brand", "Fly tag brand"),
+    txt("therapeutic_antibiotic", "Therapeutic antibiotic"),
+    date("slaughter_withdrawal_end", "Slaughter withdrawal end date"),
+  ]),
+];
+
+// ═══════════════════════════════════════════════════════════════════════════
+// STUDY 3 — CA-0801  Canine Atopic Dermatitis Diet Trial (canine, companion)
+// ═══════════════════════════════════════════════════════════════════════════
+const caVisit = (n, week) =>
+  grp(`Visit ${n} — Week ${week}`, [
+    leaf(`v${n}_pe`, "Physical Examination", [
+      date("visit_date", "Visit date", true),
+      sel("study_week", "Study week", ["0", "2", "4", "8", "12"]),
+      vital("body_weight", "Body weight", "weight", "kg"),
+      vital("temperature", "Temperature", "temperature", "°C"),
+      vital("heart_rate", "Heart rate", "heart_rate", "bpm"),
+      rng("cadesi4_score", "CADESI-4 score", 0, 180),
+      sel("skin_cytology_cocci", "Skin cytology cocci", ["0", "1+", "2+", "3+", "4+"]),
+      sel("skin_cytology_malassezia", "Skin cytology malassezia", ["0", "1+", "2+", "3+", "4+"]),
+      file("lesion_photos", "Lesion photos"),
+    ]),
+    leaf(`v${n}_owner`, "Owner Reported", [
+      rng("owner_pvas_score", "Owner PVAS score (diary card)", 0.0, 10.0),
+      yn("accidental_dietary_exposure", "Accidental dietary exposure this week"),
+      ta("exposure_description", "Exposure description"),
+      rng("dispensed_kibble_weight", "Dispensed kibble weight", 0.0, 15.0, "kg"),
+      rng("returned_kibble_weight", "Returned kibble weight", 0.0, 15.0, "kg"),
+      calc("diet_compliance_pct", "Diet compliance", "%"),
+    ]),
+    leaf(`v${n}_diet`, "Diet Dispensing", [
+      txt("diet_lot_number", "Diet lot number"),
+      num("quantity_dispensed", "Quantity dispensed", "kg"),
+      date("next_dispensing_date", "Next dispensing date"),
+    ]),
+  ]);
+
+const CA_TREE = [
+  grp("Animal Information", [
+    leaf("demographics", "Demographics", [
+      txt("dog_name", "Dog name"),
+      txt("microchip_number", "Microchip number"),
+      txt("owner_last_name", "Owner last name"),
+      txt("owner_contact", "Owner contact"),
+      txt("breed", "Breed"),
+      rng("age", "Age", 0.5, 20.0, "years"),
+      sel("sex_neuter_status", "Sex / neuter status", ["MN", "FS", "MI", "FI"]),
+      num("body_weight", "Body weight", "kg", true),
       yn("informed_consent", "Informed consent", true),
       file("consent_upload", "Consent upload"),
-    ],
-    medicalHistory: () => [
-      coded("previous_illnesses", "Previous illnesses (coded)"),
-      txt("previous_treatments", "Previous treatments"),
-      txt("vaccination_history", "Vaccination history"),
-    ],
-    physicalExam: (v) => {
-      const base = [
-        date("visit_date", "Visit date", true),
-        num("avg_group_weight_kg", "Average group weight", "kg"),
-        vital("temperature", "Temperature", "temperature", "°C"),
-        vital("heart_rate", "Heart rate", "heart_rate", "bpm"),
-        vital("respiratory_rate", "Respiratory rate", "respiratory_rate", "breaths/min"),
-        rng("bcs_score", "BCS score", 1, 9),
-      ];
-      if (v === 0) base.push(yn("nasal_discharge", "Nasal discharge"));
-      base.push(sel("nasal_discharge_grade", "Nasal discharge grade", GRADE_0_3));
-      base.push(sel("cough_score", "Cough score", GRADE_0_3));
-      return base;
-    },
-    inclusionExclusion: () => [
+    ]),
+    leaf("med_history", "Medical History", [
+      coded("previous_diagnoses", "Previous diagnoses (coded)"),
+      txt("current_medications", "Current medications"),
+      txt("prior_atopy_treatments", "Prior atopy treatments"),
+      txt("vaccination_status", "Vaccination status"),
+    ]),
+  ]),
+  grp("Screening", [
+    leaf("screen_pe", "Physical Examination", [
       date("visit_date", "Visit date", true),
-      crit("age_2_8_months", "Age 2–8 months"),
-      crit("brd_signs_present", "BRD signs present"),
-      crit("no_prior_treatment_7days", "No prior treatment (7 days)"),
-      crit("not_pregnant", "Not pregnant"),
-      crit("consent_obtained", "Consent obtained", true),
-    ],
-    dosing: (v) => {
-      const f = [
-        yn("drug_administered", "Drug administered"),
-        num("dose_mg_kg", "Dose", "mg/kg"),
-        sel("route", "Route", ["IM", "IV", "SQ"]),
-        txt("lot_number", "Lot number"),
-      ];
-      if (v === 2) f.push(txt("adverse_observations", "Adverse observations"));
-      return f;
-    },
-    followupAssessment: (v) => {
-      const f = [
-        sel("clinical_improvement", "Clinical improvement", ONE_TO_FIVE),
-        num("mortality_count", "Mortality count"),
-      ];
-      if (v >= 4) f.push(num("avg_daily_gain_kg", "Average daily gain", "kg"));
-      if (v >= 4) f.push(txt("fec_reappearance_pattern", "FEC reappearance pattern"));
-      if (v === 5) f.push(sel("final_outcome", "Final outcome", ["Recovered", "Improved", "No change", "Worsened", "Death"]));
-      return f;
-    },
-    adverseEvent: () => [
-      date("visit_date", "Visit date", true),
-      txt("pen_affected", "Pen affected"),
-      txt("event_description", "Event description"),
-      date("onset_date", "Onset date"),
-      coded("veddra_coded_term", "VeDDRA coded term"),
-      sel("severity", "Severity", SEVERITY),
-      sel("relationship_to_drug", "Relationship to drug", RELATIONSHIP),
-      txt("action_taken", "Action taken"),
-      txt("outcome", "Outcome"),
-      yn("sae_flag", "SAE flag"),
-    ],
-    unscheduledVisit: () => [
-      date("visit_date", "Visit date", true),
-      txt("reason", "Reason"),
+      num("body_weight", "Body weight", "kg"),
       vital("temperature", "Temperature", "temperature", "°C"),
       vital("heart_rate", "Heart rate", "heart_rate", "bpm"),
       vital("respiratory_rate", "Respiratory rate", "respiratory_rate", "breaths/min"),
-      rng("bcs_score", "BCS score", 1, 9),
-      txt("action_taken", "Action taken"),
-      yn("follow_up_required", "Follow-up required"),
-    ],
-    conmed: () => [
-      date("start_date", "Start date"),
-      date("end_date", "End date"),
-      coded("drug_name", "Drug name (coded)"),
-      txt("dose", "Dose"),
-      txt("route", "Route"),
-      txt("frequency", "Frequency"),
-      txt("indication", "Indication"),
-      sel("relationship_to_drug", "Relationship to drug", RELATIONSHIP),
-    ],
-  },
+      rng("baseline_cadesi4", "Baseline CADESI-4 score", 0, 180),
+      txt("current_diet_brand", "Current diet brand"),
+      msel("affected_body_regions", "Affected body regions", ["Head", "Trunk", "Limbs", "Paws", "Ears"]),
+    ]),
+    leaf("screen_ie", "Inclusion / Exclusion", [
+      crit("cadesi4_20plus", "Baseline CADESI-4 ≥ 20"),
+      excl("active_ectoparasite", "Active ectoparasite infection"),
+      excl("systemic_corticosteroid_30d", "Systemic corticosteroid within 30 days"),
+      crit("owner_able_comply", "Owner able to comply", true),
+      crit("owner_consent_obtained", "Owner consent obtained", true),
+    ]),
+  ]),
+  alone("randomization", "Randomization", [
+    date("randomization_date", "Randomization date", true),
+    txt("randomization_number", "Randomization number", true),
+    sel("diet_assignment", "Diet assignment", ["Test Hydrolyzed Diet", "Control Maintenance Diet"], true),
+    txt("diet_kit_number", "Diet kit number"),
+    txt("blinding_envelope_number", "Blinding envelope number"),
+    sel("randomization_method", "Randomization method", RAND_METHOD),
+    txt("performed_by", "Performed by"),
+    yn("owner_informed_blinding", "Owner informed of blinding"),
+    ta("notes", "Notes"),
+  ]),
+  caVisit(1, 0),
+  caVisit(2, 2),
+  caVisit(3, 4),
+  caVisit(4, 8),
+  caVisit(5, 12),
+  alone("adverse_event", "Adverse Event", [
+    sel("gi_distress_type", "GI distress type", ["Vomiting", "Diarrhea", "Lethargy", "None"]),
+    rng("episode_frequency_daily", "Episode frequency (daily)", 0, 10),
+    sel("diet_relationship", "Diet relationship", ["Unrelated", "Possible", "Definite"]),
+    sel("action_taken", "Action taken", ["None", "Interrupted", "Withdrawn"]),
+    sel("study_withdrawal_reason", "Study withdrawal reason", ["Owner Request", "Adverse Event", "Protocol Violation", "Lost to Follow-up", "None"]),
+  ]),
+  alone("unscheduled", "Unscheduled Visit", [
+    sel("clinical_visit_reason", "Clinical visit reason", ["Severe Pruritus", "GI Flare", "Otitis"]),
+    rng("acute_cadesi4", "Acute CADESI-4", 0, 180),
+    yn("secondary_pyoderma", "Secondary pyoderma"),
+    sel("dropout_reason", "Dropout reason", ["Owner Request", "Adverse Event", "Protocol Violation", "Lost to Follow-up"]),
+  ]),
+  alone("conmed", "ConMed", [
+    sel("flea_tick_preventive", "Flea / tick preventive", ["Bravecto", "Nexgard", "Simparica", "Other"]),
+    txt("heartworm_preventive", "Heartworm preventive"),
+    yn("rescue_antipruritic", "Rescue anti-pruritic administered"),
+    rng("rescue_drug_dose", "Rescue drug dose", 0.1, 100.0, "mg"),
+    yn("topical_shampoo", "Topical medicated shampoo"),
+  ]),
+];
 
-  // ── CA-1103 — Canine companion individual ─────────────────────────────────
-  CA: {
-    demographics: () => [
-      date("visit_date", "Visit date", true),
-      txt("animal_id", "Animal ID"),
-      txt("name", "Name"),
-      sel("sex", "Sex", ["Male", "Female", "Male neutered", "Female spayed"]),
-      date("dob", "Date of birth"),
-      calc("age_auto_calc", "Age (auto)", "years"),
-      sel("species", "Species", ["Canine"], true),
-      txt("breed", "Breed"),
-      num("weight_kg", "Weight", "kg"),
-      txt("microchip_id", "Microchip ID"),
-      txt("owner_name", "Owner name"),
-      txt("owner_contact", "Owner contact"),
-      yn("informed_consent", "Informed consent", true),
-      file("consent_upload", "Consent upload"),
-    ],
-    medicalHistory: () => [
-      coded("previous_diagnoses", "Previous diagnoses (coded)"),
-      txt("current_medications", "Current medications"),
-      txt("surgical_history", "Surgical history"),
-      txt("vaccination_status", "Vaccination status"),
-    ],
-    physicalExam: (v) => {
-      if (v === 0) {
-        return [
-          date("visit_date", "Visit date", true),
-          num("weight_kg", "Weight", "kg"),
-          vital("temperature", "Temperature", "temperature", "°C"),
-          vital("heart_rate", "Heart rate", "heart_rate", "bpm"),
-          vital("respiratory_rate", "Respiratory rate", "respiratory_rate", "breaths/min"),
-          sel("gait_score", "Gait score", ["0", "1", "2", "3", "4"]),
-          msel("affected_joints", "Affected joints", ["Hip", "Stifle", "Elbow", "Shoulder", "Other"]),
-          rng("pain_score_palpation", "Pain score on palpation (VAS)", 0, 10),
-          sel("muscle_atrophy", "Muscle atrophy", ["None", "Mild", "Moderate", "Severe"]),
-        ];
-      }
-      return [
-        date("visit_date", "Visit date", true),
-        num("weight_kg", "Weight", "kg"),
-        vital("temperature", "Temperature", "temperature", "°C"),
-        vital("heart_rate", "Heart rate", "heart_rate", "bpm"),
-        sel("gait_score", "Gait score", ["0", "1", "2", "3", "4"]),
-        rng("pain_score_vas", "Pain score (VAS)", 0, 10),
-      ];
-    },
-    inclusionExclusion: () => [
-      date("visit_date", "Visit date", true),
-      crit("age_1yr_plus", "Age ≥ 1 year"),
-      crit("oa_diagnosis_confirmed", "OA diagnosis confirmed"),
-      crit("radiographic_evidence", "Radiographic evidence"),
-      file("radiograph_upload", "Radiograph upload"),
-      crit("no_corticosteroids_30days", "No corticosteroids (30 days)"),
-      crit("no_nsaids_14days", "No NSAIDs (14 days)"),
-      crit("owner_compliant", "Owner compliant"),
-    ],
-    dosing: (v) => {
-      const f = [
-        sel("owner_lameness_cbpi", "Owner lameness (CBPI)", ["0", "1", "2", "3", "4"]),
-        yn("drug_administered", "Drug administered"),
-        num("dose_mg_kg", "Dose", "mg/kg"),
-        txt("route", "Route"),
-        txt("lot_number", "Lot number"),
-      ];
-      if (v === 2) f.push(txt("owner_observation_notes", "Owner observation notes"));
-      return f;
-    },
-    followupAssessment: (v) => {
-      const f = [
-        num("cbpi_score", "CBPI score"),
-        sel("clinical_global_assessment", "Clinical global assessment", ONE_TO_FIVE),
-        sel("owner_satisfaction", "Owner satisfaction", ONE_TO_FIVE),
-      ];
-      if (v >= 4) f.push(num("quality_of_life_score", "Quality of life score"));
-      if (v === 5) f.push(txt("final_outcome", "Final outcome"));
-      if (v === 5) f.push(txt("investigator_assessment", "Investigator assessment"));
-      return f;
-    },
-    adverseEvent: () => [
-      date("visit_date", "Visit date", true),
-      txt("animal_id", "Animal ID"),
-      txt("event_description", "Event description"),
-      date("onset_date", "Onset date"),
-      coded("veddra_coded_term", "VeDDRA coded term"),
-      sel("severity", "Severity", SEVERITY),
-      sel("relationship_to_drug", "Relationship to drug", RELATIONSHIP),
-      txt("action_taken", "Action taken"),
-      txt("outcome", "Outcome"),
-      yn("sae_flag", "SAE flag"),
-    ],
-    unscheduledVisit: () => [
-      date("visit_date", "Visit date", true),
-      txt("reason", "Reason"),
-      num("weight_kg", "Weight", "kg"),
-      vital("temperature", "Temperature", "temperature", "°C"),
-      vital("heart_rate", "Heart rate", "heart_rate", "bpm"),
-      txt("findings", "Findings"),
-      txt("action_taken", "Action taken"),
-    ],
-    conmed: () => [
-      date("start_date", "Start date"),
-      date("end_date", "End date"),
-      coded("drug_name", "Drug name (coded)"),
-      txt("dose", "Dose"),
-      txt("route", "Route"),
-      txt("frequency", "Frequency"),
-      txt("indication", "Indication"),
-    ],
-  },
-
-  // ── EQ-3302 — Equine livestock individual ─────────────────────────────────
-  EQ: {
-    demographics: () => [
-      date("visit_date", "Visit date", true),
-      txt("animal_id", "Animal ID"),
-      txt("name", "Name"),
-      sel("sex", "Sex", ["Stallion", "Mare", "Gelding", "Filly", "Colt"]),
-      date("dob", "Date of birth"),
-      num("age", "Age", "years"),
-      sel("species", "Species", ["Equine"], true),
-      sel("breed", "Breed", ["Thoroughbred", "Quarter Horse", "Warmblood", "Arabian", "Draft", "Other"]),
-      sel("use", "Use", ["Sport", "Pleasure", "Racing", "Breeding", "Work"]),
-      num("weight_kg", "Weight", "kg"),
-      txt("stable_id", "Stable ID"),
-      txt("stall_number", "Stall number"),
-      txt("owner_name", "Owner name"),
-      yn("informed_consent", "Informed consent", true),
-      file("consent_upload", "Consent upload"),
-    ],
-    medicalHistory: () => [
-      txt("fec_history", "FEC history"),
-      txt("deworming_history_12mo", "Deworming history (12 mo)"),
-      coded("previous_diagnoses", "Previous diagnoses (coded)"),
-      txt("current_medications", "Current medications"),
-    ],
-    physicalExam: (v) => {
-      if (v === 0) {
-        return [
-          date("visit_date", "Visit date", true),
-          num("weight_kg", "Weight", "kg"),
-          vital("temperature", "Temperature", "temperature", "°C"),
-          vital("heart_rate", "Heart rate", "heart_rate", "bpm"),
-          vital("respiratory_rate", "Respiratory rate", "respiratory_rate", "breaths/min"),
-          sel("gut_sounds_lf", "Gut sounds — LF", PRESENT_ABSENT),
-          sel("gut_sounds_rf", "Gut sounds — RF", PRESENT_ABSENT),
-          sel("gut_sounds_lh", "Gut sounds — LH", PRESENT_ABSENT),
-          sel("gut_sounds_rh", "Gut sounds — RH", PRESENT_ABSENT),
-          num("fec_epg", "FEC", "EPG"),
-          rng("bcs_henneke", "BCS (Henneke)", 1, 9),
-          sel("mucous_membrane_color", "Mucous membrane color", ["Pink", "Pale", "Cyanotic", "Injected"]),
-          num("crt_seconds", "CRT", "seconds"),
-        ];
-      }
-      if (v <= 2) {
-        return [
-          date("visit_date", "Visit date", true),
-          num("weight_kg", "Weight", "kg"),
-          vital("temperature", "Temperature", "temperature", "°C"),
-          vital("heart_rate", "Heart rate", "heart_rate", "bpm"),
-          vital("respiratory_rate", "Respiratory rate", "respiratory_rate", "breaths/min"),
-          sel("gut_sounds_lf", "Gut sounds — LF", PRESENT_ABSENT),
-          sel("gut_sounds_rf", "Gut sounds — RF", PRESENT_ABSENT),
-          sel("gut_sounds_lh", "Gut sounds — LH", PRESENT_ABSENT),
-          sel("gut_sounds_rh", "Gut sounds — RH", PRESENT_ABSENT),
-          num("fec_epg", "FEC", "EPG"),
-          rng("bcs_henneke", "BCS (Henneke)", 1, 9),
-        ];
-      }
-      return [
-        date("visit_date", "Visit date", true),
-        num("weight_kg", "Weight", "kg"),
-        vital("temperature", "Temperature", "temperature", "°C"),
-        vital("heart_rate", "Heart rate", "heart_rate", "bpm"),
-        num("fec_epg", "FEC", "EPG"),
-        rng("bcs_henneke", "BCS (Henneke)", 1, 9),
-        sel("gut_sounds_lf", "Gut sounds — LF", PRESENT_ABSENT),
-        sel("gut_sounds_rf", "Gut sounds — RF", PRESENT_ABSENT),
-        sel("gut_sounds_lh", "Gut sounds — LH", PRESENT_ABSENT),
-        sel("gut_sounds_rh", "Gut sounds — RH", PRESENT_ABSENT),
-        yn("colic_since_last_visit", "Colic since last visit"),
-      ];
-    },
-    inclusionExclusion: () => [
-      date("visit_date", "Visit date", true),
-      crit("fec_200epg_plus", "FEC ≥ 200 EPG"),
-      crit("age_6mo_plus", "Age ≥ 6 months"),
-      crit("no_anthelmintic_8wks", "No anthelmintic (8 weeks)"),
-      crit("not_pregnant", "Not pregnant"),
-      crit("no_gi_disease", "No GI disease"),
-      crit("consent_obtained", "Consent obtained", true),
-    ],
-    dosing: (v) => {
-      const f = [
-        yn("drug_administered", "Drug administered"),
-        num("dose_mg_kg", "Dose", "mg/kg"),
-        sel("route", "Route", ["Oral paste", "Nasogastric"]),
-        txt("lot_number", "Lot number"),
-      ];
-      if (v === 2) f.push(yn("colic_signs", "Colic signs"));
-      if (v === 2) f.push(txt("colic_description", "Colic description"));
-      return f;
-    },
-    followupAssessment: (v) => {
-      const f = [calc("fec_reduction_pct", "FEC reduction", "%")];
-      if (v >= 4) f.push(txt("fec_reappearance_pattern", "FEC reappearance pattern"));
-      if (v === 5) f.push(num("final_efficacy_pct_reduction", "Final efficacy (% reduction)", "%"));
-      if (v === 5) f.push(yn("re_treatment_required", "Re-treatment required"));
-      return f;
-    },
-    adverseEvent: () => [
-      date("visit_date", "Visit date", true),
-      txt("animal_id", "Animal ID"),
-      txt("event_description", "Event description"),
-      date("onset_date", "Onset date"),
-      coded("veddra_coded_term", "VeDDRA coded term"),
-      sel("severity", "Severity", SEVERITY),
-      sel("relationship_to_drug", "Relationship to drug", RELATIONSHIP),
-      txt("action_taken", "Action taken"),
-      txt("outcome", "Outcome"),
-      yn("sae_flag", "SAE flag"),
-    ],
-    unscheduledVisit: () => [
-      date("visit_date", "Visit date", true),
-      txt("reason", "Reason"),
-      vital("temperature", "Temperature", "temperature", "°C"),
-      vital("heart_rate", "Heart rate", "heart_rate", "bpm"),
-      sel("gut_sounds_lf", "Gut sounds — LF", PRESENT_ABSENT),
-      sel("gut_sounds_rf", "Gut sounds — RF", PRESENT_ABSENT),
-      sel("gut_sounds_lh", "Gut sounds — LH", PRESENT_ABSENT),
-      sel("gut_sounds_rh", "Gut sounds — RH", PRESENT_ABSENT),
-      sel("colic_grade", "Colic grade", ["0", "1", "2", "3", "4"]),
-      txt("action_taken", "Action taken"),
-    ],
-    conmed: () => [
-      date("start_date", "Start date"),
-      date("end_date", "End date"),
-      coded("drug_name", "Drug name (coded)"),
-      txt("dose", "Dose"),
-      txt("route", "Route"),
-      txt("frequency", "Frequency"),
-      txt("indication", "Indication"),
-    ],
-  },
-};
-
-// ─── Studies ─────────────────────────────────────────────────────────────────
+// ─── Study configs (meta + hierarchy + subjects + demo) ──────────────────────
 const STUDIES = [
-  { key: "AK", suffix: "000000002401" },
-  { key: "CA", suffix: "000000001103" },
-  { key: "EQ", suffix: "000000003302" },
+  {
+    key: "PH", suffix: "000000002401", code: "PH-2401",
+    name: "Phytogenic Feed Additive Broiler Trial",
+    sponsor: "NutriPhyto Animal Health", phase: "Phase III",
+    type: "livestock_group", species: "chicken", enrollmentTarget: 20,
+    description: "Randomized complete block — 20 broiler pens (20 birds/pen), pen-level capture",
+    tree: PH_TREE,
+    site: { name: "Sunrise Poultry Research Farm", location: "Siloam Springs, AR", pi: "Dr. A. Whitfield" },
+    barns: [{ code: "H1", name: "House 1 — Grow-out", capacity: 400 }],
+    pens: [
+      { code: "P1", name: "Pen 1", barn: "H1", capacity: 20 },
+      { code: "P2", name: "Pen 2", barn: "H1", capacity: 20 },
+      { code: "P3", name: "Pen 3", barn: "H1", capacity: 20 },
+      { code: "P4", name: "Pen 4", barn: "H1", capacity: 20 },
+      { code: "P5", name: "Pen 5", barn: "H1", capacity: 20 },
+    ],
+    subjects: [
+      { code: "PH-2401-P01", status: "active", arm: "Treatment", pen: "P1" },
+      { code: "PH-2401-P02", status: "active", arm: "Control", pen: "P2" },
+      { code: "PH-2401-P03", status: "active", arm: "Treatment", pen: "P3" },
+      { code: "PH-2401-P04", status: "enrolled", arm: "Control", pen: "P4" },
+      { code: "PH-2401-P05", status: "screening", arm: "Treatment", pen: "P5" },
+    ],
+    demo: [
+      { subject: "PH-2401-P01", forms: [
+        { key: "demographics", status: "reviewed", values: {
+          pen_number: ["1", 1], initial_bird_count: ["21", 21], hatch_date: "2026-02-15",
+          breed_strain: "Ross 308", hatchery_id: "HX-204", litter_type: "Wood shavings",
+          block_id: "Block 1", treatment_group: "Treatment" } },
+        { key: "screen_pe", status: "reviewed", values: {
+          feeder_functional: "Yes", drinker_functional: "Yes", target_count_verified: "Yes" } },
+        { key: "screen_ie", status: "reviewed", values: { prior_antibiotics: "No", visible_runts: "No" } },
+        { key: "randomization", status: "in_work", values: {
+          randomization_date: "2026-03-01", randomization_number: "PH-R-001",
+          treatment_group_assignment: "Treatment", block_id_assignment: "Block 1",
+          feed_additive_lot: "FA-7781", randomization_method: "Computer-generated",
+          performed_by: "Elisa Tron", blinding_status: "Double-blind" } },
+      ] },
+      { subject: "PH-2401-P02", forms: [
+        { key: "demographics", status: "in_work", values: {
+          pen_number: ["2", 2], initial_bird_count: ["20", 20], breed_strain: "Cobb 500",
+          block_id: "Block 1", treatment_group: "Control" } },
+        { key: "v1_pe", status: "in_work", values: {
+          visit_date: "2026-03-01", total_pen_weight: ["1.05", 1.05], dead_bird_count: ["1", 1],
+          litter_moisture_score: ["3", 3], ammonia_level: ["32", 32] },
+          editCheck: { field: "ammonia_level", message: "Ammonia 32 ppm exceeds the broiler range (0–25 ppm) — check house ventilation and re-measure." } },
+      ] },
+      { subject: "PH-2401-P03", forms: [
+        { key: "demographics", status: "in_work", values: {
+          pen_number: ["3", 3], initial_bird_count: ["20", 20], breed_strain: "Ross 308",
+          block_id: "Block 2", treatment_group: "Treatment" },
+          query: { field: "initial_bird_count", title: "Initial bird count vs delivery manifest",
+            raise: "Initial bird count recorded as 20 but the hatchery delivery note lists 21. Please verify against the placement manifest.",
+            response: "Confirmed 20 birds placed — one DOA removed before placement. Manifest annotated and re-filed." } },
+      ] },
+    ],
+  },
+  {
+    key: "HF", suffix: "000000003001", code: "HF-3001",
+    name: "Beef Heifer Trace Mineral Trial",
+    sponsor: "Cattlemen's Nutrition Co.", phase: "Phase II",
+    type: "livestock_individual", species: "cattle", enrollmentTarget: 60,
+    description: "Completely randomized — 60 Angus heifers, individually RFID-identified",
+    tree: HF_TREE,
+    site: { name: "Cross Timbers Cattle Research", location: "Stillwater, OK", pi: "Dr. M. Castillo" },
+    barns: [{ code: "B1", name: "Barn A — Handling", capacity: 60 }],
+    pens: [
+      { code: "P1", name: "Pen 1 — Group A", barn: "B1", capacity: 30 },
+      { code: "P2", name: "Pen 2 — Group B", barn: "B1", capacity: 30 },
+    ],
+    subjects: [
+      { code: "840003202500101", status: "active", arm: "Mineral Injection", pen: "P1" },
+      { code: "840003202500102", status: "active", arm: "Saline Placebo", pen: "P1" },
+      { code: "840003202500103", status: "active", arm: "Mineral Injection", pen: "P2" },
+      { code: "840003202500104", status: "enrolled", arm: "Saline Placebo", pen: "P2" },
+      { code: "840003202500105", status: "screening", arm: "Mineral Injection", pen: "P1" },
+    ],
+    demo: [
+      { subject: "840003202500101", forms: [
+        { key: "demographics", status: "reviewed", values: {
+          rfid_tag: "840003202500101", visual_tag_id: ["104", 104], dob: "2024-09-12",
+          breed_type: "Purebred Angus", sire_id: "AAA-19942011", treatment_group: "Treatment" } },
+        { key: "screen_pe", status: "reviewed", values: {
+          visit_date: "2026-04-02", screening_weight: ["372", 372], body_condition_score: ["5.5", 5.5],
+          reproductive_tract_score: ["4", 4], pelvic_area: ["180", 180], active_lameness_signs: "No",
+          temperature: ["38.6", 38.6], heart_rate: ["66", 66] } },
+        { key: "screen_ie", status: "reviewed", values: {
+          screening_weight_in_range: "Yes", repro_tract_score_2plus: "Yes", active_lameness: "No",
+          prior_hormone_therapy: "No", owner_consent: "Yes" } },
+        { key: "randomization", status: "in_work", values: {
+          randomization_date: "2026-04-05", randomization_number: "HF-R-014",
+          treatment_group_assignment: "Mineral Injection", injection_batch_number: "MIN-2204",
+          semen_straw_lot: "SS-8841", randomization_method: "IVRS", performed_by: "Elisa Tron" } },
+      ] },
+      { subject: "840003202500102", forms: [
+        { key: "demographics", status: "in_work", values: {
+          rfid_tag: "840003202500102", visual_tag_id: ["112", 112], dob: "2024-08-30",
+          breed_type: "Angus Cross", treatment_group: "Control" } },
+        { key: "screen_pe", status: "in_work", values: {
+          visit_date: "2026-04-02", screening_weight: ["344", 344], body_condition_score: ["5.0", 5.0],
+          temperature: ["40.1", 40.1], heart_rate: ["72", 72] },
+          editCheck: { field: "temperature", message: "Temperature 40.1 °C is above the expected range for cattle (38.0–39.3 °C) — verify against source and rule out febrile illness." } },
+      ] },
+      { subject: "840003202500103", forms: [
+        { key: "demographics", status: "in_work", values: {
+          rfid_tag: "840003202500103", visual_tag_id: ["120", 120], dob: "2024-10-01",
+          breed_type: "Purebred Angus", treatment_group: "Treatment" },
+          query: { field: "visual_tag_id", title: "Visual tag vs RFID cross-check",
+            raise: "Visual tag 120 does not match the RFID ending in 103 on the chute reader log. Please confirm the visual tag is correctly assigned to this animal.",
+            response: "Re-scanned at the chute — visual tag 120 and RFID …103 belong to the same heifer. Reader log corrected." } },
+      ] },
+    ],
+  },
+  {
+    key: "CA", suffix: "000000000801", code: "CA-0801",
+    name: "Canine Atopic Dermatitis Diet Trial",
+    sponsor: "DermaPet Nutrition", phase: "Phase III",
+    type: "companion", species: "canine", enrollmentTarget: 40,
+    description: "Randomized double-blind — 40 client-owned dogs, hydrolyzed vs maintenance diet",
+    tree: CA_TREE,
+    site: { name: "Lakeshore Veterinary Dermatology", location: "Madison, WI", pi: "Dr. S. Bergman" },
+    barns: [],
+    pens: [],
+    owners: [
+      { code: "O1", name: "Priya Raman" },
+      { code: "O2", name: "Thomas Reed" },
+      { code: "O3", name: "Yuki Tanaka" },
+      { code: "O4", name: "Hassan Ali" },
+    ],
+    subjects: [
+      { code: "CA-0801-001", status: "active", arm: "Test Hydrolyzed Diet", owner: "O1" },
+      { code: "CA-0801-002", status: "active", arm: "Control Maintenance Diet", owner: "O2" },
+      { code: "CA-0801-003", status: "enrolled", arm: "Test Hydrolyzed Diet", owner: "O3" },
+      { code: "CA-0801-004", status: "screening", arm: "Control Maintenance Diet", owner: "O4" },
+    ],
+    demo: [
+      { subject: "CA-0801-001", forms: [
+        { key: "demographics", status: "reviewed", values: {
+          dog_name: "Biscuit", microchip_number: "985112004567321", owner_last_name: "Raman",
+          owner_contact: "555-0144", breed: "West Highland White Terrier", age: ["4.5", 4.5],
+          sex_neuter_status: "MN", body_weight: ["9.2", 9.2], informed_consent: "Yes" } },
+        { key: "screen_pe", status: "reviewed", values: {
+          visit_date: "2026-05-04", body_weight: ["9.2", 9.2], temperature: ["38.7", 38.7],
+          heart_rate: ["104", 104], respiratory_rate: ["22", 22], baseline_cadesi4: ["46", 46],
+          current_diet_brand: "Maintenance Adult", affected_body_regions: ["Paws", "Ears"] } },
+        { key: "screen_ie", status: "reviewed", values: {
+          cadesi4_20plus: "Yes", active_ectoparasite: "No", systemic_corticosteroid_30d: "No",
+          owner_able_comply: "Yes", owner_consent_obtained: "Yes" } },
+        { key: "randomization", status: "in_work", values: {
+          randomization_date: "2026-05-06", randomization_number: "CA-R-021",
+          diet_assignment: "Test Hydrolyzed Diet", diet_kit_number: "DK-3310",
+          blinding_envelope_number: "ENV-021", randomization_method: "Envelope",
+          performed_by: "Elisa Tron", owner_informed_blinding: "Yes" } },
+      ] },
+      { subject: "CA-0801-002", forms: [
+        { key: "demographics", status: "in_work", values: {
+          dog_name: "Pepper", microchip_number: "985112004599012", owner_last_name: "Reed",
+          breed: "French Bulldog", age: ["3.0", 3.0], sex_neuter_status: "FS", body_weight: ["11.4", 11.4],
+          informed_consent: "Yes" } },
+        { key: "v1_pe", status: "in_work", values: {
+          visit_date: "2026-05-06", study_week: "0", body_weight: ["11.4", 11.4],
+          temperature: ["40.0", 40.0], heart_rate: ["120", 120], cadesi4_score: ["52", 52] },
+          editCheck: { field: "temperature", message: "Temperature 40.0 °C is above the expected range for dogs (38.3–39.2 °C) — verify thermometer and re-check the patient." } },
+      ] },
+      { subject: "CA-0801-003", forms: [
+        { key: "demographics", status: "in_work", values: {
+          dog_name: "Mochi", microchip_number: "985112004571188", owner_last_name: "Tanaka",
+          breed: "Shiba Inu", age: ["6.0", 6.0], sex_neuter_status: "MN", body_weight: ["10.1", 10.1],
+          informed_consent: "Yes" },
+          query: { field: "body_weight", title: "Body weight vs prior record",
+            raise: "Body weight 10.1 kg is 1.8 kg below the weight on the referral record (11.9 kg). Please confirm the scale reading and recent weight history.",
+            response: "Re-weighed on a calibrated scale — 10.1 kg confirmed. Owner reports recent weight loss; flagged for the investigator to review at Week 0." } },
+      ] },
+    ],
+  },
 ];
 
 // ─── SQL helpers ─────────────────────────────────────────────────────────────
 const sqlStr = (s) => (s == null ? "null" : `'${String(s).replace(/'/g, "''")}'`);
 const sqlJson = (o) => (o == null ? "null" : `'${JSON.stringify(o).replace(/'/g, "''")}'::jsonb`);
-const formId = (gg, ss, suffix) => `61${gg}${ss}00-0000-0000-0000-${suffix}`;
-const fieldId = (gg, ss, ff, suffix) => `62${gg}${ss}${ff}-0000-0000-0000-${suffix}`;
+const h2 = (n) => n.toString(16).padStart(2, "0").toUpperCase();
+const h6 = (n) => n.toString(16).padStart(6, "0").toUpperCase();
+const studyUuid = (s) => `20000000-0000-0000-0000-${s}`;
+const hierId = (prefix, n, suffix) => `${prefix}${h2(n)}0000-0000-0000-0000-${suffix}`;
+const demoId = (prefix, n, suffix) => `${prefix}${h6(n)}-0000-0000-0000-${suffix}`;
+const DEMO_USER = "10000000-0000-0000-0000-000000000001";
 
+// ─── Emit forms + fields (per-study tree) ────────────────────────────────────
 const formRows = [];
 const fieldRows = [];
+const formIdByKey = {}; // [studyKey][leafKey] = formId
+const fieldIdByKey = {}; // [studyKey][leafKey][fieldCode] = fieldId
 
 for (const study of STUDIES) {
-  const studyUuid = `20000000-0000-0000-0000-${study.suffix}`;
+  const suffix = study.suffix;
+  const sUuid = studyUuid(suffix);
+  formIdByKey[study.key] = {};
+  fieldIdByKey[study.key] = {};
   let seq = 0;
-  const fns = FIELDS[study.key];
+  let gg = 0;
 
-  const emitLeaf = (gg, ss, name, resolver, visit, parentId) => {
+  const emitLeaf = (ggh, ss, node, parentId) => {
     seq += 1;
-    const id = formId(gg, ss, study.suffix);
-    const code = `F${gg}${ss}`;
+    const ssh = h2(ss);
+    const id = `61${ggh}${ssh}00-0000-0000-0000-${suffix}`;
+    const code = `F${ggh}${ssh}`;
     formRows.push(
-      `  ('${id}','${studyUuid}',${parentId ? `'${parentId}'` : "null"},${sqlStr(code)},${sqlStr(name)},${seq})`,
+      `  ('${id}','${sUuid}',${parentId ? `'${parentId}'` : "null"},'${code}',${sqlStr(node.name)},${seq})`,
     );
-    const fields = fns[resolver](visit);
-    fields.forEach((f, i) => {
-      const ff = (i + 1).toString(16).padStart(2, "0");
-      const fid = fieldId(gg, ss, ff, study.suffix);
+    formIdByKey[study.key][node.key] = id;
+    fieldIdByKey[study.key][node.key] = {};
+    node.fields.forEach((f, i) => {
+      const ff = h2(i + 1);
+      const fid = `62${ggh}${ssh}${ff}-0000-0000-0000-${suffix}`;
+      fieldIdByKey[study.key][node.key][f.code] = fid;
       fieldRows.push(
         `  ('${fid}','${id}',${sqlStr(f.code)},${sqlStr(f.label)},'${f.type}',${
           f.options ? sqlJson(f.options) : "null"
@@ -462,38 +598,163 @@ for (const study of STUDIES) {
     });
   };
 
-  for (const node of TREE) {
+  for (const node of study.tree) {
+    gg += 1;
+    const ggh = h2(gg);
     if (node.children) {
-      // group container — no fields
       seq += 1;
-      const gid = formId(node.gg, "00", study.suffix);
-      formRows.push(
-        `  ('${gid}','${studyUuid}',null,${sqlStr(`F${node.gg}00`)},${sqlStr(node.name)},${seq})`,
-      );
+      const gid = `61${ggh}0000-0000-0000-0000-${suffix}`;
+      formRows.push(`  ('${gid}','${sUuid}',null,'F${ggh}00',${sqlStr(node.name)},${seq})`);
+      let ss = 0;
       for (const child of node.children) {
-        emitLeaf(node.gg, child.ss, child.name, child.resolver, child.visit, gid);
+        ss += 1;
+        emitLeaf(ggh, ss, child, gid);
       }
     } else {
-      // standalone form
-      emitLeaf(node.gg, "00", node.name, node.resolver, undefined, null);
+      emitLeaf(ggh, 0, node, null);
     }
   }
 }
 
-// ─── Static preamble (identity, studies, hierarchy, species ranges) ──────────
+// ─── Emit hierarchy + subjects ───────────────────────────────────────────────
+const siteRows = [];
+const barnRows = [];
+const penRows = [];
+const ownerRows = [];
+const subjectRows = [];
+const subjectIdByCode = {}; // [studyKey][subject_code] = uuid
+
+for (const study of STUDIES) {
+  const suffix = study.suffix;
+  const sUuid = studyUuid(suffix);
+  subjectIdByCode[study.key] = {};
+
+  const siteUuid = hierId("30", 1, suffix);
+  siteRows.push(
+    `  ('${siteUuid}','${sUuid}','S01',${sqlStr(study.site.name)},${sqlStr(study.site.location)},${sqlStr(study.site.pi)},'active')`,
+  );
+
+  const barnUuidByCode = {};
+  (study.barns ?? []).forEach((b, i) => {
+    const id = hierId("31", i + 1, suffix);
+    barnUuidByCode[b.code] = id;
+    barnRows.push(`  ('${id}','${siteUuid}','${b.code}',${sqlStr(b.name)},${b.capacity ?? "null"})`);
+  });
+
+  const penUuidByCode = {};
+  (study.pens ?? []).forEach((p, i) => {
+    const id = hierId("32", i + 1, suffix);
+    penUuidByCode[p.code] = id;
+    penRows.push(`  ('${id}','${barnUuidByCode[p.barn]}','${p.code}',${sqlStr(p.name)},${p.capacity ?? "null"})`);
+  });
+
+  const ownerUuidByCode = {};
+  (study.owners ?? []).forEach((o, i) => {
+    const id = hierId("33", i + 1, suffix);
+    ownerUuidByCode[o.code] = id;
+    ownerRows.push(`  ('${id}','${sUuid}',${sqlStr(o.name)})`);
+  });
+
+  study.subjects.forEach((s, i) => {
+    const id = hierId("34", i + 1, suffix);
+    subjectIdByCode[study.key][s.code] = id;
+    const pen = s.pen ? penUuidByCode[s.pen] : null;
+    const barnForPen = s.pen ? study.pens.find((p) => p.code === s.pen)?.barn : null;
+    const barn = barnForPen ? barnUuidByCode[barnForPen] : null;
+    const owner = s.owner ? ownerUuidByCode[s.owner] : null;
+    const enrolledAt = s.status === "screening" ? "null" : "now()";
+    subjectRows.push(
+      `  ('${id}','${sUuid}','${siteUuid}',${barn ? `'${barn}'` : "null"},${pen ? `'${pen}'` : "null"},${
+        owner ? `'${owner}'` : "null"
+      },${sqlStr(s.code)},${sqlStr(study.species)},'${s.status}',${sqlStr(s.arm)},${enrolledAt})`,
+    );
+  });
+}
+
+// ─── Emit demo instances / values / queries ──────────────────────────────────
+const instanceRows = [];
+const valueRows = [];
+const queryRows = [];
+const messageRows = [];
+
+for (const study of STUDIES) {
+  const suffix = study.suffix;
+  let ic = 0;
+  let vc = 0;
+  let qc = 0;
+  let mc = 0;
+  for (const d of study.demo) {
+    const subjectId = subjectIdByCode[study.key][d.subject];
+    for (const f of d.forms) {
+      const formId = formIdByKey[study.key][f.key];
+      const instId = demoId("63", (ic += 1), suffix);
+      instanceRows.push(`  ('${instId}','${formId}','${subjectId}','${f.status}')`);
+      const vidByCode = {};
+      for (const [code, raw] of Object.entries(f.values)) {
+        // raw forms: "str" (text/select) · ["str", num] (numeric value+value_num)
+        // · ["a","b",…] of strings (multiselect → stored as a JSON-array string).
+        let val;
+        let n = null;
+        if (Array.isArray(raw) && typeof raw[1] === "number") {
+          [val, n] = raw;
+        } else if (Array.isArray(raw)) {
+          val = JSON.stringify(raw);
+        } else {
+          val = raw;
+        }
+        const fieldId = fieldIdByKey[study.key][f.key][code];
+        const vid = demoId("64", (vc += 1), suffix);
+        vidByCode[code] = vid;
+        valueRows.push(
+          `  ('${vid}','${instId}','${fieldId}',${sqlStr(val)},${n == null ? "null" : n},'${DEMO_USER}',now())`,
+        );
+      }
+      if (f.editCheck) {
+        const qid = demoId("70", (qc += 1), suffix);
+        const mid = demoId("71", (mc += 1), suffix);
+        queryRows.push(
+          `  ('${qid}','${instId}','${vidByCode[f.editCheck.field]}','open','major',${sqlStr(f.editCheck.message)},'${DEMO_USER}',now())`,
+        );
+        messageRows.push(`  ('${mid}','${qid}','${DEMO_USER}',${sqlStr("Auto edit-check: " + f.editCheck.message)})`);
+      }
+      if (f.query) {
+        const qid = demoId("70", (qc += 1), suffix);
+        queryRows.push(
+          `  ('${qid}','${instId}','${vidByCode[f.query.field]}','responded','minor',${sqlStr(f.query.title)},'${DEMO_USER}',now())`,
+        );
+        messageRows.push(`  ('${demoId("71", (mc += 1), suffix)}','${qid}','${DEMO_USER}',${sqlStr(f.query.raise)})`);
+        messageRows.push(`  ('${demoId("71", (mc += 1), suffix)}','${qid}','${DEMO_USER}',${sqlStr(f.query.response)})`);
+      }
+    }
+  }
+}
+
+// ─── Static preamble (identity, access, species ranges) ──────────────────────
+const studyValueRows = STUDIES.map(
+  (s) =>
+    `  ('${studyUuid(s.suffix)}','${s.code}',${sqlStr(s.name)},${sqlStr(s.sponsor)},${sqlStr(s.phase)},'${s.type}',${sqlStr(
+      s.species,
+    )},'active',${s.enrollmentTarget},${sqlStr(s.description)})`,
+);
+const membershipRows = STUDIES.map(
+  (s, i) =>
+    `  ('40000000-0000-0000-0000-${h6(i + 1).slice(-12).padStart(12, "0")}','${DEMO_USER}','${studyUuid(s.suffix)}','CRC')`,
+);
+
 const PREAMBLE = `-- ════════════════════════════════════════════════════════════════════════════
--- Arken EDC — Seed data (three session-based studies + grouped form layer)
---   AK-2401  livestock_group       cattle   Site → Barn → Pen → Animals
---   CA-1103  companion             canine   Site → Subject (+ owner)
---   EQ-3302  livestock_individual  equine   Site → Stable → Stall → Animal
+-- Arken EDC — Seed data (three clinically-realistic, session-based studies)
+--   PH-2401  livestock_group       chicken   Site → House → Pen   (broiler pens)
+--   HF-3001  livestock_individual  bovine    Site → Barn → Pen → Animal (RFID heifers)
+--   CA-0801  companion             canine    Site → Subject (+ owner, at-home dogs)
 --
 -- ⚠️ GENERATED FILE — edit app/supabase/generate-seed.mjs and re-run:
 --      node app/supabase/generate-seed.mjs
 --
--- Form layer: each study has 7 visit/info GROUPS (containers, no fields) with
--- two sub-forms each + 3 standalone forms (Adverse Event, Unscheduled Visit,
--- ConMed). Vital fields declare validation.vital; the range resolves per species
--- from species_ranges at runtime (Case Study 3).
+-- Each study defines its own form tree (info/visit GROUPS with sub-forms + a
+-- Randomization form + 3 standalone forms). Vital fields declare validation.vital;
+-- the range resolves per species from species_ranges at runtime (Case Study 3).
+-- Inclusion/exclusion criteria declare validation.exclusion_if (the answer that
+-- fails — "No" for inclusion criteria, "Yes" for exclusion criteria).
 --
 -- ⚠️ Apply with:  cd app && npx supabase db reset --linked --yes
 -- ════════════════════════════════════════════════════════════════════════════
@@ -501,12 +762,10 @@ const PREAMBLE = `-- ═══════════════════�
 truncate table users, studies, access_codes, species_ranges cascade;
 
 insert into users (id, full_name, email, initials, is_demo) values
-  ('10000000-0000-0000-0000-000000000001', 'Elisa Tron', 'edc@arken.com', 'ET', true);
+  ('${DEMO_USER}', 'Elisa Tron', 'edc@arken.com', 'ET', true);
 
 insert into studies (id, code, name, sponsor, phase, type, species, status, enrollment_target, description) values
-  ('20000000-0000-0000-0000-000000002401', 'AK-2401', 'BRD Cattle Phase II Efficacy Trial', 'AgriVet Sciences', 'Phase II', 'livestock_group', 'cattle', 'active', 120, 'Bovine respiratory disease — group-housed cattle, pen-level data capture'),
-  ('20000000-0000-0000-0000-000000001103', 'CA-1103', 'Canine Osteoarthritis Pain Study', 'PharmaVet Inc.', 'Phase II', 'companion', 'canine', 'active', 80, 'Companion individual records — owner-linked, post-op analgesia'),
-  ('20000000-0000-0000-0000-000000003302', 'EQ-3302', 'Equine Lameness Therapeutic Trial', 'VetPharm Europe', 'Phase III', 'livestock_individual', 'equine', 'active', 60, 'Stabled equine — individual animal records, lameness scoring');
+${studyValueRows.join(",\n")};
 
 insert into access_codes (id, code, label, role, study_id, is_active) values
   ('50000000-0000-0000-0000-000000000001', 'ARKEN-CRC', 'CRC — site coordinator', 'CRC', null, true),
@@ -516,87 +775,61 @@ insert into access_codes (id, code, label, role, study_id, is_active) values
   ('50000000-0000-0000-0000-000000000005', 'ARKEN-ADMIN','Admin — all access',  'Admin', null, true);
 
 insert into study_memberships (id, user_id, study_id, role) values
-  ('40000000-0000-0000-0000-000000000001', '10000000-0000-0000-0000-000000000001', '20000000-0000-0000-0000-000000002401', 'CRC'),
-  ('40000000-0000-0000-0000-000000000002', '10000000-0000-0000-0000-000000000001', '20000000-0000-0000-0000-000000001103', 'CRC'),
-  ('40000000-0000-0000-0000-000000000003', '10000000-0000-0000-0000-000000000001', '20000000-0000-0000-0000-000000003302', 'CRC');
+${membershipRows.join(",\n")};
 
--- Species vital ranges — heart rate (bpm) · temperature (°C) · respiratory rate
--- (breaths/min) · weight (kg plausibility bound). Aligned with the study protocols.
+-- Species vital ranges — resolved by subject species at runtime. heart rate (bpm)
+-- · temperature (°C) · respiratory rate (breaths/min) · weight (kg plausibility) ·
+-- ammonia_level (ppm, broiler house air quality). Aligned with the study protocols.
 insert into species_ranges (species, vital, min, max, unit) values
   ('cattle','heart_rate',40,80,'bpm'),  ('cattle','temperature',38.0,39.3,'°C'),  ('cattle','respiratory_rate',10,30,'breaths/min'),  ('cattle','weight',200,900,'kg'),
   ('canine','heart_rate',60,140,'bpm'), ('canine','temperature',38.3,39.2,'°C'),  ('canine','respiratory_rate',10,30,'breaths/min'),  ('canine','weight',2,90,'kg'),
   ('equine','heart_rate',28,44,'bpm'),  ('equine','temperature',37.5,38.5,'°C'),  ('equine','respiratory_rate',8,16,'breaths/min'),   ('equine','weight',350,700,'kg'),
   ('feline','heart_rate',140,220,'bpm'),('feline','temperature',38.1,39.2,'°C'),  ('feline','respiratory_rate',20,30,'breaths/min'),  ('feline','weight',2.5,9,'kg'),
-  ('swine','heart_rate',70,120,'bpm'),  ('swine','temperature',38.7,39.8,'°C'),   ('swine','respiratory_rate',10,30,'breaths/min'),   ('swine','weight',20,350,'kg');
+  ('swine','heart_rate',70,120,'bpm'),  ('swine','temperature',38.7,39.8,'°C'),   ('swine','respiratory_rate',10,30,'breaths/min'),   ('swine','weight',20,350,'kg'),
+  ('chicken','heart_rate',250,400,'bpm'),('chicken','temperature',40.6,42.2,'°C'),('chicken','ammonia_level',0,25,'ppm');
 
 -- ════════════════════════════════════════════════════════════════════════════
--- HIERARCHY
+-- HIERARCHY (sites → houses/barns → pens · companion owners · subjects)
 -- ════════════════════════════════════════════════════════════════════════════
--- AK-2401 (cattle): site → barn → pen → subjects
 insert into sites (id, study_id, code, name, location, principal_investigator, status) values
-  ('30000000-0000-0000-0000-000000002401', '20000000-0000-0000-0000-000000002401', 'S01', 'Prairie Veterinary Research', 'Amarillo, TX', 'Dr. J. Mercer', 'active');
-insert into barns (id, site_id, code, name, capacity) values
-  ('31000000-0000-0000-0000-000000002401', '30000000-0000-0000-0000-000000002401', 'B1', 'Barn 1 — North', 60);
-insert into pens (id, barn_id, code, name, capacity) values
-  ('32000000-0000-0000-0000-000000002401', '31000000-0000-0000-0000-000000002401', 'P1', 'Pen 1', 12);
-insert into subjects (id, study_id, site_id, barn_id, pen_id, subject_code, species, status, randomization_arm, enrolled_at) values
-  ('34000000-0000-0000-0000-000000002401', '20000000-0000-0000-0000-000000002401', '30000000-0000-0000-0000-000000002401', '31000000-0000-0000-0000-000000002401', '32000000-0000-0000-0000-000000002401', 'AK-2401-001', 'cattle', 'active', 'AV-2201', now()),
-  ('34000000-0000-0000-0000-000000002402', '20000000-0000-0000-0000-000000002401', '30000000-0000-0000-0000-000000002401', '31000000-0000-0000-0000-000000002401', '32000000-0000-0000-0000-000000002401', 'AK-2401-002', 'cattle', 'active', 'Placebo', now()),
-  ('34000000-0000-0000-0000-000000002403', '20000000-0000-0000-0000-000000002401', '30000000-0000-0000-0000-000000002401', '31000000-0000-0000-0000-000000002401', '32000000-0000-0000-0000-000000002401', 'AK-2401-003', 'cattle', 'enrolled', 'AV-2201', now());
+${siteRows.join(",\n")};
 
--- CA-1103 (canine): site → subjects (+ owners)
-insert into sites (id, study_id, code, name, location, principal_investigator, status) values
-  ('30000000-0000-0000-0000-000000001103', '20000000-0000-0000-0000-000000001103', 'S01', 'Bayside Animal Hospital', 'Portland, OR', 'Dr. L. Okafor', 'active');
-insert into companion_owners (id, study_id, full_name, email, phone, epro_enabled) values
-  ('33000000-0000-0000-0000-000000001101', '20000000-0000-0000-0000-000000001103', 'Marta Ruiz', 'marta@example.com', '555-0101', false),
-  ('33000000-0000-0000-0000-000000001102', '20000000-0000-0000-0000-000000001103', 'Daniel Cho', 'daniel@example.com', '555-0102', false);
-insert into subjects (id, study_id, site_id, owner_id, subject_code, species, status, randomization_arm, enrolled_at) values
-  ('34000000-0000-0000-0000-000000001101', '20000000-0000-0000-0000-000000001103', '30000000-0000-0000-0000-000000001103', '33000000-0000-0000-0000-000000001101', 'CA-1103-001', 'canine', 'active', 'Velafen', now()),
-  ('34000000-0000-0000-0000-000000001102', '20000000-0000-0000-0000-000000001103', '30000000-0000-0000-0000-000000001103', '33000000-0000-0000-0000-000000001102', 'CA-1103-002', 'canine', 'active', 'Placebo', now());
-
--- EQ-3302 (equine): site → stable → stall → subjects
-insert into sites (id, study_id, code, name, location, principal_investigator, status) values
-  ('30000000-0000-0000-0000-000000003302', '20000000-0000-0000-0000-000000003302', 'S01', 'Hill Country Equine Center', 'Lexington, KY', 'Dr. R. Devlin', 'active');
 insert into barns (id, site_id, code, name, capacity) values
-  ('31000000-0000-0000-0000-000000003302', '30000000-0000-0000-0000-000000003302', 'B1', 'Stable Block A', 24);
+${barnRows.join(",\n")};
+
 insert into pens (id, barn_id, code, name, capacity) values
-  ('32000000-0000-0000-0000-000000003302', '31000000-0000-0000-0000-000000003302', 'P1', 'Stall Row 1', 8);
-insert into subjects (id, study_id, site_id, barn_id, pen_id, subject_code, species, status, randomization_arm, enrolled_at) values
-  ('34000000-0000-0000-0000-000000003301', '20000000-0000-0000-0000-000000003302', '30000000-0000-0000-0000-000000003302', '31000000-0000-0000-0000-000000003302', '32000000-0000-0000-0000-000000003302', 'EQ-3302-001', 'equine', 'active', 'Treatment', now()),
-  ('34000000-0000-0000-0000-000000003302', '20000000-0000-0000-0000-000000003302', '30000000-0000-0000-0000-000000003302', '31000000-0000-0000-0000-000000003302', '32000000-0000-0000-0000-000000003302', 'EQ-3302-002', 'equine', 'active', 'Control', now()),
-  ('34000000-0000-0000-0000-000000003303', '20000000-0000-0000-0000-000000003302', '30000000-0000-0000-0000-000000003302', '31000000-0000-0000-0000-000000003302', '32000000-0000-0000-0000-000000003302', 'EQ-3302-003', 'equine', 'enrolled', 'Treatment', now());
+${penRows.join(",\n")};
+
+insert into companion_owners (id, study_id, full_name) values
+${ownerRows.join(",\n")};
+
+insert into subjects (id, study_id, site_id, barn_id, pen_id, owner_id, subject_code, species, status, randomization_arm, enrolled_at) values
+${subjectRows.join(",\n")};
 `;
 
-// AK-2401-001 Screening / Physical Examination: out-of-range temp 39.8 (cattle
-// 38.0–39.3) carrying a seeded edit-check query. PE form = 61020100, fields
-// visit_date(01) weight(02) temperature(03) heart_rate(04) respiratory_rate(05).
 const DEMO = `
 -- ════════════════════════════════════════════════════════════════════════════
--- DEMO INSTANCE — AK-2401-001 Screening / Physical Examination: a temperature of
--- 39.8 °C (vs cattle 38.0–39.3) that carries a seeded edit-check query.
+-- DEMO DATA — per study: a completed Screening + filled Randomization, an open
+-- edit check (out-of-range vital → auto edit-check), and a responded query.
 -- ════════════════════════════════════════════════════════════════════════════
 insert into form_instances (id, form_id, subject_id, status) values
-  ('63020100-0000-0000-0000-000000002401', '61020100-0000-0000-0000-000000002401', '34000000-0000-0000-0000-000000002401', 'in_work');
+${instanceRows.join(",\n")};
 
 insert into field_values (id, form_instance_id, form_field_id, value, value_num, entered_by, entered_at) values
-  ('64020101-0000-0000-0000-000000002401','63020100-0000-0000-0000-000000002401','62020101-0000-0000-0000-000000002401','2026-05-07', null, '10000000-0000-0000-0000-000000000001', now()),
-  ('64020102-0000-0000-0000-000000002401','63020100-0000-0000-0000-000000002401','62020102-0000-0000-0000-000000002401','430', 430, '10000000-0000-0000-0000-000000000001', now()),
-  ('64020103-0000-0000-0000-000000002401','63020100-0000-0000-0000-000000002401','62020103-0000-0000-0000-000000002401','39.8', 39.8, '10000000-0000-0000-0000-000000000001', now()),
-  ('64020104-0000-0000-0000-000000002401','63020100-0000-0000-0000-000000002401','62020104-0000-0000-0000-000000002401','72', 72, '10000000-0000-0000-0000-000000000001', now()),
-  ('64020105-0000-0000-0000-000000002401','63020100-0000-0000-0000-000000002401','62020105-0000-0000-0000-000000002401','24', 24, '10000000-0000-0000-0000-000000000001', now());
+${valueRows.join(",\n")};
 
 insert into queries (id, form_instance_id, field_value_id, status, severity, title, raised_by, raised_at) values
-  ('70020103-0000-0000-0000-000000002401','63020100-0000-0000-0000-000000002401','64020103-0000-0000-0000-000000002401','open','major','Value outside expected range (38.0–39.3 °C) — verify', '10000000-0000-0000-0000-000000000001', now());
+${queryRows.join(",\n")};
 
 insert into query_messages (id, query_id, author_id, body) values
-  ('71020103-0000-0000-0000-000000002401','70020103-0000-0000-0000-000000002401','10000000-0000-0000-0000-000000000001','Auto edit-check: temperature 39.8 °C is above the expected range for cattle (38.0–39.3 °C). Please verify against the source document.');
+${messageRows.join(",\n")};
 `;
 
 // ─── Assemble ────────────────────────────────────────────────────────────────
 const out = [
   PREAMBLE,
   "\n-- ════════════════════════════════════════════════════════════════════════════",
-  "-- FORM GROUPS + SUB-FORMS (parent_form_id links sub-forms → their group)",
+  "-- FORMS — per-study tree (parent_form_id links sub-forms → their group container)",
   "-- ════════════════════════════════════════════════════════════════════════════",
   "insert into forms (id, study_id, parent_form_id, code, name, sequence) values",
   formRows.join(",\n") + ";",
@@ -607,4 +840,7 @@ const out = [
 ].join("\n");
 
 writeFileSync(join(__dirname, "seed.sql"), out);
-console.log(`seed.sql written — ${formRows.length} forms, ${fieldRows.length} fields`);
+console.log(
+  `seed.sql written — ${formRows.length} forms, ${fieldRows.length} fields, ` +
+    `${subjectRows.length} subjects, ${instanceRows.length} instances, ${valueRows.length} values, ${queryRows.length} queries`,
+);

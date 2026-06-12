@@ -136,9 +136,9 @@ A second problem sits alongside it. A real veterinary protocol isn't a flat list
 
 ### The solution
 
-**Validation as a resolved lookup.** `species_ranges` carries 20 rows (5 species × 4 vitals). A vital field stores only its `vital` key; a non-vital numeric field can still carry a static `{ min, max }` (a body-condition score of 1–9). When a value lands outside the resolved range the Subject Record **auto-raises an inline edit-check query** (the Case Study 1 pattern) — and when the value comes back in range, the query **auto-resolves**. Type `39.8` into a cattle temperature and a query appears; correct it and the query closes itself. The two case studies compose: validation produces the query, the query architecture displays it.
+**Validation as a resolved lookup.** `species_ranges` carries 23 rows across 6 species (cattle, canine, equine, feline, swine, **chicken**). A vital field stores only its `vital` key; a non-vital numeric field can still carry a static `{ min, max }` (a body-condition score of 1–9). When a value lands outside the resolved range the Subject Record **auto-raises an inline edit-check query** (the Case Study 1 pattern) — and when the value comes back in range, the query **auto-resolves**. Type `39.8` into a cattle temperature and a query appears; correct it and the query closes itself. The two case studies compose: validation produces the query, the query architecture displays it. The mechanism isn't limited to mammalian vitals: the broiler study declares an `ammonia_level` vital, so a poultry house reading of 32 ppm against the 0–25 ppm range raises the very same edit check — a new "vital" is one more row in the table, not a line of code.
 
-**Groups as collapsible sections.** The form sidebar reads the `parent_form_id` tree and renders each group as a collapsible header carrying a **rolled-up status icon** and an open-query badge; sub-forms indent beneath it. Standalone forms (Adverse Event, Unscheduled Visit, ConMed) sit at the top level with no group. The protocol's shape is now visible at a glance — and the same tree drives all three studies, each with its own species-specific field definitions (114 / 113 / 138 fields).
+**Groups as collapsible sections.** The form sidebar reads the `parent_form_id` tree and renders each group as a collapsible header carrying a **rolled-up status icon** and an open-query badge; sub-forms indent beneath it. Standalone forms (Randomization, Adverse Event, Unscheduled Visit, ConMed) sit at the top level with no group. The protocol's shape is now visible at a glance — and the same engine drives all three studies, **each with its own tree** (the broiler trial runs four feed-measurement visits; the heifer and dog trials run five), totalling 86 forms / 356 species-specific fields (95 / 121 / 140).
 
 ### Why it matters
 
@@ -148,7 +148,7 @@ Species-specific validation is the single clearest answer to *"why can't we just
 
 The same field definitions drive a complete data-entry surface, not just a preview. One renderer maps every `field_type` to the right control — number with a unit hint, a **Yes/No toggle** instead of a dropdown, **multiselect checkboxes**, **read-only calculated** values (age from date of birth, FEC % reduction), a **file upload**, and a **coded** field that opens a VeDDRA dictionary lookup (gated to the data manager). A few controls are even **study-type-aware** — Pen / Lot ID is a free-text field for an individual-animal study but a dropdown of the study's pens for a group-housed one, the same Case Study 2 principle reaching down to a single input. Required fields carry an asterisk; vitals carry their species range as a hint.
 
-Over the top sits the regulated lifecycle every clinical record needs: **Empty → In-Work → In-Review → Reviewed → Finalized → Locked**, each transition gated to the role that owns it, with an **electronic signature** to lock and a fully read-only form afterwards (21 CFR Part 11). And the **inclusion/exclusion** sub-form is live logic, not just fields — fail any criterion and the subject is flagged **ineligible for PI review**, surfaced on the record and back in the drill-down list. The point: the field metadata isn't documentation, it's the program — definition, validation, entry, and workflow all read from the same source.
+Over the top sits the regulated lifecycle every clinical record needs: **Empty → In-Work → In-Review → Reviewed → Finalized → Locked**, each transition gated to the role that owns it, with an **electronic signature** to lock and a fully read-only form afterwards (21 CFR Part 11). And the **inclusion/exclusion** sub-form is live logic, not just fields — fail any criterion and the subject is flagged **ineligible for PI review**, surfaced on the record and back in the drill-down list. Criteria carry their own polarity: a positively-phrased *inclusion* criterion fails on "No" (consent obtained? reproductive tract score ≥2?), while an *exclusion* criterion fails on "Yes" (prior antibiotics? active lameness?) — each field declares the failing answer (`exclusion_if`), so the engine reads a real protocol's mixed criteria correctly instead of assuming one direction. The point: the field metadata isn't documentation, it's the program — definition, validation, entry, and workflow all read from the same source.
 
 Two details carry the same regulated intent down to the keystroke. Changing a value that was already saved demands a **change reason** — the Δ panel shows old → new, captures the reason with author and timestamp, and walks a *pending → answered → DM-approved* state — while a brand-new entry asks for nothing (there's no prior value to explain). The reason is owed only on a value that was *already saved*, never on the keystrokes of a first entry: typing the first value into an empty field — even after you leave the field — raises no Δ at all, because there is no prior saved value to explain. And it is owed on *every* transition, not just the net move: each change writes its own record carrying its specific *old → new* pair, so editing a value A → B → C without pausing to explain leaves **two** debts on the audit trail, not one — change one (A→B) and change two (B→C), each awaiting its own justification, each shown on its own card in the panel. Change a toggle Yes → No → Yes and the same holds; and the field's marker turns green only once **every** change in that history has been signed off — one unapproved change anywhere and it stays blue.
 
@@ -160,7 +160,35 @@ Workflow honours role and judgement, too. Queries move through the hands that ow
 
 ---
 
-> **Case Study 4 is coming** — **conditional demographics** (breed lists, age auto-calculation from date of birth, and production-purpose tags that appear and validate based on the animal). The form layer it builds on is now live.
+## Case Study 4 — Randomization & the Inventory Bridge
+
+### The problem
+
+Randomization is the moment a trial becomes a *controlled* trial — the point where a subject is bound to a treatment arm under a documented, auditable method. But in a regulated study that assignment is never just a label. It has to answer two questions at once: *which arm is this animal in?* and *which physical unit of investigational product was used to treat it?* A treatment arm with no link to a lot number is a randomization you can't reconcile against the supply — and drug accountability (what shipped, what was administered, what was returned or destroyed) is exactly what an auditor and a sponsor's blinding plan depend on.
+
+Most demo EDCs model randomization as a single dropdown on a visit form. That collapses the assignment, the method, the blinding state, and the supply link into one field — and loses every one of the threads a real reconciliation needs to pull.
+
+### The insight
+
+Randomization deserves its own form, and that form is where the **assignment meets the supply chain**. It is the natural seam between two modules that are otherwise separate: the **data-capture** world (subjects, visits, values) and the **inventory** world (lots, batches, kits, expiry, accountability). Model the seam explicitly and both sides stay clean: the subject record never has to know about warehouse stock, and the inventory module never has to parse a visit form — they meet at one record, the randomization.
+
+### The solution
+
+Each study carries a dedicated **Randomization** standalone form (top-level, outside the visit groups, because randomization happens once and governs everything after it). It captures the regulated essentials — **randomization date and number**, **treatment/arm assignment**, **method** (computer-generated / envelope / IVRS), **blinding status**, and **performed-by** — and then, critically, the **supply link**: a lot / batch / kit identifier that ties the assignment to a physical inventory unit. The three studies each name that link in their own protocol's terms, which is the tell that it's a real domain concept and not a generic field:
+
+- **PH-2401** (broiler) — *Feed Additive Lot Number*, the bag of phytogenic premix blended into the pen's ration.
+- **HF-3001** (heifer) — *Injection Batch Number* (and a *Semen Straw Lot* for the AI sub-protocol), the vial drawn for the trace-mineral injection.
+- **CA-0801** (canine) — *Diet Kit Number* and a *Blinding Envelope Number*, the masked food kit dispensed to the owner.
+
+Today those identifiers are captured as traceable text on the randomization record. The design intent is the **bridge**: each is the foreign key a future Inventory module will resolve — dispensing a kit decrements stock, a lot's expiry or recall flows back to every subject it touched, and drug-accountability reconciliation (shipped → assigned → administered → returned) runs off the same join. The randomization form is built now so the inventory module has something to connect *to* later; the seam is in place before the second module exists.
+
+### Why it matters
+
+Putting randomization on its own form — with the supply link as a first-class field — is the difference between a system that *records* an assignment and one that can *reconcile* it. It keeps blinding auditable, keeps drug accountability possible, and draws a clean line between data capture and inventory that lets each evolve without entangling the other. It's the same thesis as the other case studies, one layer up: model the real-world structure in the data, and the screens — and the modules that come later — fall out of it.
+
+---
+
+> **Case Study 5 is coming** — **conditional demographics** (breed lists, age auto-calculation from date of birth, and production-purpose tags that appear and validate based on the animal). The form layer it builds on is now live.
 
 ---
 

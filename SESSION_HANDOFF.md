@@ -1,6 +1,6 @@
 # Arken EDC — Session Handoff
 **Paste this entire file at the start of a new conversation.**
-Last updated: 2026-06-11 | Session 24 COMPLETE — forms deep dive + 8 batches of fixes (incl. edit-check/query split, per-transition change reasons). NEXT: Session 25 = Animals list.
+Last updated: 2026-06-12 | Session 26 COMPLETE — replaced the three studies with PH-2401 (chicken/broiler), HF-3001 (heifer), CA-0801 (canine); added chicken species + House terminology + Randomization forms. NEXT: deferred form polish (SDV panel, sidebar deep-link, query re-open, conditional demographics).
 
 ---
 
@@ -218,8 +218,33 @@ The change-reason model moved from a single baseline-vs-current comparison to **
 - CSS `.delta-entry.pending`. Session key → **v8** (shape changed). Verified: `tsc`, `next lint`, **`next build` all clean**.
 - **Consistent card format** (final): the Δ panel **always** uses one dashed-red card per pending transition (own old→new + reason box + Submit), regardless of count — no single-vs-multiple adaptation. Mirrors the paper-CRF correction convention; rationale documented in `CASE_STUDY.md`. Responded/approved always render as cards.
 
-### Session 25 — NEXT ▶ Animals list
-**Build the Animals list screen from `29-animals-list.html`.** Translate the prototype into a React route (a study-wide animals table) using the session store (`useStudySession()`), consistent with the existing Data Entry drill-down and Subject Record. Wire row → Subject Record navigation.
+### Session 25 — COMPLETE ✅ (Animals list)
+**Built the Animals list from `29-animals-list.html`** as a study-wide React route at `app/study/[studyId]/animals/page.tsx` (+ self-contained `animals.css`), wired to the session store and the app shell.
+- **Routing:** added `animals: "animals"` to `NAV_ROUTES` (`lib/permissions.ts`) — the Animals sidenav item (already in NAV_ITEMS for CRC/CRA/DM/PI/Sponsor) now navigates here.
+- **Adaptive per study type** (`studyRow.type`):
+  - **companion** → demographic columns (Sex/Age/Breed/Weight) + a single **Site** column; no barn/pen filters.
+  - **livestock_individual** (equine) → demographic columns + **Location** breadcrumb (Site › **Stable** › **Stall**, terminology-driven via `housingTerms`); Stable/Stall filters.
+  - **livestock_group** → **no** per-animal demographics (those are group-level); **Location** breadcrumb (Site › Barn › Pen); Barn/Pen filters.
+- **Live data** from `useStudySession()`: subjects → rows (code, status, randomization_arm as Group/Arm, resolved site/barn/pen names); forms progress = completed leaf-form instances / total leaf forms; **open (unresolved) query count**; last-visit pulled from the `visit_date` field value; demographics (sex/age/breed/weight) pulled from field values by field **code** (show "—" when not entered — sparse seed, honest). Ineligible subjects get a red row + Ineligible badge (replaces the prototype's invented "critical"/"overdue" data).
+- **Faithful UI:** stat strip, bulk-action bar (appears on selection), search + status/group/site/barn/pen filters, **column chooser** (toggle/reset; Animal ID required), sortable sticky-header table, summary bar, and the 420px **Raise query** slide-in panel (live animal context + live existing queries on the animal).
+- **Live permissions:** the row "Raise query" icon + bulk Raise-query button are gated by `canQuery(role, "raise")` → **hidden for CRC**, shown for **CRA/DM**. Row click / clipboard icon → Subject Record (`/data-entry/{subjectUuid}`). Topbar site picker drives the site filter (resets barn/pen). **"Send query" is a faithful stub** (the real raise/respond/resolve workflow lives in the Subject Record); Export / SEND export / Add animal / bulk lock/sign-off are stubs.
+- Verified in-browser (Playwright) across all three studies + interactions (sort, filters, column chooser, role gating, query-panel context, row nav); `tsc`, `next lint`, **`next build` all clean**.
+- **Follow-up fix:** the Raise-query panel's **Field reference** input became a grouped `<select>` sourced from the study's leaf forms + fields (`<optgroup>` per form, option text `[Form] — [Field]`).
+
+### Session 26 — COMPLETE ✅ (three new clinically-realistic studies)
+**Replaced AK-2401 / CA-1103 / EQ-3302 entirely** with three new studies. Seed-only rebuild + one small migration + a terminology/engine tweak.
+- **Migration** `20260612000000_chicken_species.sql` — `alter type species add value 'chicken'`. (Chicken `species_ranges` rows live in the **seed**, not the migration: seed.sql `truncate`s + re-seeds species_ranges on every reset, so anything in the migration would be wiped — and keeping the enum value in its own migration avoids the Postgres "new enum value used in the same transaction" restriction.)
+- **Terminology** (`lib/terminology.ts`) — `chicken → { barn: "House", pen: "Pen" }`. Drives Animals filters ("All houses"/"All pens"), drill-down labels, breadcrumbs.
+- **New studies** (UUIDs `…2401` / `…3001` / `…0801`):
+  - **PH-2401** Phytogenic Feed Additive Broiler Trial — `livestock_group`, **chicken**, Site → **House → Pen**. 4 feed-measurement visits (Day 0/14/28/42), 3 sub-forms/visit (Physical Exam / Measurement / Feed Additive). 26 forms / 95 fields. Subjects = pens (PH-2401-P01…P05).
+  - **HF-3001** Beef Heifer Trace Mineral Trial — `livestock_individual`, **bovine**, Site → Barn → Pen → Animal. 5 visits (Day -30/0/35/60/90), 3 sub-forms/visit (Physical Exam / Lab Samples / Treatment Admin). 30 forms / 121 fields. Subjects = **15-char RFID tags** as subject_code.
+  - **CA-0801** Canine Atopic Dermatitis Diet Trial — `companion`, **canine**, Site → Subject (+ owner). 5 visits (Week 0/2/4/8/12), 3 sub-forms/visit (Physical Exam / Owner Reported / Diet Dispensing). 30 forms / 140 fields.
+  - Each study also has a standalone **Randomization** form linking the arm to a treatment lot/batch/kit (Feed Additive Lot / Injection Batch / Diet Kit) — the **inventory bridge** (Case Study 4). Total **86 forms / 356 fields**.
+- **species_ranges** — now **23 rows / 6 species**; added `chicken` (temperature 40.6–42.2 °C, heart_rate 250–400 bpm, **ammonia_level 0–25 ppm** — a non-mammalian vital used by the broiler house air-quality field).
+- **I/E polarity** — new `FieldValidation.exclusion_if` (`"Yes"|"No"`, default `"No"`). The Subject Record I/E engine now fails a criterion on its declared answer, so "exclusion if Yes" criteria (prior antibiotics, active lameness, ectoparasites) and positive inclusion criteria (consent, tract score ≥2) both evaluate correctly. Generator: `crit(code,label,req,failOn)` + `excl(...)` builder.
+- **Animals list** — adapts automatically: chicken (livestock_group) hides per-animal demographics and shows House/Pen filters via terminology. Also **broadened the demographic value lookup** to recognise the new field codes (`sex_neuter_status`, `body_weight`/`screening_weight`/`individual_scale_weight`, `breed_type`/`breed_strain`) so HF/CA Sex/Weight/Breed populate from real values.
+- **Generator rewritten** (`generate-seed.mjs`) — was one shared tree; now **per-study trees** (`PH_TREE`/`HF_TREE`/`CA_TREE`) with hierarchy, subjects, and demo data all generated. Demo per study: a completed Screening + filled Randomization, an **open edit check** (out-of-range vital → auto edit-check: PH ammonia 32, HF temp 40.1, CA temp 40.0), and a **responded query**. Session key → **v9**.
+- Applied via `npx supabase db reset --linked --yes`. Verified in-browser (Playwright): all 3 Animals lists, demographics, Subject Record tree, the edit-check orange alert + species range hints. `tsc`, `next lint`, **`next build` all clean**.
 
 Deferred form polish (after Animals list):
 - **SDV panel** — a dedicated source-data-verification surface (not just the per-field shield): progress, per-field verify, bulk.

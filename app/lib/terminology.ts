@@ -13,6 +13,7 @@ export interface HousingTerms {
 // Species-specific overrides. Anything not listed uses the default below.
 const SPECIES_TERMS: Record<string, HousingTerms> = {
   equine: { barn: "Stable", pen: "Stall" },
+  chicken: { barn: "House", pen: "Pen" }, // poultry: grow-out House → Pen
 };
 
 const DEFAULT_TERMS: HousingTerms = { barn: "Barn", pen: "Pen" };

@@ -158,7 +158,8 @@ export interface FieldValidation {
   max?: number;
   onViolation?: "query" | "block";
   coded?: boolean; // text field that opens a dictionary (VeDDRA) lookup
-  exclusion_criterion?: boolean; // yes/no inclusion-exclusion criterion ("No" fails)
+  exclusion_criterion?: boolean; // yes/no inclusion-exclusion criterion
+  exclusion_if?: "Yes" | "No"; // the answer that FAILS the criterion (default "No")
 }
 
 export interface FormFieldRow {

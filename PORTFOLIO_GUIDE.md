@@ -52,9 +52,9 @@ Use the **role switcher in the top bar** — it changes the active role instantl
 The **living style guide** (https://elimatik.github.io/arken-edc/) documents the full design system — foundations, components, and the Arken-specific clinical patterns — the source of truth the app is built on.
 
 ### Try all three hierarchy shapes
-- **AK-2401** — livestock, group-housed (Site → Barn → Pen → Animals)
-- **CA-1103** — companion, individual records (Site → Subject + owner)
-- **EQ-3302** — equine, individual records (Site → **Stable → Stall** → Animal — the same engine, species-relabelled)
+- **PH-2401** — *Phytogenic Feed Additive Broiler Trial* — poultry, group-housed (Site → **House → Pen** — pen-level capture, no per-bird demographics; the housing label relabels to *House* for chicken)
+- **HF-3001** — *Beef Heifer Trace Mineral Trial* — bovine, individual records (Site → Barn → Pen → Animal; heifers share a pen but each carries its own RFID-tag record)
+- **CA-0801** — *Canine Atopic Dermatitis Diet Trial* — companion, individual records (Site → Subject + owner — at-home dogs, owner-reported outcomes)
 
 The design rationale behind the query workflow and the three enrollment modes is written up in **`CASE_STUDY.md`**.
 
@@ -125,6 +125,7 @@ So the demo is fully explorable and editable by anyone, with zero risk of one vi
 | `/study/[studyId]` | Role dashboard (varies by active role) |
 | `/study/[studyId]/settings` | Study settings (placeholder; landed on after "+ Add Study", as Admin) |
 | `/study/[studyId]/data-entry` | Hierarchy drill-down |
+| `/study/[studyId]/animals` | Animals list (study-wide table; columns + hierarchy adapt per study type) |
 | `/study/[studyId]/data-entry/[subjectId]` | Subject Record |
 | `/study/[studyId]/data-entry/[subjectId]/[formId]` | Subject Record, form pre-selected |
 
@@ -135,8 +136,8 @@ So the demo is fully explorable and editable by anyone, with zero risk of one vi
 - **`app/lib/permissions.ts`** — the canonical **nav matrix + role permissions**: which roles see which nav items, the `blinded` / `readonly` flags, and the query-action permissions. Change access here, not in components.
 - **`app/lib/session-store/`** — the **data layer**: `types.ts` (dataset shape), `hydrate.ts` (one-time Supabase load), `SessionStore.tsx` (`StudySessionProvider` + `useStudySession`).
 - **`app/lib/forms/validation.ts`** — the **edit-check engine**: `evaluateField(field, value, species, ranges)` resolves a species range and returns a query-or-null. Pure; no UI.
-- **`app/lib/terminology.ts`** — the **species → housing-label map** (Barn/Pen vs Stable/Stall) + `hierarchyLevels(study)`.
-- **`app/supabase/generate-seed.mjs`** — generates `seed.sql` (72 forms / 365 fields) from the form tree + per-study field definitions. Edit it, re-run `node generate-seed.mjs`, then `db reset`.
+- **`app/lib/terminology.ts`** — the **species → housing-label map** (Barn/Pen for cattle · Stable/Stall for equine · **House/Pen for chicken**) + `hierarchyLevels(study)`.
+- **`app/supabase/generate-seed.mjs`** — generates `seed.sql` (86 forms / 356 fields) from each study's own form tree + field definitions. Edit it, re-run `node generate-seed.mjs`, then `db reset`.
 
 ---
 
@@ -154,10 +155,10 @@ cd app && npx supabase db reset --linked --yes
 
 ## Built vs. pending
 
-**Built:** login (+ access agreement), study selector, role-aware app shell, role dashboards, Data Entry drill-down, Subject Record, the session-store data layer, and the **grouped form layer** — real field definitions across all 3 studies (114 / 113 / 138 fields), forms nested into collapsible visit/info **groups** (`parent_form_id`), and **species-specific validation** (`species_ranges`) that auto-raises and auto-resolves inline edit-check queries.
+**Built:** login (+ access agreement), study selector, role-aware app shell, role dashboards, Data Entry drill-down, **Animals list**, Subject Record, the session-store data layer, and the **grouped form layer** — three clinically-realistic studies (**PH-2401** broiler / **HF-3001** heifer / **CA-0801** canine), each with its **own** form tree (95 / 121 / 140 fields; 86 forms total), forms nested into collapsible visit/info **groups** (`parent_form_id`), a dedicated **Randomization** form linking each arm to a treatment lot/batch/kit (the inventory bridge — Case Study 4), and **species-specific validation** (`species_ranges`, 6 species incl. chicken/ammonia) that auto-raises and auto-resolves inline edit-check queries.
 
 **Form entry, in depth** (the Subject Record renders a real eCRF):
-- **Every field type** — text, number (with unit hint), date (native picker), select, **Yes/No toggle**, **multiselect checkboxes**, **calculated** (read-only — age from DOB, FEC reduction %), **file upload**, **coded** (text + a VeDDRA "Look up", DM-only), textarea. Some fields are **study-type-aware** — e.g. Pen / Lot ID becomes a dropdown of the study's pens for group-housed livestock, plain text otherwise.
+- **Every field type** — text, number (with unit hint), date (native picker), select, **Yes/No toggle**, **multiselect checkboxes**, **calculated** (read-only — age from DOB, FEC reduction %), **file upload**, **coded** (text + a VeDDRA "Look up", DM-only), textarea. Some fields are **study-type-aware** — e.g. Pen / Lot ID becomes a dropdown of the study's pens for group-housed livestock, plain text otherwise. Inclusion/exclusion criteria carry **polarity** (`exclusion_if`) so "consent obtained? = No fails" and "prior antibiotics? = Yes fails" both evaluate correctly.
 - **Required fields** flagged with a red asterisk; **vital hints** show the species normal range ("Normal: 38.0–39.3 °C").
 - **Form status lifecycle** — Empty → In-Work → In-Review → Reviewed → Finalized → Locked, with **role-gated** advance actions and an **e-signature** confirmation to lock; a locked form is fully read-only. **Submit for Review** is gated on unresolved edit checks, pending change reasons, and empty required fields — but not on open queries.
 - **Inclusion/Exclusion logic** — failing any criterion flags the subject **ineligible** (red banner + PI-review chip on the record and a warning badge in the drill-down list).
@@ -168,8 +169,9 @@ cd app && npx supabase db reset --linked --yes
 
 **Pending:**
 - **SDV summary view** — a study-wide source-data-verification dashboard (the per-field shield, Verify-all, and progress exist)
-- **Case Study 4 — conditional demographics** (breed lists, production-purpose tags; age auto-calc is done)
-- **Animals list** and **Queries** screens
+- **Inventory module** — drug accountability + dispensing that resolves the Randomization form's lot/batch/kit links (Case Study 4's bridge wired end-to-end)
+- **Case Study 5 — conditional demographics** (breed lists, production-purpose tags; age auto-calc is done)
+- **Queries** screen (the study-wide queue; per-record query workflow is built)
 - The **portfolio site** itself
 
 ---

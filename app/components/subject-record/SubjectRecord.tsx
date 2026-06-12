@@ -434,12 +434,14 @@ export function SubjectRecord({ studyId, subjectId, initialFormId }: Props) {
         ec.status = "resolved"; // value corrected
       }
       // Inclusion/Exclusion: recompute eligibility from all criterion fields in
-      // this form — any "No" flags the subject ineligible (PI review).
+      // this form. Each criterion declares the answer that FAILS it via
+      // exclusion_if (default "No" — a positively-phrased inclusion criterion);
+      // "exclusion if Yes" criteria set exclusion_if: "Yes".
       if (field.validation?.exclusion_criterion) {
         const critF = d.formFields.filter((x) => x.form_id === field.form_id && x.validation?.exclusion_criterion);
         const fail = critF.some((cf) => {
           const cv = d.fieldValues.find((v) => v.form_instance_id === inst!.id && v.form_field_id === cf.id);
-          return cv?.value === "No";
+          return cv?.value === (cf.validation?.exclusion_if ?? "No");
         });
         const subj = d.subjects.find((s) => s.id === subjectId);
         if (subj) subj.ineligible = fail;
