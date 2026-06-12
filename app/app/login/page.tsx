@@ -47,21 +47,16 @@ export default function LoginPage() {
         return;
       }
       // The credential entered is the access code. Owner codes bypass the
-      // agreement entirely (no modal, no record); everyone else must accept it
-      // once per tab.
+      // agreement entirely (no modal, no record); every other code must accept
+      // it. The gate is presented on each login — we intentionally do NOT skip
+      // it from a prior sessionStorage record, since normal in-app navigation
+      // never returns through /login, so this won't nag while browsing.
       const code = password.trim();
       if (OWNER_CODES.includes(code)) {
         router.push("/studies");
         return;
       }
-      let agreed = false;
-      try {
-        agreed = !!sessionStorage.getItem(NDA_KEY);
-      } catch {
-        /* ignore */
-      }
-      if (agreed) router.push("/studies");
-      else setNdaOpen(true);
+      setNdaOpen(true);
     }, 1100);
   }
 
@@ -261,19 +256,6 @@ export default function LoginPage() {
                 <i className="ti ti-login"></i> Sign in
               </>
             )}
-          </button>
-
-          {/* SSO divider */}
-          <div className="login-divider">
-            <div className="login-divider-line"></div>
-            <span className="login-divider-text">or continue with</span>
-            <div className="login-divider-line"></div>
-          </div>
-
-          {/* SSO */}
-          <button className="btn-sso" type="button">
-            <i className="ti ti-building-skyscraper"></i>
-            Sign in with organization SSO
           </button>
 
           {/* Footer */}
