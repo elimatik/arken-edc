@@ -267,111 +267,316 @@ const HF_TREE = [
 // ═══════════════════════════════════════════════════════════════════════════
 // STUDY 3 — CA-0801  Canine Atopic Dermatitis Diet Trial (canine, companion)
 // ═══════════════════════════════════════════════════════════════════════════
-const caVisit = (n, week) =>
-  grp(`Visit ${n} — Week ${week}`, [
-    leaf(`v${n}_pe`, "Physical Examination", [
-      date("visit_date", "Visit date", true),
-      sel("study_week", "Study week", ["0", "2", "4", "8", "12"]),
-      vital("body_weight", "Body weight", "weight", "kg"),
-      vital("temperature", "Temperature", "temperature", "°C"),
-      vital("heart_rate", "Heart rate", "heart_rate", "bpm"),
-      rng("cadesi4_score", "CADESI-4 score", 0, 180),
-      sel("skin_cytology_cocci", "Skin cytology cocci", ["0", "1+", "2+", "3+", "4+"]),
-      sel("skin_cytology_malassezia", "Skin cytology malassezia", ["0", "1+", "2+", "3+", "4+"]),
-      file("lesion_photos", "Lesion photos"),
+// Reusable CA-0801 field sets (Follow-Up visits are identical; EOS reuses PE+QOL).
+const caFollowupPE = () => [
+  date("visit_date", "Visit date", true),
+  num("body_weight", "Weight", "kg"),
+  vital("temperature", "Temperature", "temperature", "°C"),
+  vital("heart_rate", "Heart rate", "heart_rate", "bpm"),
+  vital("respiratory_rate", "Respiratory rate", "respiratory_rate", "breaths/min"),
+  sel("general_health", "General health assessment", ["Normal", "Abnormal"]),
+  ta("findings", "Findings"),
+];
+const caQol = () => [
+  sel("sleep_quality", "Sleep quality", ["Normal", "Mildly Disrupted", "Moderately Disrupted", "Severely Disrupted"]),
+  sel("activity_level", "Activity level", ["Normal", "Mildly Reduced", "Moderately Reduced", "Severely Reduced"]),
+  sel("comfort", "Comfort", ["Comfortable", "Mildly Uncomfortable", "Moderately Uncomfortable", "Severely Uncomfortable"]),
+  sel("owner_burden", "Owner burden", ["None", "Mild", "Moderate", "Severe"]),
+  rng("overall_qol_score", "Overall QOL score", 0, 100),
+];
+const caFollowup = (n, day) =>
+  grp(`Follow-Up ${n} — Day ${day}`, [
+    leaf(`fu${n}_pe`, "Physical Examination", caFollowupPE()),
+    leaf(`fu${n}_derm`, "Dermatology Assessment", [
+      rng("cadesi04_score", "CADESI-04 score", 0, 180),
+      rng("pvas_score", "PVAS score (owner-reported)", 0.0, 10.0),
+      sel("disease_severity", "Overall disease severity", ["Mild", "Moderate", "Severe", "Resolved"]),
+      sel("ear_assessment", "Ear assessment", ["Normal", "Otitis Externa", "Otitis Media"]),
     ]),
-    leaf(`v${n}_owner`, "Owner Reported", [
-      rng("owner_pvas_score", "Owner PVAS score (diary card)", 0.0, 10.0),
-      yn("accidental_dietary_exposure", "Accidental dietary exposure this week"),
-      ta("exposure_description", "Exposure description"),
-      rng("dispensed_kibble_weight", "Dispensed kibble weight", 0.0, 15.0, "kg"),
-      rng("returned_kibble_weight", "Returned kibble weight", 0.0, 15.0, "kg"),
-      calc("diet_compliance_pct", "Diet compliance", "%"),
+    leaf(`fu${n}_drug`, "Study Drug Accountability", [
+      txt("drug_kit_number", "Drug kit number"),
+      rng("units_returned", "Units returned", 0, 200),
+      calc("units_used", "Units used"),
+      calc("compliance_pct", "Compliance", "%"),
+      txt("next_kit_number", "Next kit number"),
+      rng("quantity_dispensed", "Quantity dispensed", 0, 200),
     ]),
-    leaf(`v${n}_diet`, "Diet Dispensing", [
-      txt("diet_lot_number", "Diet lot number"),
-      num("quantity_dispensed", "Quantity dispensed", "kg"),
-      date("next_dispensing_date", "Next dispensing date"),
+    leaf(`fu${n}_conmed`, "Concomitant Medications Review", [
+      yn("new_conmed", "New ConMed since last visit"),
+      ta("conmed_changes", "ConMed changes"),
+    ]),
+    leaf(`fu${n}_ae`, "Adverse Events Review", [
+      yn("any_ae", "Any AE since last visit"),
+      ta("ae_description", "AE description"),
+    ]),
+    leaf(`fu${n}_compliance`, "Compliance Review", [
+      rng("epro_completion_pct", "ePRO diary completion", 0, 100, "%"),
+      rng("missed_doses", "Missed doses", 0, 100),
+      ta("missed_doses_reason", "Reason for missed doses"),
+    ]),
+    leaf(`fu${n}_questionnaire`, "Owner Questionnaire", [
+      sel("sleep_disturbance", "Sleep disturbance", ["None", "Mild", "Moderate", "Severe"]),
+      sel("activity_level", "Activity level", ["Normal", "Mildly Reduced", "Moderately Reduced", "Severely Reduced"]),
+      sel("perceived_improvement", "Perceived improvement", ["Much Worse", "Worse", "No Change", "Improved", "Much Improved"]),
+      sel("overall_satisfaction", "Overall satisfaction", ["Very Dissatisfied", "Dissatisfied", "Neutral", "Satisfied", "Very Satisfied"]),
     ]),
   ]);
 
 const CA_TREE = [
   grp("Animal Information", [
     leaf("demographics", "Demographics", [
-      txt("dog_name", "Dog name"),
+      txt("subject_id", "Subject ID"),
+      txt("animal_name", "Animal name"),
+      sel("species", "Species", ["Canine"], true),
+      sel("breed", "Breed", ["French Bulldog", "Labrador Retriever", "Golden Retriever", "West Highland White Terrier", "Boxer", "German Shepherd", "English Bulldog", "Cocker Spaniel", "Shih Tzu", "Pug", "Other"]),
+      sel("sex", "Sex", ["Male Intact", "Male Neutered", "Female Intact", "Female Spayed"]),
+      date("dob", "Date of birth"),
+      calc("age_auto_calc", "Age (auto)", "years"),
+      num("body_weight", "Weight", "kg", true),
+      txt("coat_color", "Coat color"),
       txt("microchip_number", "Microchip number"),
-      txt("owner_last_name", "Owner last name"),
-      txt("owner_contact", "Owner contact"),
-      txt("breed", "Breed"),
-      rng("age", "Age", 0.5, 20.0, "years"),
-      sel("sex_neuter_status", "Sex / neuter status", ["MN", "FS", "MI", "FI"]),
-      num("body_weight", "Body weight", "kg", true),
-      yn("informed_consent", "Informed consent", true),
-      file("consent_upload", "Consent upload"),
     ]),
-    leaf("med_history", "Medical History", [
-      coded("previous_diagnoses", "Previous diagnoses (coded)"),
-      txt("current_medications", "Current medications"),
-      txt("prior_atopy_treatments", "Prior atopy treatments"),
-      txt("vaccination_status", "Vaccination status"),
+    leaf("owner_info", "Owner Information", [
+      txt("owner_id", "Owner ID"),
+      txt("owner_first_name", "First name"),
+      txt("owner_last_name", "Last name"),
+      txt("owner_phone", "Phone"),
+      txt("owner_email", "Email"),
+      txt("owner_address", "Address"),
+      sel("preferred_contact", "Preferred contact method", ["Phone", "Email", "Text"]),
     ]),
   ]),
   grp("Screening", [
     leaf("screen_pe", "Physical Examination", [
       date("visit_date", "Visit date", true),
-      num("body_weight", "Body weight", "kg"),
       vital("temperature", "Temperature", "temperature", "°C"),
       vital("heart_rate", "Heart rate", "heart_rate", "bpm"),
       vital("respiratory_rate", "Respiratory rate", "respiratory_rate", "breaths/min"),
-      rng("baseline_cadesi4", "Baseline CADESI-4 score", 0, 180),
-      txt("current_diet_brand", "Current diet brand"),
-      msel("affected_body_regions", "Affected body regions", ["Head", "Trunk", "Limbs", "Paws", "Ears"]),
+      num("body_weight", "Weight", "kg"),
+      rng("body_condition_score", "Body condition score", 1, 9),
+      sel("general_health", "General health assessment", ["Normal", "Abnormal"]),
+      ta("significant_findings", "Clinically significant findings"),
     ]),
-    leaf("screen_ie", "Inclusion / Exclusion", [
-      crit("cadesi4_20plus", "Baseline CADESI-4 ≥ 20"),
-      excl("active_ectoparasite", "Active ectoparasite infection"),
-      excl("systemic_corticosteroid_30d", "Systemic corticosteroid within 30 days"),
-      crit("owner_able_comply", "Owner able to comply", true),
-      crit("owner_consent_obtained", "Owner consent obtained", true),
+    leaf("screen_derm", "Baseline Dermatology Assessment", [
+      sel("pruritus_severity", "Pruritus severity", ["Mild", "Moderate", "Severe"]),
+      sel("lesion_severity", "Skin lesion severity", ["Mild", "Moderate", "Severe"]),
+      sel("infection_assessment", "Infection assessment", ["None", "Mild", "Moderate", "Severe"]),
+      sel("ear_assessment", "Ear assessment", ["Normal", "Otitis Externa", "Otitis Media"]),
+      rng("cadesi04_score", "CADESI-04 score", 0, 180),
+    ]),
+    leaf("screen_consent", "Owner Consent", [
+      yn("consent_signed", "Consent signed", true),
+      txt("consent_version", "Consent version"),
+      date("consent_date", "Consent date", true),
+      txt("witness_name", "Witness name"),
+    ]),
+    leaf("screen_eligibility", "Eligibility Assessment", [
+      crit("age_1yr_plus", "Age ≥ 1 year"),
+      crit("cad_diagnosis", "Clinical CAD diagnosis confirmed"),
+      crit("chronic_itching_6mo", "Chronic itching ≥ 6 months"),
+      crit("pruritus_5plus", "Baseline pruritus score ≥ 5"),
+      crit("owner_daily_assessments", "Owner willing to complete daily assessments"),
+      excl("severe_systemic_illness", "Severe systemic illness"),
+      excl("recent_immunotherapy", "Recent immunotherapy initiation"),
+      excl("active_mange", "Active mange infestation"),
+      excl("pregnant_breeding", "Pregnant or breeding"),
+      excl("another_study_30d", "In another study within 30 days"),
+      sel("eligibility_status", "Eligibility status", ["Eligible", "Screen Failure"]),
+      yn("investigator_approval", "Investigator approval"),
+    ]),
+    leaf("screen_medhistory", "Medical History", [
+      ta("dermatology_history", "Dermatology history"),
+      ta("previous_treatments", "Previous treatments"),
+      ta("concurrent_diseases", "Concurrent diseases"),
+      ta("surgical_history", "Surgical history"),
+    ]),
+    leaf("screen_labs", "Laboratory Results", [
+      sel("cbc", "CBC", ["Normal", "Abnormal"]),
+      sel("chemistry_panel", "Chemistry panel", ["Normal", "Abnormal"]),
+      sel("urinalysis", "Urinalysis", ["Normal", "Abnormal"]),
+      ta("lab_notes", "Lab notes"),
+      yn("investigator_review", "Investigator review"),
     ]),
   ]),
-  alone("randomization", "Randomization", [
-    date("randomization_date", "Randomization date", true),
-    txt("randomization_number", "Randomization number", true),
-    sel("diet_assignment", "Diet assignment", ["Test Hydrolyzed Diet", "Control Maintenance Diet"], true),
-    txt("diet_kit_number", "Diet kit number"),
-    txt("blinding_envelope_number", "Blinding envelope number"),
-    sel("randomization_method", "Randomization method", RAND_METHOD),
-    txt("performed_by", "Performed by"),
-    yn("owner_informed_blinding", "Owner informed of blinding"),
-    ta("notes", "Notes"),
+  grp("Baseline / Randomization", [
+    leaf("randomization", "Randomization", [
+      txt("randomization_number", "Randomization number", true),
+      sel("treatment_arm", "Treatment arm", ["DermAlliv™ Active", "Placebo"], true),
+      date("randomization_date", "Randomization date", true),
+      txt("drug_kit_assigned", "Drug kit assigned"),
+    ]),
+    leaf("baseline_clinical", "Baseline Clinical Assessment", [
+      rng("cadesi04_score", "CADESI-04 score", 0, 180, null, true),
+      rng("pvas_score", "PVAS score (owner-reported)", 0.0, 10.0, null, true),
+      sel("disease_severity", "Overall disease severity", ["Mild", "Moderate", "Severe"]),
+      sel("iga", "Investigator global assessment", ["1", "2", "3", "4", "5"]),
+    ]),
+    leaf("drug_dispensation", "Study Drug Dispensation", [
+      txt("drug_kit_number", "Drug kit number", true),
+      rng("quantity_dispensed", "Quantity dispensed", 0, 200, "units"),
+      date("dispensation_date", "Dispensation date", true),
+    ]),
+    leaf("owner_training", "Owner Training", [
+      yn("diary_training", "Diary training complete"),
+      yn("med_admin_training", "Medication administration training"),
+      yn("compliance_instructions", "Compliance instructions given"),
+    ]),
+    leaf("baseline_qol", "Baseline Quality of Life", caQol()),
   ]),
-  caVisit(1, 0),
-  caVisit(2, 2),
-  caVisit(3, 4),
-  caVisit(4, 8),
-  caVisit(5, 12),
+  caFollowup(1, 14),
+  caFollowup(2, 28),
+  caFollowup(3, 56),
+  grp("End of Study — Day 84", [
+    leaf("eos_pe", "Final Physical Examination", caFollowupPE()),
+    leaf("eos_cadesi", "Final CADESI Assessment", [rng("cadesi04_score", "CADESI-04 score", 0, 180, null, true)]),
+    leaf("eos_pvas", "Final PVAS Assessment", [rng("pvas_score", "PVAS score", 0.0, 10.0, null, true)]),
+    leaf("eos_qol", "Final Quality of Life Survey", caQol()),
+    leaf("eos_drug_return", "Study Drug Return", [
+      yn("drug_kit_returned", "Drug kit returned"),
+      rng("units_returned", "Units returned", 0, 200),
+      ta("reason_not_returned", "Reason if not returned"),
+    ]),
+    leaf("eos_ae", "Final Adverse Event Assessment", [
+      yn("outstanding_aes", "Any outstanding AEs"),
+      ta("ae_status", "AE status"),
+    ]),
+    leaf("eos_completion", "Study Completion Status", [
+      sel("completion_status", "Completion status", ["Completed", "Withdrawn", "Lost to Follow-Up", "Protocol Violation"], true),
+      date("withdrawal_date", "Withdrawal date"),
+      ta("withdrawal_reason", "Withdrawal reason"),
+      ta("investigator_final", "Investigator final assessment", true),
+    ]),
+  ]),
   alone("adverse_event", "Adverse Event", [
-    sel("gi_distress_type", "GI distress type", ["Vomiting", "Diarrhea", "Lethargy", "None"]),
-    rng("episode_frequency_daily", "Episode frequency (daily)", 0, 10),
-    sel("diet_relationship", "Diet relationship", ["Unrelated", "Possible", "Definite"]),
-    sel("action_taken", "Action taken", ["None", "Interrupted", "Withdrawn"]),
-    sel("study_withdrawal_reason", "Study withdrawal reason", ["Owner Request", "Adverse Event", "Protocol Violation", "Lost to Follow-up", "None"]),
+    txt("ae_number", "AE number"),
+    date("ae_start_date", "Start date"),
+    date("ae_end_date", "End date"),
+    yn("ongoing", "Ongoing"),
+    coded("event_term", "Event term (VeDDRA)"),
+    sel("severity", "Severity", ["Mild", "Moderate", "Severe", "Life-threatening"]),
+    sel("seriousness", "Seriousness", ["Not Serious", "Serious"]),
+    sel("relatedness", "Relatedness", ["Unrelated", "Unlikely", "Possible", "Probable", "Definite"]),
+    sel("action_taken", "Action taken", ["None", "Drug Interrupted", "Drug Withdrawn", "Concomitant Treatment", "Other"]),
+    sel("outcome", "Outcome", ["Recovered", "Recovering", "Not Recovered", "Fatal", "Unknown"]),
+    yn("sae_flag", "SAE flag"),
+    sel("sae_category", "SAE category", ["Death", "Life-threatening", "Hospitalization", "Disability", "Other"]),
+    yn("hospitalization", "Hospitalization"),
+    yn("sae_life_threatening", "Life-threatening"),
+    date("sponsor_notification_date", "Sponsor notification date"),
+    yn("regulatory_reporting", "Regulatory reporting required"),
   ]),
-  alone("unscheduled", "Unscheduled Visit", [
-    sel("clinical_visit_reason", "Clinical visit reason", ["Severe Pruritus", "GI Flare", "Otitis"]),
-    rng("acute_cadesi4", "Acute CADESI-4", 0, 180),
-    yn("secondary_pyoderma", "Secondary pyoderma"),
-    sel("dropout_reason", "Dropout reason", ["Owner Request", "Adverse Event", "Protocol Violation", "Lost to Follow-up"]),
+  alone("protocol_deviation", "Protocol Deviation", [
+    sel("deviation_type", "Deviation type", ["Eligibility", "Visit Timing", "Procedure", "Medication", "Other"]),
+    date("deviation_date", "Date"),
+    ta("description", "Description"),
+    sel("major_minor", "Major or minor", ["Major", "Minor"]),
+    ta("corrective_action", "Corrective action"),
+  ]),
+  alone("subject_status", "Subject Status", [
+    sel("current_status", "Current status", ["Screened", "Eligible", "Randomized", "Active", "Completed", "Withdrawn"]),
+    date("withdrawal_date", "Withdrawal date"),
+    sel("withdrawal_reason", "Withdrawal reason", ["Owner Request", "Adverse Event", "Protocol Violation", "Lost to Follow-Up", "Other"]),
+    ta("comments", "Comments"),
   ]),
   alone("conmed", "ConMed", [
-    sel("flea_tick_preventive", "Flea / tick preventive", ["Bravecto", "Nexgard", "Simparica", "Other"]),
-    txt("heartworm_preventive", "Heartworm preventive"),
-    yn("rescue_antipruritic", "Rescue anti-pruritic administered"),
-    rng("rescue_drug_dose", "Rescue drug dose", 0.1, 100.0, "mg"),
-    yn("topical_shampoo", "Topical medicated shampoo"),
+    txt("medication_name", "Medication name"),
+    txt("indication", "Indication"),
+    txt("dose", "Dose"),
+    sel("route", "Route", ["Oral", "Topical", "Injectable", "Other"]),
+    txt("frequency", "Frequency"),
+    date("start_date", "Start date"),
+    date("end_date", "End date"),
+    yn("ongoing", "Ongoing"),
+    ta("investigator_comments", "Investigator comments"),
+  ]),
+  // ePRO — owner daily diary. Read-only in the Subject Record (data flows from the
+  // owner portal); the Subject Record shows an info note + disabled fields.
+  alone("epro_diary", "ePRO — Owner Daily Diary", [
+    rng("itch_score", "Itch score", 0, 10),
+    sel("sleep_quality", "Sleep quality", ["Normal", "Mildly Disrupted", "Moderately Disrupted", "Severely Disrupted"]),
+    sel("medication_compliance", "Medication compliance", ["Yes", "No", "Partial"]),
+    sel("appetite", "Appetite", ["Normal", "Reduced", "Increased"]),
+    sel("energy_level", "Energy level", ["Normal", "Low", "High"]),
+    sel("mood", "Mood", ["Normal", "Anxious", "Lethargic"]),
   ]),
 ];
+
+// ── CA-0801 hierarchy + subjects + demo (generated from a dog table) ──────────
+const CA_SITES = [
+  { code: "101", name: "Lakeside Veterinary Specialists", location: "Austin, TX", pi: "Dr. Sarah Bennett, DVM, DACVD" },
+  { code: "102", name: "Green Valley Animal Hospital", location: "Denver, CO", pi: "Dr. Michael Torres, DVM" },
+  { code: "103", name: "Coastal Veterinary Dermatology Center", location: "Raleigh, NC", pi: "Dr. Emily Chen, DVM, DACVD" },
+];
+
+// 12 randomized dogs (4 per site, 2:1 Active:Placebo) + 1 screen failure (Milo).
+const CA_DOGS = [
+  { code: "CA-0801-101-01", name: "Cooper", breed: "French Bulldog", sex: "Male Neutered", dob: "2021-04-12", weight: "12.4", coat: "Brindle", micro: "985141000100101", arm: "DermAlliv™ Active", status: "active", site: "101", owner: { first: "James", last: "Whitaker", phone: "512-555-0142", email: "jwhitaker@example.com", address: "1820 Barton Springs Rd, Austin, TX" } },
+  { code: "CA-0801-101-02", name: "Luna", breed: "Labrador Retriever", sex: "Female Spayed", dob: "2019-08-03", weight: "28.7", coat: "Black", micro: "985141000100102", arm: "Placebo", status: "active", site: "101", owner: { first: "Maria", last: "Gonzalez", phone: "512-555-0177", email: "mgonzalez@example.com", address: "904 W 6th St, Austin, TX" } },
+  { code: "CA-0801-101-03", name: "Bella", breed: "Golden Retriever", sex: "Female Spayed", dob: "2018-11-21", weight: "31.2", coat: "Golden", micro: "985141000100103", arm: "DermAlliv™ Active", status: "completed", site: "101", owner: { first: "David", last: "Nguyen", phone: "512-555-0193", email: "dnguyen@example.com", address: "2300 Lakeshore Blvd, Austin, TX" } },
+  { code: "CA-0801-101-04", name: "Max", breed: "Boxer", sex: "Male Neutered", dob: "2020-02-17", weight: "30.1", coat: "Fawn", micro: "985141000100104", arm: "DermAlliv™ Active", status: "active", site: "101", owner: { first: "Sarah", last: "Mitchell", phone: "512-555-0210", email: "smitchell@example.com", address: "611 Riverside Dr, Austin, TX" } },
+  { code: "CA-0801-101-05", name: "Milo", breed: "Pug", sex: "Male Intact", dob: "2022-06-30", weight: "8.3", coat: "Fawn", micro: "985141000100105", arm: null, status: "screening", site: "101", screenFail: true, owner: { first: "Olivia", last: "Brooks", phone: "512-555-0228", email: "obrooks@example.com", address: "1500 Manor Rd, Austin, TX" } },
+  { code: "CA-0801-102-01", name: "Daisy", breed: "West Highland White Terrier", sex: "Female Spayed", dob: "2019-05-09", weight: "8.9", coat: "White", micro: "985141000100201", arm: "DermAlliv™ Active", status: "active", site: "102", owner: { first: "Robert", last: "Carter", phone: "303-555-0144", email: "rcarter@example.com", address: "720 Larimer St, Denver, CO" } },
+  { code: "CA-0801-102-02", name: "Charlie", breed: "German Shepherd", sex: "Male Neutered", dob: "2018-09-14", weight: "34.5", coat: "Black & Tan", micro: "985141000100202", arm: "Placebo", status: "active", site: "102", owner: { first: "Jennifer", last: "Lopez", phone: "303-555-0166", email: "jlopez@example.com", address: "1450 Wynkoop St, Denver, CO" } },
+  { code: "CA-0801-102-03", name: "Molly", breed: "Cocker Spaniel", sex: "Female Spayed", dob: "2020-12-02", weight: "13.1", coat: "Buff", micro: "985141000100203", arm: "DermAlliv™ Active", status: "withdrawn", site: "102", owner: { first: "Michael", last: "Anderson", phone: "303-555-0188", email: "manderson@example.com", address: "303 16th St, Denver, CO" } },
+  { code: "CA-0801-102-04", name: "Bear", breed: "English Bulldog", sex: "Male Neutered", dob: "2019-03-25", weight: "24.6", coat: "White & Brindle", micro: "985141000100204", arm: "DermAlliv™ Active", status: "active", site: "102", owner: { first: "Emily", last: "Davis", phone: "303-555-0202", email: "edavis@example.com", address: "880 Pearl St, Denver, CO" } },
+  { code: "CA-0801-103-01", name: "Rosie", breed: "Shih Tzu", sex: "Female Spayed", dob: "2021-01-18", weight: "6.8", coat: "Gold & White", micro: "985141000100301", arm: "Placebo", status: "active", site: "103", owner: { first: "William", last: "Harris", phone: "919-555-0133", email: "wharris@example.com", address: "210 Fayetteville St, Raleigh, NC" } },
+  { code: "CA-0801-103-02", name: "Duke", breed: "Labrador Retriever", sex: "Male Neutered", dob: "2017-07-11", weight: "33.0", coat: "Chocolate", micro: "985141000100302", arm: "DermAlliv™ Active", status: "completed", site: "103", owner: { first: "Ashley", last: "Robinson", phone: "919-555-0155", email: "arobinson@example.com", address: "1025 Glenwood Ave, Raleigh, NC" } },
+  { code: "CA-0801-103-03", name: "Zoe", breed: "French Bulldog", sex: "Female Spayed", dob: "2020-10-05", weight: "11.0", coat: "Cream", micro: "985141000100303", arm: "DermAlliv™ Active", status: "active", site: "103", owner: { first: "Christopher", last: "Clark", phone: "919-555-0179", email: "cclark@example.com", address: "600 Hillsborough St, Raleigh, NC" } },
+  { code: "CA-0801-103-04", name: "Scout", breed: "Golden Retriever", sex: "Male Neutered", dob: "2018-04-28", weight: "32.4", coat: "Golden", micro: "985141000100304", arm: "Placebo", status: "completed", site: "103", owner: { first: "Jessica", last: "Lewis", phone: "919-555-0191", email: "jlewis@example.com", address: "3200 Wade Ave, Raleigh, NC" } },
+];
+
+const caOwners = CA_DOGS.map((d, i) => ({ code: `O${i + 1}`, name: `${d.owner.first} ${d.owner.last}` }));
+const caSubjects = CA_DOGS.map((d, i) => ({ code: d.code, status: d.status, arm: d.arm, owner: `O${i + 1}`, site: d.site }));
+
+// Rich demo forms for the highlighted subjects (2 completed screening+rand,
+// 1 open edit check, 1 open query, 1 screen failure). Keyed by subject code.
+const CA_EXTRA = {
+  // Cooper — completed Screening + Randomization (#1)
+  "CA-0801-101-01": [
+    { key: "screen_pe", status: "reviewed", values: { visit_date: "2026-03-02", temperature: ["38.6", 38.6], heart_rate: ["96", 96], respiratory_rate: ["20", 20], body_weight: ["12.4", 12.4], body_condition_score: ["5", 5], general_health: "Normal", significant_findings: "Erythema and excoriation on ventral abdomen and pedal regions; no systemic abnormalities." } },
+    { key: "screen_derm", status: "reviewed", values: { pruritus_severity: "Severe", lesion_severity: "Moderate", infection_assessment: "Mild", ear_assessment: "Otitis Externa", cadesi04_score: ["58", 58] } },
+    { key: "screen_consent", status: "reviewed", values: { consent_signed: "Yes", consent_version: "v2.1", consent_date: "2026-03-02", witness_name: "L. Park, RVT" } },
+    { key: "screen_eligibility", status: "reviewed", values: { age_1yr_plus: "Yes", cad_diagnosis: "Yes", chronic_itching_6mo: "Yes", pruritus_5plus: "Yes", owner_daily_assessments: "Yes", severe_systemic_illness: "No", recent_immunotherapy: "No", active_mange: "No", pregnant_breeding: "No", another_study_30d: "No", eligibility_status: "Eligible", investigator_approval: "Yes" } },
+    { key: "screen_labs", status: "reviewed", values: { cbc: "Normal", chemistry_panel: "Normal", urinalysis: "Normal", investigator_review: "Yes" } },
+    { key: "randomization", status: "reviewed", values: { randomization_number: "101-001", treatment_arm: "DermAlliv™ Active", randomization_date: "2026-03-09", drug_kit_assigned: "KIT-1042" } },
+    { key: "baseline_clinical", status: "in_work", values: { cadesi04_score: ["58", 58], pvas_score: ["7.2", 7.2], disease_severity: "Severe", iga: "4" } },
+    { key: "drug_dispensation", status: "reviewed", values: { drug_kit_number: "KIT-1042", quantity_dispensed: ["84", 84], dispensation_date: "2026-03-09" } },
+  ],
+  // Bella — completed Screening + Randomization (#2) + End of Study = Completed
+  "CA-0801-101-03": [
+    { key: "screen_pe", status: "reviewed", values: { visit_date: "2026-02-18", temperature: ["38.5", 38.5], heart_rate: ["88", 88], respiratory_rate: ["18", 18], body_weight: ["31.2", 31.2], body_condition_score: ["6", 6], general_health: "Normal", significant_findings: "Chronic otitis and pedal pruritus; otherwise unremarkable." } },
+    { key: "screen_eligibility", status: "reviewed", values: { age_1yr_plus: "Yes", cad_diagnosis: "Yes", chronic_itching_6mo: "Yes", pruritus_5plus: "Yes", owner_daily_assessments: "Yes", severe_systemic_illness: "No", recent_immunotherapy: "No", active_mange: "No", pregnant_breeding: "No", another_study_30d: "No", eligibility_status: "Eligible", investigator_approval: "Yes" } },
+    { key: "randomization", status: "reviewed", values: { randomization_number: "101-003", treatment_arm: "DermAlliv™ Active", randomization_date: "2026-02-25", drug_kit_assigned: "KIT-1051" } },
+    { key: "eos_completion", status: "reviewed", values: { completion_status: "Completed", investigator_final: "Subject completed all six visits. CADESI-04 improved 58 → 14 and owner PVAS 7.0 → 2.1 by Day 84. No drug-related adverse events." } },
+  ],
+  // Charlie — open edit check (out-of-range temperature on Screening PE)
+  "CA-0801-102-02": [
+    { key: "screen_pe", status: "in_work", values: { visit_date: "2026-03-04", temperature: ["40.1", 40.1], heart_rate: ["112", 112], respiratory_rate: ["24", 24], body_weight: ["34.5", 34.5], body_condition_score: ["5", 5], general_health: "Abnormal" },
+      editCheck: { field: "temperature", message: "Temperature 40.1 °C is above the expected range for dogs (38.3–39.2 °C) — verify the thermometer and re-check the patient for pyrexia." } },
+  ],
+  // Daisy — open manual query (no response yet)
+  "CA-0801-102-01": [
+    { key: "screen_derm", status: "in_work", values: { pruritus_severity: "Moderate", lesion_severity: "Moderate", ear_assessment: "Normal", cadesi04_score: ["22", 22] },
+      query: { field: "cadesi04_score", title: "CADESI-04 score vs lesion photos", raise: "CADESI-04 recorded as 22 but the uploaded lesion photographs suggest more extensive truncal involvement. Please re-score against the photo set and confirm." } },
+  ],
+  // Milo — screen failure (fails the baseline pruritus inclusion criterion)
+  "CA-0801-101-05": [
+    { key: "screen_eligibility", status: "in_work", values: { age_1yr_plus: "Yes", cad_diagnosis: "Yes", chronic_itching_6mo: "Yes", pruritus_5plus: "No", owner_daily_assessments: "Yes", severe_systemic_illness: "No", recent_immunotherapy: "No", active_mange: "No", pregnant_breeding: "No", another_study_30d: "No", eligibility_status: "Screen Failure", investigator_approval: "No" } },
+  ],
+};
+
+const caDemo = CA_DOGS.map((d, i) => {
+  const reviewed = !(d.screenFail || d.status === "screening");
+  const dStatus = reviewed ? "reviewed" : "in_work";
+  return {
+    subject: d.code,
+    forms: [
+      { key: "demographics", status: dStatus, values: { subject_id: d.code, animal_name: d.name, species: "Canine", breed: d.breed, sex: d.sex, dob: d.dob, body_weight: [d.weight, parseFloat(d.weight)], coat_color: d.coat, microchip_number: d.micro } },
+      { key: "owner_info", status: dStatus, values: { owner_id: `O${i + 1}`, owner_first_name: d.owner.first, owner_last_name: d.owner.last, owner_phone: d.owner.phone, owner_email: d.owner.email, owner_address: d.owner.address, preferred_contact: "Email" } },
+      ...(CA_EXTRA[d.code] ?? []),
+    ],
+  };
+});
 
 // ─── Study configs (meta + hierarchy + subjects + demo) ──────────────────────
 const STUDIES = [
@@ -490,65 +695,17 @@ const STUDIES = [
   },
   {
     key: "CA", suffix: "000000000801", code: "CA-0801",
-    name: "Canine Atopic Dermatitis Diet Trial",
-    sponsor: "DermaPet Nutrition", phase: "Phase III",
-    type: "companion", species: "canine", enrollmentTarget: 40,
-    description: "Randomized double-blind — 40 client-owned dogs, hydrolyzed vs maintenance diet",
+    name: "DermAlliv™ Canine Atopic Dermatitis Study",
+    sponsor: "DermAlliv Therapeutics", phase: "Phase III",
+    type: "companion", species: "canine", enrollmentTarget: 60,
+    description: "Randomized, double-blind, placebo-controlled, multi-site (3 sites) — canine atopic dermatitis · Protocol DERM-2026-104",
     tree: CA_TREE,
-    site: { name: "Lakeshore Veterinary Dermatology", location: "Madison, WI", pi: "Dr. S. Bergman" },
+    sites: CA_SITES,
     barns: [],
     pens: [],
-    owners: [
-      { code: "O1", name: "Priya Raman" },
-      { code: "O2", name: "Thomas Reed" },
-      { code: "O3", name: "Yuki Tanaka" },
-      { code: "O4", name: "Hassan Ali" },
-    ],
-    subjects: [
-      { code: "CA-0801-001", status: "active", arm: "Test Hydrolyzed Diet", owner: "O1" },
-      { code: "CA-0801-002", status: "active", arm: "Control Maintenance Diet", owner: "O2" },
-      { code: "CA-0801-003", status: "enrolled", arm: "Test Hydrolyzed Diet", owner: "O3" },
-      { code: "CA-0801-004", status: "screening", arm: "Control Maintenance Diet", owner: "O4" },
-    ],
-    demo: [
-      { subject: "CA-0801-001", forms: [
-        { key: "demographics", status: "reviewed", values: {
-          dog_name: "Biscuit", microchip_number: "985112004567321", owner_last_name: "Raman",
-          owner_contact: "555-0144", breed: "West Highland White Terrier", age: ["4.5", 4.5],
-          sex_neuter_status: "MN", body_weight: ["9.2", 9.2], informed_consent: "Yes" } },
-        { key: "screen_pe", status: "reviewed", values: {
-          visit_date: "2026-05-04", body_weight: ["9.2", 9.2], temperature: ["38.7", 38.7],
-          heart_rate: ["104", 104], respiratory_rate: ["22", 22], baseline_cadesi4: ["46", 46],
-          current_diet_brand: "Maintenance Adult", affected_body_regions: ["Paws", "Ears"] } },
-        { key: "screen_ie", status: "reviewed", values: {
-          cadesi4_20plus: "Yes", active_ectoparasite: "No", systemic_corticosteroid_30d: "No",
-          owner_able_comply: "Yes", owner_consent_obtained: "Yes" } },
-        { key: "randomization", status: "in_work", values: {
-          randomization_date: "2026-05-06", randomization_number: "CA-R-021",
-          diet_assignment: "Test Hydrolyzed Diet", diet_kit_number: "DK-3310",
-          blinding_envelope_number: "ENV-021", randomization_method: "Envelope",
-          performed_by: "Elisa Tron", owner_informed_blinding: "Yes" } },
-      ] },
-      { subject: "CA-0801-002", forms: [
-        { key: "demographics", status: "in_work", values: {
-          dog_name: "Pepper", microchip_number: "985112004599012", owner_last_name: "Reed",
-          breed: "French Bulldog", age: ["3.0", 3.0], sex_neuter_status: "FS", body_weight: ["11.4", 11.4],
-          informed_consent: "Yes" } },
-        { key: "v1_pe", status: "in_work", values: {
-          visit_date: "2026-05-06", study_week: "0", body_weight: ["11.4", 11.4],
-          temperature: ["40.0", 40.0], heart_rate: ["120", 120], cadesi4_score: ["52", 52] },
-          editCheck: { field: "temperature", message: "Temperature 40.0 °C is above the expected range for dogs (38.3–39.2 °C) — verify thermometer and re-check the patient." } },
-      ] },
-      { subject: "CA-0801-003", forms: [
-        { key: "demographics", status: "in_work", values: {
-          dog_name: "Mochi", microchip_number: "985112004571188", owner_last_name: "Tanaka",
-          breed: "Shiba Inu", age: ["6.0", 6.0], sex_neuter_status: "MN", body_weight: ["10.1", 10.1],
-          informed_consent: "Yes" },
-          query: { field: "body_weight", title: "Body weight vs prior record",
-            raise: "Body weight 10.1 kg is 1.8 kg below the weight on the referral record (11.9 kg). Please confirm the scale reading and recent weight history.",
-            response: "Re-weighed on a calibrated scale — 10.1 kg confirmed. Owner reports recent weight loss; flagged for the investigator to review at Week 0." } },
-      ] },
-    ],
+    owners: caOwners,
+    subjects: caSubjects,
+    demo: caDemo,
   },
 ];
 
@@ -629,16 +786,26 @@ for (const study of STUDIES) {
   const sUuid = studyUuid(suffix);
   subjectIdByCode[study.key] = {};
 
-  const siteUuid = hierId("30", 1, suffix);
-  siteRows.push(
-    `  ('${siteUuid}','${sUuid}','S01',${sqlStr(study.site.name)},${sqlStr(study.site.location)},${sqlStr(study.site.pi)},'active')`,
-  );
+  // One or more sites. `study.sites` is an array; legacy single-site studies may
+  // still use `study.site`. Each site has a `code`; subjects reference it via
+  // `s.site` (defaulting to the first site).
+  const sites = study.sites ?? (study.site ? [{ code: "S01", ...study.site }] : []);
+  const siteUuidByCode = {};
+  sites.forEach((st, i) => {
+    const id = hierId("30", i + 1, suffix);
+    siteUuidByCode[st.code] = id;
+    siteRows.push(
+      `  ('${id}','${sUuid}',${sqlStr(st.code)},${sqlStr(st.name)},${sqlStr(st.location)},${sqlStr(st.pi)},'active')`,
+    );
+  });
+  const defaultSiteCode = sites[0]?.code;
 
   const barnUuidByCode = {};
   (study.barns ?? []).forEach((b, i) => {
     const id = hierId("31", i + 1, suffix);
     barnUuidByCode[b.code] = id;
-    barnRows.push(`  ('${id}','${siteUuid}','${b.code}',${sqlStr(b.name)},${b.capacity ?? "null"})`);
+    const siteForBarn = siteUuidByCode[b.site ?? defaultSiteCode];
+    barnRows.push(`  ('${id}','${siteForBarn}','${b.code}',${sqlStr(b.name)},${b.capacity ?? "null"})`);
   });
 
   const penUuidByCode = {};
@@ -662,6 +829,7 @@ for (const study of STUDIES) {
     const barnForPen = s.pen ? study.pens.find((p) => p.code === s.pen)?.barn : null;
     const barn = barnForPen ? barnUuidByCode[barnForPen] : null;
     const owner = s.owner ? ownerUuidByCode[s.owner] : null;
+    const siteUuid = siteUuidByCode[s.site ?? defaultSiteCode];
     const enrolledAt = s.status === "screening" ? "null" : "now()";
     subjectRows.push(
       `  ('${id}','${sUuid}','${siteUuid}',${barn ? `'${barn}'` : "null"},${pen ? `'${pen}'` : "null"},${
@@ -718,12 +886,15 @@ for (const study of STUDIES) {
         messageRows.push(`  ('${mid}','${qid}','${DEMO_USER}',${sqlStr("Auto edit-check: " + f.editCheck.message)})`);
       }
       if (f.query) {
+        // A manual query. With a `response` it's seeded as responded (raise +
+        // reply); without one it stays open (raise only).
+        const open = !f.query.response;
         const qid = demoId("70", (qc += 1), suffix);
         queryRows.push(
-          `  ('${qid}','${instId}','${vidByCode[f.query.field]}','responded','minor',${sqlStr(f.query.title)},'${DEMO_USER}',now())`,
+          `  ('${qid}','${instId}','${vidByCode[f.query.field]}','${open ? "open" : "responded"}','minor',${sqlStr(f.query.title)},'${DEMO_USER}',now())`,
         );
         messageRows.push(`  ('${demoId("71", (mc += 1), suffix)}','${qid}','${DEMO_USER}',${sqlStr(f.query.raise)})`);
-        messageRows.push(`  ('${demoId("71", (mc += 1), suffix)}','${qid}','${DEMO_USER}',${sqlStr(f.query.response)})`);
+        if (!open) messageRows.push(`  ('${demoId("71", (mc += 1), suffix)}','${qid}','${DEMO_USER}',${sqlStr(f.query.response)})`);
       }
     }
   }

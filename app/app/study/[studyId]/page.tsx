@@ -21,5 +21,5 @@ export default function StudyHome() {
     setToday(fmt.replace(",", ""));
   }, []);
 
-  return <RoleDashboard role={activeRole} studyName={study.name} today={today} />;
+  return <RoleDashboard role={activeRole} studyName={study.name} studyCode={study.code} today={today} />;
 }

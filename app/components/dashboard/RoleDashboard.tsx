@@ -32,14 +32,19 @@ const ROLE_LABEL: Record<Role, string> = {
 interface Props {
   role: Role;
   studyName: string;
+  studyCode: string;
   today: string;
 }
 
-export function RoleDashboard({ role, studyName, today }: Props) {
+export function RoleDashboard({ role, studyName, studyCode, today }: Props) {
   const name = useNdaName();
   const firstName = name.split(/\s+/)[0];
   const hour = new Date().getHours();
   const partOfDay = hour < 12 ? "morning" : hour < 18 ? "afternoon" : "evening";
+  // CA-0801 (DermAlliv™) has bespoke, wired CRC/PI/DM dashboards; other studies
+  // and roles use the generic renderers.
+  const render =
+    (studyCode === "CA-0801" && CA_RENDERERS[role]) || ROLE_RENDERERS[role];
   return (
     <div className="dashboard">
       <nav className="dashboard-bc" aria-label="Breadcrumb">
@@ -52,7 +57,7 @@ export function RoleDashboard({ role, studyName, today }: Props) {
           <span>{studyName}</span> · {ROLE_LABEL[role]}
         </div>
       </div>
-      {ROLE_RENDERERS[role]()}
+      {render()}
     </div>
   );
 }
@@ -65,6 +70,178 @@ const ROLE_RENDERERS: Record<Role, () => JSX.Element> = {
   Sponsor: renderSponsor,
   Admin: renderAdmin,
 };
+
+// CA-0801 — bespoke CRC / PI / DM dashboards wired to the study's real aggregates.
+const CA_RENDERERS: Partial<Record<Role, () => JSX.Element>> = {
+  CRC: renderCaCRC,
+  PI: renderCaPI,
+  DM: renderCaDM,
+};
+
+// The four aggregate groups shared across the CA-0801 CRC/PI/DM dashboards:
+// Enrollment · Compliance · Safety · Data quality.
+function CaAggregates() {
+  return (
+    <div style={{ display: "grid", gridTemplateColumns: "repeat(2, 1fr)", gap: "var(--space-4)" }}>
+      <Card title="Enrollment" icon="ti-users">
+        <EnrollBar cur={60} tgt={60} pct={100} legs={[
+          { c: "var(--blue-600)", t: "DermAlliv™ Active — 40" },
+          { c: "var(--purple-600)", t: "Placebo — 20" },
+          { c: "var(--green-600)", t: "Target met — 60 / 60" },
+        ]} />
+        <div className="agg-list" style={{ marginTop: "var(--space-3)" }}>
+          <div className="agg-row"><span className="agg-lbl">Screened</span><span className="agg-val">72</span></div>
+          <div className="agg-row"><span className="agg-lbl">Randomized</span><span className="agg-val">60</span></div>
+          <div className="agg-row"><span className="agg-lbl">Active</span><span className="agg-val">48</span></div>
+          <div className="agg-row"><span className="agg-lbl">Completed</span><span className="agg-val">8</span></div>
+          <div className="agg-row"><span className="agg-lbl">Withdrawn</span><span className="agg-val">4</span></div>
+        </div>
+      </Card>
+      <Card title="Compliance" icon="ti-checklist">
+        <SdvRow name="ePRO diary" pct={92} />
+        <SdvRow name="Visit compliance" pct={96} />
+        <SdvRow name="Medication adherence" pct={94} />
+      </Card>
+      <Card title="Safety" icon="ti-shield-exclamation">
+        <div className="safety-list">
+          <SafetyItem tone="s-warn" icon="ti-alert-triangle" title="Adverse events" sub="Reported across all sites" count="12" />
+          <SafetyItem tone="s-good" icon="ti-circle-check" title="Serious AEs (SAEs)" sub="None reported" count="0" />
+          <SafetyItem tone="s-warn" icon="ti-clipboard-list" title="Open safety reviews" sub="Awaiting investigator sign-off" count="1" />
+        </div>
+      </Card>
+      <Card title="Data quality" icon="ti-database">
+        <div className="agg-list">
+          <div className="agg-row"><span className="agg-lbl">Open queries</span><span className="agg-val" style={{ color: "var(--amber-700)" }}>18</span></div>
+          <div className="agg-row"><span className="agg-lbl">Missing forms</span><span className="agg-val" style={{ color: "var(--orange-700)" }}>6</span></div>
+          <div className="agg-row"><span className="agg-lbl">Pending signatures</span><span className="agg-val" style={{ color: "var(--amber-700)" }}>3</span></div>
+        </div>
+      </Card>
+    </div>
+  );
+}
+
+// ══ CA-0801 · CRC ══════════════════════════════════════════════════════════
+function renderCaCRC() {
+  return (
+    <>
+      <div className="stat-row" style={{ gridTemplateColumns: "repeat(5,1fr)" }}>
+        <Chip val="60" label="Randomized" accent="blue" trend={{ d: "up", t: "target met" }} />
+        <Chip val="48" label="Active subjects" />
+        <Chip val="18" label="Open queries" accent="warn" />
+        <Chip val="6" label="Missing forms" accent="alert" />
+        <Chip val="92%" label="ePRO compliance" accent="good" />
+      </div>
+      <CaAggregates />
+      <div className="dash-grid dash-2col" style={{ marginTop: "var(--space-4)" }}>
+        <div className="dash-col">
+          <Card title="My open queries" icon="ti-message-report" action="View all →">
+            <div className="query-list">
+              <QueryRow subject="CA-0801-102-01 · Daisy" text="CADESI-04 score vs lesion photos — please re-score" meta="Q-014 · Green Valley · Open" status="Awaiting my response" icon="qi-open" badge="qb-open" />
+              <QueryRow subject="CA-0801-102-02 · Charlie" text="Temperature 40.1 °C above range — verify thermometer" meta="EC-7000 · Green Valley · Edit check" status="Open" icon="qi-auto" badge="qb-open" />
+            </div>
+          </Card>
+        </div>
+        <div className="dash-col">
+          <Card title="Upcoming visits" icon="ti-calendar-event" action="View all →">
+            <div className="list-rows">
+              <VisitRow day="16" mon="Jun" primary="CA-0801-101-01 · Cooper" secondary="Follow-Up 2 — Day 28" tagCls="vt-today" tagTxt="Today" />
+              <VisitRow day="18" mon="Jun" primary="CA-0801-101-04 · Max" secondary="Follow-Up 1 — Day 14" tagCls="vt-due" tagTxt="In 2 days" />
+              <VisitRow day="22" mon="Jun" primary="CA-0801-102-04 · Bear" secondary="Follow-Up 1 — Day 14" tagCls="vt-due" tagTxt="In 6 days" />
+            </div>
+          </Card>
+        </div>
+      </div>
+    </>
+  );
+}
+
+// ══ CA-0801 · PI ═══════════════════════════════════════════════════════════
+function renderCaPI() {
+  return (
+    <>
+      <div className="stat-row" style={{ gridTemplateColumns: "repeat(5,1fr)" }}>
+        <Chip val="60" label="Randomized · 3 sites" accent="blue" />
+        <Chip val="100%" label="Enrollment vs target" accent="good" />
+        <Chip val="0" label="Serious AEs" accent="good" />
+        <Chip val="1" label="Open safety reviews" accent="warn" />
+        <Chip val="18" label="Open queries" accent="warn" />
+      </div>
+      <CaAggregates />
+      <div className="dash-grid dash-2col" style={{ marginTop: "var(--space-4)" }}>
+        <div className="dash-col">
+          <Card title="Site enrollment" icon="ti-building-hospital">
+            <table className="dash-table">
+              <thead><tr><th>Site</th><th>Enrolled</th><th>Target</th><th>Progress</th></tr></thead>
+              <tbody>
+                <tr><td>101 · Lakeside (Austin)</td><td className="mono">20</td><td className="mono muted">20</td><td><MiniBar pct={100} /></td></tr>
+                <tr><td>102 · Green Valley (Denver)</td><td className="mono">20</td><td className="mono muted">20</td><td><MiniBar pct={100} /></td></tr>
+                <tr><td>103 · Coastal (Raleigh)</td><td className="mono">20</td><td className="mono muted">20</td><td><MiniBar pct={100} /></td></tr>
+              </tbody>
+            </table>
+          </Card>
+        </div>
+        <div className="dash-col">
+          <Card title="Randomization balance" icon="ti-scale">
+            <div className="arm-list">
+              <div>
+                <div className="arm-hdr"><span className="arm-label">DermAlliv™ Active</span><span className="arm-count">40 subjects</span></div>
+                <div className="arm-track"><div className="arm-fill-a" style={{ width: "67%" }}></div></div>
+              </div>
+              <div>
+                <div className="arm-hdr"><span className="arm-label">Placebo</span><span className="arm-count">20 subjects</span></div>
+                <div className="arm-track"><div className="arm-fill-b" style={{ width: "33%" }}></div></div>
+              </div>
+              <div style={{ fontSize: "var(--text-xs)", color: "var(--color-text-tertiary)", marginTop: "var(--space-2)" }}>
+                Target 2:1 · Current 40:20 — on target
+              </div>
+            </div>
+          </Card>
+        </div>
+      </div>
+    </>
+  );
+}
+
+// ══ CA-0801 · DM ═══════════════════════════════════════════════════════════
+function renderCaDM() {
+  return (
+    <>
+      <div className="stat-row" style={{ gridTemplateColumns: "repeat(6,1fr)" }}>
+        <Chip val="60" label="Randomized" />
+        <Chip val="91%" label="Data completeness" accent="good" />
+        <Chip val="18" label="Open queries" accent="warn" />
+        <Chip val="6" label="Missing forms" accent="alert" />
+        <Chip val="3" label="Pending signatures" accent="warn" />
+        <Chip val="8" label="Ready to lock" accent="blue" />
+      </div>
+      <CaAggregates />
+      <div className="dash-grid dash-2col" style={{ marginTop: "var(--space-4)" }}>
+        <div className="dash-col">
+          <Card title="Data completeness by site" icon="ti-database">
+            <table className="dash-table">
+              <thead><tr><th>Site</th><th>Submitted</th><th>Missing</th><th>Pending</th><th>Locked</th></tr></thead>
+              <tbody>
+                <tr><td>101 · Lakeside</td><td className="mono">312</td><td className="na">2</td><td className="nw">1</td><td className="ng">298</td></tr>
+                <tr><td>102 · Green Valley</td><td className="mono">304</td><td className="na">3</td><td className="nw">1</td><td className="ng">286</td></tr>
+                <tr><td>103 · Coastal</td><td className="mono">309</td><td className="na">1</td><td className="nw">1</td><td className="ng">295</td></tr>
+              </tbody>
+            </table>
+          </Card>
+        </div>
+        <div className="dash-col">
+          <Card title="Queries by type" icon="ti-tag" action="View all →">
+            <div className="qcat-list">
+              <QcatRow label="Edit check" n={7} pct={100} fill="ec" />
+              <QcatRow label="Missing data" n={5} pct={71} fill="md" />
+              <QcatRow label="Out of range" n={4} pct={57} fill="or" />
+              <QcatRow label="Source discrepancy" n={2} pct={29} fill="sd" />
+            </div>
+          </Card>
+        </div>
+      </div>
+    </>
+  );
+}
 
 // ══ CRC ═══════════════════════════════════════════════════════════════════
 function renderCRC() {

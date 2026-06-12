@@ -321,6 +321,12 @@ export function SubjectRecord({ studyId, subjectId, initialFormId }: Props) {
   const flow = STATUS_FLOW[currentStatus];
   const canAdvance = !!flow && flow.roles.includes(activeRole);
 
+  // ePRO — Owner Daily Diary is a read-only stub: data flows from the owner
+  // portal, so the Subject Record shows an info note and disabled fields.
+  const activeForm = dataset.forms.find((f) => f.id === activeFormId);
+  const isEproForm = (activeForm?.name ?? "").startsWith("ePRO");
+  const readOnly = locked || isEproForm; // fields are non-editable when true
+
   // ─── Inclusion / Exclusion — a criterion answered "No" fails ────────────────
   const isIEForm = fields.some((f) => f.validation?.exclusion_criterion);
 
@@ -398,7 +404,7 @@ export function SubjectRecord({ studyId, subjectId, initialFormId }: Props) {
   // Text inputs pass false (they would record a half-typed entry) and instead record
   // one transition per focus→blur edit via recordTextEdit().
   function setFieldValue(field: FormFieldRow, value: string, recordChange = false) {
-    if (locked) return; // locked forms are read-only
+    if (readOnly) return; // locked forms + the ePRO stub are read-only
     update((d: Dataset) => {
       let inst = d.formInstances.find((i) => i.subject_id === subjectId && i.form_id === field.form_id);
       if (!inst) {
@@ -724,7 +730,7 @@ export function SubjectRecord({ studyId, subjectId, initialFormId }: Props) {
     const typeChange = (v: string) => setFieldValue(field, v);
     const onFocus = () => { setEditingFieldId(field.id); snapshotTextFocus(field); };
     const onBlur = () => { setEditingFieldId(null); recordTextEdit(field); };
-    const ro = locked;
+    const ro = readOnly;
     const type = field.field_type;
     const isCoded = !!field.validation?.coded;
 
@@ -1018,6 +1024,13 @@ export function SubjectRecord({ studyId, subjectId, initialFormId }: Props) {
 
         {/* Form body — real fields from form_fields */}
         <div className="form-body">
+          {isEproForm && (
+            <div className="ie-banner override" role="status">
+              <i className="ti ti-device-mobile"></i>
+              ePRO data is collected via the owner portal. Daily diary entries are transcribed by the
+              investigator or uploaded from the owner-portal integration — these fields are read-only here.
+            </div>
+          )}
           {isIEForm && subject.ineligible && (
             <div className="ie-banner" role="alert">
               <i className="ti ti-alert-triangle"></i>
@@ -1040,7 +1053,7 @@ export function SubjectRecord({ studyId, subjectId, initialFormId }: Props) {
               const sdvRec = sdvRecordFor(fv?.id);
               const verified = !!sdvRec;
               const dState = deltaStateFor(field.id, fv?.id);
-              const showInteractiveSdv = isSdvEligible(field) && !locked && modeSdv;
+              const showInteractiveSdv = isSdvEligible(field) && !readOnly && modeSdv;
               const showStaticSdv = isSdvEligible(field) && verified && !showInteractiveSdv;
               const sdvBlock = sdvBlockReason(field, fv?.id); // null if clean
               const numeric = field.field_type === "number" || field.field_type === "integer";
@@ -1048,7 +1061,7 @@ export function SubjectRecord({ studyId, subjectId, initialFormId }: Props) {
               const isWide = field.field_type === "textarea" || field.field_type === "multiselect";
               const deltaTitle = dState === "approved" ? "Change approved by DM" : dState === "responded" ? "Change reason submitted — awaiting DM review" : "Change reason required";
               return (
-                <div className={`field${isWide ? " full" : ""}${locked ? " state-locked" : ""}`} key={field.id}>
+                <div className={`field${isWide ? " full" : ""}${readOnly ? " state-locked" : ""}`} key={field.id}>
                   <label className="field-label">
                     {field.label}
                     {field.is_required && <span className="field-req"> *</span>}
@@ -1069,7 +1082,7 @@ export function SubjectRecord({ studyId, subjectId, initialFormId }: Props) {
                     {showStaticSdv && (
                       <span className="sdv-static" title="SDV verified"><i className="ti ti-shield-check-filled"></i></span>
                     )}
-                    {!locked && dState && (
+                    {!readOnly && dState && (
                       <button className={`delta-btn ${dState}`} onClick={() => setDeltaField(field)} title={deltaTitle} type="button">
                         Δ
                       </button>

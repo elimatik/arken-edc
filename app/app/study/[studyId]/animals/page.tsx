@@ -36,6 +36,19 @@ function fmtDate(d: string | null): string {
   return `${m[parseInt(p[1], 10) - 1]} ${parseInt(p[2], 10)} ${p[0]}`;
 }
 
+// Whole-year age from a date of birth (the Age column where age is a calculated,
+// unstored field — e.g. companion demographics). Returns "" if no valid DOB.
+function ageFromDob(dob: string | undefined): string {
+  if (!dob) return "";
+  const d = new Date(dob);
+  if (Number.isNaN(d.getTime())) return "";
+  const now = new Date();
+  let a = now.getFullYear() - d.getFullYear();
+  const m = now.getMonth() - d.getMonth();
+  if (m < 0 || (m === 0 && now.getDate() < d.getDate())) a--;
+  return a >= 0 ? `${a}y` : "";
+}
+
 // A row in the table — live values resolved from the session store.
 interface AnimalRow {
   subjectId: string; // uuid (for navigation)
@@ -171,7 +184,7 @@ export default function AnimalsPage() {
         barnId: s.barn_id,
         penId: s.pen_id,
         sex: byCode["sex"] ?? byCode["sex_neuter_status"] ?? "",
-        age: byCode["age"] ?? byCode["age_auto_calc"] ?? "",
+        age: byCode["age"] || byCode["age_auto_calc"] || ageFromDob(byCode["dob"]),
         breed: byCode["breed"] ?? byCode["breed_type"] ?? byCode["breed_strain"] ?? "",
         weight,
         formsDone,

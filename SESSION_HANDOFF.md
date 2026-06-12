@@ -1,6 +1,6 @@
 # Arken EDC — Session Handoff
 **Paste this entire file at the start of a new conversation.**
-Last updated: 2026-06-12 | Session 26 COMPLETE — replaced the three studies with PH-2401 (chicken/broiler), HF-3001 (heifer), CA-0801 (canine); added chicken species + House terminology + Randomization forms. NEXT: deferred form polish (SDV panel, sidebar deep-link, query re-open, conditional demographics).
+Last updated: 2026-06-12 | Session 27 COMPLETE — rebuilt CA-0801 as a rich multi-site companion study (DermAlliv™ — 3 sites, 13 dogs, 53-form eCRF, wired CRC/PI/DM dashboards, ePRO read-only stub). NEXT: deferred form polish (SDV panel, sidebar deep-link, query re-open, conditional demographics).
 
 ---
 
@@ -245,6 +245,20 @@ The change-reason model moved from a single baseline-vs-current comparison to **
 - **Animals list** — adapts automatically: chicken (livestock_group) hides per-animal demographics and shows House/Pen filters via terminology. Also **broadened the demographic value lookup** to recognise the new field codes (`sex_neuter_status`, `body_weight`/`screening_weight`/`individual_scale_weight`, `breed_type`/`breed_strain`) so HF/CA Sex/Weight/Breed populate from real values.
 - **Generator rewritten** (`generate-seed.mjs`) — was one shared tree; now **per-study trees** (`PH_TREE`/`HF_TREE`/`CA_TREE`) with hierarchy, subjects, and demo data all generated. Demo per study: a completed Screening + filled Randomization, an **open edit check** (out-of-range vital → auto edit-check: PH ammonia 32, HF temp 40.1, CA temp 40.0), and a **responded query**. Session key → **v9**.
 - Applied via `npx supabase db reset --linked --yes`. Verified in-browser (Playwright): all 3 Animals lists, demographics, Subject Record tree, the edit-check orange alert + species range hints. `tsc`, `next lint`, **`next build` all clean**.
+
+### Session 26b — login fixes ✅ (quick, post-26)
+- **NDA gate fix** — removed the sessionStorage-based skip in `app/login/page.tsx`; the access agreement now appears after valid credentials for **any non-`ARKEN-ADMIN`** code (owner codes still bypass). Normal in-app nav never routes back through `/login`, so it doesn't nag.
+- **Login cleanup** — removed the `.login-divider` element and `.btn-sso` button (+ dead CSS).
+
+### Session 27 — COMPLETE ✅ (CA-0801 rebuilt as a rich multi-site companion study)
+**Replaced CA-0801 entirely** — now **DermAlliv™ Canine Atopic Dermatitis Study** (Protocol DERM-2026-104): randomized, double-blind, placebo-controlled, **3 sites**, 2:1 Active:Placebo, 12-week schedule. Seed-only rebuild (+ generator multi-site support + 2 small UI/Subject-Record additions).
+- **Multi-site generator** — the hierarchy emit now supports `study.sites` (array, each with a `code`); subjects reference `s.site`. PH/HF keep their single `site:` (back-compat wrapper) and emit byte-identical. CA: **3 sites** — 101 Lakeside (Austin), 102 Green Valley (Denver), 103 Coastal (Raleigh).
+- **CA form tree** (`CA_TREE`) — **53 forms / 221 fields** (total now **109 forms / 437 fields**): Animal Information (Demographics + Owner Information), Screening (PE / Baseline Dermatology / Owner Consent / **Eligibility Assessment** (10 criteria, mixed polarity) / Medical History / Laboratory Results), Baseline / Randomization (Randomization / Baseline Clinical / Drug Dispensation / Owner Training / Baseline QOL), Follow-Up 1–3 (7 sub-forms each) + End of Study (7 sub-forms), and 5 standalone forms: Adverse Event (+ SAE fields), Protocol Deviation, Subject Status, ConMed, **ePRO — Owner Daily Diary**.
+- **Subjects** — **13 dogs** generated from a dog table (`CA_DOGS`): 12 randomized (4/site, 8 Active / 3 Completed / 1 Withdrawn) **+ 1 screen failure** (Milo, fails the baseline-pruritus inclusion criterion). Realistic names/breeds/sexes/DOBs/weights/microchips + one owner each (13 `companion_owners`). Demo: a Demographics + Owner Info instance for every dog; **2 dogs** with completed Screening + filled Randomization (Cooper, Bella + Bella's EOS = Completed); **1 open edit check** (Charlie, Screening temp 40.1); **1 open query** (Daisy, CADESI-04). Generator's `query` helper now emits an **open** query when no `response` is given.
+- **Dashboards** — `RoleDashboard` is now study-aware (`studyCode`). For CA-0801, bespoke **CRC / PI / DM** dashboards render four wired aggregate groups — **Enrollment** (Target 60 · Screened 72 · Randomized 60 · Active 48 · Completed 8 · Withdrawn 4), **Compliance** (ePRO 92% · Visit 96% · Medication 94%), **Safety** (AEs 12 · SAEs 0 · Open reviews 1), **Data quality** (Open queries 18 · Missing forms 6 · Pending signatures 3) — plus role-specific cards (CRC queries/visits · PI site enrollment + 2:1 randomization balance · DM completeness + queries-by-type). Other studies/roles keep the generic renderers. *(Generic CRC/PI/DM/etc. dashboards still show placeholder AK-era detail for PH/HF — not yet rebuilt.)*
+- **ePRO read-only stub** — the Subject Record renders the **ePRO — Owner Daily Diary** form with an info-note banner + **all fields disabled** (`readOnly = locked || isEproForm`); editability levers (`ro`, `state-locked`, SDV, Δ) all key off `readOnly`.
+- **Animals list** — Age column now computes whole-year age from a stored DOB when age is a calculated/unstored field (`ageFromDob`).
+- Session key → **v10**. Applied via `db reset`. Verified in-browser (Playwright): 13 dogs across 3 sites, status mix + screen failure, rich tree, edit check, ePRO read-only, all 3 CA dashboards. `tsc`, `next lint`, **`next build` all clean**.
 
 Deferred form polish (after Animals list):
 - **SDV panel** — a dedicated source-data-verification surface (not just the per-field shield): progress, per-field verify, bulk.

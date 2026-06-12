@@ -54,7 +54,7 @@ The **living style guide** (https://elimatik.github.io/arken-edc/) documents the
 ### Try all three hierarchy shapes
 - **PH-2401** — *Phytogenic Feed Additive Broiler Trial* — poultry, group-housed (Site → **House → Pen** — pen-level capture, no per-bird demographics; the housing label relabels to *House* for chicken)
 - **HF-3001** — *Beef Heifer Trace Mineral Trial* — bovine, individual records (Site → Barn → Pen → Animal; heifers share a pen but each carries its own RFID-tag record)
-- **CA-0801** — *Canine Atopic Dermatitis Diet Trial* — companion, individual records (Site → Subject + owner — at-home dogs, owner-reported outcomes)
+- **CA-0801** — *DermAlliv™ Canine Atopic Dermatitis Study* (Protocol DERM-2026-104) — companion, individual records (Site → Subject + owner). The richest study: **3 sites** (Austin / Denver / Raleigh), 13 dogs (incl. a screen failure), a 53-form eCRF (Screening → Randomization → 4 follow-up visits → End of Study + AE / Protocol Deviation / Subject Status / ConMed / a read-only **ePRO** owner-diary stub), and **wired CRC / PI / DM dashboards** (enrollment, compliance, safety, data-quality aggregates).
 
 The design rationale behind the query workflow and the three enrollment modes is written up in **`CASE_STUDY.md`**.
 
@@ -137,7 +137,7 @@ So the demo is fully explorable and editable by anyone, with zero risk of one vi
 - **`app/lib/session-store/`** — the **data layer**: `types.ts` (dataset shape), `hydrate.ts` (one-time Supabase load), `SessionStore.tsx` (`StudySessionProvider` + `useStudySession`).
 - **`app/lib/forms/validation.ts`** — the **edit-check engine**: `evaluateField(field, value, species, ranges)` resolves a species range and returns a query-or-null. Pure; no UI.
 - **`app/lib/terminology.ts`** — the **species → housing-label map** (Barn/Pen for cattle · Stable/Stall for equine · **House/Pen for chicken**) + `hierarchyLevels(study)`.
-- **`app/supabase/generate-seed.mjs`** — generates `seed.sql` (86 forms / 356 fields) from each study's own form tree + field definitions. Edit it, re-run `node generate-seed.mjs`, then `db reset`.
+- **`app/supabase/generate-seed.mjs`** — generates `seed.sql` (109 forms / 437 fields) from each study's own form tree + field definitions, hierarchy (multi-site), subjects, and demo data. Edit it, re-run `node generate-seed.mjs`, then `db reset`.
 
 ---
 
@@ -155,7 +155,7 @@ cd app && npx supabase db reset --linked --yes
 
 ## Built vs. pending
 
-**Built:** login (+ access agreement), study selector, role-aware app shell, role dashboards, Data Entry drill-down, **Animals list**, Subject Record, the session-store data layer, and the **grouped form layer** — three clinically-realistic studies (**PH-2401** broiler / **HF-3001** heifer / **CA-0801** canine), each with its **own** form tree (95 / 121 / 140 fields; 86 forms total), forms nested into collapsible visit/info **groups** (`parent_form_id`), a dedicated **Randomization** form linking each arm to a treatment lot/batch/kit (the inventory bridge — Case Study 4), and **species-specific validation** (`species_ranges`, 6 species incl. chicken/ammonia) that auto-raises and auto-resolves inline edit-check queries.
+**Built:** login (+ access agreement), study selector, role-aware app shell, role dashboards (**CA-0801 has bespoke, wired CRC/PI/DM dashboards** — enrollment, compliance, safety, data-quality aggregates), Data Entry drill-down, **Animals list**, Subject Record, the session-store data layer, and the **grouped form layer** — three clinically-realistic studies (**PH-2401** broiler / **HF-3001** heifer / **CA-0801** canine multi-site), each with its **own** form tree (95 / 121 / **221** fields; **109 forms total**), forms nested into collapsible visit/info **groups** (`parent_form_id`), a dedicated **Randomization** form linking each arm to a treatment lot/batch/kit (the inventory bridge — Case Study 4), and **species-specific validation** (`species_ranges`, 6 species incl. chicken/ammonia) that auto-raises and auto-resolves inline edit-check queries.
 
 **Form entry, in depth** (the Subject Record renders a real eCRF):
 - **Every field type** — text, number (with unit hint), date (native picker), select, **Yes/No toggle**, **multiselect checkboxes**, **calculated** (read-only — age from DOB, FEC reduction %), **file upload**, **coded** (text + a VeDDRA "Look up", DM-only), textarea. Some fields are **study-type-aware** — e.g. Pen / Lot ID becomes a dropdown of the study's pens for group-housed livestock, plain text otherwise. Inclusion/exclusion criteria carry **polarity** (`exclusion_if`) so "consent obtained? = No fails" and "prior antibiotics? = Yes fails" both evaluate correctly.
