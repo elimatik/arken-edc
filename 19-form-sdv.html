@@ -409,7 +409,7 @@ body{font-family:var(--font-sans);font-size:var(--text-base);color:var(--color-t
               <label class="field-label">Rectal temperature <span style="color:var(--red-600)">*</span></label>
               <div class="field-row">
                 <input class="field-input" id="input-temp" type="text" value="28.5">
-                <button class="sdv-btn" id="sdv-btn-temp" onclick="toggleSdv('temp')" title="SDV: click to verify"><i class="ti ti-circle-check" id="sdv-icon-temp"></i></button>
+                <button class="sdv-btn" id="sdv-btn-temp" onclick="toggleSdv('temp')" title="SDV: click to verify"><i class="ti ti-shield" id="sdv-icon-temp"></i></button>
                 <button class="flag-btn" title="No open query"><i class="ti ti-flag"></i></button>
               </div>
             </div>
@@ -418,7 +418,7 @@ body{font-family:var(--font-sans);font-size:var(--text-base);color:var(--color-t
               <label class="field-label">Heart rate <span style="color:var(--red-600)">*</span></label>
               <div class="field-row">
                 <input class="field-input" id="input-heart" type="text" value="64" oninput="onFieldChange('heart',this.value)">
-                <button class="sdv-btn" id="sdv-btn-heart" onclick="toggleSdv('heart')" title="SDV: click to verify"><i class="ti ti-circle-check" id="sdv-icon-heart"></i></button>
+                <button class="sdv-btn" id="sdv-btn-heart" onclick="toggleSdv('heart')" title="SDV: click to verify"><i class="ti ti-shield" id="sdv-icon-heart"></i></button>
                 <button class="flag-btn" id="flag-heart" title="No open query"><i class="ti ti-flag"></i></button>
               </div>
               <span class="field-hint">Normal: 50–80 bpm</span>
@@ -428,7 +428,7 @@ body{font-family:var(--font-sans);font-size:var(--text-base);color:var(--color-t
               <label class="field-label">Respiratory rate <span style="color:var(--red-600)">*</span></label>
               <div class="field-row">
                 <input class="field-input" id="input-resp" type="text" value="24" oninput="onFieldChange('resp',this.value)">
-                <button class="sdv-btn" id="sdv-btn-resp" onclick="toggleSdv('resp')" title="SDV: click to verify"><i class="ti ti-circle-check" id="sdv-icon-resp"></i></button>
+                <button class="sdv-btn" id="sdv-btn-resp" onclick="toggleSdv('resp')" title="SDV: click to verify"><i class="ti ti-shield" id="sdv-icon-resp"></i></button>
                 <button class="flag-btn" id="flag-resp" title="No open query"><i class="ti ti-flag"></i></button>
               </div>
               <span class="field-hint">Normal: 12–36 bpm</span>
@@ -438,7 +438,7 @@ body{font-family:var(--font-sans);font-size:var(--text-base);color:var(--color-t
               <label class="field-label">Body weight <span style="color:var(--red-600)">*</span></label>
               <div class="field-row">
                 <input class="field-input" id="input-weight" type="text" value="400" oninput="onFieldChange('weight',this.value)">
-                <button class="sdv-btn" id="sdv-btn-weight" onclick="toggleSdv('weight')" title="SDV: click to verify"><i class="ti ti-circle-check" id="sdv-icon-weight"></i></button>
+                <button class="sdv-btn" id="sdv-btn-weight" onclick="toggleSdv('weight')" title="SDV: click to verify"><i class="ti ti-shield" id="sdv-icon-weight"></i></button>
                 <button class="flag-btn" id="flag-weight" title="No open query"><i class="ti ti-flag"></i></button>
               </div>
               <span class="field-hint">kg</span>
@@ -455,7 +455,7 @@ body{font-family:var(--font-sans);font-size:var(--text-base);color:var(--color-t
               <label class="field-label">General clinical impression</label>
               <div class="field-row">
                 <input class="field-input" type="text" value="Normal appearance, no abnormalities observed" style="font-family:var(--font-sans)">
-                <button class="sdv-btn" id="sdv-btn-clin" onclick="toggleSdv('clin')" title="SDV: click to verify"><i class="ti ti-circle-check" id="sdv-icon-clin"></i></button>
+                <button class="sdv-btn" id="sdv-btn-clin" onclick="toggleSdv('clin')" title="SDV: click to verify"><i class="ti ti-shield" id="sdv-icon-clin"></i></button>
                 <button class="flag-btn" title="No open query"><i class="ti ti-flag"></i></button>
               </div>
             </div>
@@ -561,11 +561,11 @@ function toggleSdv(fieldId) {
   if (!btn || !icon) return;
   if (sdvState[fieldId]) {
     btn.classList.add('verified');
-    icon.className = 'ti ti-circle-check-filled';
+    icon.className = 'ti ti-shield-check-filled';
     btn.title = 'SDV verified — click to undo';
   } else {
     btn.classList.remove('verified');
-    icon.className = 'ti ti-circle-check';
+    icon.className = 'ti ti-shield';
     btn.title = 'SDV: click to verify';
   }
   updateSdvProgress();
@@ -587,7 +587,7 @@ function verifyAll() {
     const btn  = document.getElementById('sdv-btn-' + id);
     const icon = document.getElementById('sdv-icon-' + id);
     if (btn)  btn.classList.add('verified');
-    if (icon) icon.className = 'ti ti-circle-check-filled';
+    if (icon) icon.className = 'ti ti-shield-check-filled';
   });
   updateSdvProgress();
 }
@@ -618,7 +618,7 @@ window.addEventListener('load', () => {
   const hBtn  = document.getElementById('sdv-btn-heart');
   const hIcon = document.getElementById('sdv-icon-heart');
   if (hBtn)  hBtn.classList.add('verified');
-  if (hIcon) hIcon.className = 'ti ti-circle-check-filled';
+  if (hIcon) hIcon.className = 'ti ti-shield-check-filled';
   updateActionButtons();
 });
 </script>
