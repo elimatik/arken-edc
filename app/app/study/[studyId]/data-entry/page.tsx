@@ -65,6 +65,7 @@ export default function DataEntryPage() {
   const [fNumber, setFNumber] = useState("");
   const [fPi, setFPi] = useState("");
   const [fLocation, setFLocation] = useState("");
+  const [adminNotice, setAdminNotice] = useState<string | null>(null); // inline notice when Admin tries to open a record
 
   const loading = !ready;
 
@@ -88,6 +89,13 @@ export default function DataEntryPage() {
     // site / ?site param / hydration (ready) should reset the nav.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [siteParam, selectedSiteId, ready, studyId]);
+
+  // Auto-dismiss the Admin "data entry restricted" notice.
+  useEffect(() => {
+    if (!adminNotice) return;
+    const t = setTimeout(() => setAdminNotice(null), 3200);
+    return () => clearTimeout(t);
+  }, [adminNotice]);
 
   // ─── Build the hierarchy for this study from the session store ──────────────
   const { type, nodesByParent } = useMemo((): {
@@ -223,6 +231,12 @@ export default function DataEntryPage() {
   function drillInto(node: Node) {
     // Subjects open their full Subject Record; containers drill in place.
     if (node.level === subjectIdx) {
+      // Admin can browse the hierarchy but data entry is a clinical-role task —
+      // opening an individual Subject Record is blocked with an inline notice.
+      if (activeRole === "Admin") {
+        setAdminNotice("Data entry is restricted to clinical roles.");
+        return;
+      }
       router.push(`/study/${studyId}/data-entry/${node.id}`);
       return;
     }
@@ -293,6 +307,8 @@ export default function DataEntryPage() {
     setAddOpen(addLevel);
   }
 
+  // NOTE: Full site management (staff, activation, configuration) belongs in
+  // Settings — the Add Site button in the drill-down is a quick shortcut only.
   function createSite() {
     if (!fName.trim() || !fNumber.trim()) return;
     update((d) => {
@@ -544,6 +560,13 @@ export default function DataEntryPage() {
             </span>
           </div>
         </>
+
+      {/* Admin notice — data entry is a clinical-role task */}
+      {adminNotice && (
+        <div className="de-toast" role="status">
+          <i className="ti ti-lock"></i> {adminNotice}
+        </div>
+      )}
 
       {/* Add Site modal (Admin) */}
       {addOpen === "site" && (

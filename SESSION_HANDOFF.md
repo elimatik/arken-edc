@@ -1,6 +1,6 @@
 # Arken EDC — Session Handoff
 **Paste this entire file at the start of a new conversation.**
-Last updated: 2026-06-13 | Session 30 COMPLETE — fixes batch 3 (dashboard tokens/legend, AE term + auto-number + coded lookup, completed-subject finalized visits, **role-gated Add Site/Barn/Pen/Subject** in the drill-down). NEXT: deferred form polish (SDV panel, sidebar deep-link, query re-open, conditional demographics).
+Last updated: 2026-06-13 | Session 31 COMPLETE — Admin can browse Data Entry (no record access), AE coded-field width fix, Add-Site-is-a-shortcut note. NEXT: deferred form polish (SDV panel, sidebar deep-link, query re-open, conditional demographics).
 
 ---
 
@@ -289,6 +289,12 @@ Verified in-browser (Playwright): enrollment colours + no legend/target line, dq
 **Permissions — Add buttons (drill-down `data-entry/page.tsx`):** (8) **Add Site** — **Admin** only — modal (Site name* / Site number* / PI / Location); `SiteRow` gained optional `location` + `principal_investigator` (+ hydrate). (9) **Add Barn/Pen/Stable/Stall** — **CRC/DM/Admin** — modal (Name); auto codes `B{n}`/`P{n}`. (10) **Add Animal/Subject** — **CRC/CRA/Admin** — creates an empty session subject (`{code}-{NNN}`, status screening, hierarchy resolved from the drill context) and **navigates to its Subject Record** (like Add Study). All via `update()` (session only).
 **Bug fix:** the drill-down nav effect depended on `dataset.sites`; `update()` re-clones the dataset (new array ref) so any add reset the drill-down to root — removed that dep (kept `siteParam`/`selectedSiteId`/`ready`/`studyId`).
 Session key → **v12** (SiteRow shape). Applied via `db reset`. Verified in-browser (Playwright): accent-alert chip, green-400, legend colours, AE term/AE-0001/lookup, Bella finalized icons, Admin-only Add Site, CRC Add barn (creates + stays), CRC Add animal → new `CA-0801-014` record. `tsc`, `next lint`, **`next build` all clean**.
+
+### Session 31 — COMPLETE ✅ (Admin Data Entry access + 2 small fixes)
+1. **Admin can browse Data Entry** — added `Admin` to the `data-entry` nav item (`permissions.ts`). Admin navigates the drill-down (site → barn/pen levels) and uses **Add Site/Barn/Pen**, but **clicking a subject/animal row does NOT open the Subject Record** — `drillInto()` blocks it for Admin and shows an inline toast: *"Data entry is restricted to clinical roles."* (`.de-toast`, auto-dismiss). Admin sees the subject list but no individual records.
+2. **AE coded-field width** — the repeating-entry panel's coded inputs (`Event term (VeDDRA)`) are capped at **max-width 180px** (`.entry-field .coded-field .field-input`) so the **Look up** button fits on the same row without overflow.
+3. **Add-Site shortcut note** — comment in `data-entry/page.tsx` (above `createSite`) + a line in `PORTFOLIO_GUIDE.md`: *"Full site management (staff, activation, configuration) belongs in Settings — the Add Site button in the drill-down is a quick shortcut only."*
+Verified in-browser: Admin nav shows Data Entry; Admin drills to the subject list, click → toast (no navigation); AE coded input = 180px, Look-up on-row. `tsc`, `next lint`, **`next build` all clean**. No seed/session-key change.
 
 Deferred form polish (after Animals list):
 - **SDV panel** — a dedicated source-data-verification surface (not just the per-field shield): progress, per-field verify, bulk.

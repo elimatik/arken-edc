@@ -36,8 +36,11 @@ const open: NavAccess = {}; // plain access, no flags
 export const NAV_ITEMS: NavItem[] = [
   { key: "dashboard", label: "Dashboard", icon: "layout-dashboard",
     access: { CRC: open, CRA: open, DM: open, PI: open, Sponsor: open, Admin: open } },
+  // Admin can navigate the drill-down hierarchy and use the Add Site/Barn/Pen
+  // shortcuts, but cannot open individual Subject Records (data entry is a
+  // clinical-role task — gated in the drill-down page).
   { key: "data-entry", label: "Data Entry", icon: "forms",
-    access: { CRC: open, CRA: open, DM: open, PI: open } },
+    access: { CRC: open, CRA: open, DM: open, PI: open, Admin: open } },
   { key: "animals", label: "Animals", icon: "list",
     access: { CRC: open, CRA: open, DM: open, PI: open, Sponsor: open } },
   // NB: Site/Barn/Pen navigation is a drill-down inside Data Entry — not a
