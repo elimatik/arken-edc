@@ -166,6 +166,7 @@ export interface FieldValidation {
   coded?: boolean; // text field that opens a dictionary (VeDDRA) lookup
   exclusion_criterion?: boolean; // yes/no inclusion-exclusion criterion
   exclusion_if?: "Yes" | "No"; // the answer that FAILS the criterion (default "No")
+  ageClass?: boolean; // vital whose range depends on the animal's age class (calf/adult)
 }
 
 export interface FormFieldRow {

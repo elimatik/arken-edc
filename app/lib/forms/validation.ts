@@ -21,16 +21,23 @@ export interface EditCheck {
   value: number;
 }
 
-// Resolve the effective range for a field given the subject's species.
+// Resolve the effective range for a field given the subject's species (and, for
+// age-class vitals like bovine heart rate, the animal's age in months).
 export function resolveRange(
   field: FormFieldRow,
   species: string,
   ranges: SpeciesRangeRow[],
+  ageMonths?: number | null,
 ): Range | null {
   const v = field.validation;
   if (!v) return null;
   if (v.vital) {
-    const r = ranges.find((x) => x.species === species && x.vital === v.vital);
+    // Age-class vitals resolve `<vital>_calf` / `<vital>_adult` (calf ≤ 6 months;
+    // adult — or unknown age — uses the adult range).
+    const vitalKey = v.ageClass
+      ? `${v.vital}_${ageMonths != null && ageMonths <= 6 ? "calf" : "adult"}`
+      : v.vital;
+    const r = ranges.find((x) => x.species === species && x.vital === vitalKey);
     return r ? { min: Number(r.min), max: Number(r.max), unit: r.unit } : null;
   }
   if (v.min != null || v.max != null) {
@@ -40,8 +47,8 @@ export function resolveRange(
 }
 
 // A "Normal: min–max unit" hint for vital fields (species-resolved).
-export function rangeLabel(field: FormFieldRow, species: string, ranges: SpeciesRangeRow[]): string | null {
-  const r = resolveRange(field, species, ranges);
+export function rangeLabel(field: FormFieldRow, species: string, ranges: SpeciesRangeRow[], ageMonths?: number | null): string | null {
+  const r = resolveRange(field, species, ranges, ageMonths);
   if (!r || !Number.isFinite(r.min) || !Number.isFinite(r.max)) return null;
   const unit = r.unit ? ` ${r.unit}` : "";
   return `Normal: ${r.min}–${r.max}${unit}`;
@@ -53,9 +60,10 @@ export function evaluateField(
   rawValue: string | null | undefined,
   species: string,
   ranges: SpeciesRangeRow[],
+  ageMonths?: number | null,
 ): EditCheck | null {
   if (rawValue == null || String(rawValue).trim() === "") return null; // empty → no range check
-  const range = resolveRange(field, species, ranges);
+  const range = resolveRange(field, species, ranges, ageMonths);
   if (!range) return null;
   const value = Number(rawValue);
   if (Number.isNaN(value)) return null; // non-numeric → skip

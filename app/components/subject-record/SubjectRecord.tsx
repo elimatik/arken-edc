@@ -378,6 +378,11 @@ export function SubjectRecord({ studyId, subjectId, initialFormId }: Props) {
   const withdrawalReason = subject.status === "withdrawn" ? subjectValueByCode("withdrawal_reason") : undefined;
   const completionDate = subject.status === "completed" ? subjectValueByCode("visit_date") : undefined;
 
+  // Animal age in months (for age-class vital validation, e.g. bovine heart rate
+  // — calf ≤6mo vs adult). Sourced from a demographics "Estimated age" field.
+  const ageRaw = subjectValueByCode("age_months");
+  const subjectAgeMonths = ageRaw != null && ageRaw !== "" && !Number.isNaN(Number(ageRaw)) ? Number(ageRaw) : null;
+
   // Subject switcher — the study's subjects, for quick navigation between records.
   const switcherSubjects = dataset.subjects
     .filter((s) => s.study_id === studyId)
@@ -576,7 +581,7 @@ export function SubjectRecord({ studyId, subjectId, initialFormId }: Props) {
 
       // Live EDIT CHECK (not a query): out of range → raise/keep an open edit check;
       // back in range → resolve it. (Converting to a query is a separate user action.)
-      const check = evaluateField(field, value, species, d.speciesRanges);
+      const check = evaluateField(field, value, species, d.speciesRanges, subjectAgeMonths);
       const ec = d.editChecks.find((e) => e.field_value_id === fv!.id && e.status === "open");
       const hasConvertedQ = d.queries.some((q) => q.field_value_id === fv!.id && (q.status === "open" || q.status === "responded"));
       if (check) {
@@ -1317,7 +1322,7 @@ export function SubjectRecord({ studyId, subjectId, initialFormId }: Props) {
               const showStaticSdv = isSdvEligible(field) && verified && !showInteractiveSdv;
               const sdvBlock = sdvBlockReason(field, fv?.id); // null if clean
               const numeric = field.field_type === "number" || field.field_type === "integer";
-              const hint = rangeLabel(field, species, dataset.speciesRanges) ?? (numeric && field.unit ? field.unit : null);
+              const hint = rangeLabel(field, species, dataset.speciesRanges, subjectAgeMonths) ?? (numeric && field.unit ? field.unit : null);
               const isWide = field.field_type === "textarea" || field.field_type === "multiselect";
               const deltaTitle = dState === "approved" ? "Change approved by DM" : dState === "responded" ? "Change reason submitted — awaiting DM review" : "Change reason required";
               return (
