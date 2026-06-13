@@ -473,13 +473,17 @@ export function SubjectRecord({ studyId, subjectId, initialFormId }: Props) {
     return <input className="field-input" type="text" value={v} disabled={readOnly} onChange={(e) => setEntryVal(instId, field, e.target.value)} />;
   }
 
-  // Visual section dividers (item 10) — forms with vital fields get logical
-  // clusters: fields before the vitals (Examination), the vitals (Vital Signs),
-  // and the rest (Assessment). Forms without vitals render flat (no headers).
+  // Visual section dividers (item 10). Forms can declare explicit per-field
+  // sections (validation.section) — those win. Otherwise forms with vital fields
+  // fall back to a logical Examination / Vital Signs / Assessment split; forms
+  // without either render flat (no headers).
+  const hasExplicitSections = fields.some((f) => f.validation?.section);
   const firstVitalIdx = fields.findIndex((f) => f.validation?.vital);
   const sectioned = firstVitalIdx >= 0;
   const sectionForIdx = (idx: number): string | null => {
-    if (!sectioned || idx < 0 || idx >= fields.length) return null;
+    if (idx < 0 || idx >= fields.length) return null;
+    if (hasExplicitSections) return fields[idx].validation?.section ?? null;
+    if (!sectioned) return null;
     if (fields[idx].validation?.vital) return "Vital Signs";
     return idx < firstVitalIdx ? "Examination" : "Assessment";
   };

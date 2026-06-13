@@ -10,7 +10,7 @@ import type { Role } from "@/lib/permissions";
 // visit it hydrates from Supabase; thereafter ALL reads/writes are in-session —
 // nothing is written back to Supabase.
 // Bump the version when the dataset shape changes (forces a fresh hydrate).
-const DATA_KEY = "arken_session_store_v13"; // v13: CX-2501 + BR-2502 livestock studies; age-class HR validation (calf/adult)
+const DATA_KEY = "arken_session_store_v14"; // v14: CX/BR grouped form trees (6 groups each, +13 new forms), explicit in-form sections, pen-as-subject
 const ROLE_KEY = "arken_active_role_v1";
 
 interface StudySessionValue {

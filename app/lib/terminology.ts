@@ -31,10 +31,13 @@ export function housingTerms(study: TerminologyStudy | null | undefined): Housin
 }
 
 // The ordered hierarchy level names for a study, terminology applied.
-//   companion              → Site → Animal
-//   livestock_group/indiv. → Site → Barn|Stable → Pen|Stall → Animal
+//   companion           → Site → Animal
+//   livestock_group     → Site → Barn|House → Pen   (the PEN is the subject —
+//                         the experimental unit — so the hierarchy ends at Pen)
+//   livestock_individual→ Site → Barn|Stable → Pen|Stall → Animal
 export function hierarchyLevels(study: TerminologyStudy | null | undefined): string[] {
   if (study?.type === "companion") return ["Site", "Animal"];
   const t = housingTerms(study);
+  if (study?.type === "livestock_group") return ["Site", t.barn, t.pen];
   return ["Site", t.barn, t.pen, "Animal"];
 }

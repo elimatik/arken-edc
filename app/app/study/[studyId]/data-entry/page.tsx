@@ -99,6 +99,9 @@ export default function DataEntryPage() {
     const studyRow = dataset.studies.find((s) => s.id === studyId);
     const studyType: "livestock" | "companion" =
       studyRow?.type === "companion" ? "companion" : "livestock";
+    // livestock_group: the PEN is the subject (experimental unit). The hierarchy
+    // ends at Pen — a pen row opens the Subject Record directly, no nested table.
+    const isGroup = studyRow?.type === "livestock_group";
 
     const sites = dataset.sites
       .filter((s) => s.study_id === studyId)
@@ -132,7 +135,7 @@ export default function DataEntryPage() {
         return { id: f.id, name: f.name, status: mapInstanceStatus(inst?.status) };
       });
 
-    const subjectIdx = studyType === "livestock" ? 3 : 1;
+    const subjectIdx = studyType === "companion" ? 1 : isGroup ? 2 : 3;
     const subjectNode = (s: (typeof subjects)[number]): Node => ({
       id: s.id,
       code: s.subject_code,
@@ -168,20 +171,33 @@ export default function DataEntryPage() {
           subjectCount: subjects.filter((x) => x.barn_id === b.id).length,
         });
       });
-      pens.forEach((p) => {
-        (map[p.barn_id] = map[p.barn_id] || []).push({
-          id: p.id,
-          code: p.code,
-          label: p.name,
-          level: 2,
-          status: "active",
-          childCount: subjects.filter((x) => x.pen_id === p.id).length,
+      if (isGroup) {
+        // The pen IS the subject — render each pen-subject directly under its
+        // barn (no intermediate pen-container level). Clicking opens the record.
+        subjects.forEach((s) => {
+          if (!s.barn_id) return;
+          const pen = pens.find((p) => p.id === s.pen_id);
+          (map[s.barn_id] = map[s.barn_id] || []).push({
+            ...subjectNode(s),
+            label: pen?.name ?? s.subject_code,
+          });
         });
-      });
-      subjects.forEach((s) => {
-        if (!s.pen_id) return;
-        (map[s.pen_id] = map[s.pen_id] || []).push(subjectNode(s));
-      });
+      } else {
+        pens.forEach((p) => {
+          (map[p.barn_id] = map[p.barn_id] || []).push({
+            id: p.id,
+            code: p.code,
+            label: p.name,
+            level: 2,
+            status: "active",
+            childCount: subjects.filter((x) => x.pen_id === p.id).length,
+          });
+        });
+        subjects.forEach((s) => {
+          if (!s.pen_id) return;
+          (map[s.pen_id] = map[s.pen_id] || []).push(subjectNode(s));
+        });
+      }
     } else {
       map["root"] = sites.map((site) => {
         const n = subjects.filter((x) => x.site_id === site.id).length;
@@ -206,6 +222,7 @@ export default function DataEntryPage() {
 
   // Level labels are terminology-driven (equine → Site/Stable/Stall/Animal).
   const studyRow = ready ? dataset.studies.find((s) => s.id === studyId) : undefined;
+  const isGroup = studyRow?.type === "livestock_group";
   const levels = hierarchyLevels(studyRow);
   const subjectIdx = levels.length - 1;
   const currentKey = nav.length ? nav[nav.length - 1].key : "root";
@@ -272,8 +289,15 @@ export default function DataEntryPage() {
       let site_id: string | null = null;
       let barn_id: string | null = null;
       let pen_id: string | null = null;
+      const newPenId = crypto.randomUUID();
       if (type === "companion") {
         site_id = parentNode?.id ?? null;
+      } else if (isGroup) {
+        // The "subject" is a pen — parentNode is the barn. Create a fresh pen
+        // under it and attach the pen-subject to that pen.
+        barn_id = parentNode?.id ?? null;
+        site_id = dataset.barns.find((b) => b.id === barn_id)?.site_id ?? null;
+        pen_id = newPenId;
       } else {
         pen_id = parentNode?.id ?? null;
         const pen = dataset.pens.find((p) => p.id === pen_id);
@@ -281,6 +305,10 @@ export default function DataEntryPage() {
         site_id = dataset.barns.find((b) => b.id === barn_id)?.site_id ?? null;
       }
       update((d) => {
+        if (isGroup && barn_id) {
+          const penCode = `P${String(d.pens.filter((p) => p.barn_id === barn_id).length + 1).padStart(2, "0")}`;
+          d.pens.push({ id: newPenId, barn_id, code: penCode, name: `Pen ${penCode.slice(1)}` });
+        }
         d.subjects.push({
           id, study_id: studyId, site_id, barn_id, pen_id, owner_id: null,
           subject_code: code, species: studyRow?.species ?? null, status: "screening", randomization_arm: null,

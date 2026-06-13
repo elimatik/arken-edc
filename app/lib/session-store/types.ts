@@ -167,6 +167,7 @@ export interface FieldValidation {
   exclusion_criterion?: boolean; // yes/no inclusion-exclusion criterion
   exclusion_if?: "Yes" | "No"; // the answer that FAILS the criterion (default "No")
   ageClass?: boolean; // vital whose range depends on the animal's age class (calf/adult)
+  section?: string; // explicit in-form section heading this field belongs to
 }
 
 export interface FormFieldRow {
