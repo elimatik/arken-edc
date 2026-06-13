@@ -52,13 +52,19 @@ export default function DataEntryPage() {
   const router = useRouter();
   const params = useParams();
   const studyId = String(params.studyId);
-  const { study, selectedSiteId } = useShell();
-  const { dataset, ready } = useStudySession();
+  const { study, selectedSiteId, activeRole } = useShell();
+  const { dataset, ready, update } = useStudySession();
   const siteParam = useSearchParams().get("site"); // ?site=<id> pre-filters a site (e.g. from the Subject Record breadcrumb)
 
   const [nav, setNav] = useState<{ key: string; label: string }[]>([]);
   const [search, setSearch] = useState("");
   const [statusFilter, setStatusFilter] = useState("");
+  // Add-record modal: "site" (Admin) or "container" (barn/pen/stable/stall, CRC/DM/Admin).
+  const [addOpen, setAddOpen] = useState<"site" | "container" | null>(null);
+  const [fName, setFName] = useState("");
+  const [fNumber, setFNumber] = useState("");
+  const [fPi, setFPi] = useState("");
+  const [fLocation, setFLocation] = useState("");
 
   const loading = !ready;
 
@@ -76,7 +82,12 @@ export default function DataEntryPage() {
     }
     setSearch("");
     setStatusFilter("");
-  }, [siteParam, selectedSiteId, ready, studyId, dataset.sites]);
+    // Intentionally NOT depending on dataset.sites: update() re-clones the dataset
+    // (new array reference) on every edit, and re-running this would reset the
+    // drill-down nav to root after adding a barn/pen/subject. Only the topbar
+    // site / ?site param / hydration (ready) should reset the nav.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [siteParam, selectedSiteId, ready, studyId]);
 
   // ─── Build the hierarchy for this study from the session store ──────────────
   const { type, nodesByParent } = useMemo((): {
@@ -242,6 +253,71 @@ export default function DataEntryPage() {
   const listLevelName = parentNode ? levels[parentNode.level + 1] || levels[subjectIdx] : levels[0];
   const childLevel = parentNode ? parentNode.level + 1 : 0;
 
+  // ─── Add-record permissions (per level) ─────────────────────────────────────
+  const addLevel: "site" | "container" | "subject" =
+    childLevel === 0 ? "site" : childLevel === subjectIdx ? "subject" : "container";
+  const canAdd =
+    addLevel === "site"
+      ? activeRole === "Admin" // Add Site — Admin only
+      : addLevel === "subject"
+      ? ["CRC", "CRA", "Admin"].includes(activeRole) // Add Animal / Subject
+      : ["CRC", "DM", "Admin"].includes(activeRole); // Add Barn / Pen / Stable / Stall
+
+  function onAddClick() {
+    if (addLevel === "subject") {
+      // New empty subject — created in session, opens its Subject Record (like "Add Study").
+      const id = crypto.randomUUID();
+      const studySubjects = dataset.subjects.filter((s) => s.study_id === studyId);
+      const code = `${study.code}-${String(studySubjects.length + 1).padStart(3, "0")}`;
+      let site_id: string | null = null;
+      let barn_id: string | null = null;
+      let pen_id: string | null = null;
+      if (type === "companion") {
+        site_id = parentNode?.id ?? null;
+      } else {
+        pen_id = parentNode?.id ?? null;
+        const pen = dataset.pens.find((p) => p.id === pen_id);
+        barn_id = pen?.barn_id ?? null;
+        site_id = dataset.barns.find((b) => b.id === barn_id)?.site_id ?? null;
+      }
+      update((d) => {
+        d.subjects.push({
+          id, study_id: studyId, site_id, barn_id, pen_id, owner_id: null,
+          subject_code: code, species: studyRow?.species ?? null, status: "screening", randomization_arm: null,
+        });
+      });
+      router.push(`/study/${studyId}/data-entry/${id}`);
+      return;
+    }
+    setFName(""); setFNumber(""); setFPi(""); setFLocation("");
+    setAddOpen(addLevel);
+  }
+
+  function createSite() {
+    if (!fName.trim() || !fNumber.trim()) return;
+    update((d) => {
+      d.sites.push({
+        id: crypto.randomUUID(), study_id: studyId, code: fNumber.trim(), name: fName.trim(),
+        status: "active", location: fLocation.trim() || null, principal_investigator: fPi.trim() || null,
+      });
+    });
+    setAddOpen(null);
+  }
+
+  function createContainer() {
+    if (!fName.trim() || !parentNode) return;
+    update((d) => {
+      if (childLevel === 1) {
+        const code = `B${d.barns.filter((b) => b.site_id === parentNode.id).length + 1}`;
+        d.barns.push({ id: crypto.randomUUID(), site_id: parentNode.id, code, name: fName.trim() });
+      } else {
+        const code = `P${d.pens.filter((p) => p.barn_id === parentNode.id).length + 1}`;
+        d.pens.push({ id: crypto.randomUUID(), barn_id: parentNode.id, code, name: fName.trim() });
+      }
+    });
+    setAddOpen(null);
+  }
+
   // ─── Render ─────────────────────────────────────────────────────────────────
   if (loading) {
     return (
@@ -293,9 +369,11 @@ export default function DataEntryPage() {
                 <i className="ti ti-file-description"></i> Open {levels[parentNode.level].toLowerCase()} record
               </button>
             )}
-            <button className="btn-primary" type="button">
-              <i className="ti ti-plus"></i> Add {listLevelName.toLowerCase()}
-            </button>
+            {canAdd && (
+              <button className="btn-primary" type="button" onClick={onAddClick}>
+                <i className="ti ti-plus"></i> Add {listLevelName.toLowerCase()}
+              </button>
+            )}
           </div>
         </div>
       </div>
@@ -466,6 +544,52 @@ export default function DataEntryPage() {
             </span>
           </div>
         </>
+
+      {/* Add Site modal (Admin) */}
+      {addOpen === "site" && (
+        <div className="de-modal-overlay" onClick={() => setAddOpen(null)}>
+          <div className="de-modal" onClick={(e) => e.stopPropagation()} role="dialog" aria-modal="true" aria-label="Add site">
+            <div className="de-modal-title"><i className="ti ti-building-hospital"></i> Add site</div>
+            <label className="de-modal-field">
+              <span>Site name <span className="req">*</span></span>
+              <input className="de-modal-input" value={fName} onChange={(e) => setFName(e.target.value)} placeholder="e.g. Lakeside Veterinary Specialists" autoFocus />
+            </label>
+            <label className="de-modal-field">
+              <span>Site number <span className="req">*</span></span>
+              <input className="de-modal-input" value={fNumber} onChange={(e) => setFNumber(e.target.value)} placeholder="e.g. 104" />
+            </label>
+            <label className="de-modal-field">
+              <span>Principal investigator</span>
+              <input className="de-modal-input" value={fPi} onChange={(e) => setFPi(e.target.value)} placeholder="e.g. Dr. Jane Doe, DVM" />
+            </label>
+            <label className="de-modal-field">
+              <span>Location</span>
+              <input className="de-modal-input" value={fLocation} onChange={(e) => setFLocation(e.target.value)} placeholder="e.g. Austin, TX" />
+            </label>
+            <div className="de-modal-actions">
+              <button className="btn-secondary" type="button" onClick={() => setAddOpen(null)}>Cancel</button>
+              <button className="btn-primary" type="button" disabled={!fName.trim() || !fNumber.trim()} onClick={createSite}>Add site</button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Add container modal (barn / pen / stable / stall — CRC / DM / Admin) */}
+      {addOpen === "container" && (
+        <div className="de-modal-overlay" onClick={() => setAddOpen(null)}>
+          <div className="de-modal" onClick={(e) => e.stopPropagation()} role="dialog" aria-modal="true" aria-label={`Add ${listLevelName.toLowerCase()}`}>
+            <div className="de-modal-title"><i className="ti ti-plus"></i> Add {listLevelName.toLowerCase()}</div>
+            <label className="de-modal-field">
+              <span>{listLevelName} name <span className="req">*</span></span>
+              <input className="de-modal-input" value={fName} onChange={(e) => setFName(e.target.value)} placeholder={`e.g. ${listLevelName} 1`} autoFocus />
+            </label>
+            <div className="de-modal-actions">
+              <button className="btn-secondary" type="button" onClick={() => setAddOpen(null)}>Cancel</button>
+              <button className="btn-primary" type="button" disabled={!fName.trim()} onClick={createContainer}>Add {listLevelName.toLowerCase()}</button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

@@ -448,6 +448,7 @@ const CA_TREE = [
     ]),
   ]),
   alone("adverse_event", "Adverse Event", [
+    txt("ae_term", "AE term"),
     txt("ae_number", "AE number"),
     date("ae_start_date", "Start date"),
     date("ae_end_date", "End date"),
@@ -574,17 +575,29 @@ const CA_EXTRA = {
   ],
 };
 
+// Scheduled-visit leaf forms (Screening · Baseline/Randomization · Follow-Ups ·
+// End of Study) — completed subjects have ALL of these finalized.
+const CA_VISIT_GROUP_RX = /Screening|Randomization|Follow-Up|End of Study/;
+const caVisitLeafKeys = CA_TREE.filter((n) => n.children && CA_VISIT_GROUP_RX.test(n.name)).flatMap((n) => n.children.map((c) => c.key));
+
 const caDemo = CA_DOGS.map((d, i) => {
   const reviewed = !(d.screenFail || d.status === "screening");
   const dStatus = reviewed ? "reviewed" : "in_work";
-  return {
-    subject: d.code,
-    forms: [
-      { key: "demographics", status: dStatus, values: { subject_id: d.code, animal_name: d.name, species: "Canine", breed: d.breed, sex: d.sex, dob: d.dob, body_weight: [d.weight, parseFloat(d.weight)], coat_color: d.coat, microchip_number: d.micro } },
-      { key: "owner_info", status: dStatus, values: { owner_id: `O${i + 1}`, owner_first_name: d.owner.first, owner_last_name: d.owner.last, owner_phone: d.owner.phone, owner_email: d.owner.email, owner_address: d.owner.address, preferred_contact: "Email" } },
-      ...(CA_EXTRA[d.code] ?? []),
-    ],
-  };
+  let forms = [
+    { key: "demographics", status: dStatus, values: { subject_id: d.code, animal_name: d.name, species: "Canine", breed: d.breed, sex: d.sex, dob: d.dob, body_weight: [d.weight, parseFloat(d.weight)], coat_color: d.coat, microchip_number: d.micro } },
+    { key: "owner_info", status: dStatus, values: { owner_id: `O${i + 1}`, owner_first_name: d.owner.first, owner_last_name: d.owner.last, owner_phone: d.owner.phone, owner_email: d.owner.email, owner_address: d.owner.address, preferred_contact: "Email" } },
+    ...(CA_EXTRA[d.code] ?? []),
+  ];
+  // Completed subjects: every scheduled-visit form is finalized — upgrade the
+  // ones that already carry data, and add the rest as finalized instances.
+  if (d.status === "completed") {
+    const present = new Set(forms.map((f) => f.key));
+    forms = forms.map((f) => (caVisitLeafKeys.includes(f.key) ? { ...f, status: "finalized" } : f));
+    for (const key of caVisitLeafKeys) {
+      if (!present.has(key)) forms.push({ key, status: "finalized", values: {} });
+    }
+  }
+  return { subject: d.code, forms };
 });
 
 // ─── Study configs (meta + hierarchy + subjects + demo) ──────────────────────

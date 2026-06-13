@@ -39,7 +39,7 @@ const STATUS_MAP: Record<string, { cls: string; label: string }> = {
 const REPEATING_FORMS = ["ConMed", "Adverse Event", "Protocol Deviation"];
 const REPEATING_COLUMNS: Record<string, [string, string][]> = {
   ConMed: [["medication_name", "Drug name"], ["dose", "Dose"], ["route", "Route"], ["start_date", "Start date"], ["ongoing", "Ongoing"]],
-  "Adverse Event": [["event_term", "Event term"], ["severity", "Severity"], ["relatedness", "Relatedness"], ["outcome", "Outcome"], ["sae_flag", "SAE"]],
+  "Adverse Event": [["ae_number", "AE #"], ["ae_term", "AE term"], ["severity", "Severity"], ["outcome", "Outcome"], ["sae_flag", "SAE"]],
   "Protocol Deviation": [["deviation_type", "Type"], ["deviation_date", "Date"], ["major_minor", "Major / Minor"], ["description", "Description"]],
 };
 
@@ -142,6 +142,7 @@ export function SubjectRecord({ studyId, subjectId, initialFormId }: Props) {
   const [lockModalOpen, setLockModalOpen] = useState(false); // e-signature modal
   const [lockPassword, setLockPassword] = useState("");
   const [lookupField, setLookupField] = useState<FormFieldRow | null>(null); // VeDDRA lookup panel target
+  const [lookupInstId, setLookupInstId] = useState<string | null>(null); // when looking up from a repeating-form entry, the target instance
   const [lookupSearch, setLookupSearch] = useState("");
   const [manageOpen, setManageOpen] = useState(false); // Manage dropdown
   const [switcherOpen, setSwitcherOpen] = useState(false); // subject switcher popover
@@ -412,7 +413,15 @@ export function SubjectRecord({ studyId, subjectId, initialFormId }: Props) {
   function addEntry() {
     if (readOnly || !activeFormId) return;
     const id = newId();
-    update((d) => { d.formInstances.push({ id, form_id: activeFormId, subject_id: subjectId, status: "in_work" }); });
+    update((d) => {
+      d.formInstances.push({ id, form_id: activeFormId, subject_id: subjectId, status: "in_work" });
+      // Adverse Event: auto-generate the AE number (AE-0001, AE-0002 …) per subject.
+      const aeNumField = fields.find((f) => f.code === "ae_number");
+      if (aeNumField && selectedForm?.name === "Adverse Event") {
+        const seq = d.formInstances.filter((i) => i.subject_id === subjectId && i.form_id === activeFormId).length;
+        d.fieldValues.push({ id: newId(), form_instance_id: id, form_field_id: aeNumField.id, value: `AE-${String(seq).padStart(4, "0")}` });
+      }
+    });
     setEntryInstanceId(id);
   }
   function confirmDeleteEntry() {
@@ -431,6 +440,19 @@ export function SubjectRecord({ studyId, subjectId, initialFormId }: Props) {
   function renderEntryControl(field: FormFieldRow, instId: string) {
     const v = entryVal(instId, field.id);
     const t = field.field_type;
+    // Auto-generated AE number — read-only display.
+    if (field.code === "ae_number") return <input className="field-input" type="text" value={v} disabled readOnly placeholder="Auto-generated" />;
+    // Coded (VeDDRA) field — text input + a Look up button (opens the dictionary panel).
+    if (field.validation?.coded) {
+      return (
+        <div className="coded-field">
+          <input className="field-input" type="text" value={v} disabled={readOnly} onChange={(e) => setEntryVal(instId, field, e.target.value)} />
+          <button className="lookup-btn" type="button" title="Look up coded term (VeDDRA)" onClick={() => { setLookupSearch(""); setLookupField(field); setLookupInstId(instId); }}>
+            <i className="ti ti-search"></i> Look up
+          </button>
+        </div>
+      );
+    }
     if (t === "textarea") return <textarea className="field-input" style={{ height: 60, fontFamily: "var(--font-sans)" }} value={v} disabled={readOnly} onChange={(e) => setEntryVal(instId, field, e.target.value)} />;
     if (t === "date" || t === "datetime") return <input className="field-input field-date" type="date" value={v} disabled={readOnly} onChange={(e) => setEntryVal(instId, field, e.target.value)} />;
     if (t === "select" || t === "radio") {
@@ -1698,14 +1720,14 @@ export function SubjectRecord({ studyId, subjectId, initialFormId }: Props) {
       )}
 
       {/* VeDDRA lookup — slide-in panel (420px). Opens for all roles; selecting a term is DM-only. */}
-      <div className={`panel-overlay${lookupField ? " open" : ""}`} onClick={() => setLookupField(null)}></div>
-      <div className={`slide-panel lookup-panel${lookupField ? " open" : ""}`}>
+      <div className={`panel-overlay${lookupField ? " open" : ""}`} onClick={() => { setLookupField(null); setLookupInstId(null); }}></div>
+      <div className={`slide-panel lookup-panel${lookupField ? " open" : ""}`} style={lookupInstId ? { zIndex: 217 } : undefined}>
         <div className="panel-header">
           <div className="panel-header-left">
             <div className="panel-title">VeDDRA lookup</div>
             <div className="panel-title-meta"><span className="fc-code">{(lookupField?.code ?? "").toUpperCase()}</span></div>
           </div>
-          <button className="panel-close" onClick={() => setLookupField(null)} type="button"><i className="ti ti-x"></i></button>
+          <button className="panel-close" onClick={() => { setLookupField(null); setLookupInstId(null); }} type="button"><i className="ti ti-x"></i></button>
         </div>
         <div className="lookup-search">
           <i className="ti ti-search"></i>
@@ -1719,7 +1741,13 @@ export function SubjectRecord({ studyId, subjectId, initialFormId }: Props) {
               type="button"
               disabled={!canCode}
               title={canCode ? undefined : "Coding is a DM task"}
-              onClick={() => { if (lookupField) { setFieldValue(lookupField, t); setLookupField(null); } }}
+              onClick={() => {
+                if (!lookupField) return;
+                if (lookupInstId) setEntryVal(lookupInstId, lookupField, t);
+                else setFieldValue(lookupField, t);
+                setLookupField(null);
+                setLookupInstId(null);
+              }}
             >
               <i className="ti ti-book-2"></i> {t}
             </button>

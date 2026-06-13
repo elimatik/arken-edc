@@ -25,6 +25,8 @@ export interface SiteRow {
   code: string;
   name: string;
   status: string;
+  location?: string | null;
+  principal_investigator?: string | null;
 }
 
 export interface BarnRow {

@@ -25,6 +25,11 @@ import {
 } from "./widgets";
 import "./dashboard.css";
 
+// TODO: Dashboard metrics should be fully derived from session store aggregates —
+// wire up in a final pass after all screens are complete. The CA-0801 dashboards
+// already read live counts via computeAggregates(); the generic per-role
+// dashboards (PH/HF and the non-CA fallbacks) still use placeholder data.
+
 // ─── Live study aggregates, derived from the session store (no hardcoded counts) ─
 export interface StudyAggregates {
   target: number;
@@ -189,10 +194,10 @@ const CA_RENDERERS: Partial<Record<Role, (agg: StudyAggregates) => JSX.Element>>
 };
 
 const ENROLL_COLORS = {
-  active: "var(--blue-400)",
-  completed: "var(--green-200)",
-  withdrawn: "var(--red-200)",
-  screenFail: "var(--color-border)",
+  active: "var(--blue-600)",
+  completed: "var(--green-500)",
+  withdrawn: "var(--red-400)",
+  screenFail: "var(--slate-400)",
 };
 
 // The four aggregate groups shared across the CA-0801 CRC/PI/DM dashboards:
@@ -276,7 +281,7 @@ function renderCaCRC(agg: StudyAggregates) {
       <div className="stat-row" style={{ gridTemplateColumns: "repeat(5,1fr)" }}>
         <Chip val={String(agg.randomized)} label="Randomized" accent="blue" />
         <Chip val={String(agg.active)} label="Active subjects" />
-        <Chip val={String(agg.openQueries)} label="Open queries" accent={agg.openQueries ? "warn" : ""} />
+        <Chip val={String(agg.openQueries)} label="Open queries" accent={agg.openQueries ? "alert" : ""} />
         <Chip val={String(agg.openEditChecks)} label="Open edit checks" accent={agg.openEditChecks ? "alert" : ""} />
         <Chip val={String(agg.target)} label="Enrollment target" />
       </div>
@@ -312,7 +317,7 @@ function renderCaPI(agg: StudyAggregates) {
         <Chip val={String(agg.active)} label="Active subjects" accent="good" />
         <Chip val={String(agg.saes)} label="Serious AEs" accent={agg.saes ? "crit" : "good"} />
         <Chip val={String(agg.screenFailures)} label="Screen failures" />
-        <Chip val={String(agg.openQueries)} label="Open queries" accent={agg.openQueries ? "warn" : ""} />
+        <Chip val={String(agg.openQueries)} label="Open queries" accent={agg.openQueries ? "alert" : ""} />
       </div>
       <CaAggregates agg={agg} />
       <div style={{ display: "grid", gridTemplateColumns: "repeat(2, 1fr)", gap: "var(--space-4)", marginTop: "var(--space-4)" }}>
@@ -355,7 +360,7 @@ function renderCaDM(agg: StudyAggregates) {
       <div className="stat-row" style={{ gridTemplateColumns: "repeat(6,1fr)" }}>
         <Chip val={String(agg.randomized)} label="Randomized" />
         <Chip val={String(agg.reviewedForms)} label="Forms reviewed" accent="good" />
-        <Chip val={String(agg.openQueries)} label="Open queries" accent={agg.openQueries ? "warn" : ""} />
+        <Chip val={String(agg.openQueries)} label="Open queries" accent={agg.openQueries ? "alert" : ""} />
         <Chip val={String(agg.openEditChecks)} label="Open edit checks" accent={agg.openEditChecks ? "alert" : ""} />
         <Chip val={String(agg.pendingSignatures)} label="Pending signatures" accent={agg.pendingSignatures ? "warn" : ""} />
         <Chip val={String(agg.readyToLock)} label="Ready to lock" accent="blue" />

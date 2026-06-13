@@ -132,6 +132,14 @@ export function StackedEnrollBar({
           ></div>
         ))}
       </div>
+      <div className="enroll-legend">
+        {segments.map((s, i) => (
+          <div className="enroll-leg" key={i}>
+            <div className="enroll-leg-dot" style={{ background: s.color }}></div>
+            {s.label} <span className="mono">{s.count}</span>
+          </div>
+        ))}
+      </div>
     </div>
   );
 }

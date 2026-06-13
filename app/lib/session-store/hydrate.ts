@@ -26,7 +26,7 @@ export async function hydrateFromSupabase(): Promise<Dataset> {
     speciesRanges,
   ] = await Promise.all([
     supabase.from("studies").select("id, code, name, sponsor, phase, type, species, status, enrollment_target, description"),
-    supabase.from("sites").select("id, study_id, code, name, status"),
+    supabase.from("sites").select("id, study_id, code, name, status, location, principal_investigator"),
     supabase.from("barns").select("id, site_id, code, name"),
     supabase.from("pens").select("id, barn_id, code, name"),
     supabase.from("subjects").select("id, study_id, site_id, barn_id, pen_id, owner_id, subject_code, species, status, randomization_arm"),
