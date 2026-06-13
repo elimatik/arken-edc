@@ -366,9 +366,14 @@ export default function DataEntryPage() {
             <button className="btn-secondary" type="button">
               <i className="ti ti-download"></i> Export
             </button>
-            {/* "Open [level] record" — present at site / barn / pen levels */}
+            {/* "Open [level] record" — at the site level this opens the canonical
+                Site Record (/sites/[id]); barn/pen record pages aren't built yet. */}
             {parentNode && (
-              <button className="btn-secondary" type="button">
+              <button
+                className="btn-secondary"
+                type="button"
+                onClick={parentNode.level === 0 ? () => router.push(`/study/${studyId}/sites/${parentNode.id}`) : undefined}
+              >
                 <i className="ti ti-file-description"></i> Open {levels[parentNode.level].toLowerCase()} record
               </button>
             )}

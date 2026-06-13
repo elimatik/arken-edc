@@ -27,6 +27,10 @@ export interface SiteRow {
   status: string;
   location?: string | null;
   principal_investigator?: string | null;
+  // Session-only extras captured by the Add Site modal (not in the DB seed).
+  time_zone?: string | null;
+  investigator_phone?: string | null;
+  investigator_email?: string | null;
 }
 
 export interface BarnRow {

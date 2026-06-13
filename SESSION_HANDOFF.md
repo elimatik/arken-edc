@@ -1,6 +1,6 @@
 # Arken EDC — Session Handoff
 **Paste this entire file at the start of a new conversation.**
-Last updated: 2026-06-13 | Session 32 COMPLETE — **Sites section** (Admin-only nav + sites table + Site Record); Admin out of Data Entry entirely; VeDDRA coded-field flex layout. NEXT: deferred form polish (SDV panel, sidebar deep-link, query re-open, conditional demographics).
+Last updated: 2026-06-13 | Session 33 COMPLETE — **canonical Site Record** built from `27-site-record.html` (3 entry points, Admin-edit / clinical-read-only); new Add-Site modal fields. NEXT: deferred form polish (SDV panel, sidebar deep-link, query re-open, conditional demographics).
 
 ---
 
@@ -303,6 +303,14 @@ Verified in-browser: Admin nav shows Data Entry; Admin drills to the subject lis
 4. **VeDDRA coded-field layout** — `.coded-field .field-input { flex: 1 1 auto }` + `.lookup-btn { flex: 0 0 auto }` (removed the 180px cap): the input takes the available width and the **Look up** button is fixed/auto — applies in the main form and the AE repeating entry panel.
 5. **Drill-down note** updated — the `createSite` comment now points to the Sites section (the site-level add path only renders for Admin, who isn't in Data Entry, so it's effectively unused there).
 No seed / session-key change. Verified in-browser: Admin nav = Sites (no Data Entry); sites table (3 sites, 5/20, queries); Site Record details/metrics/staff/Edit (Admin only; PI edit persists); coded input flex:1. `tsc`, `next lint`, **`next build` all clean**.
+
+### Session 33 — COMPLETE ✅ (canonical Site Record from `27-site-record.html`)
+1. **Site Record rebuilt** (`/study/[studyId]/sites/[siteId]/page.tsx`) faithfully from `27-site-record.html` — **THE one canonical site-record page**: header (breadcrumb + Export/Audit/Edit), a **5-stat strip** (Subjects enrolled + progress · Site status · Open queries · Forms submitted · Current protocol — all store-derived), and **5 cards**: Site information (Identification / Address / Operational), Site contacts (PI from store + illustrative CRC/CRA), Protocol & amendments (collapsible v2.1/v2.0/v1.0 + Add amendment), Regulatory & ethics, Site visits (collapsible + Log visit). Real fields wired to the store (name, ID, location→city/state, PI/phone/email, time zone, status); amendments/visits/regulatory docs are illustrative.
+2. **Three entry points** — (a) **Admin**: Sites nav → table → row; (b) **CRC/CRA/DM/PI**: Data Entry drill-down → **"Open site record"** at the site level (`data-entry/page.tsx` wires the site-level button → `/sites/[id]`); (c) **Settings** — noted in a code comment for the future. Breadcrumb adapts (Admin → "Sites", clinical → "Data Entry").
+3. **Permissions** — **Admin** gets an **Edit** toggle (enables Site-info / Regulatory inputs + Save footers) and **Add amendment / Log visit / Add contact**; **clinical roles see read-only** (no Edit/Add, inputs disabled). Save persists the real site fields via `update()`.
+4. **Add Site modal fields** updated (sites list + the modal): **Site name\* · Site ID/number\* · Time zone (select) · Investigator name\* · Investigator phone · Investigator email** (was name/number/PI/location). `SiteRow` gained optional `time_zone` / `investigator_phone` / `investigator_email` (session-only, not in the DB seed). `TIME_ZONES` lives in `sites/constants.ts` (Next.js forbids arbitrary named exports from a route's `page.tsx`).
+5. **VeDDRA coded-field flex** (re-confirmed): `.coded-field .field-input { flex: 1 1 auto }` + `.lookup-btn { flex: 0 0 auto }` — input takes available width, Look-up button fixed/auto (main form + AE entry panel).
+No seed / session-key change. Verified in-browser: Site Record (5 cards/stats, Admin Edit→10 editable inputs+Save); Add Site modal new fields; CRC via "Open site record" → read-only (Export/Audit only, inputs disabled). `tsc`, `next lint`, **`next build` all clean**.
 
 Deferred form polish (after Animals list):
 - **SDV panel** — a dedicated source-data-verification surface (not just the per-field shield): progress, per-field verify, bulk.

@@ -4,6 +4,7 @@ import { useMemo, useState } from "react";
 import { useRouter, useParams } from "next/navigation";
 import { useShell } from "@/components/shell/ShellContext";
 import { useStudySession } from "@/lib/session-store/SessionStore";
+import { TIME_ZONES } from "./constants";
 import "./sites.css";
 
 // study_status → badge class + label
@@ -37,8 +38,10 @@ export default function SitesPage() {
   const [addOpen, setAddOpen] = useState(false);
   const [fName, setFName] = useState("");
   const [fNumber, setFNumber] = useState("");
-  const [fPi, setFPi] = useState("");
-  const [fLocation, setFLocation] = useState("");
+  const [fTz, setFTz] = useState("UTC−6 · Central");
+  const [fPiName, setFPiName] = useState("");
+  const [fPiPhone, setFPiPhone] = useState("");
+  const [fPiEmail, setFPiEmail] = useState("");
 
   // ─── Per-site rows from the session store ───────────────────────────────────
   const rows = useMemo<SiteRow[]>(() => {
@@ -66,15 +69,16 @@ export default function SitesPage() {
   }, [ready, dataset, studyId]);
 
   function createSite() {
-    if (!fName.trim() || !fNumber.trim()) return;
+    if (!fName.trim() || !fNumber.trim() || !fPiName.trim()) return;
     update((d) => {
       d.sites.push({
         id: crypto.randomUUID(), study_id: studyId, code: fNumber.trim(), name: fName.trim(),
-        status: "active", location: fLocation.trim() || null, principal_investigator: fPi.trim() || null,
+        status: "active", location: null, principal_investigator: fPiName.trim(),
+        time_zone: fTz, investigator_phone: fPiPhone.trim() || null, investigator_email: fPiEmail.trim() || null,
       });
     });
     setAddOpen(false);
-    setFName(""); setFNumber(""); setFPi(""); setFLocation("");
+    setFName(""); setFNumber(""); setFTz("UTC−6 · Central"); setFPiName(""); setFPiPhone(""); setFPiEmail("");
   }
 
   if (!ready) {
@@ -148,15 +152,21 @@ export default function SitesPage() {
             <div className="st-modal-title"><i className="ti ti-building-hospital"></i> Add site</div>
             <label className="st-modal-field"><span>Site name <span className="req">*</span></span>
               <input className="st-modal-input" value={fName} onChange={(e) => setFName(e.target.value)} placeholder="e.g. Lakeside Veterinary Specialists" autoFocus /></label>
-            <label className="st-modal-field"><span>Site number <span className="req">*</span></span>
+            <label className="st-modal-field"><span>Site ID / number <span className="req">*</span></span>
               <input className="st-modal-input" value={fNumber} onChange={(e) => setFNumber(e.target.value)} placeholder="e.g. 104" /></label>
-            <label className="st-modal-field"><span>Principal investigator</span>
-              <input className="st-modal-input" value={fPi} onChange={(e) => setFPi(e.target.value)} placeholder="e.g. Dr. Jane Doe, DVM" /></label>
-            <label className="st-modal-field"><span>Location</span>
-              <input className="st-modal-input" value={fLocation} onChange={(e) => setFLocation(e.target.value)} placeholder="e.g. Austin, TX" /></label>
+            <label className="st-modal-field"><span>Time zone</span>
+              <select className="st-modal-input" value={fTz} onChange={(e) => setFTz(e.target.value)}>
+                {TIME_ZONES.map((tz) => <option key={tz} value={tz}>{tz}</option>)}
+              </select></label>
+            <label className="st-modal-field"><span>Investigator name <span className="req">*</span></span>
+              <input className="st-modal-input" value={fPiName} onChange={(e) => setFPiName(e.target.value)} placeholder="e.g. Dr. Jane Doe, DVM" /></label>
+            <label className="st-modal-field"><span>Investigator phone</span>
+              <input className="st-modal-input" value={fPiPhone} onChange={(e) => setFPiPhone(e.target.value)} placeholder="e.g. 512-555-0100" /></label>
+            <label className="st-modal-field"><span>Investigator email</span>
+              <input className="st-modal-input" value={fPiEmail} onChange={(e) => setFPiEmail(e.target.value)} placeholder="e.g. j.doe@site.org" /></label>
             <div className="st-modal-actions">
               <button className="st-btn-secondary" type="button" onClick={() => setAddOpen(false)}>Cancel</button>
-              <button className="st-btn-primary" type="button" disabled={!fName.trim() || !fNumber.trim()} onClick={createSite}>Add site</button>
+              <button className="st-btn-primary" type="button" disabled={!fName.trim() || !fNumber.trim() || !fPiName.trim()} onClick={createSite}>Add site</button>
             </div>
           </div>
         </div>
