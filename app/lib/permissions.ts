@@ -36,15 +36,16 @@ const open: NavAccess = {}; // plain access, no flags
 export const NAV_ITEMS: NavItem[] = [
   { key: "dashboard", label: "Dashboard", icon: "layout-dashboard",
     access: { CRC: open, CRA: open, DM: open, PI: open, Sponsor: open, Admin: open } },
-  // Admin can navigate the drill-down hierarchy and use the Add Site/Barn/Pen
-  // shortcuts, but cannot open individual Subject Records (data entry is a
-  // clinical-role task — gated in the drill-down page).
+  // Data entry is a clinical-role task — Admin is intentionally NOT here (Admin
+  // manages study structure via the Sites section, not the clinical data flow).
   { key: "data-entry", label: "Data Entry", icon: "forms",
-    access: { CRC: open, CRA: open, DM: open, PI: open, Admin: open } },
+    access: { CRC: open, CRA: open, DM: open, PI: open } },
   { key: "animals", label: "Animals", icon: "list",
     access: { CRC: open, CRA: open, DM: open, PI: open, Sponsor: open } },
-  // NB: Site/Barn/Pen navigation is a drill-down inside Data Entry — not a
-  // standalone nav item — so there is intentionally no "Sites/Records" entry.
+  // Sites — Admin-only study-structure management (site list + per-site records).
+  // The Site → Barn → Pen drill-down for clinical roles lives inside Data Entry.
+  { key: "sites", label: "Sites", icon: "building-hospital",
+    access: { Admin: open } },
   { key: "queries", label: "Queries", icon: "help-circle", badge: 4,
     access: { CRC: open, CRA: open, DM: open, PI: open } },
   { key: "visits", label: "Visits", icon: "calendar-event",
@@ -79,6 +80,7 @@ export const NAV_ROUTES: Partial<Record<string, string>> = {
   dashboard: "",
   "data-entry": "data-entry",
   animals: "animals",
+  sites: "sites",
   settings: "settings",
 };
 

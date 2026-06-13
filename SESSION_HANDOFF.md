@@ -1,6 +1,6 @@
 # Arken EDC — Session Handoff
 **Paste this entire file at the start of a new conversation.**
-Last updated: 2026-06-13 | Session 31 COMPLETE — Admin can browse Data Entry (no record access), AE coded-field width fix, Add-Site-is-a-shortcut note. NEXT: deferred form polish (SDV panel, sidebar deep-link, query re-open, conditional demographics).
+Last updated: 2026-06-13 | Session 32 COMPLETE — **Sites section** (Admin-only nav + sites table + Site Record); Admin out of Data Entry entirely; VeDDRA coded-field flex layout. NEXT: deferred form polish (SDV panel, sidebar deep-link, query re-open, conditional demographics).
 
 ---
 
@@ -295,6 +295,14 @@ Session key → **v12** (SiteRow shape). Applied via `db reset`. Verified in-bro
 2. **AE coded-field width** — the repeating-entry panel's coded inputs (`Event term (VeDDRA)`) are capped at **max-width 180px** (`.entry-field .coded-field .field-input`) so the **Look up** button fits on the same row without overflow.
 3. **Add-Site shortcut note** — comment in `data-entry/page.tsx` (above `createSite`) + a line in `PORTFOLIO_GUIDE.md`: *"Full site management (staff, activation, configuration) belongs in Settings — the Add Site button in the drill-down is a quick shortcut only."*
 Verified in-browser: Admin nav shows Data Entry; Admin drills to the subject list, click → toast (no navigation); AE coded input = 180px, Look-up on-row. `tsc`, `next lint`, **`next build` all clean**. No seed/session-key change.
+
+### Session 32 — COMPLETE ✅ (Sites section + coded-field flex)
+1. **Sites nav (Admin-only)** — new `sites` nav item (`ti-building-hospital`) + `NAV_ROUTES.sites` (`permissions.ts`). **Removed `Admin` from `data-entry`** (and reverted the Session-31 Admin subject-click toast) — Admin is now out of the clinical data flow entirely; structure management lives in Sites.
+2. **`/study/[studyId]/sites/page.tsx`** — sites table: **Site # · Name · PI · Location · Status (Active/Setup/Closed) · Enrollment (enrolled/target, per-site target = study target ÷ #sites) · Open queries** (all store-derived). **Add Site** primary button (Admin) → same modal as the drill-down. Row click → the Site Record.
+3. **`/study/[studyId]/sites/[siteId]/page.tsx`** — Site Record: details (number/name/PI/location/contact/status), enrollment metrics (enrolled/target + Active/Completed/Withdrawn/Screening/Open-queries), a **staff & roles placeholder** roster, and an **Edit** button (Admin) → modal editing name/number/PI/location/status via `update()`. Self-contained `sites.css`.
+4. **VeDDRA coded-field layout** — `.coded-field .field-input { flex: 1 1 auto }` + `.lookup-btn { flex: 0 0 auto }` (removed the 180px cap): the input takes the available width and the **Look up** button is fixed/auto — applies in the main form and the AE repeating entry panel.
+5. **Drill-down note** updated — the `createSite` comment now points to the Sites section (the site-level add path only renders for Admin, who isn't in Data Entry, so it's effectively unused there).
+No seed / session-key change. Verified in-browser: Admin nav = Sites (no Data Entry); sites table (3 sites, 5/20, queries); Site Record details/metrics/staff/Edit (Admin only; PI edit persists); coded input flex:1. `tsc`, `next lint`, **`next build` all clean**.
 
 Deferred form polish (after Animals list):
 - **SDV panel** — a dedicated source-data-verification surface (not just the per-field shield): progress, per-field verify, bulk.
