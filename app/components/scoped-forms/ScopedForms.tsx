@@ -136,11 +136,16 @@ function useScoped(studyId: string, scope: Scope, scopeId: string) {
 }
 
 // ─── A single editable field (label + control + hint / edit-check / required) ──
-function ScopedField({ field, value, onChange, species, ranges, showRequired }: {
-  field: FormFieldRow; value: string; onChange: (v: string) => void; species: string; ranges: Dataset["speciesRanges"]; showRequired?: boolean;
+// Validation states only surface AFTER the user touches the field (focus→blur or
+// a change) or the parent forces it on a submit attempt — never pre-emptively.
+function ScopedField({ field, value, onChange, species, ranges, forceShow }: {
+  field: FormFieldRow; value: string; onChange: (v: string) => void; species: string; ranges: Dataset["speciesRanges"]; forceShow?: boolean;
 }) {
-  const ec = evaluateField(field, value, species, ranges);
-  const missing = !!showRequired && field.is_required && value.trim() === "";
+  const [touched, setTouched] = useState(false);
+  const change = (v: string) => { setTouched(true); onChange(v); };
+  const touch = () => setTouched(true);
+  const ec = evaluateField(field, value, species, ranges); // value-based → never fires while empty
+  const missing = field.is_required && value.trim() === "" && (touched || !!forceShow);
   const cls = ec ? " warn" : missing ? " err" : "";
   const hint = rangeLabel(field, species, ranges);
   const opts = field.options ?? [];
@@ -149,20 +154,20 @@ function ScopedField({ field, value, onChange, species, ranges, showRequired }: 
     <div className={`scf-field${wide ? " full" : ""}`}>
       <label className="scf-label">{field.label}{field.is_required && <span className="req"> *</span>}{field.unit ? ` (${field.unit})` : ""}</label>
       {field.field_type === "textarea" ? (
-        <textarea className={`scf-textarea${cls}`} value={value} onChange={(e) => onChange(e.target.value)} rows={2} />
+        <textarea className={`scf-textarea${cls}`} value={value} onChange={(e) => change(e.target.value)} onBlur={touch} rows={2} />
       ) : field.field_type === "multiselect" ? (
         <div className="scf-checks">
           {opts.map((o) => { const set = parseMulti(value); const on = set.includes(o);
-            return <label className="scf-check" key={o}><input type="checkbox" checked={on} onChange={() => onChange(JSON.stringify(on ? set.filter((x) => x !== o) : [...set, o]))} /> {o}</label>; })}
+            return <label className="scf-check" key={o}><input type="checkbox" checked={on} onChange={() => change(JSON.stringify(on ? set.filter((x) => x !== o) : [...set, o]))} /> {o}</label>; })}
         </div>
       ) : opts.length > 0 ? (
-        <select className={`scf-select${cls}`} value={value} onChange={(e) => onChange(e.target.value)}>
+        <select className={`scf-select${cls}`} value={value} onChange={(e) => change(e.target.value)} onBlur={touch}>
           <option value="">—</option>{opts.map((o) => <option key={o} value={o}>{o}</option>)}
         </select>
       ) : field.field_type === "calculated" ? (
         <div className="scf-readonly">{value || "—"}</div>
       ) : (
-        <input className={`scf-input${field.field_type === "number" ? " mono" : ""}${cls}`} type={field.field_type === "date" ? "date" : field.field_type === "number" ? "number" : "text"} value={value} onChange={(e) => onChange(e.target.value)} />
+        <input className={`scf-input${field.field_type === "number" ? " mono" : ""}${cls}`} type={field.field_type === "date" ? "date" : field.field_type === "number" ? "number" : "text"} value={value} onChange={(e) => change(e.target.value)} onBlur={touch} />
       )}
       {ec ? <div className="scf-alert"><i className="ti ti-alert-triangle"></i> {ec.message}</div>
         : missing ? <div className="scf-required"><i className="ti ti-asterisk" style={{ fontSize: 10 }}></i> Required</div>
@@ -220,7 +225,7 @@ export function ScopedRepeatingTable({ studyId, scope, scopeId, form }: { studyI
           <div className="scf-panel">
             <div className="scf-panel-head"><div className="scf-panel-title">{form.name}</div><button className="scf-panel-close" type="button" onClick={() => setPanelInst(null)}><i className="ti ti-x"></i></button></div>
             <div className="scf-panel-body">
-              {fields.map((f) => <ScopedField key={f.id} field={f} value={s.valueOf(inst.id, f.id)} onChange={(v) => s.setValue(inst.id, f, v)} species={s.species} ranges={s.ranges} showRequired />)}
+              {fields.map((f) => <ScopedField key={f.id} field={f} value={s.valueOf(inst.id, f.id)} onChange={(v) => s.setValue(inst.id, f, v)} species={s.species} ranges={s.ranges} />)}
             </div>
             <div className="scf-panel-foot">
               {requiredMissing && <span className="scf-panel-note">Complete required fields to save</span>}
@@ -237,10 +242,11 @@ export function ScopedRepeatingTable({ studyId, scope, scopeId, form }: { studyI
 function ScopedSectionedForm({ studyId, scope, scopeId, form }: { studyId: string; scope: Scope; scopeId: string; form: FormRow }) {
   const s = useScoped(studyId, scope, scopeId);
   const fields = s.fieldsFor(form.id);
-  let inst = s.instancesFor(form.id)[0];
+  const inst = s.instancesFor(form.id)[0];
   // Ensure a single instance exists for editing (lazily created on first render).
   const instId = inst?.id;
   const ensure = (): string => instId ?? s.addInstance(form.id);
+  const [submitAttempted, setSubmitAttempted] = useState(false);
 
   const computed = (f: FormFieldRow): string => {
     if (!instId) return "—";
@@ -274,7 +280,7 @@ function ScopedSectionedForm({ studyId, scope, scopeId, form }: { studyId: strin
             {sct.fields.map((f) => f.field_type === "calculated" ? (
               <div className="scf-field" key={f.id}><label className="scf-label">{f.label}{f.unit ? ` (${f.unit})` : ""}</label><div className="scf-readonly">{computed(f)}</div></div>
             ) : (
-              <ScopedField key={f.id} field={f} value={instId ? s.valueOf(instId, f.id) : ""} onChange={(v) => s.setValue(ensure(), f, v)} species={s.species} ranges={s.ranges} showRequired />
+              <ScopedField key={f.id} field={f} value={instId ? s.valueOf(instId, f.id) : ""} onChange={(v) => s.setValue(ensure(), f, v)} species={s.species} ranges={s.ranges} forceShow={submitAttempted} />
             ))}
           </div>
         </Fragment>
@@ -284,7 +290,7 @@ function ScopedSectionedForm({ studyId, scope, scopeId, form }: { studyId: strin
         {reviewed ? (
           <span className="scf-status-pill current"><i className="ti ti-check"></i> Reviewed</span>
         ) : (
-          <button className="st-btn-primary" type="button" disabled={requiredMissing || !instId} title={requiredMissing ? "Complete required fields first" : undefined} onClick={() => instId && s.setStatus(instId, "reviewed")}>Submit for review</button>
+          <button className="st-btn-primary" type="button" onClick={() => { if (requiredMissing || !instId) { setSubmitAttempted(true); return; } s.setStatus(instId, "reviewed"); }}>Submit for review</button>
         )}
       </div>
     </div>

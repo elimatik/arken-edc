@@ -206,7 +206,10 @@ export default function AnimalsPage() {
       { key: "breed", label: "Breed", sortable: true },
       { key: "weight", label: "Weight", sortable: true },
     ];
-    const cols: ColumnDef[] = [{ key: "id", label: "Animal ID", sortable: true, required: true }];
+    // Identifier column relabels with the study's terminology: a group-housed
+    // study tracks the pen ("Pen ID"); everything else tracks the animal.
+    const idLabel = studyType === "livestock_group" ? `${terms.pen} ID` : "Animal ID";
+    const cols: ColumnDef[] = [{ key: "id", label: idLabel, sortable: true, required: true }];
     // Per-animal demographics only apply where animals are tracked individually.
     if (studyType !== "livestock_group") cols.push(...demographics);
     cols.push(
@@ -218,7 +221,7 @@ export default function AnimalsPage() {
       { key: "queries", label: "Queries", sortable: true },
     );
     return cols;
-  }, [studyType, isCompanion]);
+  }, [studyType, isCompanion, terms.pen]);
 
   const visibleColumns = columns.filter((c) => !hiddenCols.has(c.key));
 
