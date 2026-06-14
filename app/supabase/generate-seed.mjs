@@ -75,9 +75,90 @@ const BR_RESPONSE_DAYS = [3, 7, 14, 28];
 
 const RAND_METHOD = ["Computer-generated", "Envelope", "IVRS"];
 
+// ── PH-2401 weekly visit field sets (shared by all 6 week sub-groups) ──────────
+const PH_BW_FIELDS = [
+  ...sec("Visit Information", [
+    date("weighing_date", "Weighing date", true),
+    calc("visit_within_window", "Visit within window"),
+  ]),
+  ...sec("Weight Assessment", [
+    num("birds_alive", "Birds alive at weighing"),
+    num("cumulative_mortality", "Cumulative mortality to date"),
+    num("total_pen_weight", "Total pen weight", "kg", true),
+    calc("avg_body_weight", "Average body weight", "g/bird"),
+    num("bw_sd", "Body weight SD", "g"),
+    calc("bw_cv", "Body weight CV", "%"),
+    calc("previous_pen_weight", "Previous pen weight", "kg"),
+    calc("weight_gain", "Weight gain since last visit", "kg"),
+  ]),
+  ...sec("Feed Tracking", [
+    num("beginning_feed_inventory", "Beginning feed inventory", "kg"),
+    num("feed_added", "Feed added this period", "kg"),
+    calc("total_feed_available", "Total feed available", "kg"),
+    num("feed_weighback", "Feed weigh-back", "kg"),
+    calc("feed_consumed", "Feed consumed this period", "kg"),
+    calc("ending_feed_inventory", "Ending feed inventory", "kg"),
+  ]),
+  ...sec("Water Consumption", [
+    num("water_meter_reading", "Water meter reading", "L"),
+    calc("water_consumed", "Water consumed this period", "L"),
+  ]),
+  ...sec("Performance Metrics", [
+    calc("fcr_this_period", "FCR this period"),
+    calc("cumulative_fcr", "Cumulative FCR"),
+    txt("weighed_by", "Weighed by"),
+  ]),
+];
+const PH_FH_FIELDS = [
+  ...sec("Flock Health", [
+    date("observation_date", "Observation date", true),
+    sel("flock_uniformity", "Flock uniformity", ["Good", "Fair", "Poor"]),
+    sel("flock_activity", "Flock activity level", ["Very active", "Normal", "Reduced", "Depressed"]),
+    sel("feed_intake_appearance", "Feed intake appearance", ["Normal", "Reduced", "Excessive"]),
+    sel("water_intake_appearance", "Water intake appearance", ["Normal", "Reduced", "Excessive"]),
+    yn("respiratory_signs", "Respiratory signs present"),
+    ta("respiratory_description", "Respiratory signs description"),
+  ]),
+  ...sec("Litter & Environment", [
+    num("litter_condition_score", "Litter condition score"),
+    sel("litter_moisture", "Litter moisture", ["Dry", "Slightly moist", "Moist", "Wet"]),
+    yn("caking_present", "Caking present"),
+    yn("footpad_dermatitis", "Footpad dermatitis present"),
+    num("footpad_prevalence", "Footpad dermatitis prevalence", "%"),
+  ]),
+  ...sec("Mortality Summary", [
+    num("mortality_since_last", "Mortality since last observation"),
+    num("culls_since_last", "Culls since last observation"),
+    msel("clinical_signs", "Clinical signs", ["Huddling", "Ruffled feathers", "Lethargy", "Pale comb", "Diarrhea", "Gasping", "Other"]),
+    ta("action_taken", "Action taken"),
+    txt("observer", "Observer"),
+  ]),
+];
+// One nested sub-group per week: Week N — Day D → { Body Weight, Flock Health }.
+const PH_WEEK_GROUPS = PH_VISIT_DAYS.map((d, i) =>
+  grp(`Week ${i + 1} — Day ${d}`, [
+    leaf(`body_weight_d${d}`, `Body Weight & Feed — Day ${d}`, PH_BW_FIELDS),
+    leaf(`flock_health_d${d}`, `Flock Health & Litter — Day ${d}`, PH_FH_FIELDS),
+  ]),
+);
+// Read-only auto-generated rollup across all completed weekly visits.
+const PH_PRODUCTION_SUMMARY = leaf("production_summary", "Production Summary", [
+  calc("total_days", "Total Days", "days"),
+  calc("birds_placed", "Birds Placed"),
+  calc("current_birds_alive", "Current Birds Alive"),
+  calc("cumulative_mortality", "Cumulative Mortality"),
+  calc("cumulative_mortality_pct", "Cumulative Mortality", "%"),
+  calc("total_feed_consumed", "Total Feed Consumed", "kg"),
+  calc("overall_fcr", "Overall FCR"),
+  calc("current_avg_bw", "Current Avg Body Weight", "g/bird"),
+  calc("overall_adg", "Overall ADG", "g/bird/day"),
+  calc("livability_pct", "Livability", "%"),
+]);
+
 // ═══════════════════════════════════════════════════════════════════════════
 // STUDY 1 — PH-2401  Phytogenic Feed Additive Broiler Growth Performance Trial
-// chicken / livestock_group. 5 groups / 10 pen-level forms (pen = subject) +
+// chicken / livestock_group. Pen = subject. Weekly Production Monitoring nests
+// 6 week sub-groups (each Body Weight + Flock Health) + a Production Summary.
 // one BARN-scoped form (Daily Environmental Log, rendered on the House record).
 // ═══════════════════════════════════════════════════════════════════════════
 const PH_TREE = [
@@ -167,67 +248,9 @@ const PH_TREE = [
       ]),
     ]),
   ]),
-  grp("Weekly Production Monitoring", [
-    // Recurring weekly visits — one individual form per visit day (D7–D42).
-    ...recurring("body_weight", "Body Weight & Feed", PH_VISIT_DAYS, [
-      ...sec("Visit Information", [
-        date("weighing_date", "Weighing date", true),
-        calc("visit_within_window", "Visit within window"),
-      ]),
-      ...sec("Weight Assessment", [
-        num("birds_alive", "Birds alive at weighing"),
-        num("cumulative_mortality", "Cumulative mortality to date"),
-        num("total_pen_weight", "Total pen weight", "kg", true),
-        calc("avg_body_weight", "Average body weight", "g/bird"),
-        num("bw_sd", "Body weight SD", "g"),
-        calc("bw_cv", "Body weight CV", "%"),
-        calc("previous_pen_weight", "Previous pen weight", "kg"),
-        calc("weight_gain", "Weight gain since last visit", "kg"),
-      ]),
-      ...sec("Feed Tracking", [
-        num("beginning_feed_inventory", "Beginning feed inventory", "kg"),
-        num("feed_added", "Feed added this period", "kg"),
-        calc("total_feed_available", "Total feed available", "kg"),
-        num("feed_weighback", "Feed weigh-back", "kg"),
-        calc("feed_consumed", "Feed consumed this period", "kg"),
-        calc("ending_feed_inventory", "Ending feed inventory", "kg"),
-      ]),
-      ...sec("Water Consumption", [
-        num("water_meter_reading", "Water meter reading", "L"),
-        calc("water_consumed", "Water consumed this period", "L"),
-      ]),
-      ...sec("Performance Metrics", [
-        calc("fcr_this_period", "FCR this period"),
-        calc("cumulative_fcr", "Cumulative FCR"),
-        txt("weighed_by", "Weighed by"),
-      ]),
-    ]),
-    ...recurring("flock_health", "Flock Health & Litter", PH_VISIT_DAYS, [
-      ...sec("Flock Health", [
-        date("observation_date", "Observation date", true),
-        sel("flock_uniformity", "Flock uniformity", ["Good", "Fair", "Poor"]),
-        sel("flock_activity", "Flock activity level", ["Very active", "Normal", "Reduced", "Depressed"]),
-        sel("feed_intake_appearance", "Feed intake appearance", ["Normal", "Reduced", "Excessive"]),
-        sel("water_intake_appearance", "Water intake appearance", ["Normal", "Reduced", "Excessive"]),
-        yn("respiratory_signs", "Respiratory signs present"),
-        ta("respiratory_description", "Respiratory signs description"),
-      ]),
-      ...sec("Litter & Environment", [
-        num("litter_condition_score", "Litter condition score"),
-        sel("litter_moisture", "Litter moisture", ["Dry", "Slightly moist", "Moist", "Wet"]),
-        yn("caking_present", "Caking present"),
-        yn("footpad_dermatitis", "Footpad dermatitis present"),
-        num("footpad_prevalence", "Footpad dermatitis prevalence", "%"),
-      ]),
-      ...sec("Mortality Summary", [
-        num("mortality_since_last", "Mortality since last observation"),
-        num("culls_since_last", "Culls since last observation"),
-        msel("clinical_signs", "Clinical signs", ["Huddling", "Ruffled feathers", "Lethargy", "Pale comb", "Diarrhea", "Gasping", "Other"]),
-        ta("action_taken", "Action taken"),
-        txt("observer", "Observer"),
-      ]),
-    ]),
-  ]),
+  // Nested: Group C → 6 week sub-groups (each Body Weight + Flock Health) +
+  // a read-only Production Summary rollup as the last item.
+  grp("Weekly Production Monitoring", [...PH_WEEK_GROUPS, PH_PRODUCTION_SUMMARY]),
   grp("Event Records", [
     leaf("mortality_cull", "Mortality & Cull Record", [
       ...sec("Event Details", [
@@ -978,6 +1001,7 @@ const STUDIES = [
         { key: "mortality_cull", status: "reviewed", values: {
           event_date: "2026-05-12", assessment_day: "D21", death_count: ["1", 1], cull_count: ["0", 0],
           cause_deaths: "Sudden death syndrome", gross_lesions: "No", recorded_by: "Elisa Tron" } },
+        { key: "production_summary", status: "reviewed", values: {} },
       ] },
       // P02 (T02) — completed setup + weekly visit with a soft FCR edit check (FCR > 1.90).
       { subject: "PH-2401-P02", forms: [
@@ -1020,6 +1044,7 @@ const STUDIES = [
         { key: "mortality_cull", status: "reviewed", values: {
           event_date: "2026-05-10", assessment_day: "D21", death_count: ["2", 2], cull_count: ["1", 1],
           cause_deaths: "Ascites", cause_culls: "Leg disorder", gross_lesions: "Yes", recorded_by: "Elisa Tron" } },
+        { key: "production_summary", status: "reviewed", values: {} },
       ] },
       // P03, P04 — setup only.
       { subject: "PH-2401-P03", forms: [
@@ -1186,21 +1211,29 @@ for (const study of STUDIES) {
   formIdByKey[study.key] = {};
   fieldIdByKey[study.key] = {};
   let seq = 0;
-  let gg = 0;
+  let formCounter = 0;
+  let fieldCounter = 0;
 
-  const emitLeaf = (ggh, ss, node, parentId) => {
+  // Recursive emit — supports arbitrary group nesting (group → sub-group → leaf).
+  // Global per-study counters give every form/field a stable unique id regardless
+  // of depth; `parent_form_id` carries the tree shape.
+  const emitNode = (node, parentId) => {
     seq += 1;
-    const ssh = h2(ss);
-    const id = `61${ggh}${ssh}00-0000-0000-0000-${suffix}`;
-    const code = `F${ggh}${ssh}`;
+    formCounter += 1;
+    const id = `61${h6(formCounter)}-0000-0000-0000-${suffix}`;
+    const code = `F${String(formCounter).padStart(3, "0")}`;
     formRows.push(
       `  ('${id}','${sUuid}',${parentId ? `'${parentId}'` : "null"},'${code}',${sqlStr(node.name)},${seq},'subject')`,
     );
-    formIdByKey[study.key][node.key] = id;
+    if (node.key) formIdByKey[study.key][node.key] = id;
+    if (node.children) {
+      for (const child of node.children) emitNode(child, id);
+      return;
+    }
     fieldIdByKey[study.key][node.key] = {};
     node.fields.forEach((f, i) => {
-      const ff = h2(i + 1);
-      const fid = `62${ggh}${ssh}${ff}-0000-0000-0000-${suffix}`;
+      fieldCounter += 1;
+      const fid = `62${h6(fieldCounter)}-0000-0000-0000-${suffix}`;
       fieldIdByKey[study.key][node.key][f.code] = fid;
       fieldRows.push(
         `  ('${fid}','${id}',${sqlStr(f.code)},${sqlStr(f.label)},'${f.type}',${
@@ -1210,22 +1243,7 @@ for (const study of STUDIES) {
     });
   };
 
-  for (const node of study.tree) {
-    gg += 1;
-    const ggh = h2(gg);
-    if (node.children) {
-      seq += 1;
-      const gid = `61${ggh}0000-0000-0000-0000-${suffix}`;
-      formRows.push(`  ('${gid}','${sUuid}',null,'F${ggh}00',${sqlStr(node.name)},${seq},'subject')`);
-      let ss = 0;
-      for (const child of node.children) {
-        ss += 1;
-        emitLeaf(ggh, ss, child, gid);
-      }
-    } else {
-      emitLeaf(ggh, 0, node, null);
-    }
-  }
+  for (const node of study.tree) emitNode(node, null);
 
   // Barn/house-scoped forms (rendered on the Barn Record, excluded from the pen
   // sidebar). Flat leaf list, distinct id prefixes (65 form / 66 field).

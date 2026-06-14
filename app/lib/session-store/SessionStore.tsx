@@ -10,7 +10,7 @@ import type { Role } from "@/lib/permissions";
 // visit it hydrates from Supabase; thereafter ALL reads/writes are in-session —
 // nothing is written back to Supabase.
 // Bump the version when the dataset shape changes (forces a fresh hydrate).
-const DATA_KEY = "arken_session_store_v17"; // v17: recurring forms expanded to individual per-visit forms (PH body_weight/flock_health, BR vital_signs/clinical_response)
+const DATA_KEY = "arken_session_store_v18"; // v18: nested form groups (PH Week sub-groups) + Production Summary; recursive emit/sidebar; barn record = site-record layout
 const ROLE_KEY = "arken_active_role_v1";
 
 interface StudySessionValue {

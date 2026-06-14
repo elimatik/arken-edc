@@ -236,39 +236,45 @@ export function SubjectRecord({ studyId, subjectId, initialFormId }: Props) {
   }
 
   type LeafItem = ReturnType<typeof leafItem>;
-  interface SidebarNode { id: string; name: string; isGroup: boolean; icon: SidebarIcon; queryCount: number; status: string; sdv: "complete" | "partial" | "none"; children: LeafItem[] }
+  interface SidebarNode { id: string; name: string; isGroup: boolean; icon: SidebarIcon; queryCount: number; status: string; sdv: "complete" | "partial" | "none"; children: SidebarNode[] }
 
-  // Top-level = groups + standalone forms (those without a parent), in order.
-  const sidebarTree: SidebarNode[] = studyForms
-    .filter((f) => !f.parent_form_id)
-    .map((f) => {
-      if (groupIds.has(f.id)) {
-        const children = studyForms.filter((c) => c.parent_form_id === f.id).map(leafItem);
-        // Group status = worst (lowest-ranked) child status; badge = total open queries.
-        const worst = children.reduce<SidebarIcon>(
-          (acc, c) => (ICON_RANK[c.icon] < ICON_RANK[acc] ? c.icon : acc),
-          "final",
-        );
-        const queryCount = children.reduce((a, c) => a + c.queryCount, 0);
-        // Group SDV: complete only if all children complete; partial if any verified.
-        const groupSdv: "complete" | "partial" | "none" =
-          children.length && children.every((c) => c.sdv === "complete") ? "complete" : children.some((c) => c.sdv !== "none") ? "partial" : "none";
-        return { id: f.id, name: f.name, isGroup: true, icon: worst, queryCount, status: "", sdv: groupSdv, children };
-      }
-      const leaf = leafItem(f);
-      return { id: f.id, name: f.name, isGroup: false, icon: leaf.icon, queryCount: leaf.queryCount, status: leaf.status, sdv: leaf.sdv, children: [] };
-    });
+  // Recursive — groups can nest (Group → Week sub-group → leaf). A group rolls up
+  // the worst child icon, the summed open-query count, and an all-complete SDV.
+  function buildNode(f: { id: string; name: string }): SidebarNode {
+    if (groupIds.has(f.id)) {
+      const children = studyForms.filter((c) => c.parent_form_id === f.id).map(buildNode);
+      const worst = children.reduce<SidebarIcon>((acc, c) => (ICON_RANK[c.icon] < ICON_RANK[acc] ? c.icon : acc), "final");
+      const queryCount = children.reduce((a, c) => a + c.queryCount, 0);
+      const groupSdv: "complete" | "partial" | "none" =
+        children.length && children.every((c) => c.sdv === "complete") ? "complete" : children.some((c) => c.sdv !== "none") ? "partial" : "none";
+      return { id: f.id, name: f.name, isGroup: true, icon: worst, queryCount, status: "", sdv: groupSdv, children };
+    }
+    const leaf = leafItem(f);
+    return { id: f.id, name: f.name, isGroup: false, icon: leaf.icon, queryCount: leaf.queryCount, status: leaf.status, sdv: leaf.sdv, children: [] };
+  }
+  const sidebarTree: SidebarNode[] = studyForms.filter((f) => !f.parent_form_id).map(buildNode);
 
-  // Flat ordered list of selectable leaves (children + standalones) for defaulting.
-  const orderedLeaves: LeafItem[] = sidebarTree.flatMap((n) => (n.isGroup ? n.children : [{ id: n.id, name: n.name, icon: n.icon, queryCount: n.queryCount, status: n.status, sdv: n.sdv }]));
+  // Flat ordered list of selectable leaves (depth-first) for defaulting.
+  function collectLeaves(nodes: SidebarNode[]): LeafItem[] {
+    return nodes.flatMap((n) => (n.isGroup ? collectLeaves(n.children) : [{ id: n.id, name: n.name, icon: n.icon, queryCount: n.queryCount, status: n.status, sdv: n.sdv }]));
+  }
+  const orderedLeaves: LeafItem[] = collectLeaves(sidebarTree);
 
   const activeFormId = selectedFormId ?? orderedLeaves[0]?.id;
   const selectedForm = studyForms.find((f) => f.id === activeFormId);
-  const activeParentId = selectedForm?.parent_form_id ?? null; // group containing the active child
+  const activeParentId = selectedForm?.parent_form_id ?? null; // immediate group of the active child
 
-  // Default: every group collapsed except the one holding the active form (the
-  // record opens on the first sub-form, so Animal Information is open on load).
-  const defaultCollapsed = new Set(Array.from(groupIds).filter((id) => id !== activeParentId));
+  // The full ancestor chain of the active form (immediate parent → … → root group),
+  // so nested groups (Group C → Week N) open down to the active form on load.
+  const activeAncestorIds = (() => {
+    const set = new Set<string>();
+    let cur = activeParentId;
+    while (cur) { set.add(cur); cur = studyForms.find((f) => f.id === cur)?.parent_form_id ?? null; }
+    return set;
+  })();
+
+  // Default: every group collapsed except the active form's ancestor chain.
+  const defaultCollapsed = new Set(Array.from(groupIds).filter((id) => !activeAncestorIds.has(id)));
   const collapsedSet = collapsedGroups ?? defaultCollapsed;
 
   function StatusGlyph({ icon, title }: { icon: SidebarIcon; title?: string }) {
@@ -290,12 +296,11 @@ export function SubjectRecord({ studyId, subjectId, initialFormId }: Props) {
   // its group is expanded, scroll its item into view, and flash it briefly.
   function goToForm(formId: string) {
     setSelectedFormId(formId);
-    const f = studyForms.find((x) => x.id === formId);
-    if (f?.parent_form_id) {
-      const next = new Set(collapsedSet);
-      next.delete(f.parent_form_id);
-      setCollapsedGroups(next);
-    }
+    // Expand the whole ancestor chain (Group C → Week N) so the target is visible.
+    const next = new Set(collapsedSet);
+    let cur = studyForms.find((x) => x.id === formId)?.parent_form_id ?? null;
+    while (cur) { next.delete(cur); cur = studyForms.find((f) => f.id === cur)?.parent_form_id ?? null; }
+    setCollapsedGroups(next);
     setFlashFormId(formId);
     setTimeout(() => document.getElementById(`sb-form-${formId}`)?.scrollIntoView({ block: "nearest", behavior: "smooth" }), 0);
     setTimeout(() => setFlashFormId((cur) => (cur === formId ? null : cur)), 1500);
@@ -318,6 +323,34 @@ export function SubjectRecord({ studyId, subjectId, initialFormId }: Props) {
           <StatusGlyph icon={item.icon} title={item.icon === "queried" ? "Open query" : STATUS_LABEL[item.status] ?? ICON_LABEL[item.icon]} />
         </div>
       </button>
+    );
+  }
+  // Recursive sidebar node — a leaf renders as a form item; a group renders a
+  // collapsible header + (when expanded) its children, which may be sub-groups.
+  function renderNode(node: SidebarNode): JSX.Element {
+    if (!node.isGroup) {
+      return renderLeaf({ id: node.id, name: node.name, icon: node.icon, queryCount: node.queryCount, status: node.status, sdv: node.sdv });
+    }
+    const collapsed = collapsedSet.has(node.id);
+    return (
+      <div className="form-group" key={node.id}>
+        <button
+          className={`form-group-header${activeAncestorIds.has(node.id) ? " active-parent" : ""}`}
+          onClick={() => toggleGroup(node.id)}
+          aria-expanded={!collapsed}
+          title={node.name}
+          type="button"
+        >
+          <i className={`ti ti-chevron-${collapsed ? "right" : "down"} form-group-caret`} aria-hidden="true"></i>
+          <span className="form-group-label">{node.name}</span>
+          <div className="form-item-right">
+            {node.queryCount > 0 && <span className="issue-badge warning">{node.queryCount}</span>}
+            <SidebarSdv sdv={node.sdv} />
+            <StatusGlyph icon={node.icon} title={ICON_LABEL[node.icon]} />
+          </div>
+        </button>
+        {!collapsed && <div className="form-group-children">{node.children.map(renderNode)}</div>}
+      </div>
     );
   }
   // SDV shield slot in the sidebar — only when Remarks SDV is on (item 6).
@@ -421,6 +454,9 @@ export function SubjectRecord({ studyId, subjectId, initialFormId }: Props) {
   const isIEForm = fields.some((f) => f.validation?.exclusion_criterion);
 
   // ─── Repeating (log) forms — ConMed / Adverse Event / Protocol Deviation ────
+  // Production Summary — a read-only, auto-generated rollup (no fields to edit, no
+  // SDV / queries / submit). Its values aggregate across the weekly visit forms.
+  const isSummaryForm = selectedForm?.name === "Production Summary";
   const isRepeatingForm = REPEATING_FORMS.includes(selectedForm?.name ?? "");
   const repeatingEntries = isRepeatingForm
     ? dataset.formInstances.filter((i) => i.subject_id === subjectId && i.form_id === activeFormId)
@@ -1068,32 +1104,7 @@ export function SubjectRecord({ studyId, subjectId, initialFormId }: Props) {
       {/* Form sidebar */}
       <nav className="form-sidebar" aria-label="Forms">
         <div className="sidebar-label">Forms</div>
-        {sidebarTree.map((node) => {
-          if (!node.isGroup) {
-            return renderLeaf({ id: node.id, name: node.name, icon: node.icon, queryCount: node.queryCount, status: node.status, sdv: node.sdv });
-          }
-          const collapsed = collapsedSet.has(node.id);
-          return (
-            <div className="form-group" key={node.id}>
-              <button
-                className={`form-group-header${node.id === activeParentId ? " active-parent" : ""}`}
-                onClick={() => toggleGroup(node.id)}
-                aria-expanded={!collapsed}
-                title={node.name}
-                type="button"
-              >
-                <i className={`ti ti-chevron-${collapsed ? "right" : "down"} form-group-caret`} aria-hidden="true"></i>
-                <span className="form-group-label">{node.name}</span>
-                <div className="form-item-right">
-                  {node.queryCount > 0 && <span className="issue-badge warning">{node.queryCount}</span>}
-                  <SidebarSdv sdv={node.sdv} />
-                  <StatusGlyph icon={node.icon} title={ICON_LABEL[node.icon]} />
-                </div>
-              </button>
-              {!collapsed && <div className="form-group-children">{node.children.map(renderLeaf)}</div>}
-            </div>
-          );
-        })}
+        {sidebarTree.map(renderNode)}
       </nav>
 
       {/* Form content */}
@@ -1209,7 +1220,7 @@ export function SubjectRecord({ studyId, subjectId, initialFormId }: Props) {
             <h1 className="form-title">{selectedForm?.name || "Form"}</h1>
             {/* Repeating (log) forms manage entries via the table's own Add button —
                 the per-form Remarks / SDV / advance toolbar doesn't apply. */}
-            <div className="form-actions" style={isRepeatingForm ? { display: "none" } : undefined}>
+            <div className="form-actions" style={isRepeatingForm || isSummaryForm ? { display: "none" } : undefined}>
               <div className="remarks-wrap">
                 <button className="btn-secondary" onClick={() => setRemarksOpen((o) => !o)} type="button">
                   Remarks: {[modeQueries && "Queries", modeSdv && "SDV mode"].filter(Boolean).join(", ") || "Off"}
@@ -1325,7 +1336,7 @@ export function SubjectRecord({ studyId, subjectId, initialFormId }: Props) {
           {/* Weekly performance summary — one row per scheduled visit (D7–D42), pulled
               from the matching per-day Body Weight / Flock Health forms. Clicking a row
               jumps to (and flashes) that visit's form in the sidebar. */}
-          {activeParentId && studyForms.find((f) => f.id === activeParentId)?.name === "Weekly Production Monitoring" && (() => {
+          {/^(Body Weight & Feed|Flock Health & Litter) — Day \d+$/.test(selectedForm?.name ?? "") && (() => {
             const inst = (formId?: string) => (formId ? dataset.formInstances.find((i) => i.subject_id === subjectId && i.form_id === formId) : undefined);
             const fieldOf = (formId: string, code: string) => dataset.formFields.find((f) => f.form_id === formId && f.code === code);
             const valOf = (instId: string, formId: string, code: string) => {
@@ -1388,7 +1399,79 @@ export function SubjectRecord({ studyId, subjectId, initialFormId }: Props) {
               </div>
             );
           })()}
-          {isRepeatingForm ? (
+          {isSummaryForm ? (() => {
+            // Aggregate across the weekly visit forms (read-only, auto-generated).
+            const subjInst = (formId?: string) => (formId ? dataset.formInstances.find((i) => i.subject_id === subjectId && i.form_id === formId) : undefined);
+            const formByName = (name: string) => studyForms.find((f) => f.name === name);
+            const vOf = (formId: string | undefined, instId: string | undefined, code: string): number | undefined => {
+              if (!formId || !instId) return undefined;
+              const fld = dataset.formFields.find((f) => f.form_id === formId && f.code === code);
+              if (!fld) return undefined;
+              const raw = dataset.fieldValues.find((v) => v.form_instance_id === instId && v.form_field_id === fld.id)?.value;
+              const nn = Number(raw);
+              return raw != null && raw !== "" && !Number.isNaN(nn) ? nn : undefined;
+            };
+            const penSetup = formByName("Pen Demographics & Setup");
+            const baseline = formByName("Day 0 Baseline Weights & Feed");
+            const birdsPlaced = vOf(penSetup?.id, subjInst(penSetup?.id)?.id, "birds_placed");
+            const baseInst = subjInst(baseline?.id);
+            const basePenW = vOf(baseline?.id, baseInst?.id, "total_pen_weight");
+            const baseBirds = vOf(baseline?.id, baseInst?.id, "birds_alive");
+            const placementAvg = basePenW != null && baseBirds ? (basePenW / baseBirds) * 1000 : 42;
+            // Walk completed weekly visits.
+            let latestDay: number | undefined, latestPenW: number | undefined, latestAlive: number | undefined, feedTotal = 0, anyVisit = false;
+            for (const d of [7, 14, 21, 28, 35, 42]) {
+              const bwForm = formByName(`Body Weight & Feed — Day ${d}`);
+              const bwInst = subjInst(bwForm?.id);
+              const penW = vOf(bwForm?.id, bwInst?.id, "total_pen_weight");
+              if (penW == null) continue;
+              anyVisit = true;
+              latestDay = d; latestPenW = penW; latestAlive = vOf(bwForm?.id, bwInst?.id, "birds_alive");
+              const beg = vOf(bwForm?.id, bwInst?.id, "beginning_feed_inventory");
+              const add = vOf(bwForm?.id, bwInst?.id, "feed_added");
+              const wbk = vOf(bwForm?.id, bwInst?.id, "feed_weighback");
+              if (beg != null && add != null && wbk != null) feedTotal += beg + add - wbk;
+            }
+            // Cumulative mortality from the Mortality & Cull repeating form.
+            const mortForm = formByName("Mortality & Cull Record");
+            let cumMort = 0;
+            if (mortForm) {
+              for (const mi of dataset.formInstances.filter((i) => i.subject_id === subjectId && i.form_id === mortForm.id)) {
+                cumMort += (vOf(mortForm.id, mi.id, "death_count") ?? 0) + (vOf(mortForm.id, mi.id, "cull_count") ?? 0);
+              }
+            }
+            const currentAvg = latestPenW != null && latestAlive ? (latestPenW / latestAlive) * 1000 : undefined;
+            const gainKg = latestPenW != null && basePenW != null ? latestPenW - basePenW : undefined;
+            const fmt = (v: number | undefined, dp = 0) => (v == null || Number.isNaN(v) ? "—" : v.toFixed(dp));
+            const vals: Record<string, string> = {
+              total_days: latestDay != null ? String(latestDay) : "—",
+              birds_placed: birdsPlaced != null ? String(birdsPlaced) : "—",
+              current_birds_alive: latestAlive != null ? String(latestAlive) : "—",
+              cumulative_mortality: anyVisit || cumMort ? String(cumMort) : "—",
+              cumulative_mortality_pct: birdsPlaced ? fmt((cumMort / birdsPlaced) * 100, 1) : "—",
+              total_feed_consumed: anyVisit ? fmt(feedTotal, 1) : "—",
+              overall_fcr: feedTotal && gainKg ? fmt(feedTotal / gainKg, 2) : "—",
+              current_avg_bw: fmt(currentAvg, 0),
+              overall_adg: currentAvg != null && latestDay ? fmt((currentAvg - placementAvg) / latestDay, 1) : "—",
+              livability_pct: birdsPlaced ? fmt(((birdsPlaced - cumMort) / birdsPlaced) * 100, 1) : "—",
+            };
+            return (
+              <>
+                <div className="ie-banner override" role="status">
+                  <i className="ti ti-sparkles"></i>
+                  Auto-generated — updates as weekly data is entered. This summary is read-only (no SDV, queries, or sign-off).
+                </div>
+                <div className="field-grid-2">
+                  {fields.map((field) => (
+                    <div className="field state-locked" key={field.id}>
+                      <label className="field-label">{field.label}{field.unit ? ` (${field.unit})` : ""}</label>
+                      <div style={{ fontWeight: "var(--weight-medium,600)", fontFamily: "var(--font-mono,monospace)" }}>{vals[field.code] ?? "—"}</div>
+                    </div>
+                  ))}
+                </div>
+              </>
+            );
+          })() : isRepeatingForm ? (
             <div className="repeat-form">
               <div className="repeat-toolbar">
                 <span className="repeat-count">

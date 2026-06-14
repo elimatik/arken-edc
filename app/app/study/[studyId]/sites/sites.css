@@ -67,7 +67,7 @@
 .sr-page-header { padding: var(--space-4) var(--space-5); border-bottom: 1px solid var(--color-border); background: var(--color-surface); flex-shrink: 0; }
 .sr-title-row { display: flex; align-items: flex-start; justify-content: space-between; gap: var(--space-4); }
 .sr-title { font-size: var(--text-3xl); font-weight: var(--weight-medium); line-height: 1.2; }
-.sr-title-sub { font-size: var(--text-sm); color: var(--color-text-tertiary); font-family: var(--font-mono); margin-top: 3px; }
+.sr-title-sub { font-family: var(--font-sans); font-size: var(--text-sm); color: var(--color-text-secondary); font-weight: normal; margin-top: 3px; }
 .sr-actions { display: flex; align-items: center; gap: var(--space-2); flex-shrink: 0; margin-top: 4px; }
 .st-icon-btn { display: inline-flex; align-items: center; justify-content: center; width: 28px; height: 28px; border: none; background: none; border-radius: var(--radius-md); color: var(--color-text-tertiary); cursor: pointer; transition: background var(--duration-fast), color var(--duration-fast); }
 .st-icon-btn:hover { background: var(--color-hover-bg); color: var(--color-text-primary); }
