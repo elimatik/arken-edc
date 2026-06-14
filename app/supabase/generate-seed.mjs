@@ -232,8 +232,6 @@ const PH_TREE = [
         sel("cause_culls", "Cause — culls", ["Leg disorder", "Poor growth", "Injury", "Respiratory", "Other"]),
         yn("gross_lesions", "Gross lesions observed"),
         ta("lesion_description", "Lesion description"),
-        calc("cumulative_mortality", "Cumulative mortality this pen"),
-        calc("cumulative_mortality_pct", "Cumulative mortality", "%"),
         txt("recorded_by", "Recorded by"),
       ]),
     ]),

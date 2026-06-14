@@ -36,11 +36,16 @@ const STATUS_MAP: Record<string, { cls: string; label: string }> = {
 
 // Repeating (log) forms — rendered as a table of entries (one form instance each)
 // with Add / Edit / Delete, instead of a single field grid. Summary columns per form.
-const REPEATING_FORMS = ["ConMed", "Adverse Event", "Protocol Deviation"];
+const REPEATING_FORMS = ["ConMed", "Adverse Event", "Protocol Deviation", "Mortality & Cull Record"];
 const REPEATING_COLUMNS: Record<string, [string, string][]> = {
   ConMed: [["medication_name", "Drug name"], ["dose", "Dose"], ["route", "Route"], ["start_date", "Start date"], ["ongoing", "Ongoing"]],
   "Adverse Event": [["ae_number", "AE #"], ["ae_term", "AE term"], ["severity", "Severity"], ["outcome", "Outcome"], ["sae_flag", "SAE"]],
   "Protocol Deviation": [["deviation_type", "Type"], ["deviation_date", "Date"], ["major_minor", "Major / Minor"], ["description", "Description"]],
+  "Mortality & Cull Record": [["event_date", "Date"], ["death_count", "Deaths"], ["cull_count", "Culls"], ["cause_deaths", "Cause"]],
+};
+// Custom "Add" button label per repeating form (defaults to "Add <name>").
+const REPEATING_ADD_LABEL: Record<string, string> = {
+  "Mortality & Cull Record": "Record mortality",
 };
 
 type SidebarIcon = "final" | "reviewed" | "inreview" | "inwork" | "empty" | "queried";
@@ -286,6 +291,7 @@ export function SubjectRecord({ studyId, subjectId, initialFormId }: Props) {
         key={item.id}
         className={`form-item${item.id === activeFormId ? " active" : ""}${item.icon === "final" ? " done" : ""}`}
         onClick={() => setSelectedFormId(item.id)}
+        title={item.name}
         type="button"
       >
         <span className="form-item-label">{item.name}</span>
@@ -403,6 +409,7 @@ export function SubjectRecord({ studyId, subjectId, initialFormId }: Props) {
     ? dataset.formInstances.filter((i) => i.subject_id === subjectId && i.form_id === activeFormId)
     : [];
   const repeatingCols = REPEATING_COLUMNS[selectedForm?.name ?? ""] ?? [];
+  const repeatingAddLabel = REPEATING_ADD_LABEL[selectedForm?.name ?? ""] ?? `Add ${selectedForm?.name}`;
   const fieldByCode = (code: string) => fields.find((f) => f.code === code);
   function entryVal(instId: string, fieldId: string): string {
     return dataset.fieldValues.find((v) => v.form_instance_id === instId && v.form_field_id === fieldId)?.value ?? "";
@@ -1055,6 +1062,7 @@ export function SubjectRecord({ studyId, subjectId, initialFormId }: Props) {
                 className={`form-group-header${node.id === activeParentId ? " active-parent" : ""}`}
                 onClick={() => toggleGroup(node.id)}
                 aria-expanded={!collapsed}
+                title={node.name}
                 type="button"
               >
                 <i className={`ti ti-chevron-${collapsed ? "right" : "down"} form-group-caret`} aria-hidden="true"></i>
@@ -1285,6 +1293,67 @@ export function SubjectRecord({ studyId, subjectId, initialFormId }: Props) {
               Eligibility override — PI {subject.override_by ?? "—"} documented a reason for override on {subject.override_at ?? "—"}. This subject was initially flagged as ineligible.
             </div>
           )}
+          {/* Weekly performance summary — a longitudinal read-only view at the top of
+              the Weekly Production Monitoring group (one row per D7–D42 visit). */}
+          {activeParentId && studyForms.find((f) => f.id === activeParentId)?.name === "Weekly Production Monitoring" && (() => {
+            const bwForm = studyForms.find((f) => f.name === "Body Weight & Feed Intake");
+            const fhForm = studyForms.find((f) => f.name === "Weekly Flock Health & Litter Observation");
+            const fieldOf = (formId: string, code: string) => dataset.formFields.find((f) => f.form_id === formId && f.code === code);
+            const valOf = (instId: string, formId: string, code: string) => {
+              const f = fieldOf(formId, code);
+              return f ? (dataset.fieldValues.find((v) => v.form_instance_id === instId && v.form_field_id === f.id)?.value ?? "") : "";
+            };
+            const instByDay = (formId: string, day: string) =>
+              dataset.formInstances.find((i) => i.subject_id === subjectId && i.form_id === formId && valOf(i.id, formId, "assessment_day") === day);
+            const toNum = (s: string): number | undefined => { const n = Number(s); return s !== "" && !Number.isNaN(n) ? n : undefined; };
+            const dash = (v: string | number | undefined) => (v == null || v === "" ? "—" : v);
+            const days = ["D7", "D14", "D21", "D28", "D35", "D42"];
+            const cellStyle: React.CSSProperties = { padding: "6px 10px", borderBottom: "1px solid var(--color-border,#eef2f7)", textAlign: "left", whiteSpace: "nowrap" };
+            return (
+              <div style={{ marginBottom: "var(--space-4,16px)", border: "1px solid var(--color-border,#e5e7eb)", borderRadius: "var(--radius-md,8px)", overflow: "hidden" }}>
+                <div style={{ padding: "8px 12px", background: "var(--color-surface-alt,#f8fafc)", fontWeight: 600, fontSize: "var(--text-sm,0.875rem)" }}>
+                  <i className="ti ti-chart-line" style={{ marginRight: 6 }}></i>Weekly performance summary
+                </div>
+                <table style={{ width: "100%", borderCollapse: "collapse", fontSize: "var(--text-xs,0.8rem)" }}>
+                  <thead>
+                    <tr style={{ color: "var(--color-text-muted,#6b7280)" }}>
+                      {["Day", "Date", "Avg BW g/bird", "Feed Consumed kg", "FCR", "Mortality", "Litter Score"].map((h) => (
+                        <th key={h} style={{ ...cellStyle, fontWeight: 600 }}>{h}</th>
+                      ))}
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {days.map((day) => {
+                      const bw = bwForm ? instByDay(bwForm.id, day) : undefined;
+                      const fh = fhForm ? instByDay(fhForm.id, day) : undefined;
+                      const penW = bw && bwForm ? toNum(valOf(bw.id, bwForm.id, "total_pen_weight")) : undefined;
+                      const alive = bw && bwForm ? toNum(valOf(bw.id, bwForm.id, "birds_alive")) : undefined;
+                      const avgBW = penW != null && alive ? Math.round((penW / alive) * 1000) : undefined;
+                      const begin = bw && bwForm ? toNum(valOf(bw.id, bwForm.id, "beginning_feed_inventory")) : undefined;
+                      const added = bw && bwForm ? toNum(valOf(bw.id, bwForm.id, "feed_added")) : undefined;
+                      const wb = bw && bwForm ? toNum(valOf(bw.id, bwForm.id, "feed_weighback")) : undefined;
+                      const consumed = begin != null && added != null && wb != null ? begin + added - wb : undefined;
+                      const date = bw && bwForm ? valOf(bw.id, bwForm.id, "weighing_date") : "";
+                      const mort = bw && bwForm ? valOf(bw.id, bwForm.id, "cumulative_mortality") : "";
+                      const litter = fh && fhForm ? valOf(fh.id, fhForm.id, "litter_condition_score") : "";
+                      const has = !!bw || !!fh;
+                      return (
+                        <tr key={day} style={{ color: has ? undefined : "var(--color-text-muted,#9ca3af)" }}>
+                          <td style={{ ...cellStyle, fontWeight: 600 }}>{day}</td>
+                          <td style={cellStyle}>{dash(date)}</td>
+                          <td style={cellStyle}>{dash(avgBW)}</td>
+                          <td style={cellStyle}>{consumed != null ? consumed.toFixed(1) : "—"}</td>
+                          <td style={cellStyle}>{has ? "N/A" : "—"}</td>
+                          <td style={cellStyle}>{dash(mort)}</td>
+                          <td style={cellStyle}>{dash(litter)}</td>
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                </table>
+              </div>
+            );
+          })()}
           {isRepeatingForm ? (
             <div className="repeat-form">
               <div className="repeat-toolbar">
@@ -1293,7 +1362,7 @@ export function SubjectRecord({ studyId, subjectId, initialFormId }: Props) {
                 </span>
                 {!readOnly && (
                   <button className="btn-primary" type="button" onClick={addEntry}>
-                    <i className="ti ti-plus"></i> Add {selectedForm?.name}
+                    <i className="ti ti-plus"></i> {repeatingAddLabel}
                   </button>
                 )}
               </div>
@@ -1333,6 +1402,24 @@ export function SubjectRecord({ studyId, subjectId, initialFormId }: Props) {
                   </tbody>
                 </table>
               )}
+              {selectedForm?.name === "Mortality & Cull Record" && (() => {
+                let deaths = 0, culls = 0;
+                for (const inst of repeatingEntries) {
+                  deaths += Number(entryVal(inst.id, fieldByCode("death_count")?.id ?? "")) || 0;
+                  culls += Number(entryVal(inst.id, fieldByCode("cull_count")?.id ?? "")) || 0;
+                }
+                const penSetup = studyForms.find((f) => f.name === "Pen Demographics & Setup");
+                const placed = penSetup ? numValFor(penSetup.id, "birds_placed") : undefined;
+                const pct = placed ? (((deaths + culls) / placed) * 100).toFixed(1) : null;
+                return (
+                  <div className="repeat-summary" style={{ marginTop: "var(--space-3,12px)", display: "flex", gap: "var(--space-4,16px)", flexWrap: "wrap", padding: "var(--space-3,12px)", background: "var(--color-surface-alt,#f8fafc)", border: "1px solid var(--color-border,#e5e7eb)", borderRadius: "var(--radius-md,8px)", fontSize: "var(--text-sm,0.875rem)" }}>
+                    <span><span className="muted">Cumulative deaths:</span> <strong>{deaths}</strong></span>
+                    <span><span className="muted">Cumulative culls:</span> <strong>{culls}</strong></span>
+                    <span><span className="muted">Birds placed:</span> <strong>{placed ?? "—"}</strong></span>
+                    <span><span className="muted">Cumulative mortality:</span> <strong>{pct != null ? `${pct}%` : "—"}</strong></span>
+                  </div>
+                );
+              })()}
             </div>
           ) : (
           <div className="field-grid-2">

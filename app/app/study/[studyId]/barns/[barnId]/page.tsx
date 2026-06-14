@@ -5,12 +5,12 @@
 // Some forms belong to the HOUSE, not the pen (PH-2401's Daily Environmental Log
 // is recorded once per house per day, not per pen). Those forms carry scope='barn'
 // and their instances are keyed by barn_id (subject_id null). This page renders
-// them — a daily-log table + an editable detail panel with live environmental
-// edit checks (ammonia / temperature / humidity / CO₂ against species_ranges and
-// the form's static bounds). Reachable from Data Entry → "Open house record".
+// them — a daily-log table + a 420px slide-in entry panel (same pattern as the
+// repeating AE / ConMed forms) with live environmental edit checks (ammonia /
+// temperature / humidity / CO₂). Reached via Data Entry → "Open house record".
 // ════════════════════════════════════════════════════════════════════════════
 
-import { useMemo, useState } from "react";
+import { Fragment, useMemo, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
 import { useStudySession } from "@/lib/session-store/SessionStore";
 import { evaluateField } from "@/lib/forms/validation";
@@ -30,7 +30,7 @@ export default function BarnRecordPage() {
   const barnId = String(params.barnId);
   const { dataset, ready, update } = useStudySession();
   const [selFormId, setSelFormId] = useState<string | null>(null);
-  const [selInstId, setSelInstId] = useState<string | null>(null);
+  const [panelInstId, setPanelInstId] = useState<string | null>(null);
 
   const barn = dataset.barns.find((b) => b.id === barnId);
   const site = dataset.sites.find((s) => s.id === barn?.site_id);
@@ -50,7 +50,6 @@ export default function BarnRecordPage() {
     () => dataset.formInstances.filter((i) => i.form_id === form?.id && i.barn_id === barnId),
     [dataset.formInstances, form?.id, barnId],
   );
-  const inst = instances.find((i) => i.id === selInstId) ?? instances[0];
 
   if (!ready) return <div style={{ padding: "var(--space-6,24px)" }}>Loading house record…</div>;
   if (!barn) return <div style={{ padding: "var(--space-6,24px)" }}>House not found.</div>;
@@ -80,23 +79,34 @@ export default function BarnRecordPage() {
     update((d: Dataset) => {
       d.formInstances.push({ id, form_id: form.id, subject_id: null, barn_id: barnId, status: "in_work" });
     });
-    setSelInstId(id);
+    setPanelInstId(id);
   }
 
   const logDateCode = fields.find((f) => f.field_type === "date")?.code ?? "log_date";
+  const panelInst = panelInstId ? instances.find((i) => i.id === panelInstId) : undefined;
 
   return (
     <div style={{ padding: "var(--space-6, 24px)", display: "flex", flexDirection: "column", gap: "var(--space-4,16px)" }}>
+      {/* Breadcrumb — Data Entry > Site > House (mirrors the Site Record page) */}
+      <nav className="sr-bc" aria-label="Breadcrumb" style={{ display: "flex", alignItems: "center", gap: 6, fontSize: "var(--text-sm,0.875rem)", flexWrap: "wrap" }}>
+        <button className="bc-btn" type="button" onClick={() => router.push(`/study/${studyId}/data-entry`)} style={{ background: "none", border: "none", cursor: "pointer", color: "var(--color-link,#2563eb)", padding: 0 }}>Data Entry</button>
+        {site && (
+          <Fragment>
+            <span className="bc-sep"><i className="ti ti-chevron-right" style={{ fontSize: 11 }}></i></span>
+            <button className="bc-btn" type="button" onClick={() => router.push(`/study/${studyId}/data-entry?site=${site.id}`)} style={{ background: "none", border: "none", cursor: "pointer", color: "var(--color-link,#2563eb)", padding: 0 }}>{site.name}</button>
+          </Fragment>
+        )}
+        <span className="bc-sep"><i className="ti ti-chevron-right" style={{ fontSize: 11 }}></i></span>
+        <span className="bc-cur" style={{ fontWeight: 600 }}>{barn.name}</span>
+      </nav>
+
       {/* Header */}
       <div>
-        <button className="btn-secondary" type="button" onClick={() => router.push(`/study/${studyId}/data-entry`)} style={{ marginBottom: "var(--space-3,12px)" }}>
-          <i className="ti ti-arrow-left"></i> Back to Data Entry
-        </button>
         <h1 style={{ margin: 0, fontSize: "var(--text-xl,1.25rem)" }}>
           <i className="ti ti-building-warehouse" style={{ marginRight: 8 }}></i>{barn.name}
         </h1>
         <div className="muted" style={{ fontSize: "var(--text-sm,0.875rem)", marginTop: 4 }}>
-          House record · {site?.name ?? "—"} · {study?.code} · capacity {barn.code}
+          House record · {site?.name ?? "—"} · {study?.code}
         </div>
       </div>
 
@@ -109,11 +119,10 @@ export default function BarnRecordPage() {
         <div style={card}>No house-level forms for this study.</div>
       ) : (
         <>
-          {/* Form selector (one+ barn forms) */}
           {barnForms.length > 1 && (
             <div style={{ display: "flex", gap: "var(--space-2,8px)" }}>
               {barnForms.map((f) => (
-                <button key={f.id} type="button" className={f.id === form.id ? "btn-primary" : "btn-secondary"} onClick={() => { setSelFormId(f.id); setSelInstId(null); }}>
+                <button key={f.id} type="button" className={f.id === form.id ? "btn-primary" : "btn-secondary"} onClick={() => setSelFormId(f.id)}>
                   {f.name}
                 </button>
               ))}
@@ -129,12 +138,7 @@ export default function BarnRecordPage() {
             <table style={{ width: "100%", borderCollapse: "collapse", fontSize: "var(--text-sm,0.875rem)" }}>
               <thead>
                 <tr style={{ textAlign: "left", borderBottom: "1px solid var(--color-border,#e5e7eb)" }}>
-                  <th style={{ padding: "8px" }}>Log date</th>
-                  <th style={{ padding: "8px" }}>AM °C</th>
-                  <th style={{ padding: "8px" }}>PM °C</th>
-                  <th style={{ padding: "8px" }}>NH₃ ppm</th>
-                  <th style={{ padding: "8px" }}>Status</th>
-                  <th style={{ padding: "8px" }}>Flags</th>
+                  {["Log date", "AM °C", "PM °C", "NH₃ ppm", "Status", "Flags"].map((h) => <th key={h} style={{ padding: "8px" }}>{h}</th>)}
                 </tr>
               </thead>
               <tbody>
@@ -143,9 +147,8 @@ export default function BarnRecordPage() {
                 ) : instances.map((i) => {
                   const flags = ["temp_morning", "temp_evening", "rh_morning", "rh_evening", "co2_ppm", "ammonia_ppm"]
                     .map((c) => cellEC(i.id, c)).filter(Boolean).length;
-                  const isSel = i.id === inst?.id;
                   return (
-                    <tr key={i.id} onClick={() => setSelInstId(i.id)} style={{ cursor: "pointer", borderBottom: "1px solid var(--color-border,#f1f5f9)", background: isSel ? "var(--color-surface-alt,#f8fafc)" : undefined }}>
+                    <tr key={i.id} onClick={() => setPanelInstId(i.id)} style={{ cursor: "pointer", borderBottom: "1px solid var(--color-border,#f1f5f9)" }}>
                       <td style={{ padding: "8px", fontFamily: "var(--font-mono, monospace)" }}>{valueOf(i.id, fieldByCode(logDateCode)?.id ?? "") || "—"}</td>
                       <td style={{ padding: "8px" }}>{valueOf(i.id, fieldByCode("temp_morning")?.id ?? "") || "—"}</td>
                       <td style={{ padding: "8px" }}>{valueOf(i.id, fieldByCode("temp_evening")?.id ?? "") || "—"}</td>
@@ -158,47 +161,57 @@ export default function BarnRecordPage() {
               </tbody>
             </table>
           </div>
+        </>
+      )}
 
-          {/* Detail editor for the selected log */}
-          {inst && (
-            <div style={card}>
-              <h3 style={{ marginTop: 0, fontSize: "var(--text-base,1rem)" }}>Log detail</h3>
-              <div style={{ display: "grid", gridTemplateColumns: "repeat(2, minmax(0,1fr))", gap: "var(--space-3,12px)" }}>
-                {fields.map((field) => {
-                  const v = valueOf(inst.id, field.id);
-                  const ec = evaluateField(field, v, species, dataset.speciesRanges);
-                  const opts = field.options ?? [];
-                  return (
-                    <div key={field.id} style={{ gridColumn: field.field_type === "textarea" ? "1 / -1" : undefined }}>
-                      <label style={{ display: "block", fontSize: "var(--text-xs,0.75rem)", color: "var(--color-text-muted,#6b7280)", marginBottom: 4 }}>
-                        {field.label}{field.is_required && <span style={{ color: "var(--color-danger,#dc2626)" }}> *</span>}{field.unit ? ` (${field.unit})` : ""}
-                      </label>
-                      {field.field_type === "textarea" ? (
-                        <textarea value={v} onChange={(e) => setValue(inst.id, field, e.target.value)} rows={2} style={{ width: "100%", padding: "6px 8px", border: `1px solid ${ec ? "var(--color-warning,#f59e0b)" : "var(--color-border,#e5e7eb)"}`, borderRadius: 6 }} />
-                      ) : opts.length > 0 ? (
-                        <select value={v} onChange={(e) => setValue(inst.id, field, e.target.value)} style={{ width: "100%", padding: "6px 8px", border: "1px solid var(--color-border,#e5e7eb)", borderRadius: 6 }}>
-                          <option value="">—</option>
-                          {opts.map((o) => <option key={o} value={o}>{o}</option>)}
-                        </select>
-                      ) : (
-                        <input
-                          type={field.field_type === "date" ? "date" : field.field_type === "number" ? "number" : "text"}
-                          value={v}
-                          onChange={(e) => setValue(inst.id, field, e.target.value)}
-                          style={{ width: "100%", padding: "6px 8px", border: `1px solid ${ec ? "var(--color-warning,#f59e0b)" : "var(--color-border,#e5e7eb)"}`, borderRadius: 6 }}
-                        />
-                      )}
-                      {ec && (
-                        <div style={{ marginTop: 4, fontSize: "var(--text-xs,0.75rem)", color: "var(--color-warning,#b45309)", display: "flex", gap: 4, alignItems: "center" }}>
-                          <i className="ti ti-alert-triangle"></i> {ec.message}
-                        </div>
-                      )}
-                    </div>
-                  );
-                })}
-              </div>
+      {/* 420px slide-in entry panel (mirrors the repeating-form entry panel) */}
+      {panelInst && form && (
+        <>
+          <div onClick={() => setPanelInstId(null)} style={{ position: "fixed", inset: 0, background: "rgba(15,23,42,0.35)", zIndex: 40 }} />
+          <div style={{ position: "fixed", top: 0, right: 0, height: "100vh", width: 420, maxWidth: "92vw", background: "var(--color-surface,#fff)", borderLeft: "1px solid var(--color-border,#e5e7eb)", boxShadow: "-8px 0 24px rgba(0,0,0,0.12)", zIndex: 41, display: "flex", flexDirection: "column" }}>
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "var(--space-4,16px)", borderBottom: "1px solid var(--color-border,#e5e7eb)" }}>
+              <div style={{ fontWeight: 600 }}>{form.name} entry</div>
+              <button type="button" onClick={() => setPanelInstId(null)} style={{ background: "none", border: "none", cursor: "pointer", fontSize: 18 }}><i className="ti ti-x"></i></button>
             </div>
-          )}
+            <div style={{ flex: 1, overflowY: "auto", padding: "var(--space-4,16px)", display: "flex", flexDirection: "column", gap: "var(--space-3,12px)" }}>
+              {fields.map((field) => {
+                const v = valueOf(panelInst.id, field.id);
+                const ec = evaluateField(field, v, species, dataset.speciesRanges);
+                const opts = field.options ?? [];
+                const inputBorder = `1px solid ${ec ? "var(--color-warning,#f59e0b)" : "var(--color-border,#e5e7eb)"}`;
+                return (
+                  <div key={field.id}>
+                    <label style={{ display: "block", fontSize: "var(--text-xs,0.75rem)", color: "var(--color-text-muted,#6b7280)", marginBottom: 4 }}>
+                      {field.label}{field.is_required && <span style={{ color: "var(--color-danger,#dc2626)" }}> *</span>}{field.unit ? ` (${field.unit})` : ""}
+                    </label>
+                    {field.field_type === "textarea" ? (
+                      <textarea value={v} onChange={(e) => setValue(panelInst.id, field, e.target.value)} rows={2} style={{ width: "100%", padding: "6px 8px", border: inputBorder, borderRadius: 6 }} />
+                    ) : opts.length > 0 ? (
+                      <select value={v} onChange={(e) => setValue(panelInst.id, field, e.target.value)} style={{ width: "100%", padding: "6px 8px", border: "1px solid var(--color-border,#e5e7eb)", borderRadius: 6 }}>
+                        <option value="">—</option>
+                        {opts.map((o) => <option key={o} value={o}>{o}</option>)}
+                      </select>
+                    ) : (
+                      <input
+                        type={field.field_type === "date" ? "date" : field.field_type === "number" ? "number" : "text"}
+                        value={v}
+                        onChange={(e) => setValue(panelInst.id, field, e.target.value)}
+                        style={{ width: "100%", padding: "6px 8px", border: inputBorder, borderRadius: 6 }}
+                      />
+                    )}
+                    {ec && (
+                      <div style={{ marginTop: 4, fontSize: "var(--text-xs,0.75rem)", color: "var(--color-warning,#b45309)", display: "flex", gap: 4, alignItems: "center" }}>
+                        <i className="ti ti-alert-triangle"></i> {ec.message}
+                      </div>
+                    )}
+                  </div>
+                );
+              })}
+            </div>
+            <div style={{ padding: "var(--space-4,16px)", borderTop: "1px solid var(--color-border,#e5e7eb)", display: "flex", justifyContent: "flex-end" }}>
+              <button className="btn-primary" type="button" onClick={() => setPanelInstId(null)}>Done</button>
+            </div>
+          </div>
         </>
       )}
     </div>
