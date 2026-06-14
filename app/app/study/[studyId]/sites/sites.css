@@ -69,6 +69,23 @@
 .sr-title { font-size: var(--text-3xl); font-weight: var(--weight-medium); line-height: 1.2; }
 .sr-title-sub { font-family: var(--font-sans); font-size: var(--text-sm); color: var(--color-text-secondary); font-weight: normal; margin-top: 3px; }
 .sr-actions { display: flex; align-items: center; gap: var(--space-2); flex-shrink: 0; margin-top: 4px; }
+
+/* Two-tab switcher (Overview / Forms) — below the header strip */
+.sr-tabs { display: flex; gap: var(--space-1); padding: 0 var(--space-5); border-bottom: 1px solid var(--color-border); background: var(--color-surface); flex-shrink: 0; }
+.sr-tab { appearance: none; background: none; border: none; border-bottom: 2px solid transparent; padding: var(--space-3) var(--space-2); margin-bottom: -1px; font-size: var(--text-sm); font-weight: var(--weight-medium); font-family: var(--font-sans); color: var(--color-text-tertiary); cursor: pointer; display: inline-flex; align-items: center; gap: 6px; }
+.sr-tab:hover { color: var(--color-text-secondary); }
+.sr-tab.active { color: var(--color-text-primary); border-bottom-color: var(--color-cta-bg, var(--blue-600)); }
+.sr-tab .sr-tab-badge { font-size: var(--text-xs); background: var(--amber-100); color: var(--amber-700); border-radius: var(--radius-full); padding: 0 6px; line-height: 16px; }
+
+/* Inline expiry chips + alert banners (Regulatory / Biosecurity / Calibration) */
+.sr-chip { display: inline-flex; align-items: center; gap: 4px; font-size: var(--text-xs); font-weight: var(--weight-medium); padding: 1px 8px; border-radius: var(--radius-full); border: 1px solid; margin-left: var(--space-2); white-space: nowrap; }
+.sr-chip.amber { background: var(--amber-50); border-color: var(--amber-200); color: var(--amber-700); }
+.sr-chip.red { background: var(--red-50); border-color: var(--red-200); color: var(--red-600); }
+.sr-chip.green { background: var(--green-50); border-color: var(--green-200); color: var(--green-600); }
+.sr-alert-banner { display: flex; gap: var(--space-2); align-items: center; padding: var(--space-3) var(--space-4); border-radius: var(--radius-md); font-size: var(--text-sm); margin-bottom: var(--space-4); border: 1px solid; }
+.sr-alert-banner.amber { background: var(--amber-50); border-color: var(--amber-200); color: var(--amber-800); }
+.sr-alert-banner.red { background: var(--red-50); border-color: var(--red-200); color: var(--red-700); }
+.sr-alert-banner i { flex-shrink: 0; }
 .st-icon-btn { display: inline-flex; align-items: center; justify-content: center; width: 28px; height: 28px; border: none; background: none; border-radius: var(--radius-md); color: var(--color-text-tertiary); cursor: pointer; transition: background var(--duration-fast), color var(--duration-fast); }
 .st-icon-btn:hover { background: var(--color-hover-bg); color: var(--color-text-primary); }
 .st-icon-btn i { font-size: 15px; }

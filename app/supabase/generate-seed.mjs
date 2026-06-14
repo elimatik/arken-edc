@@ -350,22 +350,173 @@ const PH_TREE = [
   ]),
 ];
 
-// Barn/house-scoped form — the Daily Environmental Log lives on the House record,
+// Barn/house-scoped forms — rendered on the House Record (Forms + Overview tabs),
 // NOT the pen sidebar. Static ranges auto-raise edit checks (temp 18-24 °C,
 // humidity 40-70 %, CO2 ≤3000 ppm, ammonia ≤25 ppm welfare threshold).
 const PH_BARN_FORMS = [
   leaf("daily_env_log", "Daily Environmental Log", [
-    date("log_date", "Log date", true),
-    rng("temp_morning", "Morning temperature", 18, 24, "°C"),
-    rng("temp_evening", "Evening temperature", 18, 24, "°C"),
-    rng("rh_morning", "Morning relative humidity", 40, 70, "%"),
-    rng("rh_evening", "Evening relative humidity", 40, 70, "%"),
-    rng("co2_ppm", "CO₂", 0, 3000, "ppm"),
-    rng("ammonia_ppm", "Ammonia", 0, 25, "ppm"),
-    num("ventilation_rate", "Ventilation rate", "m³/h"),
-    yn("hvac_normal", "Heating/cooling system normal"),
-    ta("equipment_issues", "Equipment issues"),
-    txt("recorded_by", "Recorded by"),
+    ...sec("Temperature & Humidity", [
+      date("log_date", "Log date", true),
+      rng("temp_morning", "Morning temperature", 18, 24, "°C"),
+      rng("temp_evening", "Evening temperature", 18, 24, "°C"),
+      rng("rh_morning", "Morning relative humidity", 40, 70, "%"),
+      rng("rh_evening", "Evening relative humidity", 40, 70, "%"),
+    ]),
+    ...sec("Air Quality", [
+      rng("co2_ppm", "CO₂", 0, 3000, "ppm"),
+      rng("ammonia_ppm", "Ammonia", 0, 25, "ppm"),
+      num("ventilation_rate", "Ventilation rate", "m³/h"),
+    ]),
+    ...sec("Equipment Status", [
+      yn("hvac_normal", "Heating/cooling system normal"),
+      ta("equipment_issues", "Equipment issues"),
+      txt("recorded_by", "Recorded by"),
+    ]),
+  ]),
+  // Feed Delivery Log — repeating
+  leaf("feed_delivery", "Feed Delivery Log", [
+    date("delivery_date", "Delivery date", true),
+    txt("feed_lot_number", "Feed lot number", true),
+    txt("supplier", "Supplier"),
+    sel("feed_phase", "Feed phase", ["Starter", "Grower", "Finisher"]),
+    num("quantity_kg", "Quantity delivered", "kg", true),
+    num("bags_units", "Bags / units"),
+    yn("quality_check", "Quality check performed"),
+    sel("mycotoxin_screen", "Mycotoxin screen", ["Pass", "Fail", "Not performed"]),
+    yn("coa_received", "Certificate of analysis received"),
+    txt("received_by", "Received by"),
+  ]),
+  // Equipment Calibration Log — repeating (rendered in the Overview tab)
+  leaf("equipment_calibration", "Equipment Calibration Log", [
+    sel("equipment_name", "Equipment", ["Platform scale", "Hanging scale", "Thermometer", "Hygrometer", "Ammonia monitor", "CO2 monitor", "Water meter"]),
+    txt("serial_number", "Serial number"),
+    date("last_calibration", "Last calibration date", true),
+    date("next_due", "Next calibration due", true),
+    txt("certificate_ref", "Calibration certificate reference"),
+    txt("calibrated_by", "Calibrated by"),
+  ]),
+  // House/Barn Close-out — one-time, sectioned
+  leaf("house_closeout", "House/Barn Close-out", [
+    ...sec("Bird Reconciliation", [
+      date("closeout_date", "Close-out date", true),
+      yn("bird_count_reconciled", "Final bird count reconciled", true),
+      yn("mortality_complete", "All mortality records complete", true),
+    ]),
+    ...sec("Feed & Equipment", [
+      yn("feed_accounted", "All feed accounted for", true),
+      yn("equipment_returned", "Equipment cleaned and returned", true),
+      yn("equipment_recalibrated", "Equipment recalibrated after use", true),
+    ]),
+    ...sec("Facility", [
+      date("cleanout_completed", "House cleanout completed", true),
+      yn("disinfection_completed", "Disinfection completed", true),
+      num("downtime_days", "Downtime before next flock", "days"),
+    ]),
+    ...sec("Sign-off", [
+      ta("outstanding_issues", "Outstanding issues"),
+      txt("investigator_signoff", "Investigator sign-off"),
+      txt("completed_by", "Completed by"),
+    ]),
+  ]),
+];
+
+// Site-scoped forms — shared by EVERY study (every study has sites). Rendered on
+// the Site Record (Forms tab) except Continuing Review, shown in the Overview
+// Regulatory card. Repeating logs (staff, monitoring, amendments, continuing
+// review) use the slide-in panel; SIV + Close-out are one-time sectioned forms.
+const SITE_FORMS = [
+  leaf("siv", "Site Initiation Visit (SIV) Checklist", [
+    ...sec("Facility Assessment", [
+      date("siv_date", "SIV date", true),
+      txt("siv_conducted_by", "SIV conducted by"),
+      yn("facility_adequate", "Facility adequate for study", true),
+      yn("storage_adequate", "Adequate storage for investigational product", true),
+      yn("temp_monitoring", "Temperature monitoring in place", true),
+    ]),
+    ...sec("Staff & Training", [
+      yn("staff_gcp_trained", "Staff GCP trained", true),
+      yn("protocol_training", "Protocol training completed", true),
+    ]),
+    ...sec("Regulatory Documents", [
+      yn("irb_approval", "IRB/IEC approval on file", true),
+      yn("icf_approved", "Informed consent forms approved", true),
+    ]),
+    ...sec("Investigational Product", [
+      yn("ip_received", "Investigational product received", true),
+      yn("ip_storage_confirmed", "IP storage conditions confirmed", true),
+    ]),
+    ...sec("EDC & Systems", [
+      yn("edc_access", "EDC access granted to site staff", true),
+      yn("edc_training", "EDC training completed", true),
+    ]),
+    ...sec("Sign-off", [
+      calc("all_satisfactory", "All items satisfactory"),
+      ta("outstanding_items", "Outstanding items"),
+      yn("site_approved_to_enroll", "Site approved to enroll", true),
+      txt("investigator_signoff", "Investigator sign-off"),
+      txt("cra_signoff", "CRA sign-off"),
+    ]),
+  ]),
+  leaf("staff_delegation", "Site Staff & Delegation Log", [
+    txt("staff_name", "Staff name", true),
+    sel("role", "Role", ["PI", "Sub-Investigator", "CRC", "CRA", "Pharmacist", "Lab Technician", "Other"]),
+    date("gcp_training_date", "GCP training date", true),
+    date("gcp_expiry", "GCP training expiry", true),
+    date("protocol_training_date", "Protocol training date", true),
+    txt("protocol_training_version", "Protocol training version"),
+    msel("delegated_tasks", "Delegated tasks", ["Data Entry", "Query Response", "SDV", "Drug Dispensing", "Consent", "Sample Collection"]),
+    yn("signature_authority", "Signature authority"),
+    yn("active_at_site", "Active at site"),
+  ]),
+  leaf("monitoring_visits", "Monitoring Visit Reports", [
+    date("visit_date", "Visit date", true),
+    sel("visit_type", "Visit type", ["Site Initiation", "Routine Monitoring", "Close-out", "For Cause"]),
+    txt("cra_name", "CRA name"),
+    num("subjects_reviewed", "Subjects reviewed"),
+    ta("findings_summary", "Findings summary"),
+    ta("action_items", "Action items"),
+    yn("followup_required", "Follow-up required"),
+    date("followup_due", "Follow-up due date"),
+    yn("report_submitted", "Report submitted"),
+    date("report_date", "Report date"),
+  ]),
+  leaf("protocol_amendments", "Protocol Amendments", [
+    txt("protocol_version", "Protocol version", true),
+    date("amendment_date", "Amendment date", true),
+    ta("amendment_summary", "Amendment summary", true),
+    date("iec_approval_date", "IEC approval date for amendment", true),
+    txt("iec_approval_ref", "IEC approval reference"),
+    sel("subjects_affected", "Subjects affected", ["All", "Newly enrolled only", "None"]),
+    date("implemented_date", "Amendment implemented date"),
+    txt("implemented_by", "Implemented by"),
+    sel("status", "Status", ["Pending IEC", "Approved", "Implemented"]),
+  ]),
+  leaf("continuing_review", "Continuing Review", [
+    date("review_date", "Review date", true),
+    date("renewed_until", "Renewed until"),
+    sel("outcome", "Outcome", ["Approved", "Approved with modifications", "Pending", "Not approved"]),
+  ]),
+  leaf("site_closeout", "Site Close-out", [
+    ...sec("Data Reconciliation", [
+      date("closeout_date", "Close-out date", true),
+      txt("closeout_by", "Close-out visit conducted by"),
+      yn("queries_resolved", "All data queries resolved", true),
+      yn("reconciliation_complete", "Final data reconciliation complete", true),
+    ]),
+    ...sec("Investigational Product", [
+      num("ip_returned", "IP returned quantity"),
+      num("ip_destroyed", "IP destroyed quantity"),
+      yn("ip_accountability", "IP accountability complete", true),
+    ]),
+    ...sec("Regulatory", [
+      yn("regulatory_archived", "Regulatory documents archived", true),
+      yn("closeout_visit_complete", "Site close-out visit completed", true),
+    ]),
+    ...sec("Sign-off", [
+      ta("outstanding_issues", "Outstanding issues"),
+      txt("investigator_signoff", "Investigator sign-off"),
+      txt("sponsor_signoff", "Sponsor sign-off"),
+    ]),
   ]),
 ];
 
@@ -925,6 +1076,7 @@ const STUDIES = [
     description: "Randomized complete block — 20 broiler pens (30 birds/pen) in a single controlled-environment house; 2 arms (T01 Control, T02 Phytogenic 0.05% blend); 42 days; pen-level capture, house-level Daily Environmental Log. Primary endpoints FCR / ADG / final body weight · Protocol PHY-2025-001",
     tree: PH_TREE,
     barnForms: PH_BARN_FORMS,
+    siteForms: SITE_FORMS,
     sites: [
       { code: "RUA", name: "Research Unit A", location: "Athens, GA", pi: "Dr. R. Halverson, DVM" },
     ],
@@ -959,6 +1111,26 @@ const STUDIES = [
           log_date: "2026-05-19", temp_morning: ["23", 23], temp_evening: ["25", 25],
           rh_morning: ["62", 62], rh_evening: ["68", 68], co2_ppm: ["2600", 2600], ammonia_ppm: ["32", 32],
           ventilation_rate: ["3800", 3800], hvac_normal: "Yes", recorded_by: "Elisa Tron" } },
+        // Equipment calibration — one current, one OVERDUE (next due in the past).
+        { key: "equipment_calibration", status: "reviewed", values: {
+          equipment_name: "Platform scale", serial_number: "PS-44120", last_calibration: "2026-03-15",
+          next_due: "2026-09-15", certificate_ref: "CAL-2026-0312", calibrated_by: "MetroCal Services" } },
+        { key: "equipment_calibration", status: "reviewed", values: {
+          equipment_name: "Ammonia monitor", serial_number: "AM-7781", last_calibration: "2025-11-20",
+          next_due: "2026-05-20", certificate_ref: "CAL-2025-1118", calibrated_by: "MetroCal Services" } },
+        // Feed deliveries — three across the grow-out.
+        { key: "feed_delivery", status: "reviewed", values: {
+          delivery_date: "2026-04-20", feed_lot_number: "FL-7781", supplier: "AgriFeed Co.", feed_phase: "Starter",
+          quantity_kg: ["1200", 1200], bags_units: ["48", 48], quality_check: "Yes", mycotoxin_screen: "Pass",
+          coa_received: "Yes", received_by: "Elisa Tron" } },
+        { key: "feed_delivery", status: "reviewed", values: {
+          delivery_date: "2026-05-01", feed_lot_number: "FL-7820", supplier: "AgriFeed Co.", feed_phase: "Grower",
+          quantity_kg: ["1800", 1800], bags_units: ["72", 72], quality_check: "Yes", mycotoxin_screen: "Pass",
+          coa_received: "Yes", received_by: "Elisa Tron" } },
+        { key: "feed_delivery", status: "in_work", values: {
+          delivery_date: "2026-05-18", feed_lot_number: "FL-7901", supplier: "AgriFeed Co.", feed_phase: "Finisher",
+          quantity_kg: ["2400", 2400], bags_units: ["96", 96], quality_check: "Yes", mycotoxin_screen: "Not performed",
+          coa_received: "No", received_by: "Elisa Tron" } },
       ] },
     ],
     demo: [
@@ -1074,6 +1246,7 @@ const STUDIES = [
     type: "livestock_individual", species: "cattle", enrollmentTarget: 270,
     description: "Randomized, masked, 3-arm — 270 feedlot cattle across 4 sites; rolling enrollment; individual-animal capture. Heart-rate validation is age-class–specific (calf ≤6 mo 100–140 bpm vs adult 48–84 bpm) · Protocol BR-2502",
     tree: BR_TREE,
+    siteForms: SITE_FORMS,
     sites: [
       { code: "TX", name: "Feedlot TX", location: "Hereford, TX", pi: "Dr. C. Ramirez, DVM" },
       { code: "KS", name: "Feedlot KS", location: "Garden City, KS", pi: "Dr. L. Schmidt, DVM" },
@@ -1182,12 +1355,44 @@ const STUDIES = [
     type: "companion", species: "canine", enrollmentTarget: 60,
     description: "Randomized, double-blind, placebo-controlled, multi-site (3 sites) — canine atopic dermatitis · Protocol DERM-2026-104",
     tree: CA_TREE,
+    siteForms: SITE_FORMS,
     sites: CA_SITES,
     barns: [],
     pens: [],
     owners: caOwners,
     subjects: caSubjects,
     demo: caDemo,
+    // Site-scoped demo: site 101 is fully initiated (SIV approved) with staff,
+    // a monitoring visit, an amendment and a continuing review. Sites 102/103 have
+    // no SIV → the Data-Entry enrollment-gate banner shows for them.
+    siteDemo: [
+      { site: "101", forms: [
+        { key: "siv", status: "reviewed", values: {
+          siv_date: "2026-03-10", siv_conducted_by: "James Hollis (CRA)",
+          facility_adequate: "Yes", storage_adequate: "Yes", temp_monitoring: "Yes",
+          staff_gcp_trained: "Yes", protocol_training: "Yes", irb_approval: "Yes", icf_approved: "Yes",
+          ip_received: "Yes", ip_storage_confirmed: "Yes", edc_access: "Yes", edc_training: "Yes",
+          site_approved_to_enroll: "Yes", investigator_signoff: "Dr. Sarah Bennett", cra_signoff: "James Hollis" } },
+        { key: "staff_delegation", status: "reviewed", values: {
+          staff_name: "Dr. Sarah Bennett", role: "PI", gcp_training_date: "2025-09-01", gcp_expiry: "2027-09-01",
+          protocol_training_date: "2026-03-08", protocol_training_version: "v2.1",
+          delegated_tasks: ["Query Response", "Consent", "Drug Dispensing"], signature_authority: "Yes", active_at_site: "Yes" } },
+        { key: "staff_delegation", status: "reviewed", values: {
+          staff_name: "Maria Lopez", role: "CRC", gcp_training_date: "2025-08-15", gcp_expiry: "2026-07-30",
+          protocol_training_date: "2026-03-08", protocol_training_version: "v2.1",
+          delegated_tasks: ["Data Entry", "Query Response", "Sample Collection"], signature_authority: "No", active_at_site: "Yes" } },
+        { key: "monitoring_visits", status: "reviewed", values: {
+          visit_date: "2026-05-02", visit_type: "Routine Monitoring", cra_name: "James Hollis",
+          subjects_reviewed: ["4", 4], findings_summary: "SDV completed for 4 subjects; 3 minor queries raised on Week-4 forms. Protocol compliance satisfactory.",
+          action_items: "Resolve open queries by next visit.", followup_required: "No", report_submitted: "Yes", report_date: "2026-05-06" } },
+        { key: "protocol_amendments", status: "reviewed", values: {
+          protocol_version: "v2.1", amendment_date: "2026-01-10", amendment_summary: "Safety monitoring interval reduced from 4 weeks to 2 weeks for Group A.",
+          iec_approval_date: "2026-01-17", iec_approval_ref: "IEC-2026-014", subjects_affected: "All",
+          implemented_date: "2026-01-20", implemented_by: "Dr. Sarah Bennett", status: "Implemented" } },
+        { key: "continuing_review", status: "reviewed", values: {
+          review_date: "2026-02-15", renewed_until: "2027-02-15", outcome: "Approved" } },
+      ] },
+    ],
   },
 ];
 
@@ -1247,26 +1452,31 @@ for (const study of STUDIES) {
 
   for (const node of study.tree) emitNode(node, null);
 
-  // Barn/house-scoped forms (rendered on the Barn Record, excluded from the pen
-  // sidebar). Flat leaf list, distinct id prefixes (65 form / 66 field).
-  (study.barnForms ?? []).forEach((node, bi) => {
-    seq += 1;
-    const bb = h2(bi + 1);
-    const id = `65${bb}0000-0000-0000-0000-${suffix}`;
-    formRows.push(`  ('${id}','${sUuid}',null,'B${bb}',${sqlStr(node.name)},${seq},'barn')`);
-    formIdByKey[study.key][node.key] = id;
-    fieldIdByKey[study.key][node.key] = {};
-    node.fields.forEach((f, i) => {
-      const ff = h2(i + 1);
-      const fid = `66${bb}${ff}00-0000-0000-0000-${suffix}`;
-      fieldIdByKey[study.key][node.key][f.code] = fid;
-      fieldRows.push(
-        `  ('${fid}','${id}',${sqlStr(f.code)},${sqlStr(f.label)},'${f.type}',${
-          f.options ? sqlJson(f.options) : "null"
-        },${sqlStr(f.unit ?? null)},${f.req ? "true" : "false"},${i + 1},${sqlJson(f.validation ?? null)})`,
-      );
+  // Scope-level forms (rendered on the Barn Record / Site Record, excluded from
+  // the pen sidebar). Flat leaf lists with distinct id prefixes per scope so they
+  // never collide with the recursive subject forms (61/62).
+  const emitScopedForms = (forms, scope, formPre, fieldPre, codePre) => {
+    (forms ?? []).forEach((node, bi) => {
+      seq += 1;
+      const bb = h2(bi + 1);
+      const id = `${formPre}${bb}0000-0000-0000-0000-${suffix}`;
+      formRows.push(`  ('${id}','${sUuid}',null,'${codePre}${bb}',${sqlStr(node.name)},${seq},'${scope}')`);
+      formIdByKey[study.key][node.key] = id;
+      fieldIdByKey[study.key][node.key] = {};
+      node.fields.forEach((f, i) => {
+        const ff = h2(i + 1);
+        const fid = `${fieldPre}${bb}${ff}00-0000-0000-0000-${suffix}`;
+        fieldIdByKey[study.key][node.key][f.code] = fid;
+        fieldRows.push(
+          `  ('${fid}','${id}',${sqlStr(f.code)},${sqlStr(f.label)},'${f.type}',${
+            f.options ? sqlJson(f.options) : "null"
+          },${sqlStr(f.unit ?? null)},${f.req ? "true" : "false"},${i + 1},${sqlJson(f.validation ?? null)})`,
+        );
+      });
     });
-  });
+  };
+  emitScopedForms(study.barnForms, "barn", "65", "66", "B");
+  emitScopedForms(study.siteForms, "site", "67", "68", "S");
 }
 
 // ─── Emit hierarchy + subjects ───────────────────────────────────────────────
@@ -1277,12 +1487,14 @@ const ownerRows = [];
 const subjectRows = [];
 const subjectIdByCode = {}; // [studyKey][subject_code] = uuid
 const barnIdByCode = {}; // [studyKey][barn_code] = uuid
+const siteIdByCode = {}; // [studyKey][site_code] = uuid
 
 for (const study of STUDIES) {
   const suffix = study.suffix;
   const sUuid = studyUuid(suffix);
   subjectIdByCode[study.key] = {};
   barnIdByCode[study.key] = {};
+  siteIdByCode[study.key] = {};
 
   // One or more sites. `study.sites` is an array; legacy single-site studies may
   // still use `study.site`. Each site has a `code`; subjects reference it via
@@ -1292,6 +1504,7 @@ for (const study of STUDIES) {
   sites.forEach((st, i) => {
     const id = hierId("30", i + 1, suffix);
     siteUuidByCode[st.code] = id;
+    siteIdByCode[study.key][st.code] = id;
     siteRows.push(
       `  ('${id}','${sUuid}',${sqlStr(st.code)},${sqlStr(st.name)},${sqlStr(st.location)},${sqlStr(st.pi)},'active')`,
     );
@@ -1353,15 +1566,16 @@ for (const study of STUDIES) {
   // Subject (pen/animal) demo records + barn-scoped demo records (Daily Env Log)
   // in one pass. Subject instances carry subject_id; barn instances carry barn_id.
   const records = [
-    ...(study.demo ?? []).map((d) => ({ subjectId: subjectIdByCode[study.key][d.subject], barnId: null, forms: d.forms })),
-    ...(study.barnDemo ?? []).map((d) => ({ subjectId: null, barnId: barnIdByCode[study.key][d.barn], forms: d.forms })),
+    ...(study.demo ?? []).map((d) => ({ subjectId: subjectIdByCode[study.key][d.subject], barnId: null, siteId: null, forms: d.forms })),
+    ...(study.barnDemo ?? []).map((d) => ({ subjectId: null, barnId: barnIdByCode[study.key][d.barn], siteId: null, forms: d.forms })),
+    ...(study.siteDemo ?? []).map((d) => ({ subjectId: null, barnId: null, siteId: siteIdByCode[study.key][d.site], forms: d.forms })),
   ];
   for (const d of records) {
     for (const f of d.forms) {
       const formId = formIdByKey[study.key][f.key];
       const instId = demoId("63", (ic += 1), suffix);
       instanceRows.push(
-        `  ('${instId}','${formId}',${d.subjectId ? `'${d.subjectId}'` : "null"},${d.barnId ? `'${d.barnId}'` : "null"},'${f.status}')`,
+        `  ('${instId}','${formId}',${d.subjectId ? `'${d.subjectId}'` : "null"},${d.barnId ? `'${d.barnId}'` : "null"},${d.siteId ? `'${d.siteId}'` : "null"},'${f.status}')`,
       );
       const vidByCode = {};
       for (const [code, raw] of Object.entries(f.values)) {
@@ -1490,7 +1704,7 @@ const DEMO = `
 -- DEMO DATA — per study: a completed Screening + filled Randomization, an open
 -- edit check (out-of-range vital → auto edit-check), and a responded query.
 -- ════════════════════════════════════════════════════════════════════════════
-insert into form_instances (id, form_id, subject_id, barn_id, status) values
+insert into form_instances (id, form_id, subject_id, barn_id, site_id, status) values
 ${instanceRows.join(",\n")};
 
 insert into field_values (id, form_instance_id, form_field_id, value, value_num, entered_by, entered_at) values

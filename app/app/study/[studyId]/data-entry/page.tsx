@@ -237,6 +237,19 @@ export default function DataEntryPage() {
 
   const parentNode = nav.length ? findNode(nav[nav.length - 1].key) : null;
 
+  // Enrollment gate — at the site level, warn when the Site Initiation Visit is
+  // not complete (no SIV instance, or "Site approved to enroll" ≠ Yes).
+  const sivIncomplete = (() => {
+    if (!ready || !parentNode || parentNode.level !== 0) return false;
+    const sivForm = dataset.forms.find((f) => f.study_id === studyId && f.scope === "site" && f.name === "Site Initiation Visit (SIV) Checklist");
+    if (!sivForm) return false;
+    const inst = dataset.formInstances.find((i) => i.form_id === sivForm.id && i.site_id === parentNode.id);
+    if (!inst) return true;
+    const fld = dataset.formFields.find((f) => f.form_id === sivForm.id && f.code === "site_approved_to_enroll");
+    const v = fld ? dataset.fieldValues.find((x) => x.form_instance_id === inst.id && x.form_field_id === fld.id)?.value : undefined;
+    return v !== "Yes";
+  })();
+
   function drillInto(node: Node) {
     // Subjects open their full Subject Record; containers drill in place.
     if (node.level === subjectIdx) {
@@ -421,6 +434,13 @@ export default function DataEntryPage() {
 
       {/* Children table (subjects open their full record on click) */}
       <>
+          {sivIncomplete && (
+            <div role="status" style={{ display: "flex", gap: "var(--space-2)", alignItems: "center", padding: "var(--space-3) var(--space-4)", margin: "0 0 var(--space-3)", borderRadius: "var(--radius-md)", border: "1px solid var(--amber-200)", background: "var(--amber-50)", color: "var(--amber-800)", fontSize: "var(--text-sm)" }}>
+              <i className="ti ti-alert-triangle"></i>
+              <span>Site initiation visit not complete — contact the study coordinator before enrolling subjects.</span>
+              <button className="btn-secondary" type="button" style={{ marginLeft: "auto" }} onClick={() => router.push(`/study/${studyId}/sites/${parentNode!.id}?tab=forms`)}>Open SIV checklist</button>
+            </div>
+          )}
           {/* Filter bar */}
           <div className="de-filter">
             <input

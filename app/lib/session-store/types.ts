@@ -31,6 +31,16 @@ export interface SiteRow {
   time_zone?: string | null;
   investigator_phone?: string | null;
   investigator_email?: string | null;
+  // Session-only Overview-tab configuration (Site Information + Regulatory & Ethics).
+  city?: string | null;
+  state_country?: string | null;
+  iec_name?: string | null;
+  iec_ref?: string | null;
+  iec_approval_date?: string | null;
+  iec_expiry_date?: string | null;
+  regulatory_authority?: string | null;
+  import_export_required?: string | null; // "Yes" | "No"
+  permit_number?: string | null;
 }
 
 export interface BarnRow {
@@ -38,6 +48,23 @@ export interface BarnRow {
   site_id: string;
   code: string;
   name: string;
+  // Session-only Overview-tab configuration (House Information + Biosecurity).
+  floor_area_m2?: string | null;
+  capacity?: string | null;
+  house_type?: string | null;
+  feeder_type?: string | null;
+  drinker_type?: string | null;
+  ventilation_type?: string | null;
+  litter_type?: string | null;
+  house_status?: string | null;
+  biosecurity_level?: string | null;
+  last_cleanout?: string | null;
+  last_disinfection?: string | null;
+  disinfection_product?: string | null;
+  downtime_days?: string | null;
+  visitor_log_required?: string | null;
+  flock_placement_date?: string | null;
+  biosecurity_notes?: string | null;
 }
 
 export interface PenRow {
@@ -84,8 +111,9 @@ export interface FormRow {
 export interface FormInstanceRow {
   id: string;
   form_id: string;
-  subject_id: string | null; // null for barn-scoped instances
+  subject_id: string | null; // null for barn-/site-scoped instances
   barn_id?: string | null; // set on barn-scoped instances (Daily Environmental Log)
+  site_id?: string | null; // set on site-scoped instances (SIV, Staff, Monitoring …)
   status: string; // empty | in_work | reviewed | finalized | locked
   sdv_complete?: boolean; // form marked SDV-complete (session-only)
 }
