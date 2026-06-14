@@ -59,7 +59,7 @@ function computeAggregates(dataset: Dataset, studyId: string): StudyAggregates {
   const cnt = (st: string) => subs.filter((s) => s.status === st).length;
 
   const subjIds = new Set(subs.map((s) => s.id));
-  const insts = dataset.formInstances.filter((i) => subjIds.has(i.subject_id));
+  const insts = dataset.formInstances.filter((i) => i.subject_id != null && subjIds.has(i.subject_id));
   const instById = new Map(insts.map((i) => [i.id, i]));
   const instIds = new Set(insts.map((i) => i.id));
   const fieldById = new Map(dataset.formFields.map((f) => [f.id, f]));
@@ -82,7 +82,7 @@ function computeAggregates(dataset: Dataset, studyId: string): StudyAggregates {
   };
   const queryList = openQ.map((q) => {
     const inst = instById.get(q.form_instance_id);
-    const subject = inst ? subById.get(inst.subject_id) : undefined;
+    const subject = inst && inst.subject_id ? subById.get(inst.subject_id) : undefined;
     const fv = q.field_value_id ? fvById.get(q.field_value_id) : undefined;
     const field = fv ? fieldById.get(fv.form_field_id) : undefined;
     return {

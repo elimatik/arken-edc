@@ -112,7 +112,7 @@ export default function DataEntryPage() {
       .slice()
       .sort((a, b) => a.subject_code.localeCompare(b.subject_code));
     const allForms = dataset.forms
-      .filter((f) => f.study_id === studyId)
+      .filter((f) => f.study_id === studyId && f.scope !== "barn") // barn-scoped → House record, not the pen progress
       .slice()
       .sort((a, b) => a.sequence - b.sequence);
     // Group containers have no fields/instances — count only leaf (sub-)forms.
@@ -126,7 +126,7 @@ export default function DataEntryPage() {
     const pens =
       studyType === "livestock" ? dataset.pens.filter((p) => barnIds.has(p.barn_id)) : [];
     const subjectIdSet = new Set(subjects.map((s) => s.id));
-    const instances = dataset.formInstances.filter((i) => subjectIdSet.has(i.subject_id));
+    const instances = dataset.formInstances.filter((i) => i.subject_id != null && subjectIdSet.has(i.subject_id));
 
     // Per-subject form list = every study form, with status from its instance.
     const subjectForms = (subjId: string): FormItem[] =>
@@ -394,13 +394,18 @@ export default function DataEntryPage() {
             <button className="btn-secondary" type="button">
               <i className="ti ti-download"></i> Export
             </button>
-            {/* "Open [level] record" — at the site level this opens the canonical
-                Site Record (/sites/[id]); barn/pen record pages aren't built yet. */}
-            {parentNode && (
+            {/* "Open [level] record" — site level opens the canonical Site Record
+                (/sites/[id]); barn/house level opens the Barn Record (/barns/[id]),
+                which carries house-scoped forms like the Daily Environmental Log. */}
+            {parentNode && (parentNode.level === 0 || parentNode.level === 1) && (
               <button
                 className="btn-secondary"
                 type="button"
-                onClick={parentNode.level === 0 ? () => router.push(`/study/${studyId}/sites/${parentNode.id}`) : undefined}
+                onClick={
+                  parentNode.level === 0
+                    ? () => router.push(`/study/${studyId}/sites/${parentNode.id}`)
+                    : () => router.push(`/study/${studyId}/barns/${parentNode.id}`)
+                }
               >
                 <i className="ti ti-file-description"></i> Open {levels[parentNode.level].toLowerCase()} record
               </button>

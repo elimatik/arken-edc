@@ -66,166 +66,189 @@ const alone = (key, name, fields) => ({ key, name, fields, standalone: true });
 const RAND_METHOD = ["Computer-generated", "Envelope", "IVRS"];
 
 // ═══════════════════════════════════════════════════════════════════════════
-// STUDY 1 — CX-2501  Anticoccidial Efficacy in Broiler Chickens (chicken, group)
-// 8 group-level (pen) forms; the pen is the experimental unit.
+// STUDY 1 — PH-2401  Phytogenic Feed Additive Broiler Growth Performance Trial
+// chicken / livestock_group. 5 groups / 10 pen-level forms (pen = subject) +
+// one BARN-scoped form (Daily Environmental Log, rendered on the House record).
 // ═══════════════════════════════════════════════════════════════════════════
-const CX_TREE = [
-  grp("Study Setup & Enrollment", [
-    leaf("pen_setup", "Pen Setup & Demographics", [
+const PH_TREE = [
+  grp("Pen Setup", [
+    leaf("pen_setup", "Pen Demographics & Setup", [
       ...sec("Pen Identification", [
-        txt("pen_id", "Pen ID"),
-        sel("site", "Site", ["Research Unit A", "Research Unit B"]),
-        sel("room", "Barn / Room", ["Room 1", "Room 2"]),
-        sel("treatment_arm", "Treatment arm", ["T01", "T02", "T03", "T04"]),
-        num("randomization_block", "Randomization block"),
+        txt("pen_id", "Pen ID", true),
+        num("pen_number", "Pen number"),
+        sel("house_barn", "House / barn", ["House A"]),
+        num("floor_area_m2", "Floor area", "m²", true),
       ]),
       ...sec("Bird Information", [
-        num("birds_placed", "Birds placed"),
-        sel("breed_strain", "Breed / strain", ["Ross 308", "Cobb 500"]),
+        num("birds_placed", "Birds placed", null, true),
+        calc("stocking_density", "Stocking density", "birds/m²"),
+        calc("stocking_density_flag", "Stocking density welfare flag"),
+        sel("breed_strain", "Breed / strain", ["Ross 308", "Cobb 500", "Ross 708"]),
         sel("sex", "Sex", ["As-hatched", "Male", "Female"]),
-        date("hatch_date", "Hatch date"),
+        date("hatch_date", "Hatch date", true),
         txt("source_hatchery", "Source hatchery"),
-        date("placement_date", "Placement date"),
-        num("initial_pen_weight", "Initial pen weight", "kg"),
-        calc("avg_placement_weight", "Avg placement weight", "g/bird"),
-        sel("ration_code", "Ration code", ["Starter", "Grower", "Finisher"]),
+        date("placement_date", "Placement date", true),
+        calc("age_at_placement", "Age at placement", "days"),
       ]),
-      ...sec("Setup Notes", [ta("notes", "Notes")]),
+      ...sec("Treatment & Block", [
+        sel("treatment_arm", "Treatment arm", ["T01 Control", "T02 Phytogenic"], true),
+        num("randomization_block", "Randomization block"),
+      ]),
+      ...sec("Housing", [
+        sel("litter_type", "Litter type", ["Wood shavings", "Rice hulls", "Straw"]),
+        num("litter_depth", "Litter depth", "cm"),
+        sel("litter_scoring_system", "Litter scoring system", ["Ekstrand 1-5", "Payne 0-4", "EU Directive 0-2"]),
+        sel("feeder_type", "Feeder type", ["Tube", "Pan", "Chain"]),
+        sel("drinker_type", "Drinker type", ["Nipple", "Bell", "Cup"]),
+        ta("notes", "Notes"),
+      ]),
     ]),
-    leaf("placement_eligibility", "Randomization & Placement Eligibility", [
-      yn("randomization_confirmed", "Randomization confirmed"),
-      calc("stocking_density", "Stocking density", "birds/m²"),
-      sel("litter_type", "Litter type", ["Wood shavings", "Rice hulls", "Straw"]),
-      num("target_temp", "Target temperature", "°C"),
-      yn("ventilation_check", "Ventilation check"),
-      yn("feed_water_available", "Feed & water available"),
-      sel("health_status", "Health status at placement", ["Normal", "Abnormal"]),
-      crit("eligible", "Eligible"),
-      ta("reason_excluded", "Reason if excluded"),
+    leaf("randomization", "Randomization & Arm Assignment", [
+      ...sec("Randomization", [
+        date("randomization_date", "Randomization date", true),
+        sel("randomization_method", "Randomization method", ["Computer-generated list", "Envelope", "Other"]),
+        num("block_number", "Block number"),
+        sel("assigned_arm", "Assigned arm", ["T01 Control", "T02 Phytogenic"], true),
+        txt("test_article_lot", "Test article lot number"),
+        num("additive_inclusion_rate", "Additive inclusion rate", "%"),
+        txt("randomized_by", "Randomized by"),
+      ]),
+      ...sec("Assignment Confirmation", [
+        yn("assignment_confirmed", "Assignment confirmed", true),
+        ta("notes", "Notes"),
+      ]),
     ]),
-    leaf("housing_env", "Housing & Environment Setup", [
-      num("pen_area_m2", "Pen area", "m²"),
-      sel("feeder_type", "Feeder type", ["Tube", "Pan", "Trough"]),
-      sel("drinker_type", "Drinker type", ["Nipple", "Bell", "Cup"]),
-      sel("ventilation_type", "Ventilation type", ["Tunnel", "Cross", "Natural"]),
-      num("target_litter_depth", "Target litter depth", "cm"),
-      txt("lighting_program", "Lighting program"),
-      txt("env_controller_id", "Environmental controller ID"),
-      txt("setup_confirmed_by", "Setup confirmed by"),
-    ]),
-  ]),
-  grp("Coccidiosis Challenge", [
-    leaf("challenge", "Coccidiosis Challenge / Inoculation", [
-      date("challenge_date", "Challenge date"),
-      calc("day_of_age", "Day of age", "days"),
-      msel("eimeria_species", "Eimeria species", ["E. acervulina", "E. maxima", "E. tenella"]),
-      num("oocyst_dose", "Oocyst dose per bird"),
-      sel("route", "Route", ["Oral gavage", "Feed", "Water"]),
-      txt("inoculum_lot", "Inoculum lot"),
-      num("birds_inoculated", "Birds inoculated"),
-      txt("administered_by", "Administered by"),
-      ta("notes", "Notes"),
-    ]),
-    leaf("post_challenge_48h", "Post-Challenge 48h Observation", [
-      date("observation_date", "Observation date"),
-      calc("hours_post_challenge", "Hours post-challenge", "h"),
-      sel("flock_behavior", "Flock behavior", ["Normal", "Mild depression", "Moderate depression", "Severe depression"]),
-      sel("feed_intake_change", "Feed intake change", ["Normal", "Reduced 10–25%", "Reduced >25%", "Not eating"]),
-      sel("water_intake_change", "Water intake change", ["Normal", "Reduced", "Increased"]),
-      sel("droppings_appearance", "Droppings appearance", ["Normal", "Loose", "Watery", "Bloody"]),
-      num("mortality_since_challenge", "Mortality since challenge"),
-      yn("birds_removed", "Any birds removed"),
-      ta("notes", "Notes"),
-      txt("observer", "Observer"),
+    leaf("feed_setup", "Feed & Ration Setup", [
+      ...sec("Feed Identification", [
+        txt("feed_supplier", "Feed supplier"),
+        txt("feed_lot_number", "Feed lot number", true),
+        sel("feed_form", "Feed form", ["Mash", "Crumble", "Pellet"]),
+        sel("feed_phase", "Feed phase", ["Starter D0-10", "Grower D11-24", "Finisher D25-42"]),
+        date("feed_delivery_date", "Feed delivery date"),
+        num("initial_feed_inventory", "Initial feed inventory per pen", "kg", true),
+        yn("feed_quality_check", "Feed quality check performed"),
+        sel("mycotoxin_result", "Mycotoxin screen result", ["Pass", "Fail", "Not performed"]),
+      ]),
+      ...sec("Nutritional Specification", [
+        num("crude_protein", "Crude protein", "%"),
+        num("metabolizable_energy", "Metabolizable energy", "kcal/kg"),
+        ta("notes", "Notes"),
+      ]),
     ]),
   ]),
-  grp("Production Monitoring", [
-    leaf("body_weight", "Body Weight & Feed Intake", [
-      ...sec("Weight Assessment", [
-        sel("assessment_day", "Assessment day", ["D0", "D14", "D21", "D28", "D35", "D42"]),
-        date("date", "Date", true),
+  grp("Placement / Day 0", [
+    leaf("baseline_d0", "Day 0 Baseline Weights & Feed", [
+      ...sec("Placement Weights", [
+        date("weighing_date", "Weighing date", true),
         num("birds_alive", "Birds alive at weighing"),
-        num("pen_body_weight", "Pen body weight", "kg"),
-        calc("avg_body_weight", "Avg body weight", "g/bird"),
+        num("total_pen_weight", "Total pen weight", "kg", true),
+        calc("avg_body_weight", "Average body weight", "g/bird"),
+        num("bw_sd", "Body weight SD", "g"),
+        calc("bw_cv", "Body weight CV", "%"),
+      ]),
+      ...sec("Feed Inventory", [
+        num("beginning_feed_inventory", "Beginning feed inventory", "kg"),
+        num("water_meter_reading", "Water meter reading", "L"),
+      ]),
+      ...sec("Initial Observations", [
+        sel("flock_behavior", "Flock behavior", ["Normal", "Abnormal"]),
+        ta("observations", "Observations"),
+        txt("weighed_by", "Weighed by"),
+      ]),
+    ]),
+  ]),
+  grp("Weekly Production Monitoring", [
+    leaf("body_weight", "Body Weight & Feed Intake", [
+      ...sec("Visit Information", [
+        sel("assessment_day", "Assessment day", ["D7", "D14", "D21", "D28", "D35", "D42"], true),
+        date("weighing_date", "Weighing date", true),
+        calc("visit_within_window", "Visit within window"),
+      ]),
+      ...sec("Weight Assessment", [
+        num("birds_alive", "Birds alive at weighing"),
+        num("cumulative_mortality", "Cumulative mortality to date"),
+        num("total_pen_weight", "Total pen weight", "kg", true),
+        calc("avg_body_weight", "Average body weight", "g/bird"),
+        num("bw_sd", "Body weight SD", "g"),
+        calc("bw_cv", "Body weight CV", "%"),
+        calc("previous_pen_weight", "Previous pen weight", "kg"),
+        calc("weight_gain", "Weight gain since last visit", "kg"),
       ]),
       ...sec("Feed Tracking", [
-        num("feed_added", "Feed added since last", "kg"),
+        num("beginning_feed_inventory", "Beginning feed inventory", "kg"),
+        num("feed_added", "Feed added this period", "kg"),
+        calc("total_feed_available", "Total feed available", "kg"),
         num("feed_weighback", "Feed weigh-back", "kg"),
-        calc("feed_consumed", "Feed consumed", "kg"),
+        calc("feed_consumed", "Feed consumed this period", "kg"),
+        calc("ending_feed_inventory", "Ending feed inventory", "kg"),
       ]),
-      ...sec("Mortality", [
-        num("mortality_since_last", "Mortality since last"),
-        num("culls_since_last", "Culls since last"),
+      ...sec("Water Consumption", [
+        num("water_meter_reading", "Water meter reading", "L"),
+        calc("water_consumed", "Water consumed this period", "L"),
       ]),
       ...sec("Performance Metrics", [
-        calc("fcr_period", "FCR (period)"),
-        calc("adjusted_fcr", "Adjusted FCR"),
+        calc("fcr_this_period", "FCR this period"),
+        calc("cumulative_fcr", "Cumulative FCR"),
+        txt("weighed_by", "Weighed by"),
       ]),
     ]),
-    leaf("daily_health", "Daily Health & Mortality Observation", [
-      date("obs_date", "Observation date", true),
-      sel("flock_condition", "Flock condition", ["Normal", "Abnormal"]),
-      num("mortality_count", "Mortality count"),
-      num("cull_count", "Cull count"),
-      sel("fecal_score", "Litter / fecal score", ["0", "1", "2", "3"]),
-      yn("diarrhea_present", "Diarrhea present"),
-      yn("bloody_droppings", "Bloody droppings"),
-      msel("clinical_signs", "Clinical signs", ["Huddling", "Ruffled feathers", "Lethargy", "Pale comb", "Other"]),
-      ta("action_taken", "Action taken"),
-      txt("observer", "Observer"),
-    ]),
-    leaf("water_feed_quality", "Water & Feed Quality Log", [
-      date("log_date", "Log date"),
-      rng("water_ph", "Water pH", 6.0, 8.5),
-      num("water_temp", "Water temperature", "°C"),
-      num("chlorine_ppm", "Chlorine", "ppm"),
-      txt("feed_lot_number", "Feed lot number"),
-      num("feed_moisture_pct", "Feed moisture", "%"),
-      yn("mycotoxin_screen", "Mycotoxin screen performed"),
-      sel("mycotoxin_result", "Mycotoxin result", ["Pass", "Fail", "Pending"]),
-      sel("feed_appearance", "Feed appearance", ["Normal", "Abnormal"]),
-      ta("notes", "Notes"),
-    ]),
-  ]),
-  grp("Pathology & Necropsy", [
-    leaf("lesion_scoring", "Coccidiosis Lesion Scoring at Necropsy", [
-      date("necropsy_date", "Necropsy date"),
-      calc("day_post_challenge", "Day post-challenge", "days"),
-      num("bird_sequence", "Bird sequence within pen"),
-      num("body_weight_necropsy", "Body weight at necropsy", "g"),
-      sel("score_acervulina", "Upper intestine score — E. acervulina", ["0", "1", "2", "3", "4"]),
-      sel("score_maxima", "Mid intestine score — E. maxima", ["0", "1", "2", "3", "4"]),
-      sel("score_tenella", "Cecal score — E. tenella", ["0", "1", "2", "3", "4"]),
-      calc("total_lesion_score", "Total lesion score"),
-      num("opg", "Oocyst count per gram (OPG)"),
-      ta("gross_pathology", "Gross pathology notes"),
-      txt("examiner", "Examiner"),
-    ]),
-    leaf("sample_collection", "Sample Collection — OPG / Histopath", [
-      date("collection_date", "Collection date"),
-      calc("day_post_challenge", "Day post-challenge", "days"),
-      num("bird_sequence", "Bird sequence"),
-      msel("sample_type", "Sample type", ["Intestinal scraping", "Cecal contents", "Histopathology"]),
-      num("opg_count", "OPG count"),
-      sel("histopath_fixative", "Histopath fixative", ["Formalin 10%", "Other"]),
-      txt("sample_id", "Sample ID"),
-      yn("sent_to_lab", "Sent to lab"),
-      txt("lab_name", "Lab name"),
-      txt("collected_by", "Collected by"),
+    leaf("flock_health", "Weekly Flock Health & Litter Observation", [
+      ...sec("Flock Health", [
+        date("observation_date", "Observation date", true),
+        sel("assessment_day", "Assessment day", ["D7", "D14", "D21", "D28", "D35", "D42"]),
+        sel("flock_uniformity", "Flock uniformity", ["Good", "Fair", "Poor"]),
+        sel("flock_activity", "Flock activity level", ["Very active", "Normal", "Reduced", "Depressed"]),
+        sel("feed_intake_appearance", "Feed intake appearance", ["Normal", "Reduced", "Excessive"]),
+        sel("water_intake_appearance", "Water intake appearance", ["Normal", "Reduced", "Excessive"]),
+        yn("respiratory_signs", "Respiratory signs present"),
+        ta("respiratory_description", "Respiratory signs description"),
+      ]),
+      ...sec("Litter & Environment", [
+        num("litter_condition_score", "Litter condition score"),
+        sel("litter_moisture", "Litter moisture", ["Dry", "Slightly moist", "Moist", "Wet"]),
+        yn("caking_present", "Caking present"),
+        yn("footpad_dermatitis", "Footpad dermatitis present"),
+        num("footpad_prevalence", "Footpad dermatitis prevalence", "%"),
+      ]),
+      ...sec("Mortality Summary", [
+        num("mortality_since_last", "Mortality since last observation"),
+        num("culls_since_last", "Culls since last observation"),
+        msel("clinical_signs", "Clinical signs", ["Huddling", "Ruffled feathers", "Lethargy", "Pale comb", "Diarrhea", "Gasping", "Other"]),
+        ta("action_taken", "Action taken"),
+        txt("observer", "Observer"),
+      ]),
     ]),
   ]),
-  grp("Safety & Compliance", [
+  grp("Event Records", [
+    leaf("mortality_cull", "Mortality & Cull Record", [
+      ...sec("Event Details", [
+        date("event_date", "Event date", true),
+        sel("assessment_day", "Assessment day", ["D0", "D7", "D14", "D21", "D28", "D35", "D42", "Daily"]),
+        num("death_count", "Death count", null, true),
+        num("cull_count", "Cull count"),
+      ]),
+      ...sec("Cause Assessment", [
+        sel("cause_deaths", "Cause — deaths", ["Unknown", "Ascites", "Sudden death syndrome", "Leg disorder", "Respiratory", "Other"]),
+        sel("cause_culls", "Cause — culls", ["Leg disorder", "Poor growth", "Injury", "Respiratory", "Other"]),
+        yn("gross_lesions", "Gross lesions observed"),
+        ta("lesion_description", "Lesion description"),
+        calc("cumulative_mortality", "Cumulative mortality this pen"),
+        calc("cumulative_mortality_pct", "Cumulative mortality", "%"),
+        txt("recorded_by", "Recorded by"),
+      ]),
+    ]),
     leaf("adverse_event", "Adverse Event", [
       ...sec("Event Details", [
-        date("ae_onset_date", "AE onset date"),
-        sel("pen_id", "Pen ID", ["P01", "P02", "P03", "P04", "P05", "P06", "P07", "P08"]),
-        sel("event_type", "Event type", ["Unexpected mortality", "Morbidity event", "Environmental / equipment"]),
+        date("ae_onset_date", "AE onset date", true),
+        sel("event_type", "Event type", ["Unexpected mortality", "Morbidity outbreak", "Equipment failure", "Environmental", "Other"]),
+        num("birds_affected", "Birds affected"),
+        ta("description", "Description", true),
       ]),
       ...sec("Assessment", [
-        num("birds_affected", "Birds affected"),
+        coded("veddra_term", "VeDDRA coded term"),
         sel("severity", "Severity", ["Mild", "Moderate", "Severe"]),
-        sel("relationship", "Relationship to test article", ["Related", "Possibly", "Unlikely", "Not related"]),
-        yn("serious_sae", "Serious (SAE)"),
+        sel("relationship", "Relationship to test article", ["Related", "Possibly related", "Unlikely", "Unrelated"]),
+        yn("sae_flag", "SAE flag"),
       ]),
       ...sec("Resolution", [
         ta("action_taken", "Action taken"),
@@ -234,43 +257,83 @@ const CX_TREE = [
         txt("reported_to", "Reported to"),
       ]),
     ]),
-    leaf("protocol_deviation", "Protocol Deviation", [
-      date("deviation_date", "Deviation date"),
-      sel("pen_id", "Pen ID", ["P01", "P02", "P03", "P04", "P05", "P06", "P07", "P08"]),
-      sel("category", "Category", ["Randomization", "Challenge procedure", "Sampling", "Schedule", "Other"]),
-      ta("description", "Description"),
-      sel("impact", "Impact", ["None", "Minor", "Major"]),
-      ta("corrective_action", "Corrective action"),
-      txt("reported_by", "Reported by"),
-      txt("reported_to", "Reported to"),
-    ]),
   ]),
   grp("Study Closeout", [
-    leaf("eos", "End of Study / Pen Disposition", [
-      date("completion_date", "Completion date"),
-      num("birds_remaining", "Birds remaining"),
-      calc("total_mortality", "Total mortality"),
-      calc("total_culls", "Total culls"),
-      calc("mortality_pct", "Mortality", "%"),
-      num("final_avg_weight", "Final avg body weight", "g"),
-      calc("cumulative_feed", "Cumulative feed consumed", "kg"),
-      calc("overall_fcr", "Overall FCR"),
-      sel("disposition", "Disposition", ["Processed", "Euthanized", "Transferred"]),
-      ta("final_comments", "Final comments"),
+    leaf("final_processing", "Final Processing & Summary", [
+      ...sec("Processing Information", [
+        date("processing_date", "Processing date", true),
+        txt("processing_facility", "Processing facility", true),
+        txt("data_collected_by", "Data collected by"),
+      ]),
+      ...sec("Live Performance", [
+        num("birds_sent", "Birds sent to processing"),
+        num("total_live_weight", "Total live weight at processing", "kg"),
+        calc("avg_live_weight", "Average live weight", "g/bird"),
+      ]),
+      ...sec("Carcass Yield", [
+        num("total_carcass_weight", "Total carcass weight", "kg"),
+        calc("carcass_yield_pct", "Carcass yield", "%"),
+        num("breast_meat_weight", "Breast meat weight", "kg"),
+        calc("breast_yield_pct", "Breast yield", "%"),
+        num("wing_yield_pct", "Wing yield", "%"),
+        num("leg_quarter_yield_pct", "Leg quarter yield", "%"),
+        num("condemnations_whole", "Condemnations whole bird"),
+        calc("condemnation_rate", "Condemnation rate", "%"),
+        msel("condemnation_reason", "Condemnation reason", ["Airsacculitis", "Septicemia", "Contamination", "Cadaver", "Other"]),
+      ]),
+      ...sec("Summary Metrics", [
+        calc("total_mortality", "Total mortality study period"),
+        calc("livability_pct", "Overall livability", "%"),
+        calc("total_feed_consumed", "Total feed consumed study", "kg"),
+        calc("overall_fcr", "Overall FCR"),
+        calc("adg", "Average daily gain", "g/bird/day"),
+        calc("epef", "EPEF"),
+        txt("investigator_signoff", "Investigator sign-off"),
+      ]),
     ]),
-    leaf("reconciliation", "Feed & Bird Reconciliation", [
-      date("reconciliation_date", "Reconciliation date"),
-      num("total_feed_delivered", "Total feed delivered", "kg"),
-      calc("total_feed_consumed", "Total feed consumed", "kg"),
-      calc("feed_variance", "Feed variance", "kg"),
-      calc("birds_placed", "Birds placed"),
-      calc("total_mortality", "Total mortality"),
-      calc("total_culls", "Total culls"),
-      num("birds_processed", "Birds processed"),
-      yn("reconciliation_complete", "Reconciliation complete"),
-      ta("discrepancy_notes", "Discrepancy notes"),
-      txt("reconciled_by", "Reconciled by"),
+    leaf("reconciliation", "Study Reconciliation", [
+      ...sec("Bird Reconciliation", [
+        date("reconciliation_date", "Reconciliation date", true),
+        calc("birds_placed", "Birds placed"),
+        calc("total_deaths", "Total deaths"),
+        calc("total_culls", "Total culls"),
+        num("birds_processed", "Birds processed"),
+        calc("bird_reconciliation_check", "Bird reconciliation check"),
+      ]),
+      ...sec("Feed Reconciliation", [
+        num("total_feed_delivered", "Total feed delivered", "kg"),
+        calc("total_feed_consumed", "Total feed consumed", "kg"),
+        num("feed_remaining", "Feed remaining", "kg"),
+        calc("feed_reconciliation_check", "Feed reconciliation check"),
+      ]),
+      ...sec("Data Completeness", [
+        calc("forms_completed", "Forms completed"),
+        calc("forms_open_queries", "Forms with open queries"),
+        calc("forms_open_edit_checks", "Forms with open edit checks"),
+        yn("reconciliation_complete", "Reconciliation complete"),
+        ta("discrepancy_notes", "Discrepancy notes"),
+        txt("reconciled_by", "Reconciled by"),
+      ]),
     ]),
+  ]),
+];
+
+// Barn/house-scoped form — the Daily Environmental Log lives on the House record,
+// NOT the pen sidebar. Static ranges auto-raise edit checks (temp 18-24 °C,
+// humidity 40-70 %, CO2 ≤3000 ppm, ammonia ≤25 ppm welfare threshold).
+const PH_BARN_FORMS = [
+  leaf("daily_env_log", "Daily Environmental Log", [
+    date("log_date", "Log date", true),
+    rng("temp_morning", "Morning temperature", 18, 24, "°C"),
+    rng("temp_evening", "Evening temperature", 18, 24, "°C"),
+    rng("rh_morning", "Morning relative humidity", 40, 70, "%"),
+    rng("rh_evening", "Evening relative humidity", 40, 70, "%"),
+    rng("co2_ppm", "CO₂", 0, 3000, "ppm"),
+    rng("ammonia_ppm", "Ammonia", 0, 25, "ppm"),
+    num("ventilation_rate", "Ventilation rate", "m³/h"),
+    yn("hvac_normal", "Heating/cooling system normal"),
+    ta("equipment_issues", "Equipment issues"),
+    txt("recorded_by", "Recorded by"),
   ]),
 ];
 
@@ -824,79 +887,131 @@ const caDemo = CA_DOGS.map((d, i) => {
 // ─── Study configs (meta + hierarchy + subjects + demo) ──────────────────────
 const STUDIES = [
   {
-    key: "CX", suffix: "000000002501", code: "CX-2501",
-    name: "Anticoccidial Efficacy in Broiler Chickens",
-    sponsor: "AviCox Animal Health", phase: "Phase III",
-    type: "livestock_group", species: "chicken", enrollmentTarget: 32,
-    description: "Randomized complete block — 32 broiler pens (30 birds/pen) across 2 research units; 4 arms (T01 unchallenged/untreated, T02 challenged/untreated, T03 challenged/test, T04 challenged/reference); pen-level capture · Protocol CX-2501",
-    tree: CX_TREE,
+    key: "PH", suffix: "000000002401", code: "PH-2401",
+    name: "Phytogenic Feed Additive Broiler Growth Performance Trial",
+    sponsor: "PhytoNutra Animal Health", phase: "Phase III",
+    type: "livestock_group", species: "chicken", enrollmentTarget: 20,
+    description: "Randomized complete block — 20 broiler pens (30 birds/pen) in a single controlled-environment house; 2 arms (T01 Control, T02 Phytogenic 0.05% blend); 42 days; pen-level capture, house-level Daily Environmental Log. Primary endpoints FCR / ADG / final body weight · Protocol PHY-2025-001",
+    tree: PH_TREE,
+    barnForms: PH_BARN_FORMS,
     sites: [
-      { code: "RUA", name: "Research Unit A", location: "Gainesville, GA", pi: "Dr. R. Halverson, DVM" },
-      { code: "RUB", name: "Research Unit B", location: "Fayetteville, AR", pi: "Dr. P. Osei, DVM" },
+      { code: "RUA", name: "Research Unit A", location: "Athens, GA", pi: "Dr. R. Halverson, DVM" },
     ],
     barns: [
-      { code: "RA1", name: "Room 1", site: "RUA", capacity: 480 },
-      { code: "RB1", name: "Room 1", site: "RUB", capacity: 480 },
+      { code: "HA", name: "House A", site: "RUA", capacity: 600 },
     ],
     pens: [
-      { code: "P01", name: "Pen 01", barn: "RA1", capacity: 30 },
-      { code: "P02", name: "Pen 02", barn: "RA1", capacity: 30 },
-      { code: "P03", name: "Pen 03", barn: "RA1", capacity: 30 },
-      { code: "P04", name: "Pen 04", barn: "RA1", capacity: 30 },
-      { code: "P05", name: "Pen 05", barn: "RB1", capacity: 30 },
-      { code: "P06", name: "Pen 06", barn: "RB1", capacity: 30 },
-      { code: "P07", name: "Pen 07", barn: "RB1", capacity: 30 },
-      { code: "P08", name: "Pen 08", barn: "RB1", capacity: 30 },
+      { code: "P01", name: "Pen 01", barn: "HA", capacity: 30 },
+      { code: "P02", name: "Pen 02", barn: "HA", capacity: 30 },
+      { code: "P03", name: "Pen 03", barn: "HA", capacity: 30 },
+      { code: "P04", name: "Pen 04", barn: "HA", capacity: 30 },
+      { code: "P05", name: "Pen 05", barn: "HA", capacity: 30 },
+      { code: "P06", name: "Pen 06", barn: "HA", capacity: 30 },
     ],
     subjects: [
-      { code: "CX-2501-P01", status: "active",    arm: "T01", pen: "P01", site: "RUA" },
-      { code: "CX-2501-P02", status: "active",    arm: "T02", pen: "P02", site: "RUA" },
-      { code: "CX-2501-P03", status: "active",    arm: "T03", pen: "P03", site: "RUA" },
-      { code: "CX-2501-P04", status: "enrolled",  arm: "T04", pen: "P04", site: "RUA" },
-      { code: "CX-2501-P05", status: "active",    arm: "T01", pen: "P05", site: "RUB" },
-      { code: "CX-2501-P06", status: "active",    arm: "T02", pen: "P06", site: "RUB" },
-      { code: "CX-2501-P07", status: "active",    arm: "T03", pen: "P07", site: "RUB" },
-      { code: "CX-2501-P08", status: "screening", arm: "T04", pen: "P08", site: "RUB" },
+      { code: "PH-2401-P01", status: "active",    arm: "T01 Control",    pen: "P01", site: "RUA" },
+      { code: "PH-2401-P02", status: "active",    arm: "T02 Phytogenic", pen: "P02", site: "RUA" },
+      { code: "PH-2401-P03", status: "active",    arm: "T01 Control",    pen: "P03", site: "RUA" },
+      { code: "PH-2401-P04", status: "active",    arm: "T02 Phytogenic", pen: "P04", site: "RUA" },
+      { code: "PH-2401-P05", status: "enrolled",  arm: "T01 Control",    pen: "P05", site: "RUA" },
+      { code: "PH-2401-P06", status: "screening", arm: "T02 Phytogenic", pen: "P06", site: "RUA" },
+    ],
+    // House-level Daily Environmental Log (barn-scoped): one normal day + one with
+    // ammonia above the 25 ppm welfare threshold and evening temp above 24 °C.
+    barnDemo: [
+      { barn: "HA", forms: [
+        { key: "daily_env_log", status: "reviewed", values: {
+          log_date: "2026-05-04", temp_morning: ["21", 21], temp_evening: ["22", 22],
+          rh_morning: ["55", 55], rh_evening: ["60", 60], co2_ppm: ["1800", 1800], ammonia_ppm: ["12", 12],
+          ventilation_rate: ["4500", 4500], hvac_normal: "Yes", recorded_by: "Elisa Tron" } },
+        { key: "daily_env_log", status: "in_work", values: {
+          log_date: "2026-05-19", temp_morning: ["23", 23], temp_evening: ["25", 25],
+          rh_morning: ["62", 62], rh_evening: ["68", 68], co2_ppm: ["2600", 2600], ammonia_ppm: ["32", 32],
+          ventilation_rate: ["3800", 3800], hvac_normal: "Yes", recorded_by: "Elisa Tron" } },
+      ] },
     ],
     demo: [
-      { subject: "CX-2501-P01", forms: [
+      // P01 (T01) — completed setup + weekly visits, an open litter-moisture query, a mortality record.
+      { subject: "PH-2401-P01", forms: [
         { key: "pen_setup", status: "reviewed", values: {
-          pen_id: "P01", site: "Research Unit A", room: "Room 1", treatment_arm: "T01",
-          randomization_block: ["1", 1], birds_placed: ["30", 30], breed_strain: "Ross 308",
-          sex: "As-hatched", hatch_date: "2026-05-01", source_hatchery: "Northgate Hatchery",
-          placement_date: "2026-05-01", initial_pen_weight: ["1.26", 1.26], ration_code: "Starter" } },
-        { key: "placement_eligibility", status: "reviewed", values: {
-          randomization_confirmed: "Yes", litter_type: "Wood shavings", target_temp: ["32", 32],
-          ventilation_check: "Yes", feed_water_available: "Yes", health_status: "Normal", eligible: "Yes" } },
+          pen_id: "P01", pen_number: ["1", 1], house_barn: "House A", floor_area_m2: ["1.2", 1.2],
+          birds_placed: ["30", 30], breed_strain: "Ross 308", sex: "As-hatched",
+          hatch_date: "2026-04-20", source_hatchery: "Northgate Hatchery", placement_date: "2026-04-21",
+          treatment_arm: "T01 Control", randomization_block: ["1", 1], litter_type: "Wood shavings",
+          litter_depth: ["8", 8], litter_scoring_system: "Ekstrand 1-5", feeder_type: "Tube", drinker_type: "Nipple" } },
+        { key: "randomization", status: "reviewed", values: {
+          randomization_date: "2026-04-21", randomization_method: "Computer-generated list", block_number: ["1", 1],
+          assigned_arm: "T01 Control", randomized_by: "Elisa Tron", assignment_confirmed: "Yes" } },
+        { key: "feed_setup", status: "reviewed", values: {
+          feed_supplier: "AgriFeed Co.", feed_lot_number: "FL-7781", feed_form: "Crumble", feed_phase: "Starter D0-10",
+          feed_delivery_date: "2026-04-20", initial_feed_inventory: ["50", 50], feed_quality_check: "Yes",
+          mycotoxin_result: "Pass", crude_protein: ["22", 22], metabolizable_energy: ["3000", 3000] } },
+        { key: "baseline_d0", status: "reviewed", values: {
+          weighing_date: "2026-04-21", birds_alive: ["30", 30], total_pen_weight: ["1.26", 1.26], bw_sd: ["5", 5],
+          beginning_feed_inventory: ["50", 50], water_meter_reading: ["0", 0], flock_behavior: "Normal", weighed_by: "Elisa Tron" } },
+        { key: "body_weight", status: "reviewed", values: {
+          assessment_day: "D14", weighing_date: "2026-05-05", birds_alive: ["30", 30], cumulative_mortality: ["0", 0],
+          total_pen_weight: ["12.6", 12.6], bw_sd: ["35", 35], beginning_feed_inventory: ["30", 30],
+          feed_added: ["20", 20], feed_weighback: ["8", 8], water_meter_reading: ["180", 180], weighed_by: "Elisa Tron" } },
         { key: "body_weight", status: "in_work", values: {
-          assessment_day: "D14", date: "2026-05-15", birds_alive: ["30", 30], pen_body_weight: ["13.8", 13.8],
-          feed_added: ["20", 20], feed_weighback: ["2.5", 2.5], mortality_since_last: ["0", 0], culls_since_last: ["0", 0] } },
+          assessment_day: "D28", weighing_date: "2026-05-19", birds_alive: ["30", 30], cumulative_mortality: ["1", 1],
+          total_pen_weight: ["42.0", 42.0], bw_sd: ["90", 90], beginning_feed_inventory: ["8", 8],
+          feed_added: ["60", 60], feed_weighback: ["12", 12], water_meter_reading: ["520", 520], weighed_by: "Elisa Tron" } },
+        { key: "flock_health", status: "in_work", values: {
+          observation_date: "2026-05-19", assessment_day: "D28", flock_uniformity: "Good", flock_activity: "Normal",
+          feed_intake_appearance: "Normal", water_intake_appearance: "Normal", respiratory_signs: "No",
+          litter_condition_score: ["3", 3], litter_moisture: "Wet", caking_present: "Yes", footpad_dermatitis: "No",
+          mortality_since_last: ["1", 1], culls_since_last: ["0", 0], clinical_signs: ["Other"], observer: "Elisa Tron" },
+          query: { field: "litter_moisture", title: "Wet litter — welfare follow-up",
+            raise: "Litter moisture recorded as Wet with caking present at D28. Wet litter raises footpad-dermatitis and ammonia risk — confirm the reading, check for drinker leaks, and document the corrective action." } },
+        { key: "mortality_cull", status: "reviewed", values: {
+          event_date: "2026-05-12", assessment_day: "D21", death_count: ["1", 1], cull_count: ["0", 0],
+          cause_deaths: "Sudden death syndrome", gross_lesions: "No", recorded_by: "Elisa Tron" } },
       ] },
-      { subject: "CX-2501-P02", forms: [
+      // P02 (T02) — completed setup + weekly visit with a soft FCR edit check (FCR > 1.90).
+      { subject: "PH-2401-P02", forms: [
         { key: "pen_setup", status: "reviewed", values: {
-          pen_id: "P02", site: "Research Unit A", room: "Room 1", treatment_arm: "T02",
-          randomization_block: ["1", 1], birds_placed: ["30", 30], breed_strain: "Ross 308",
-          sex: "As-hatched", hatch_date: "2026-05-01", placement_date: "2026-05-01",
-          initial_pen_weight: ["1.24", 1.24], ration_code: "Starter" } },
-        { key: "challenge", status: "in_work", values: {
-          challenge_date: "2026-05-15", eimeria_species: ["E. acervulina", "E. maxima", "E. tenella"],
-          oocyst_dose: ["75000", 75000], route: "Oral gavage", inoculum_lot: "INO-3391",
-          birds_inoculated: ["30", 30], administered_by: "Elisa Tron" },
-          query: { field: "inoculum_lot", title: "Inoculum lot vs challenge preparation log",
-            raise: "Inoculum lot INO-3391 is not recorded on the challenge preparation log for this date. Confirm the lot and that the oocyst suspension was within its potency window.",
-            response: "Reconciled — INO-3391 was prepared the same morning; the prep log entry was filed under the prior page. Lot and titre confirmed." } },
+          pen_id: "P02", pen_number: ["2", 2], house_barn: "House A", floor_area_m2: ["1.2", 1.2],
+          birds_placed: ["30", 30], breed_strain: "Ross 308", sex: "As-hatched",
+          hatch_date: "2026-04-20", source_hatchery: "Northgate Hatchery", placement_date: "2026-04-21",
+          treatment_arm: "T02 Phytogenic", randomization_block: ["1", 1], litter_type: "Wood shavings",
+          litter_depth: ["8", 8], litter_scoring_system: "Ekstrand 1-5", feeder_type: "Tube", drinker_type: "Nipple" } },
+        { key: "randomization", status: "reviewed", values: {
+          randomization_date: "2026-04-21", randomization_method: "Computer-generated list", block_number: ["1", 1],
+          assigned_arm: "T02 Phytogenic", test_article_lot: "PHY-LOT-3320", additive_inclusion_rate: ["0.05", 0.05],
+          randomized_by: "Elisa Tron", assignment_confirmed: "Yes" } },
+        { key: "feed_setup", status: "reviewed", values: {
+          feed_supplier: "AgriFeed Co.", feed_lot_number: "FL-7782", feed_form: "Crumble", feed_phase: "Starter D0-10",
+          feed_delivery_date: "2026-04-20", initial_feed_inventory: ["50", 50], feed_quality_check: "Yes",
+          mycotoxin_result: "Pass", crude_protein: ["22", 22], metabolizable_energy: ["3000", 3000] } },
+        { key: "baseline_d0", status: "reviewed", values: {
+          weighing_date: "2026-04-21", birds_alive: ["30", 30], total_pen_weight: ["1.25", 1.25], bw_sd: ["5", 5],
+          beginning_feed_inventory: ["50", 50], water_meter_reading: ["0", 0], flock_behavior: "Normal", weighed_by: "Elisa Tron" } },
+        { key: "body_weight", status: "in_work", values: {
+          assessment_day: "D28", weighing_date: "2026-05-19", birds_alive: ["29", 29], cumulative_mortality: ["1", 1],
+          total_pen_weight: ["38.5", 38.5], bw_sd: ["110", 110], beginning_feed_inventory: ["8", 8],
+          feed_added: ["72", 72], feed_weighback: ["10", 10], water_meter_reading: ["540", 540], weighed_by: "Elisa Tron" },
+          editCheck: { field: "total_pen_weight", message: "Computed period FCR of 1.95 exceeds the broiler performance range (1.50–1.80; soft alert above 1.90) — verify the pen weight and feed weigh-back entries and investigate feed wastage or sub-optimal flock health." } },
+        { key: "mortality_cull", status: "reviewed", values: {
+          event_date: "2026-05-10", assessment_day: "D21", death_count: ["2", 2], cull_count: ["1", 1],
+          cause_deaths: "Ascites", cause_culls: "Leg disorder", gross_lesions: "Yes", recorded_by: "Elisa Tron" } },
       ] },
-      { subject: "CX-2501-P03", forms: [
+      // P03, P04 — setup only.
+      { subject: "PH-2401-P03", forms: [
         { key: "pen_setup", status: "reviewed", values: {
-          pen_id: "P03", site: "Research Unit A", room: "Room 1", treatment_arm: "T03",
-          randomization_block: ["2", 2], birds_placed: ["30", 30], breed_strain: "Ross 308",
-          sex: "As-hatched", hatch_date: "2026-05-01", placement_date: "2026-05-01",
-          initial_pen_weight: ["1.27", 1.27], ration_code: "Starter" } },
-        { key: "daily_health", status: "in_work", values: {
-          obs_date: "2026-05-21", flock_condition: "Abnormal", mortality_count: ["4", 4], cull_count: ["1", 1],
-          fecal_score: "3", diarrhea_present: "Yes", bloody_droppings: "Yes",
-          clinical_signs: ["Huddling", "Ruffled feathers", "Lethargy"], observer: "Elisa Tron" },
-          editCheck: { field: "mortality_count", message: "Mortality of 4 birds with bloody droppings (fecal score 3) at D6 post-challenge exceeds the daily threshold — investigate for severe cecal coccidiosis and notify the study veterinarian." } },
+          pen_id: "P03", pen_number: ["3", 3], house_barn: "House A", floor_area_m2: ["1.2", 1.2],
+          birds_placed: ["30", 30], breed_strain: "Ross 308", sex: "As-hatched",
+          hatch_date: "2026-04-20", source_hatchery: "Northgate Hatchery", placement_date: "2026-04-21",
+          treatment_arm: "T01 Control", randomization_block: ["2", 2], litter_type: "Wood shavings",
+          litter_depth: ["8", 8], litter_scoring_system: "Ekstrand 1-5", feeder_type: "Tube", drinker_type: "Nipple" } },
+      ] },
+      { subject: "PH-2401-P04", forms: [
+        { key: "pen_setup", status: "in_work", values: {
+          pen_id: "P04", pen_number: ["4", 4], house_barn: "House A", floor_area_m2: ["1.2", 1.2],
+          birds_placed: ["30", 30], breed_strain: "Cobb 500", sex: "As-hatched",
+          hatch_date: "2026-04-20", placement_date: "2026-04-21",
+          treatment_arm: "T02 Phytogenic", randomization_block: ["2", 2], litter_type: "Wood shavings",
+          litter_depth: ["7", 7], litter_scoring_system: "Ekstrand 1-5", feeder_type: "Tube", drinker_type: "Nipple" } },
       ] },
     ],
   },
@@ -1054,7 +1169,7 @@ for (const study of STUDIES) {
     const id = `61${ggh}${ssh}00-0000-0000-0000-${suffix}`;
     const code = `F${ggh}${ssh}`;
     formRows.push(
-      `  ('${id}','${sUuid}',${parentId ? `'${parentId}'` : "null"},'${code}',${sqlStr(node.name)},${seq})`,
+      `  ('${id}','${sUuid}',${parentId ? `'${parentId}'` : "null"},'${code}',${sqlStr(node.name)},${seq},'subject')`,
     );
     formIdByKey[study.key][node.key] = id;
     fieldIdByKey[study.key][node.key] = {};
@@ -1076,7 +1191,7 @@ for (const study of STUDIES) {
     if (node.children) {
       seq += 1;
       const gid = `61${ggh}0000-0000-0000-0000-${suffix}`;
-      formRows.push(`  ('${gid}','${sUuid}',null,'F${ggh}00',${sqlStr(node.name)},${seq})`);
+      formRows.push(`  ('${gid}','${sUuid}',null,'F${ggh}00',${sqlStr(node.name)},${seq},'subject')`);
       let ss = 0;
       for (const child of node.children) {
         ss += 1;
@@ -1086,6 +1201,27 @@ for (const study of STUDIES) {
       emitLeaf(ggh, 0, node, null);
     }
   }
+
+  // Barn/house-scoped forms (rendered on the Barn Record, excluded from the pen
+  // sidebar). Flat leaf list, distinct id prefixes (65 form / 66 field).
+  (study.barnForms ?? []).forEach((node, bi) => {
+    seq += 1;
+    const bb = h2(bi + 1);
+    const id = `65${bb}0000-0000-0000-0000-${suffix}`;
+    formRows.push(`  ('${id}','${sUuid}',null,'B${bb}',${sqlStr(node.name)},${seq},'barn')`);
+    formIdByKey[study.key][node.key] = id;
+    fieldIdByKey[study.key][node.key] = {};
+    node.fields.forEach((f, i) => {
+      const ff = h2(i + 1);
+      const fid = `66${bb}${ff}00-0000-0000-0000-${suffix}`;
+      fieldIdByKey[study.key][node.key][f.code] = fid;
+      fieldRows.push(
+        `  ('${fid}','${id}',${sqlStr(f.code)},${sqlStr(f.label)},'${f.type}',${
+          f.options ? sqlJson(f.options) : "null"
+        },${sqlStr(f.unit ?? null)},${f.req ? "true" : "false"},${i + 1},${sqlJson(f.validation ?? null)})`,
+      );
+    });
+  });
 }
 
 // ─── Emit hierarchy + subjects ───────────────────────────────────────────────
@@ -1095,11 +1231,13 @@ const penRows = [];
 const ownerRows = [];
 const subjectRows = [];
 const subjectIdByCode = {}; // [studyKey][subject_code] = uuid
+const barnIdByCode = {}; // [studyKey][barn_code] = uuid
 
 for (const study of STUDIES) {
   const suffix = study.suffix;
   const sUuid = studyUuid(suffix);
   subjectIdByCode[study.key] = {};
+  barnIdByCode[study.key] = {};
 
   // One or more sites. `study.sites` is an array; legacy single-site studies may
   // still use `study.site`. Each site has a `code`; subjects reference it via
@@ -1119,6 +1257,7 @@ for (const study of STUDIES) {
   (study.barns ?? []).forEach((b, i) => {
     const id = hierId("31", i + 1, suffix);
     barnUuidByCode[b.code] = id;
+    barnIdByCode[study.key][b.code] = id;
     const siteForBarn = siteUuidByCode[b.site ?? defaultSiteCode];
     barnRows.push(`  ('${id}','${siteForBarn}','${b.code}',${sqlStr(b.name)},${b.capacity ?? "null"})`);
   });
@@ -1166,12 +1305,19 @@ for (const study of STUDIES) {
   let vc = 0;
   let qc = 0;
   let mc = 0;
-  for (const d of study.demo) {
-    const subjectId = subjectIdByCode[study.key][d.subject];
+  // Subject (pen/animal) demo records + barn-scoped demo records (Daily Env Log)
+  // in one pass. Subject instances carry subject_id; barn instances carry barn_id.
+  const records = [
+    ...(study.demo ?? []).map((d) => ({ subjectId: subjectIdByCode[study.key][d.subject], barnId: null, forms: d.forms })),
+    ...(study.barnDemo ?? []).map((d) => ({ subjectId: null, barnId: barnIdByCode[study.key][d.barn], forms: d.forms })),
+  ];
+  for (const d of records) {
     for (const f of d.forms) {
       const formId = formIdByKey[study.key][f.key];
       const instId = demoId("63", (ic += 1), suffix);
-      instanceRows.push(`  ('${instId}','${formId}','${subjectId}','${f.status}')`);
+      instanceRows.push(
+        `  ('${instId}','${formId}',${d.subjectId ? `'${d.subjectId}'` : "null"},${d.barnId ? `'${d.barnId}'` : "null"},'${f.status}')`,
+      );
       const vidByCode = {};
       for (const [code, raw] of Object.entries(f.values)) {
         // raw forms: "str" (text/select) · ["str", num] (numeric value+value_num)
@@ -1229,7 +1375,7 @@ const membershipRows = STUDIES.map(
 
 const PREAMBLE = `-- ════════════════════════════════════════════════════════════════════════════
 -- Arken EDC — Seed data (three clinically-realistic, session-based studies)
---   CX-2501  livestock_group       chicken   Site → Room → Pen   (broiler pens, 4 arms)
+--   PH-2401  livestock_group       chicken   Site → House → Pen   (broiler pens, 2 arms; house-level Daily Env Log)
 --   BR-2502  livestock_individual  cattle    Site → Barn → Pen → Animal (age-class HR validation)
 --   CA-0801  companion             canine    Site → Subject (+ owner, at-home dogs)
 --
@@ -1272,7 +1418,8 @@ insert into species_ranges (species, vital, min, max, unit) values
   ('equine','heart_rate',28,44,'bpm'),  ('equine','temperature',37.5,38.5,'°C'),  ('equine','respiratory_rate',8,16,'breaths/min'),   ('equine','weight',350,700,'kg'),
   ('feline','heart_rate',140,220,'bpm'),('feline','temperature',38.1,39.2,'°C'),  ('feline','respiratory_rate',20,30,'breaths/min'),  ('feline','weight',2.5,9,'kg'),
   ('swine','heart_rate',70,120,'bpm'),  ('swine','temperature',38.7,39.8,'°C'),   ('swine','respiratory_rate',10,30,'breaths/min'),   ('swine','weight',20,350,'kg'),
-  ('chicken','heart_rate',250,400,'bpm'),('chicken','temperature',40.6,42.2,'°C'),('chicken','ammonia_level',0,25,'ppm');
+  ('chicken','heart_rate',250,400,'bpm'),('chicken','temperature',40.6,42.2,'°C'),('chicken','ammonia_level',0,25,'ppm'),
+  ('chicken','ammonia_ppm',0,25,'ppm'),('chicken','avg_body_weight_g',2800,3200,'g'),('chicken','fcr',1.50,1.80,''),('chicken','carcass_yield_pct',74,76,'%');
 
 -- ════════════════════════════════════════════════════════════════════════════
 -- HIERARCHY (sites → houses/barns → pens · companion owners · subjects)
@@ -1298,7 +1445,7 @@ const DEMO = `
 -- DEMO DATA — per study: a completed Screening + filled Randomization, an open
 -- edit check (out-of-range vital → auto edit-check), and a responded query.
 -- ════════════════════════════════════════════════════════════════════════════
-insert into form_instances (id, form_id, subject_id, status) values
+insert into form_instances (id, form_id, subject_id, barn_id, status) values
 ${instanceRows.join(",\n")};
 
 insert into field_values (id, form_instance_id, form_field_id, value, value_num, entered_by, entered_at) values
@@ -1317,7 +1464,7 @@ const out = [
   "\n-- ════════════════════════════════════════════════════════════════════════════",
   "-- FORMS — per-study tree (parent_form_id links sub-forms → their group container)",
   "-- ════════════════════════════════════════════════════════════════════════════",
-  "insert into forms (id, study_id, parent_form_id, code, name, sequence) values",
+  "insert into forms (id, study_id, parent_form_id, code, name, sequence, scope) values",
   formRows.join(",\n") + ";",
   "\n-- ─── Fields (groups have none; sub-forms + standalone forms carry them) ──────",
   "insert into form_fields (id, form_id, code, label, field_type, options, unit, is_required, sequence, validation) values",

@@ -52,7 +52,7 @@ export default function SitesPage() {
     return sites.map((site) => {
       const subjs = dataset.subjects.filter((s) => s.study_id === studyId && s.site_id === site.id);
       const subjIds = new Set(subjs.map((s) => s.id));
-      const instIds = new Set(dataset.formInstances.filter((i) => subjIds.has(i.subject_id)).map((i) => i.id));
+      const instIds = new Set(dataset.formInstances.filter((i) => i.subject_id != null && subjIds.has(i.subject_id)).map((i) => i.id));
       const openQueries = dataset.queries.filter((q) => instIds.has(q.form_instance_id) && q.status !== "resolved").length;
       return {
         id: site.id,

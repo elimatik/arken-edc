@@ -213,7 +213,9 @@ export function SubjectRecord({ studyId, subjectId, initialFormId }: Props) {
   const penOptions = dataset.pens.filter((p) => studyBarnIds.has(p.barn_id)).map((p) => p.name);
 
   // ─── Sidebar forms — grouped tree (store-derived) ──────────────────────────
-  const studyForms = dataset.forms.filter((f) => f.study_id === studyId).slice().sort((a, b) => a.sequence - b.sequence);
+  // Barn-scoped forms (e.g. the Daily Environmental Log) live on the House record,
+  // not the pen/subject sidebar — exclude them here.
+  const studyForms = dataset.forms.filter((f) => f.study_id === studyId && f.scope !== "barn").slice().sort((a, b) => a.sequence - b.sequence);
   const groupIds = new Set(studyForms.map((f) => f.parent_form_id).filter(Boolean) as string[]);
 
   // A single leaf (sub-form or standalone form): its status icon + open-query count.
@@ -511,7 +513,30 @@ export function SubjectRecord({ studyId, subjectId, initialFormId }: Props) {
       if (m < 0 || (m === 0 && now.getDate() < d.getDate())) age--;
       return age >= 0 ? `${age} years` : "—";
     }
-    if (field.code.includes("fec_reduction")) {
+    // PH-2401 performance metrics. FCR is cross-visit (not wired here) → "N/A"
+    // until both feed-consumed and weight-gain are available — so a baseline /
+    // first-visit FCR reads N/A, never a misleading number.
+    if (field.code.includes("fcr")) return "N/A";
+    // Single-form derived metrics (same instance) — compute when inputs are present.
+    const sameNum = (code: string): number | undefined => {
+      const f = fields.find((x) => x.code === code);
+      const v = f ? fvFor(f.id)?.value : undefined;
+      const n = Number(v);
+      return v != null && v !== "" && !Number.isNaN(n) ? n : undefined;
+    };
+    if (field.code === "avg_body_weight") {
+      const w = sameNum("total_pen_weight");
+      const b = sameNum("birds_alive");
+      if (w == null || !b) return "—";
+      return `${Math.round((w / b) * 1000)}`;
+    }
+    if (field.code === "stocking_density") {
+      const b = sameNum("birds_placed");
+      const a = sameNum("floor_area_m2");
+      if (b == null || !a) return "—";
+      return `${(b / a).toFixed(1)}`;
+    }
+    if (field.code === "fec_reduction") {
       const screeningPE = studyForms.find((f) => f.code === "F0201");
       const baseline = screeningPE ? numValFor(screeningPE.id, "fec_epg") : undefined;
       const siblingPE = activeParentId ? studyForms.find((f) => f.parent_form_id === activeParentId && f.code.endsWith("01")) : undefined;

@@ -78,12 +78,14 @@ export interface FormRow {
   code: string;
   name: string;
   sequence: number;
+  scope?: string; // 'subject' (default, pen/animal record) | 'barn' (house record)
 }
 
 export interface FormInstanceRow {
   id: string;
   form_id: string;
-  subject_id: string;
+  subject_id: string | null; // null for barn-scoped instances
+  barn_id?: string | null; // set on barn-scoped instances (Daily Environmental Log)
   status: string; // empty | in_work | reviewed | finalized | locked
   sdv_complete?: boolean; // form marked SDV-complete (session-only)
 }
