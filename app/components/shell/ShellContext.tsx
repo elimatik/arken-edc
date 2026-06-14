@@ -7,6 +7,7 @@ export interface ShellStudy {
   id: string;
   code: string;
   name: string;
+  type?: string | null; // companion | livestock_group | livestock_individual
 }
 
 export interface ShellSite {

@@ -14,7 +14,7 @@ import { Fragment, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
 import { useShell } from "@/components/shell/ShellContext";
 import { useStudySession } from "@/lib/session-store/SessionStore";
-import { evaluateField } from "@/lib/forms/validation";
+import { evaluateField, rangeLabel } from "@/lib/forms/validation";
 import type { Dataset, FormFieldRow } from "@/lib/session-store/types";
 import "../../sites/sites.css";
 import "../barns.css";
@@ -124,6 +124,7 @@ export default function BarnRecordPage() {
     setPanelInstId(id);
   }
   const panelInst = panelInstId ? logInstances.find((i) => i.id === panelInstId) : undefined;
+  const logRequiredMissing = !!panelInst && logFields.some((f) => f.is_required && logVal(panelInst.id, f.code).trim() === "");
 
   const dash = (v: string) => (v && v !== "" ? v : "—");
 
@@ -131,7 +132,7 @@ export default function BarnRecordPage() {
     <div className="sites-screen sr-rec">
       {/* Header */}
       <div className="sr-page-header">
-        <nav className="st-bc" aria-label="Breadcrumb" style={{ display: "flex", alignItems: "center", gap: 6, marginBottom: "var(--space-3)" }}>
+        <nav className="sites-bc" aria-label="Breadcrumb">
           <button className="st-bc-btn" type="button" onClick={() => router.push(`/study/${studyId}/data-entry`)}><span>Data Entry</span></button>
           {site && (
             <Fragment>
@@ -141,11 +142,13 @@ export default function BarnRecordPage() {
           )}
           <span className="st-bc-sep"><i className="ti ti-chevron-right" style={{ fontSize: "11px" }}></i></span>
           <span className="st-bc-cur">{barn.name}</span>
+          <span className="st-bc-sep"><i className="ti ti-chevron-right" style={{ fontSize: "11px" }}></i></span>
+          <span className="st-bc-cur">House record</span>
         </nav>
         <div className="sr-title-row">
           <div>
             <div className="sr-title">{barn.name}</div>
-            <div className="sr-title-sub">{barn.code} · House record · {site?.name ?? "—"}</div>
+            <div className="sr-title-sub">{barn.code} · House record</div>
           </div>
           <div className="sr-actions">
             <button className="st-btn-secondary" type="button"><i className="ti ti-download"></i> Export</button>
@@ -297,7 +300,9 @@ export default function BarnRecordPage() {
                 const v = logVal(panelInst.id, field.code);
                 const ec = evaluateField(field, v, species, dataset.speciesRanges);
                 const opts = field.options ?? [];
-                const warn = ec ? " warn" : "";
+                const missing = field.is_required && v.trim() === "";
+                const warn = ec ? " warn" : missing ? " err" : "";
+                const hint = rangeLabel(field, species, dataset.speciesRanges) ?? (field.field_type === "number" && field.unit ? field.unit : null);
                 return (
                   <div className="sr-field" key={field.id}>
                     <label className="sr-label">{field.label}{field.is_required && <span className="req"> *</span>}{field.unit ? ` (${field.unit})` : ""}</label>
@@ -311,13 +316,20 @@ export default function BarnRecordPage() {
                     ) : (
                       <input className={`sr-input${field.field_type === "number" ? " mono" : ""}${warn}`} type={field.field_type === "date" ? "date" : field.field_type === "number" ? "number" : "text"} value={v} onChange={(e) => setValue(panelInst.id, field, e.target.value)} />
                     )}
-                    {ec && <div className="brn-field-alert"><i className="ti ti-alert-triangle"></i> {ec.message}</div>}
+                    {ec ? (
+                      <div className="brn-field-alert"><i className="ti ti-alert-triangle"></i> {ec.message}</div>
+                    ) : missing ? (
+                      <div className="brn-field-required"><i className="ti ti-asterisk"></i> Required</div>
+                    ) : (
+                      hint && <div className="sr-hint">{hint}</div>
+                    )}
                   </div>
                 );
               })}
             </div>
             <div className="brn-panel-foot">
-              <button className="st-btn-primary" type="button" onClick={() => setPanelInstId(null)}>Done</button>
+              {logRequiredMissing && <span className="brn-panel-note">Complete required fields to save</span>}
+              <button className="st-btn-primary" type="button" disabled={logRequiredMissing} onClick={() => setPanelInstId(null)}>Save</button>
             </div>
           </div>
         </>

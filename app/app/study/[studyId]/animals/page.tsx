@@ -4,7 +4,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { useRouter, useParams } from "next/navigation";
 import { useShell } from "@/components/shell/ShellContext";
 import { useStudySession } from "@/lib/session-store/SessionStore";
-import { housingTerms } from "@/lib/terminology";
+import { housingTerms, animalsLabel } from "@/lib/terminology";
 import { canQuery } from "@/lib/permissions";
 import "./animals.css";
 
@@ -90,6 +90,8 @@ export default function AnimalsPage() {
   const studyType = studyRow?.type ?? "livestock_group";
   const isCompanion = studyType === "companion";
   const terms = housingTerms(studyRow);
+  const subjLabel = animalsLabel(studyRow); // "Pens" for livestock_group, else "Animals"
+  const subjSingular = subjLabel === "Pens" ? "pen" : "animal";
   const canRaise = canQuery(activeRole, "raise");
 
   // ─── Filters / sort / selection state ──────────────────────────────────────
@@ -408,9 +410,9 @@ export default function AnimalsPage() {
       <div className="an-header">
         <div className="an-title-row">
           <div>
-            <h1 className="an-title">Animals</h1>
+            <h1 className="an-title">{subjLabel}</h1>
             <div className="an-title-sub">
-              {study.code} · {siteLabel} · {rows.length} animal{rows.length === 1 ? "" : "s"} enrolled
+              {study.code} · {siteLabel} · {rows.length} {subjSingular}{rows.length === 1 ? "" : "s"} enrolled
             </div>
           </div>
           <div className="an-actions">
@@ -421,7 +423,7 @@ export default function AnimalsPage() {
               <i className="ti ti-table-export"></i> SEND export
             </button>
             <button className="btn-primary" type="button">
-              <i className="ti ti-plus"></i> Add animal
+              <i className="ti ti-plus"></i> Add {subjSingular}
             </button>
           </div>
         </div>
@@ -431,7 +433,7 @@ export default function AnimalsPage() {
       <div className="an-stat-strip">
         <div className="an-stat-item">
           <div className="an-stat-val">{stats.total}</div>
-          <div className="an-stat-lbl">Animals</div>
+          <div className="an-stat-lbl">{subjLabel}</div>
         </div>
         <div className="an-stat-item">
           <div className="an-stat-val good">{stats.activeCount}</div>
@@ -695,7 +697,7 @@ export default function AnimalsPage() {
       {/* Summary bar */}
       <div className="an-summary">
         <div className="an-summary-stat">
-          <span>Animals:</span>
+          <span>{subjLabel}:</span>
           <span className="an-summary-val">{filtered.length}</span>
         </div>
         <div className="an-summary-sep"></div>

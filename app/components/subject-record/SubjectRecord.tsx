@@ -1411,6 +1411,11 @@ export function SubjectRecord({ studyId, subjectId, initialFormId }: Props) {
               const nn = Number(raw);
               return raw != null && raw !== "" && !Number.isNaN(nn) ? nn : undefined;
             };
+            const sOf = (formId: string | undefined, instId: string | undefined, code: string): string => {
+              if (!formId || !instId) return "";
+              const fld = dataset.formFields.find((f) => f.form_id === formId && f.code === code);
+              return fld ? (dataset.fieldValues.find((v) => v.form_instance_id === instId && v.form_field_id === fld.id)?.value ?? "") : "";
+            };
             const penSetup = formByName("Pen Demographics & Setup");
             const baseline = formByName("Day 0 Baseline Weights & Feed");
             const birdsPlaced = vOf(penSetup?.id, subjInst(penSetup?.id)?.id, "birds_placed");
@@ -1418,55 +1423,96 @@ export function SubjectRecord({ studyId, subjectId, initialFormId }: Props) {
             const basePenW = vOf(baseline?.id, baseInst?.id, "total_pen_weight");
             const baseBirds = vOf(baseline?.id, baseInst?.id, "birds_alive");
             const placementAvg = basePenW != null && baseBirds ? (basePenW / baseBirds) * 1000 : 42;
-            // Walk completed weekly visits.
+            // Walk the scheduled weekly visits, building per-week rows + the rollup.
+            const fmt = (v: number | undefined, dp = 0) => (v == null || Number.isNaN(v) || !Number.isFinite(v) ? "—" : v.toFixed(dp));
             let latestDay: number | undefined, latestPenW: number | undefined, latestAlive: number | undefined, feedTotal = 0, anyVisit = false;
-            for (const d of [7, 14, 21, 28, 35, 42]) {
+            let prevPenW = basePenW;
+            const weekRows = [7, 14, 21, 28, 35, 42].map((d, i) => {
               const bwForm = formByName(`Body Weight & Feed — Day ${d}`);
+              const fhForm = formByName(`Flock Health & Litter — Day ${d}`);
               const bwInst = subjInst(bwForm?.id);
+              const fhInst = subjInst(fhForm?.id);
               const penW = vOf(bwForm?.id, bwInst?.id, "total_pen_weight");
-              if (penW == null) continue;
-              anyVisit = true;
-              latestDay = d; latestPenW = penW; latestAlive = vOf(bwForm?.id, bwInst?.id, "birds_alive");
+              const alive = vOf(bwForm?.id, bwInst?.id, "birds_alive");
+              const has = penW != null;
+              const avgBW = penW != null && alive ? Math.round((penW / alive) * 1000) : undefined;
               const beg = vOf(bwForm?.id, bwInst?.id, "beginning_feed_inventory");
               const add = vOf(bwForm?.id, bwInst?.id, "feed_added");
               const wbk = vOf(bwForm?.id, bwInst?.id, "feed_weighback");
-              if (beg != null && add != null && wbk != null) feedTotal += beg + add - wbk;
-            }
-            // Cumulative mortality from the Mortality & Cull repeating form.
+              const consumed = beg != null && add != null && wbk != null ? beg + add - wbk : undefined;
+              const gain = penW != null && prevPenW != null ? penW - prevPenW : undefined;
+              const fcr = consumed != null && gain != null && gain > 0 ? consumed / gain : undefined;
+              const row = {
+                week: i + 1, day: d, has,
+                date: sOf(bwForm?.id, bwInst?.id, "weighing_date"),
+                avgBW, consumed, fcr,
+                mort: sOf(bwForm?.id, bwInst?.id, "cumulative_mortality"),
+                litter: sOf(fhForm?.id, fhInst?.id, "litter_condition_score"),
+              };
+              if (has) { anyVisit = true; latestDay = d; latestPenW = penW; latestAlive = alive; feedTotal += consumed ?? 0; prevPenW = penW; }
+              return row;
+            });
+            // Total mortality from the Mortality & Cull repeating form (deaths + culls).
             const mortForm = formByName("Mortality & Cull Record");
             let cumMort = 0;
             if (mortForm) {
-              for (const mi of dataset.formInstances.filter((i) => i.subject_id === subjectId && i.form_id === mortForm.id)) {
+              for (const mi of dataset.formInstances.filter((x) => x.subject_id === subjectId && x.form_id === mortForm.id)) {
                 cumMort += (vOf(mortForm.id, mi.id, "death_count") ?? 0) + (vOf(mortForm.id, mi.id, "cull_count") ?? 0);
               }
             }
             const currentAvg = latestPenW != null && latestAlive ? (latestPenW / latestAlive) * 1000 : undefined;
             const gainKg = latestPenW != null && basePenW != null ? latestPenW - basePenW : undefined;
-            const fmt = (v: number | undefined, dp = 0) => (v == null || Number.isNaN(v) ? "—" : v.toFixed(dp));
+            const overallFcr = feedTotal && gainKg ? feedTotal / gainKg : undefined;
+            const livability = birdsPlaced ? ((birdsPlaced - cumMort) / birdsPlaced) * 100 : undefined;
+            const epef = livability != null && currentAvg != null && overallFcr && latestDay ? (livability * (currentAvg / 1000) * 100) / (overallFcr * latestDay) : undefined;
             const vals: Record<string, string> = {
-              total_days: latestDay != null ? String(latestDay) : "—",
               birds_placed: birdsPlaced != null ? String(birdsPlaced) : "—",
               current_birds_alive: latestAlive != null ? String(latestAlive) : "—",
-              cumulative_mortality: anyVisit || cumMort ? String(cumMort) : "—",
+              total_mortality: anyVisit || cumMort ? String(cumMort) : "—",
               cumulative_mortality_pct: birdsPlaced ? fmt((cumMort / birdsPlaced) * 100, 1) : "—",
               total_feed_consumed: anyVisit ? fmt(feedTotal, 1) : "—",
-              overall_fcr: feedTotal && gainKg ? fmt(feedTotal / gainKg, 2) : "—",
-              current_avg_bw: fmt(currentAvg, 0),
+              overall_fcr: fmt(overallFcr, 2),
               overall_adg: currentAvg != null && latestDay ? fmt((currentAvg - placementAvg) / latestDay, 1) : "—",
-              livability_pct: birdsPlaced ? fmt(((birdsPlaced - cumMort) / birdsPlaced) * 100, 1) : "—",
+              livability_pct: fmt(livability, 1),
+              epef: fmt(epef, 0),
             };
+            const cellStyle: React.CSSProperties = { padding: "6px 10px", borderBottom: "1px solid var(--color-border,#eef2f7)", textAlign: "left", whiteSpace: "nowrap" };
             return (
               <>
                 <div className="ie-banner override" role="status">
                   <i className="ti ti-sparkles"></i>
-                  Auto-generated — updates as weekly data is entered. This summary is read-only (no SDV, queries, or sign-off).
+                  Auto-generated summary — updates as weekly data is entered. Read-only (no SDV, queries, or sign-off).
                 </div>
-                <div className="field-grid-2">
+                {/* Per-week table */}
+                <div style={{ marginBottom: "var(--space-4,16px)", border: "1px solid var(--color-border,#e5e7eb)", borderRadius: "var(--radius-md,8px)", overflow: "hidden" }}>
+                  <table style={{ width: "100%", borderCollapse: "collapse", fontSize: "var(--text-xs,0.8rem)" }}>
+                    <thead>
+                      <tr style={{ color: "var(--color-text-muted,#6b7280)" }}>
+                        {["Week", "Day", "Date", "Avg BW g/bird", "Feed Consumed kg", "FCR", "Mortality", "Litter Score"].map((h, hi) => (
+                          <th key={hi} style={{ ...cellStyle, fontWeight: 600 }}>{h}</th>
+                        ))}
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {weekRows.map((r) => (
+                        <tr key={r.day} style={{ color: r.has ? undefined : "var(--color-text-muted,#9ca3af)" }}>
+                          <td style={{ ...cellStyle, fontWeight: 600 }}>{r.week}</td>
+                          <td style={cellStyle}>D{r.day}</td>
+                          <td style={cellStyle}>{r.date || "—"}</td>
+                          <td style={cellStyle}>{r.avgBW != null ? r.avgBW : "—"}</td>
+                          <td style={cellStyle}>{r.consumed != null ? r.consumed.toFixed(1) : "—"}</td>
+                          <td style={cellStyle}>{r.fcr != null ? r.fcr.toFixed(2) : (r.has ? "N/A" : "—")}</td>
+                          <td style={cellStyle}>{r.mort || "—"}</td>
+                          <td style={cellStyle}>{r.litter || "—"}</td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+                {/* Overall summary footer — same pattern as the mortality summary strip */}
+                <div className="repeat-summary" style={{ display: "flex", gap: "var(--space-4,16px)", flexWrap: "wrap", padding: "var(--space-3,12px)", background: "var(--color-surface-alt,#f8fafc)", border: "1px solid var(--color-border,#e5e7eb)", borderRadius: "var(--radius-md,8px)", fontSize: "var(--text-sm,0.875rem)" }}>
                   {fields.map((field) => (
-                    <div className="field state-locked" key={field.id}>
-                      <label className="field-label">{field.label}{field.unit ? ` (${field.unit})` : ""}</label>
-                      <div style={{ fontWeight: "var(--weight-medium,600)", fontFamily: "var(--font-mono,monospace)" }}>{vals[field.code] ?? "—"}</div>
-                    </div>
+                    <span key={field.id}><span className="muted">{field.label}{field.unit ? ` (${field.unit})` : ""}:</span> <strong>{vals[field.code] ?? "—"}</strong></span>
                   ))}
                 </div>
               </>

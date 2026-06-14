@@ -36,4 +36,8 @@
 .brn-panel-body { flex: 1; overflow-y: auto; padding: var(--space-5); display: flex; flex-direction: column; gap: var(--space-4); }
 .brn-panel-foot { padding: var(--space-4) var(--space-5); border-top: 1px solid var(--color-border); display: flex; justify-content: flex-end; gap: var(--space-2); }
 .brn-panel .sr-input.warn, .brn-panel .sr-select.warn, .brn-panel .sr-textarea.warn { border-color: var(--amber-500); }
+.brn-panel .sr-input.err, .brn-panel .sr-select.err, .brn-panel .sr-textarea.err { border-color: var(--red-400); }
 .brn-field-alert { margin-top: var(--space-1); font-size: var(--text-xs); color: var(--amber-700); display: flex; gap: 4px; align-items: flex-start; }
+.brn-field-required { margin-top: var(--space-1); font-size: var(--text-xs); color: var(--red-600); display: flex; gap: 4px; align-items: center; }
+.brn-field-required i { font-size: 10px; }
+.brn-panel-note { font-size: var(--text-xs); color: var(--color-text-tertiary); margin-right: auto; align-self: center; }

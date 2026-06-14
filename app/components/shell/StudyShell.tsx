@@ -35,7 +35,7 @@ export function StudyShell({ studyId, children }: { studyId: string; children: R
     .map((s) => ({ id: s.id, code: s.code, name: s.name }));
 
   return (
-    <AppShell study={{ id: study.id, code: study.code, name: study.name }} sites={sites}>
+    <AppShell study={{ id: study.id, code: study.code, name: study.name, type: study.type }} sites={sites}>
       {children}
     </AppShell>
   );

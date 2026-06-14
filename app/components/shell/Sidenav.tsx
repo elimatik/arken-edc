@@ -1,23 +1,27 @@
 "use client";
 
 import { navItemsForRole, navAccess, type Role } from "@/lib/permissions";
+import { animalsLabel } from "@/lib/terminology";
 
 interface SidenavProps {
   role: Role;
+  studyType?: string | null;
   activeKey: string;
   expanded: boolean;
   onSelect: (key: string) => void;
   onToggle: () => void;
 }
 
-export function Sidenav({ role, activeKey, expanded, onSelect, onToggle }: SidenavProps) {
+export function Sidenav({ role, studyType, activeKey, expanded, onSelect, onToggle }: SidenavProps) {
   const items = navItemsForRole(role);
   const topItems = items.filter((i) => !i.bottom);
   const bottomItems = items.filter((i) => i.bottom);
 
   const renderItem = (item: (typeof items)[number]) => {
     const access = navAccess(item, role);
-    let title = item.title ?? item.label;
+    // The Animals item relabels to "Pens" for group-housed livestock (pen = subject).
+    const label = item.key === "animals" ? animalsLabel({ type: studyType }) : item.label;
+    let title = item.title ?? label;
     if (access?.readonly) title += " (read-only)";
     if (access?.blinded) title += " (blinded)";
 
@@ -31,7 +35,7 @@ export function Sidenav({ role, activeKey, expanded, onSelect, onToggle }: Siden
       type="button"
     >
       <i className={`ti ti-${item.icon}`} aria-hidden="true"></i>
-      <span className="nav-label">{item.label}</span>
+      <span className="nav-label">{label}</span>
       {item.badge ? (
         <span className="nav-badge" aria-hidden="true">
           {item.badge}

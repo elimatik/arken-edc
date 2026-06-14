@@ -49,6 +49,7 @@ export function AppShell({ study, sites, children }: AppShellProps) {
       <div className="shell">
         <Sidenav
           role={activeRole}
+          studyType={study.type}
           activeKey={activeKey}
           expanded={expanded}
           onSelect={navigate}

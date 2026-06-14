@@ -30,6 +30,13 @@ export function housingTerms(study: TerminologyStudy | null | undefined): Housin
   return DEFAULT_TERMS;
 }
 
+// The list-screen / nav label for the study's subjects. Only group-housed
+// livestock relabels to "Pens" (the pen IS the subject); everything else keeps
+// "Animals" (companion + individual livestock).
+export function animalsLabel(study: TerminologyStudy | null | undefined): string {
+  return study?.type === "livestock_group" ? "Pens" : "Animals";
+}
+
 // The ordered hierarchy level names for a study, terminology applied.
 //   companion           → Site → Animal
 //   livestock_group     → Site → Barn|House → Pen   (the PEN is the subject —

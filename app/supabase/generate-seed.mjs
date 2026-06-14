@@ -141,18 +141,19 @@ const PH_WEEK_GROUPS = PH_VISIT_DAYS.map((d, i) =>
     leaf(`flock_health_d${d}`, `Flock Health & Litter — Day ${d}`, PH_FH_FIELDS),
   ]),
 );
-// Read-only auto-generated rollup across all completed weekly visits.
+// Read-only auto-generated rollup across all completed weekly visits. The fields
+// below are the overall-summary footer; the per-week table is rendered above it
+// (computed, not stored). A standalone top-level form (no group wrapper).
 const PH_PRODUCTION_SUMMARY = leaf("production_summary", "Production Summary", [
-  calc("total_days", "Total Days", "days"),
   calc("birds_placed", "Birds Placed"),
   calc("current_birds_alive", "Current Birds Alive"),
-  calc("cumulative_mortality", "Cumulative Mortality"),
+  calc("total_mortality", "Total Mortality"),
   calc("cumulative_mortality_pct", "Cumulative Mortality", "%"),
   calc("total_feed_consumed", "Total Feed Consumed", "kg"),
   calc("overall_fcr", "Overall FCR"),
-  calc("current_avg_bw", "Current Avg Body Weight", "g/bird"),
   calc("overall_adg", "Overall ADG", "g/bird/day"),
   calc("livability_pct", "Livability", "%"),
+  calc("epef", "EPEF"),
 ]);
 
 // ═══════════════════════════════════════════════════════════════════════════
@@ -248,9 +249,10 @@ const PH_TREE = [
       ]),
     ]),
   ]),
-  // Nested: Group C → 6 week sub-groups (each Body Weight + Flock Health) +
-  // a read-only Production Summary rollup as the last item.
-  grp("Weekly Production Monitoring", [...PH_WEEK_GROUPS, PH_PRODUCTION_SUMMARY]),
+  // The 6 week groups sit at the top level (each Body Weight + Flock Health),
+  // followed by the standalone read-only Production Summary.
+  ...PH_WEEK_GROUPS,
+  PH_PRODUCTION_SUMMARY,
   grp("Event Records", [
     leaf("mortality_cull", "Mortality & Cull Record", [
       ...sec("Event Details", [
