@@ -62,6 +62,16 @@ const sec = (name, fields) =>
 const grp = (name, children) => ({ name, children });
 const leaf = (key, name, fields) => ({ key, name, fields });
 const alone = (key, name, fields) => ({ key, name, fields, standalone: true });
+// Recurring visit forms — instead of one form with an "Assessment day" selector,
+// emit one individual form PER visit day (its own sidebar item, status icon,
+// query badge and SDV shield). The visit day is embedded in the form name; the
+// Subject Record shows it as a read-only "Assessment day" display (no Δ).
+const recurring = (baseKey, baseName, days, fields) =>
+  days.map((d) => leaf(`${baseKey}_d${d}`, `${baseName} — Day ${d}`, fields));
+// Visit-day schedules for the recurring forms.
+const PH_VISIT_DAYS = [7, 14, 21, 28, 35, 42];
+const BR_VITAL_DAYS = [0, 3, 7, 14, 28];
+const BR_RESPONSE_DAYS = [3, 7, 14, 28];
 
 const RAND_METHOD = ["Computer-generated", "Envelope", "IVRS"];
 
@@ -158,9 +168,9 @@ const PH_TREE = [
     ]),
   ]),
   grp("Weekly Production Monitoring", [
-    leaf("body_weight", "Body Weight & Feed Intake", [
+    // Recurring weekly visits — one individual form per visit day (D7–D42).
+    ...recurring("body_weight", "Body Weight & Feed", PH_VISIT_DAYS, [
       ...sec("Visit Information", [
-        sel("assessment_day", "Assessment day", ["D7", "D14", "D21", "D28", "D35", "D42"], true),
         date("weighing_date", "Weighing date", true),
         calc("visit_within_window", "Visit within window"),
       ]),
@@ -192,10 +202,9 @@ const PH_TREE = [
         txt("weighed_by", "Weighed by"),
       ]),
     ]),
-    leaf("flock_health", "Weekly Flock Health & Litter Observation", [
+    ...recurring("flock_health", "Flock Health & Litter", PH_VISIT_DAYS, [
       ...sec("Flock Health", [
         date("observation_date", "Observation date", true),
-        sel("assessment_day", "Assessment day", ["D7", "D14", "D21", "D28", "D35", "D42"]),
         sel("flock_uniformity", "Flock uniformity", ["Good", "Fair", "Poor"]),
         sel("flock_activity", "Flock activity level", ["Very active", "Normal", "Reduced", "Depressed"]),
         sel("feed_intake_appearance", "Feed intake appearance", ["Normal", "Reduced", "Excessive"]),
@@ -401,9 +410,9 @@ const BR_TREE = [
     ]),
   ]),
   grp("Clinical Monitoring", [
-    leaf("vital_signs", "Vital Signs / Clinical Assessment", [
+    // Recurring vital-sign visits — one individual form per visit day.
+    ...recurring("vital_signs", "Vital Signs", BR_VITAL_DAYS, [
       ...sec("Identification", [
-        sel("assessment_day", "Assessment day", ["D0", "D3", "D7", "D14", "D28"]),
         date("datetime", "Date / time", true),
       ]),
       ...sec("Vital Signs", [
@@ -420,8 +429,7 @@ const BR_TREE = [
         ta("notes", "Notes"),
       ]),
     ]),
-    leaf("clinical_response", "Clinical Response Assessment", [
-      sel("assessment_day", "Assessment day", ["D3", "D7", "D14", "D28"]),
+    ...recurring("clinical_response", "Clinical Response", BR_RESPONSE_DAYS, [
       date("date", "Date"),
       sel("clinical_illness_score", "Clinical illness score", ["0", "1", "2", "3"]),
       sel("response_vs_baseline", "Response vs baseline", ["Improved", "No change", "Worsened"]),
@@ -947,21 +955,26 @@ const STUDIES = [
         { key: "baseline_d0", status: "reviewed", values: {
           weighing_date: "2026-04-21", birds_alive: ["30", 30], total_pen_weight: ["1.26", 1.26], bw_sd: ["5", 5],
           beginning_feed_inventory: ["50", 50], water_meter_reading: ["0", 0], flock_behavior: "Normal", weighed_by: "Elisa Tron" } },
-        { key: "body_weight", status: "reviewed", values: {
-          assessment_day: "D14", weighing_date: "2026-05-05", birds_alive: ["30", 30], cumulative_mortality: ["0", 0],
-          total_pen_weight: ["12.6", 12.6], bw_sd: ["35", 35], beginning_feed_inventory: ["30", 30],
-          feed_added: ["20", 20], feed_weighback: ["8", 8], water_meter_reading: ["180", 180], weighed_by: "Elisa Tron" } },
-        { key: "body_weight", status: "in_work", values: {
-          assessment_day: "D28", weighing_date: "2026-05-19", birds_alive: ["30", 30], cumulative_mortality: ["1", 1],
-          total_pen_weight: ["42.0", 42.0], bw_sd: ["90", 90], beginning_feed_inventory: ["8", 8],
-          feed_added: ["60", 60], feed_weighback: ["12", 12], water_meter_reading: ["520", 520], weighed_by: "Elisa Tron" } },
-        { key: "flock_health", status: "in_work", values: {
-          observation_date: "2026-05-19", assessment_day: "D28", flock_uniformity: "Good", flock_activity: "Normal",
+        { key: "body_weight_d7", status: "reviewed", values: {
+          weighing_date: "2026-04-28", birds_alive: ["30", 30], cumulative_mortality: ["0", 0],
+          total_pen_weight: ["5.4", 5.4], bw_sd: ["18", 18], beginning_feed_inventory: ["50", 50],
+          feed_added: ["0", 0], feed_weighback: ["42", 42], water_meter_reading: ["60", 60], weighed_by: "Elisa Tron" } },
+        { key: "body_weight_d14", status: "reviewed", values: {
+          weighing_date: "2026-05-05", birds_alive: ["30", 30], cumulative_mortality: ["0", 0],
+          total_pen_weight: ["12.6", 12.6], bw_sd: ["35", 35], beginning_feed_inventory: ["42", 42],
+          feed_added: ["30", 30], feed_weighback: ["50", 50], water_meter_reading: ["180", 180], weighed_by: "Elisa Tron" } },
+        { key: "flock_health_d7", status: "reviewed", values: {
+          observation_date: "2026-04-28", flock_uniformity: "Good", flock_activity: "Very active",
           feed_intake_appearance: "Normal", water_intake_appearance: "Normal", respiratory_signs: "No",
-          litter_condition_score: ["3", 3], litter_moisture: "Wet", caking_present: "Yes", footpad_dermatitis: "No",
-          mortality_since_last: ["1", 1], culls_since_last: ["0", 0], clinical_signs: ["Other"], observer: "Elisa Tron" },
+          litter_condition_score: ["1", 1], litter_moisture: "Dry", caking_present: "No", footpad_dermatitis: "No",
+          mortality_since_last: ["0", 0], culls_since_last: ["0", 0], observer: "Elisa Tron" } },
+        { key: "flock_health_d14", status: "in_work", values: {
+          observation_date: "2026-05-05", flock_uniformity: "Good", flock_activity: "Normal",
+          feed_intake_appearance: "Normal", water_intake_appearance: "Normal", respiratory_signs: "No",
+          litter_condition_score: ["2", 2], litter_moisture: "Wet", caking_present: "Yes", footpad_dermatitis: "No",
+          mortality_since_last: ["0", 0], culls_since_last: ["0", 0], clinical_signs: ["Other"], observer: "Elisa Tron" },
           query: { field: "litter_moisture", title: "Wet litter — welfare follow-up",
-            raise: "Litter moisture recorded as Wet with caking present at D28. Wet litter raises footpad-dermatitis and ammonia risk — confirm the reading, check for drinker leaks, and document the corrective action." } },
+            raise: "Litter moisture recorded as Wet with caking present at D14. Wet litter raises footpad-dermatitis and ammonia risk — confirm the reading, check for drinker leaks, and document the corrective action." } },
         { key: "mortality_cull", status: "reviewed", values: {
           event_date: "2026-05-12", assessment_day: "D21", death_count: ["1", 1], cull_count: ["0", 0],
           cause_deaths: "Sudden death syndrome", gross_lesions: "No", recorded_by: "Elisa Tron" } },
@@ -985,11 +998,25 @@ const STUDIES = [
         { key: "baseline_d0", status: "reviewed", values: {
           weighing_date: "2026-04-21", birds_alive: ["30", 30], total_pen_weight: ["1.25", 1.25], bw_sd: ["5", 5],
           beginning_feed_inventory: ["50", 50], water_meter_reading: ["0", 0], flock_behavior: "Normal", weighed_by: "Elisa Tron" } },
-        { key: "body_weight", status: "in_work", values: {
-          assessment_day: "D28", weighing_date: "2026-05-19", birds_alive: ["29", 29], cumulative_mortality: ["1", 1],
-          total_pen_weight: ["38.5", 38.5], bw_sd: ["110", 110], beginning_feed_inventory: ["8", 8],
-          feed_added: ["72", 72], feed_weighback: ["10", 10], water_meter_reading: ["540", 540], weighed_by: "Elisa Tron" },
-          editCheck: { field: "total_pen_weight", message: "Computed period FCR of 1.95 exceeds the broiler performance range (1.50–1.80; soft alert above 1.90) — verify the pen weight and feed weigh-back entries and investigate feed wastage or sub-optimal flock health." } },
+        { key: "body_weight_d7", status: "reviewed", values: {
+          weighing_date: "2026-04-28", birds_alive: ["30", 30], cumulative_mortality: ["0", 0],
+          total_pen_weight: ["5.5", 5.5], bw_sd: ["17", 17], beginning_feed_inventory: ["50", 50],
+          feed_added: ["0", 0], feed_weighback: ["42", 42], water_meter_reading: ["58", 58], weighed_by: "Elisa Tron" } },
+        { key: "body_weight_d14", status: "in_work", values: {
+          weighing_date: "2026-05-05", birds_alive: ["30", 30], cumulative_mortality: ["0", 0],
+          total_pen_weight: ["13.2", 13.2], bw_sd: ["33", 33], beginning_feed_inventory: ["42", 42],
+          feed_added: ["30", 30], feed_weighback: ["48", 48], water_meter_reading: ["178", 178], weighed_by: "Elisa Tron" },
+          editCheck: { field: "total_pen_weight", message: "Computed period FCR is above the broiler performance range (1.50–1.80; soft alert above 1.90) — verify the pen weight and feed weigh-back entries and investigate feed wastage or sub-optimal flock health." } },
+        { key: "flock_health_d7", status: "reviewed", values: {
+          observation_date: "2026-04-28", flock_uniformity: "Good", flock_activity: "Very active",
+          feed_intake_appearance: "Normal", water_intake_appearance: "Normal", respiratory_signs: "No",
+          litter_condition_score: ["1", 1], litter_moisture: "Dry", caking_present: "No", footpad_dermatitis: "No",
+          mortality_since_last: ["0", 0], culls_since_last: ["0", 0], observer: "Elisa Tron" } },
+        { key: "flock_health_d14", status: "reviewed", values: {
+          observation_date: "2026-05-05", flock_uniformity: "Good", flock_activity: "Normal",
+          feed_intake_appearance: "Normal", water_intake_appearance: "Normal", respiratory_signs: "No",
+          litter_condition_score: ["2", 2], litter_moisture: "Slightly moist", caking_present: "No", footpad_dermatitis: "No",
+          mortality_since_last: ["0", 0], culls_since_last: ["0", 0], observer: "Elisa Tron" } },
         { key: "mortality_cull", status: "reviewed", values: {
           event_date: "2026-05-10", assessment_day: "D21", death_count: ["2", 2], cull_count: ["1", 1],
           cause_deaths: "Ascites", cause_culls: "Leg disorder", gross_lesions: "Yes", recorded_by: "Elisa Tron" } },
@@ -1062,8 +1089,8 @@ const STUDIES = [
           screening_date: "2026-05-22", dart_score: "2", screening_temp: ["40.4", 40.4],
           visual_brd_signs: ["Nasal discharge", "Cough", "Drooped ears"], days_on_feed: ["2", 2],
           prior_brd_treatment: "No", inclusion_met: "Yes", eligible: "Yes", randomized_arm: "T01" } },
-        { key: "vital_signs", status: "in_work", values: {
-          assessment_day: "D0", datetime: "2026-05-22", rectal_temp: ["40.6", 40.6], heart_rate: ["120", 120],
+        { key: "vital_signs_d0", status: "in_work", values: {
+          datetime: "2026-05-22", rectal_temp: ["40.6", 40.6], heart_rate: ["120", 120],
           resp_rate: ["44", 44], clinical_illness_score: "2", attitude: "Depressed", hydration: "Mild",
           bcs: "4", appetite: "Reduced" },
           editCheck: { field: "rectal_temp", message: "Rectal temperature 40.6 °C exceeds the bovine range (38.0–39.3 °C) — consistent with a febrile BRD episode; confirm against source and the screening reading. (Heart rate 120 bpm is also above the adult range 48–84 bpm for this 14-month animal.)" } },
@@ -1077,8 +1104,8 @@ const STUDIES = [
           screening_date: "2026-05-26", dart_score: "1", screening_temp: ["40.1", 40.1],
           visual_brd_signs: ["Nasal discharge", "Cough"], days_on_feed: ["1", 1],
           prior_brd_treatment: "No", inclusion_met: "Yes", eligible: "Yes", randomized_arm: "T02" } },
-        { key: "vital_signs", status: "in_work", values: {
-          assessment_day: "D0", datetime: "2026-05-26", rectal_temp: ["39.1", 39.1], heart_rate: ["120", 120],
+        { key: "vital_signs_d0", status: "in_work", values: {
+          datetime: "2026-05-26", rectal_temp: ["39.1", 39.1], heart_rate: ["120", 120],
           resp_rate: ["40", 40], clinical_illness_score: "1", attitude: "Quiet", hydration: "Normal",
           bcs: "4", appetite: "Normal" } },
       ] },

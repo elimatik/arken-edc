@@ -129,6 +129,7 @@ export function SubjectRecord({ studyId, subjectId, initialFormId }: Props) {
   const { dataset, ready, update } = useStudySession();
 
   const [selectedFormId, setSelectedFormId] = useState<string | undefined>(initialFormId);
+  const [flashFormId, setFlashFormId] = useState<string | null>(null); // briefly highlights a sidebar item after a summary-row jump
   // null = not yet initialised → default to "all groups collapsed except the active one".
   const [collapsedGroups, setCollapsedGroups] = useState<Set<string> | null>(null);
   const [remarksOpen, setRemarksOpen] = useState(false);
@@ -285,14 +286,30 @@ export function SubjectRecord({ studyId, subjectId, initialFormId }: Props) {
     else next.add(id);
     setCollapsedGroups(next);
   }
+  // Jump to a form in the sidebar (from a summary-table row): select it, make sure
+  // its group is expanded, scroll its item into view, and flash it briefly.
+  function goToForm(formId: string) {
+    setSelectedFormId(formId);
+    const f = studyForms.find((x) => x.id === formId);
+    if (f?.parent_form_id) {
+      const next = new Set(collapsedSet);
+      next.delete(f.parent_form_id);
+      setCollapsedGroups(next);
+    }
+    setFlashFormId(formId);
+    setTimeout(() => document.getElementById(`sb-form-${formId}`)?.scrollIntoView({ block: "nearest", behavior: "smooth" }), 0);
+    setTimeout(() => setFlashFormId((cur) => (cur === formId ? null : cur)), 1500);
+  }
   function renderLeaf(item: LeafItem) {
     return (
       <button
         key={item.id}
+        id={`sb-form-${item.id}`}
         className={`form-item${item.id === activeFormId ? " active" : ""}${item.icon === "final" ? " done" : ""}`}
         onClick={() => setSelectedFormId(item.id)}
         title={item.name}
         type="button"
+        style={item.id === flashFormId ? { outline: "2px solid var(--blue-500,#3b82f6)", outlineOffset: "-2px", borderRadius: "var(--radius-sm,6px)", transition: "outline-color .3s" } : undefined}
       >
         <span className="form-item-label">{item.name}</span>
         <div className="form-item-right">
@@ -1293,21 +1310,30 @@ export function SubjectRecord({ studyId, subjectId, initialFormId }: Props) {
               Eligibility override — PI {subject.override_by ?? "—"} documented a reason for override on {subject.override_at ?? "—"}. This subject was initially flagged as ineligible.
             </div>
           )}
-          {/* Weekly performance summary — a longitudinal read-only view at the top of
-              the Weekly Production Monitoring group (one row per D7–D42 visit). */}
+          {/* Assessment-day display (read-only) for recurring per-visit forms — the
+              visit day is embedded in the form name; never editable, no Δ fires. */}
+          {(() => {
+            const m = selectedForm?.name?.match(/—\s*Day\s*(\d+)/);
+            if (!m) return null;
+            return (
+              <div className="field" style={{ marginBottom: "var(--space-3,12px)" }}>
+                <label className="field-label">Assessment day</label>
+                <div style={{ fontWeight: "var(--weight-medium,600)", fontFamily: "var(--font-mono,monospace)" }}>Day {m[1]}</div>
+              </div>
+            );
+          })()}
+          {/* Weekly performance summary — one row per scheduled visit (D7–D42), pulled
+              from the matching per-day Body Weight / Flock Health forms. Clicking a row
+              jumps to (and flashes) that visit's form in the sidebar. */}
           {activeParentId && studyForms.find((f) => f.id === activeParentId)?.name === "Weekly Production Monitoring" && (() => {
-            const bwForm = studyForms.find((f) => f.name === "Body Weight & Feed Intake");
-            const fhForm = studyForms.find((f) => f.name === "Weekly Flock Health & Litter Observation");
+            const inst = (formId?: string) => (formId ? dataset.formInstances.find((i) => i.subject_id === subjectId && i.form_id === formId) : undefined);
             const fieldOf = (formId: string, code: string) => dataset.formFields.find((f) => f.form_id === formId && f.code === code);
             const valOf = (instId: string, formId: string, code: string) => {
               const f = fieldOf(formId, code);
               return f ? (dataset.fieldValues.find((v) => v.form_instance_id === instId && v.form_field_id === f.id)?.value ?? "") : "";
             };
-            const instByDay = (formId: string, day: string) =>
-              dataset.formInstances.find((i) => i.subject_id === subjectId && i.form_id === formId && valOf(i.id, formId, "assessment_day") === day);
             const toNum = (s: string): number | undefined => { const n = Number(s); return s !== "" && !Number.isNaN(n) ? n : undefined; };
             const dash = (v: string | number | undefined) => (v == null || v === "" ? "—" : v);
-            const days = ["D7", "D14", "D21", "D28", "D35", "D42"];
             const cellStyle: React.CSSProperties = { padding: "6px 10px", borderBottom: "1px solid var(--color-border,#eef2f7)", textAlign: "left", whiteSpace: "nowrap" };
             return (
               <div style={{ marginBottom: "var(--space-4,16px)", border: "1px solid var(--color-border,#e5e7eb)", borderRadius: "var(--radius-md,8px)", overflow: "hidden" }}>
@@ -1317,29 +1343,37 @@ export function SubjectRecord({ studyId, subjectId, initialFormId }: Props) {
                 <table style={{ width: "100%", borderCollapse: "collapse", fontSize: "var(--text-xs,0.8rem)" }}>
                   <thead>
                     <tr style={{ color: "var(--color-text-muted,#6b7280)" }}>
-                      {["Day", "Date", "Avg BW g/bird", "Feed Consumed kg", "FCR", "Mortality", "Litter Score"].map((h) => (
-                        <th key={h} style={{ ...cellStyle, fontWeight: 600 }}>{h}</th>
+                      {["", "Day", "Date", "Avg BW g/bird", "Feed Consumed kg", "FCR", "Mortality", "Litter Score"].map((h, hi) => (
+                        <th key={hi} style={{ ...cellStyle, fontWeight: 600 }}>{h}</th>
                       ))}
                     </tr>
                   </thead>
                   <tbody>
-                    {days.map((day) => {
-                      const bw = bwForm ? instByDay(bwForm.id, day) : undefined;
-                      const fh = fhForm ? instByDay(fhForm.id, day) : undefined;
+                    {[7, 14, 21, 28, 35, 42].map((n) => {
+                      const bwForm = studyForms.find((f) => f.name === `Body Weight & Feed — Day ${n}`);
+                      const fhForm = studyForms.find((f) => f.name === `Flock Health & Litter — Day ${n}`);
+                      const bw = inst(bwForm?.id);
+                      const fh = inst(fhForm?.id);
                       const penW = bw && bwForm ? toNum(valOf(bw.id, bwForm.id, "total_pen_weight")) : undefined;
                       const alive = bw && bwForm ? toNum(valOf(bw.id, bwForm.id, "birds_alive")) : undefined;
                       const avgBW = penW != null && alive ? Math.round((penW / alive) * 1000) : undefined;
                       const begin = bw && bwForm ? toNum(valOf(bw.id, bwForm.id, "beginning_feed_inventory")) : undefined;
                       const added = bw && bwForm ? toNum(valOf(bw.id, bwForm.id, "feed_added")) : undefined;
-                      const wb = bw && bwForm ? toNum(valOf(bw.id, bwForm.id, "feed_weighback")) : undefined;
-                      const consumed = begin != null && added != null && wb != null ? begin + added - wb : undefined;
+                      const wbk = bw && bwForm ? toNum(valOf(bw.id, bwForm.id, "feed_weighback")) : undefined;
+                      const consumed = begin != null && added != null && wbk != null ? begin + added - wbk : undefined;
                       const date = bw && bwForm ? valOf(bw.id, bwForm.id, "weighing_date") : "";
                       const mort = bw && bwForm ? valOf(bw.id, bwForm.id, "cumulative_mortality") : "";
                       const litter = fh && fhForm ? valOf(fh.id, fhForm.id, "litter_condition_score") : "";
                       const has = !!bw || !!fh;
+                      const isActiveRow = bwForm?.id === activeFormId || fhForm?.id === activeFormId;
                       return (
-                        <tr key={day} style={{ color: has ? undefined : "var(--color-text-muted,#9ca3af)" }}>
-                          <td style={{ ...cellStyle, fontWeight: 600 }}>{day}</td>
+                        <tr
+                          key={n}
+                          onClick={() => bwForm && goToForm(bwForm.id)}
+                          style={{ cursor: bwForm ? "pointer" : "default", color: has ? undefined : "var(--color-text-muted,#9ca3af)", background: isActiveRow ? "var(--color-surface-alt,#f1f5f9)" : undefined }}
+                        >
+                          <td style={cellStyle}><StatusGlyph icon={iconForInstance(bw?.status)} /></td>
+                          <td style={{ ...cellStyle, fontWeight: 600 }}>D{n}</td>
                           <td style={cellStyle}>{dash(date)}</td>
                           <td style={cellStyle}>{dash(avgBW)}</td>
                           <td style={cellStyle}>{consumed != null ? consumed.toFixed(1) : "—"}</td>
