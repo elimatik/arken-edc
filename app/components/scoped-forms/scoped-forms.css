@@ -16,6 +16,14 @@
 .scf-name { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 
 .scf-content { flex: 1; min-width: 0; }
+
+/* Entry selector for recurring/log forms (Daily Env Log, Feed Delivery …) */
+.scf-entries { display: flex; flex-wrap: wrap; gap: var(--space-1); align-items: center; margin-bottom: var(--space-3); padding-bottom: var(--space-3); border-bottom: 1px solid var(--color-border-subtle); }
+.scf-entry-chip { font-size: var(--text-xs); font-family: var(--font-mono); padding: 3px 10px; border: 1px solid var(--color-border); border-radius: var(--radius-full); background: var(--color-surface); color: var(--color-text-secondary); cursor: pointer; }
+.scf-entry-chip:hover { background: var(--color-hover-bg); }
+.scf-entry-chip.active { background: var(--color-cta-bg, var(--blue-600)); border-color: var(--color-cta-bg, var(--blue-600)); color: #fff; }
+.scf-entry-add { font-size: var(--text-xs); font-weight: var(--weight-medium); padding: 3px 10px; border: 1px dashed var(--color-border); border-radius: var(--radius-full); background: none; color: var(--color-link, var(--blue-600)); cursor: pointer; display: inline-flex; align-items: center; gap: 4px; }
+.scf-entry-add:hover { background: var(--color-hover-bg); }
 .scf-glyph { width: 10px; height: 10px; border-radius: 50%; flex-shrink: 0; display: inline-block; }
 .scf-glyph.empty { border: 1.5px solid var(--color-border-strong, #cbd5e1); }
 .scf-glyph.in_work { background: var(--amber-400); }

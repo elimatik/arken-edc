@@ -105,7 +105,6 @@ export default function SiteRecordPage() {
   if (!ready) return <div className="sites-screen"><div className="sites-loading"><i className="ti ti-loader-2"></i><span>Loading…</span></div></div>;
   if (!site) return <div className="sites-screen"><div className="sites-empty" style={{ margin: "var(--space-8)" }}><i className="ti ti-alert-triangle"></i> Site not found.</div></div>;
 
-  const sm = STATUS_META[form.status] || STATUS_META.setup;
   const roInfo = !editingInfo, roReg = !editingReg;
   const iecChip = expiryChip(form.iec_expiry_date);
 

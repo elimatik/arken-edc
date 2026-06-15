@@ -13,9 +13,10 @@
 // required fields block save, range hints show under numeric fields.
 // ════════════════════════════════════════════════════════════════════════════
 
-import { Fragment, useState } from "react";
+import { useRef, useState } from "react";
 import { useStudySession } from "@/lib/session-store/SessionStore";
 import { evaluateField, rangeLabel } from "@/lib/forms/validation";
+import { ScopedFormRenderer } from "./ScopedFormRenderer";
 import type { Dataset, FormFieldRow, FormRow } from "@/lib/session-store/types";
 import "./scoped-forms.css";
 
@@ -238,72 +239,15 @@ export function ScopedRepeatingTable({ studyId, scope, scopeId, form }: { studyI
   );
 }
 
-// ─── One-time sectioned form (SIV, Close-out …) ───────────────────────────────
-function ScopedSectionedForm({ studyId, scope, scopeId, form }: { studyId: string; scope: Scope; scopeId: string; form: FormRow }) {
-  const s = useScoped(studyId, scope, scopeId);
-  const fields = s.fieldsFor(form.id);
-  const inst = s.instancesFor(form.id)[0];
-  // Ensure a single instance exists for editing (lazily created on first render).
-  const instId = inst?.id;
-  const ensure = (): string => instId ?? s.addInstance(form.id);
-  const [submitAttempted, setSubmitAttempted] = useState(false);
-
-  const computed = (f: FormFieldRow): string => {
-    if (!instId) return "—";
-    if (f.code === "all_satisfactory") {
-      const yns = fields.filter((x) => x.field_type === "radio" && x.code !== "site_approved_to_enroll" && x.options?.length === 2);
-      const answered = yns.filter((x) => s.valueOf(instId, x.id) !== "");
-      if (answered.length === 0) return "—";
-      return yns.every((x) => s.valueOf(instId, x.id) === "Yes") ? "Yes" : "No";
-    }
-    return "—";
-  };
-
-  const requiredMissing = fields.some((f) => f.is_required && (!instId || s.valueOf(instId, f.id).trim() === ""));
-  const status = inst?.status ?? "empty";
-  const reviewed = status === "reviewed" || status === "finalized";
-
-  // Section grouping (validation.section); fall back to one flat block.
-  const sections: { title: string | null; fields: FormFieldRow[] }[] = [];
-  for (const f of fields) {
-    const sec = (f.validation as { section?: string } | null)?.section ?? null;
-    const last = sections[sections.length - 1];
-    if (last && last.title === sec) last.fields.push(f); else sections.push({ title: sec, fields: [f] });
-  }
-
-  return (
-    <div>
-      {sections.map((sct, si) => (
-        <Fragment key={si}>
-          {sct.title && <div className="scf-section-title">{sct.title}</div>}
-          <div className="scf-grid">
-            {sct.fields.map((f) => f.field_type === "calculated" ? (
-              <div className="scf-field" key={f.id}><label className="scf-label">{f.label}{f.unit ? ` (${f.unit})` : ""}</label><div className="scf-readonly">{computed(f)}</div></div>
-            ) : (
-              <ScopedField key={f.id} field={f} value={instId ? s.valueOf(instId, f.id) : ""} onChange={(v) => s.setValue(ensure(), f, v)} species={s.species} ranges={s.ranges} forceShow={submitAttempted} />
-            ))}
-          </div>
-        </Fragment>
-      ))}
-      <div className="scf-form-foot">
-        <span className="scf-form-note">{reviewed ? "Reviewed — changes are tracked in the audit trail." : "Saved to session; required fields must be complete before submitting for review."}</span>
-        {reviewed ? (
-          <span className="scf-status-pill current"><i className="ti ti-check"></i> Reviewed</span>
-        ) : (
-          <button className="st-btn-primary" type="button" onClick={() => { if (requiredMissing || !instId) { setSubmitAttempted(true); return; } s.setStatus(instId, "reviewed"); }}>Submit for review</button>
-        )}
-      </div>
-    </div>
-  );
-}
-
-// ─── Forms tab: form list + content ───────────────────────────────────────────
+// ─── Forms tab: form list + content (each form rendered with the FULL flow) ────
 export function ScopedFormFlow({ studyId, scope, scopeId, exclude = [], topNote }: { studyId: string; scope: Scope; scopeId: string; exclude?: string[]; topNote?: Record<string, string> }) {
   const s = useScoped(studyId, scope, scopeId);
   const forms = s.dataset.forms
     .filter((f) => f.study_id === studyId && f.scope === scope && !exclude.includes(f.name))
     .slice().sort((a, b) => a.sequence - b.sequence);
   const [selId, setSelId] = useState<string | null>(null);
+  const [activeInstId, setActiveInstId] = useState<string | null>(null);
+  const pendingRef = useRef<Record<string, string>>({}); // one-time forms not yet saved
   const form = forms.find((f) => f.id === selId) ?? forms[0];
 
   if (forms.length === 0) return <div className="scf-empty">No {scope === "site" ? "site" : "house"}-level forms for this study.</div>;
@@ -315,12 +259,25 @@ export function ScopedFormFlow({ studyId, scope, scopeId, exclude = [], topNote 
     return "in_work";
   };
 
+  const fields = form ? s.fieldsFor(form.id) : [];
+  const insts = form ? s.instancesFor(form.id) : [];
+  const recurring = form ? SCOPED_REPEATING.has(form.name) : false;
+  const dateField = fields.find((f) => f.field_type === "date");
+  const instLabel = (inst: { id: string }, idx: number) => (dateField ? s.valueOf(inst.id, dateField.id) : "") || `Entry ${idx + 1}`;
+  // The instance to render: a selected/first entry for recurring logs; for one-time
+  // forms the single instance (a stable generated id until first saved).
+  const renderInstId = !form ? undefined : recurring
+    ? (activeInstId && insts.some((i) => i.id === activeInstId) ? activeInstId : insts[0]?.id)
+    : (insts[0]?.id ?? (pendingRef.current[form.id] ||= crypto.randomUUID()));
+
+  function addEntry() { if (!form) return; setActiveInstId(s.addInstance(form.id)); }
+
   return (
     <div className="scf">
       <div className="scf-list">
         <div className="scf-list-label">Forms</div>
         {forms.map((f) => (
-          <button key={f.id} className={`scf-list-item${f.id === form?.id ? " active" : ""}`} type="button" onClick={() => setSelId(f.id)} title={f.name}>
+          <button key={f.id} className={`scf-list-item${f.id === form?.id ? " active" : ""}`} type="button" onClick={() => { setSelId(f.id); setActiveInstId(null); }} title={f.name}>
             <span className="scf-name">{f.name}</span>
             <span className={`scf-glyph ${glyphFor(f)}`}></span>
           </button>
@@ -328,9 +285,19 @@ export function ScopedFormFlow({ studyId, scope, scopeId, exclude = [], topNote 
       </div>
       <div className="scf-content">
         {form && topNote?.[form.name] && <div className="scf-banner note"><i className="ti ti-info-circle"></i> {topNote[form.name]}</div>}
-        {form && (SCOPED_REPEATING.has(form.name)
-          ? <ScopedRepeatingTable studyId={studyId} scope={scope} scopeId={scopeId} form={form} />
-          : <ScopedSectionedForm studyId={studyId} scope={scope} scopeId={scopeId} form={form} />)}
+        {form && recurring && (
+          <div className="scf-entries">
+            {insts.map((i, idx) => (
+              <button key={i.id} type="button" className={`scf-entry-chip${i.id === renderInstId ? " active" : ""}`} onClick={() => setActiveInstId(i.id)}>{instLabel(i, idx)}</button>
+            ))}
+            <button type="button" className="scf-entry-add" onClick={addEntry}><i className="ti ti-plus"></i> New entry</button>
+          </div>
+        )}
+        {form && (recurring && !renderInstId
+          ? <div className="scf-empty">No entries yet. Use “New entry” to start.</div>
+          : renderInstId
+          ? <ScopedFormRenderer key={renderInstId} studyId={studyId} scope={scope} scopeId={scopeId} form={form} instanceId={renderInstId} />
+          : null)}
       </div>
     </div>
   );

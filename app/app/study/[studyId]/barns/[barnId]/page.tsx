@@ -183,8 +183,8 @@ export default function BarnRecordPage() {
                   {isAdmin && !editingHouse && <button className="st-btn-secondary" type="button" onClick={() => setEditingHouse(true)}><i className="ti ti-pencil"></i> Edit</button>}</div>
                 <div className="sr-card-body">
                   <div className="sr-grid-3" style={{ rowGap: "var(--space-5)" }}>
-                    <RoField label="House name" value={barn.name} ro />
-                    <RoField label="House ID" value={barn.code.toUpperCase()} mono ro />
+                    <RoField label="House name" value={barn.name} />
+                    <RoField label="House ID" value={barn.code.toUpperCase()} mono />
                     <SelField label="Current status" value={hf.house_status} ro={!editingHouse} opts={["In Setup", "Active", "Closed"]} onChange={(v) => setHf({ ...hf, house_status: v })} badge />
                     <NumField label="Floor area" unit="m²" value={hf.floor_area_m2} ro={!editingHouse} onChange={(v) => setHf({ ...hf, floor_area_m2: v })} />
                     <NumField label="Capacity" unit="birds" value={hf.capacity} ro={!editingHouse} onChange={(v) => setHf({ ...hf, capacity: v })} />
@@ -280,7 +280,7 @@ export default function BarnRecordPage() {
 }
 
 // ─── Small Overview field helpers ─────────────────────────────────────────────
-function RoField({ label, value, mono, ro }: { label: string; value: string; mono?: boolean; ro?: boolean }) {
+function RoField({ label, value, mono }: { label: string; value: string; mono?: boolean }) {
   return <div className="sr-field"><label className="sr-label">{label}</label><div className={`brn-val${mono ? " mono" : ""}${value ? "" : " muted"}`}>{value || "—"}</div></div>;
 }
 function TxtField({ label, value, ro, onChange }: { label: string; value: string; ro: boolean; onChange: (v: string) => void }) {
