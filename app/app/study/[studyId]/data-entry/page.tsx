@@ -112,7 +112,7 @@ export default function DataEntryPage() {
       .slice()
       .sort((a, b) => a.subject_code.localeCompare(b.subject_code));
     const allForms = dataset.forms
-      .filter((f) => f.study_id === studyId && f.scope !== "barn") // barn-scoped → House record, not the pen progress
+      .filter((f) => f.study_id === studyId && (f.scope ?? "subject") === "subject") // only subject forms count toward pen progress
       .slice()
       .sort((a, b) => a.sequence - b.sequence);
     // Group containers have no fields/instances — count only leaf (sub-)forms.
@@ -570,7 +570,11 @@ export default function DataEntryPage() {
                                 title={`Open ${levels[n.level].toLowerCase()} record`}
                                 onClick={(e) => {
                                   e.stopPropagation();
-                                  drillInto(n);
+                                  // Site row → Site Record; barn/house row → Barn Record;
+                                  // deeper container rows just drill in (no record page).
+                                  if (n.level === 0) router.push(`/study/${studyId}/sites/${n.id}`);
+                                  else if (n.level === 1) router.push(`/study/${studyId}/barns/${n.id}`);
+                                  else drillInto(n);
                                 }}
                                 type="button"
                               >

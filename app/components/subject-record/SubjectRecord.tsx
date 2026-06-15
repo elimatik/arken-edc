@@ -218,9 +218,9 @@ export function SubjectRecord({ studyId, subjectId, initialFormId }: Props) {
   const penOptions = dataset.pens.filter((p) => studyBarnIds.has(p.barn_id)).map((p) => p.name);
 
   // ─── Sidebar forms — grouped tree (store-derived) ──────────────────────────
-  // Barn-scoped forms (e.g. the Daily Environmental Log) live on the House record,
-  // not the pen/subject sidebar — exclude them here.
-  const studyForms = dataset.forms.filter((f) => f.study_id === studyId && f.scope !== "barn").slice().sort((a, b) => a.sequence - b.sequence);
+  // Only subject-scoped forms appear in the pen/subject sidebar — barn-scoped
+  // (House record) and site-scoped (Site record) forms are rendered elsewhere.
+  const studyForms = dataset.forms.filter((f) => f.study_id === studyId && (f.scope ?? "subject") === "subject").slice().sort((a, b) => a.sequence - b.sequence);
   const groupIds = new Set(studyForms.map((f) => f.parent_form_id).filter(Boolean) as string[]);
 
   // A single leaf (sub-form or standalone form): its status icon + open-query count.
