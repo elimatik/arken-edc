@@ -2,10 +2,15 @@
 
 // ════════════════════════════════════════════════════════════════════════════
 // Scoped form flow — renders site-/barn-scoped forms (instances keyed by site_id
-// or barn_id, not subject_id). Two exports:
-//   • ScopedFormFlow      — the record's Forms tab: a form list + content area.
-//       One-time forms render as a sectioned read/write grid with a Submit-for-
-//       review button; recurring/log forms render as a table + slide-in panel.
+// or barn_id, not subject_id). Laid out to match the Subject Record exactly:
+//   • ScopedFormFlow      — the record's Forms tab: a Subject-Record-style sidebar
+//       (.form-sidebar with status glyphs / query badges / SDV shields) + a form
+//       content pane with a sticky header (title + Remarks + status CTA) over a
+//       scrolling body. One-time forms render as a sectioned field grid; repeating
+//       forms render as a table + a fields-only slide-in entry panel. The Remarks
+//       modes (Queries / SDV) and the Submit/Finalize/Lock CTA live at the FORM
+//       level and apply to the whole form (all entries together for a repeating
+//       form).
 //   • ScopedRepeatingTable — a single repeating form's table + add/edit panel,
 //       reused directly in the Overview tab (Equipment Calibration, Continuing
 //       Review).
@@ -13,14 +18,30 @@
 // required fields block save, range hints show under numeric fields.
 // ════════════════════════════════════════════════════════════════════════════
 
-import { useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
+import { useShell } from "@/components/shell/ShellContext";
 import { useStudySession } from "@/lib/session-store/SessionStore";
+import { canSDV } from "@/lib/permissions";
+import { useNdaName } from "@/lib/use-nda-name";
 import { evaluateField, rangeLabel } from "@/lib/forms/validation";
-import { ScopedFormRenderer } from "./ScopedFormRenderer";
+import { ScopedFieldGrid, isSdvEligible } from "./ScopedFieldGrid";
+import { StatusGlyph, SidebarSdv, iconForInstance, ICON_LABEL, STATUS_LABEL, type SidebarIcon } from "@/components/subject-record/status-icons";
 import type { Dataset, FormFieldRow, FormRow } from "@/lib/session-store/types";
+import "@/components/subject-record/subject-record.css";
 import "./scoped-forms.css";
 
 type Scope = "site" | "barn";
+
+const newId = () => crypto.randomUUID();
+const todayISO = () => new Date().toISOString().slice(0, 10);
+const STATUS_CAP = (s: string) => s.charAt(0).toUpperCase() + s.slice(1);
+const STATUS_RANK: Record<string, number> = { empty: 0, in_work: 1, in_review: 2, reviewed: 3, finalized: 4, locked: 5 };
+const STATUS_FLOW: Record<string, { next: string; label: string; roles: string[]; esign?: boolean }> = {
+  in_work: { next: "in_review", label: "Submit for Review", roles: ["CRC", "CRA"] },
+  in_review: { next: "reviewed", label: "Mark Reviewed", roles: ["CRA", "DM", "PI"] },
+  reviewed: { next: "finalized", label: "Finalize", roles: ["PI", "DM"] },
+  finalized: { next: "locked", label: "Lock", roles: ["DM"], esign: true },
+};
 
 // Forms that render as a repeating table (one row per instance). Everything else
 // is a one-time sectioned form (a single instance).
@@ -101,7 +122,7 @@ function parseMulti(v: string): string[] {
   try { const a = JSON.parse(v || "[]"); return Array.isArray(a) ? a : []; } catch { return v ? v.split(",").map((s) => s.trim()).filter(Boolean) : []; }
 }
 
-// ─── Shared data helpers (one hook, reused by both exports) ───────────────────
+// ─── Shared data helpers (one hook, reused by every export) ───────────────────
 function useScoped(studyId: string, scope: Scope, scopeId: string) {
   const { dataset, update } = useStudySession();
   const species = dataset.studies.find((s) => s.id === studyId)?.species ?? "chicken";
@@ -133,7 +154,7 @@ function useScoped(studyId: string, scope: Scope, scopeId: string) {
   function setStatus(instId: string, status: string) {
     update((d: Dataset) => { const fi = d.formInstances.find((i) => i.id === instId); if (fi) fi.status = status; });
   }
-  return { dataset, species, ranges, instancesFor, fieldsFor, valueOf, valByCode, setValue, addInstance, deleteInstance, setStatus };
+  return { dataset, update, species, ranges, instancesFor, fieldsFor, valueOf, valByCode, setValue, addInstance, deleteInstance, setStatus };
 }
 
 // ─── A single editable field (label + control + hint / edit-check / required) ──
@@ -177,7 +198,7 @@ function ScopedField({ field, value, onChange, species, ranges, forceShow }: {
   );
 }
 
-// ─── Repeating form: table + slide-in entry panel ─────────────────────────────
+// ─── Repeating form: table + slide-in entry panel (Overview-tab cards) ────────
 export function ScopedRepeatingTable({ studyId, scope, scopeId, form }: { studyId: string; scope: Scope; scopeId: string; form: FormRow }) {
   const s = useScoped(studyId, scope, scopeId);
   const fields = s.fieldsFor(form.id);
@@ -239,105 +260,260 @@ export function ScopedRepeatingTable({ studyId, scope, scopeId, form }: { studyI
   );
 }
 
-// ─── Recurring/log form: a repeating TABLE + a slide-in panel running the full
-// ScopedFormRenderer flow (edit checks fire inline, ammonia >25 / temp out of
-// range → EC-). One row per entry; an Alerts column counts the row's open edit
-// checks; Status shows the instance status. Scales to 40+ rows (no per-day tabs).
-function ScopedLogTable({ studyId, scope, scopeId, form, topNote }: { studyId: string; scope: Scope; scopeId: string; form: FormRow; topNote?: string }) {
+// ─── A single form's content pane — Subject-Record-style sticky header (title +
+// Remarks + status CTA) over a scrolling body. One-time forms render the field
+// grid directly; repeating forms render a table + a fields-only slide-in entry
+// panel. The Remarks modes and the CTA are form-level and apply to the whole form
+// (all entries together for a repeating form). ───────────────────────────────
+function ScopedFormView({ studyId, scope, scopeId, form, modeQueries, modeSdv, setModeQueries, setModeSdv, topNote }: {
+  studyId: string; scope: Scope; scopeId: string; form: FormRow;
+  modeQueries: boolean; modeSdv: boolean; setModeQueries: (f: (m: boolean) => boolean) => void; setModeSdv: (f: (m: boolean) => boolean) => void; topNote?: string;
+}) {
   const s = useScoped(studyId, scope, scopeId);
+  const { dataset, update } = s;
+  const { activeRole } = useShell();
+  const ndaName = useNdaName();
+  const canSdv = canSDV(activeRole);
+
+  const repeating = SCOPED_REPEATING.has(form.name);
   const fields = s.fieldsFor(form.id);
   const instances = s.instancesFor(form.id);
   const cols = COLUMNS[form.name] ?? fields.slice(0, 5).map((f) => ({ code: f.code, label: f.label }));
-  const [panelInst, setPanelInst] = useState<string | null>(null);
-  const openEcCount = (instId: string) => s.dataset.editChecks.filter((e) => e.form_instance_id === instId && e.status === "open").length;
-  const statusLabel = (st: string) => (st === "in_work" ? "In-Work" : st === "in_review" ? "In-Review" : st.charAt(0).toUpperCase() + st.slice(1));
+
+  const [remarksOpen, setRemarksOpen] = useState(false);
+  const [lockModalOpen, setLockModalOpen] = useState(false);
+  const [lockPassword, setLockPassword] = useState("");
+  const [entryInst, setEntryInst] = useState<string | null>(null);
+  const pendingRef = useRef<string | null>(null);
+
+  // One-time forms: a single instance (a stable generated id until first saved).
+  const singleId = repeating ? null : (instances[0]?.id ?? (pendingRef.current ||= crypto.randomUUID()));
+  // Instances the form-level status / SDV / Submit act on.
+  const targetInstances = repeating ? instances : instances.filter((i) => i.id === singleId);
+
+  // Form-level status = the weakest status among the target instances (empty if none).
+  const formStatus = repeating
+    ? (instances.length ? instances.reduce<string>((acc, i) => (STATUS_RANK[i.status] < STATUS_RANK[acc] ? i.status : acc), "locked") : "empty")
+    : (instances.find((i) => i.id === singleId)?.status ?? "empty");
+  const locked = formStatus === "locked";
+  const flow = STATUS_FLOW[formStatus];
+  const canAdvance = !!flow && flow.roles.includes(activeRole);
+
+  // ─── Form-level gating + helpers (over every target instance) ───────────────
+  const fvIdOf = (instId: string, fieldId: string) => dataset.fieldValues.find((v) => v.form_instance_id === instId && v.form_field_id === fieldId)?.id;
+  const instHasData = (instId: string) => fields.some((f) => s.valueOf(instId, f.id).trim() !== "");
+  const instOpenEC = (instId: string) => fields.some((f) => { const id = fvIdOf(instId, f.id); return !!id && dataset.editChecks.some((e) => e.field_value_id === id && e.status === "open"); });
+  const instPendingDelta = (instId: string) => fields.some((f) => { const id = fvIdOf(instId, f.id); return !!id && dataset.deltaRecords.some((r) => r.field_value_id === id && r.status === "pending"); });
+  const instEmptyRequired = (instId: string) => fields.some((f) => f.is_required && s.valueOf(instId, f.id).trim() === "");
+
+  const formHasData = targetInstances.some((i) => instHasData(i.id));
+  const hasOpenEditCheck = targetInstances.some((i) => instOpenEC(i.id));
+  const hasPendingDelta = targetInstances.some((i) => instPendingDelta(i.id));
+  const hasEmptyRequired = targetInstances.some((i) => instEmptyRequired(i.id));
+  const submitBlocked = hasOpenEditCheck || hasPendingDelta || hasEmptyRequired;
+  const submitBlockReason = hasEmptyRequired ? "Complete all required fields first" : hasOpenEditCheck ? "Resolve all edit checks first" : hasPendingDelta ? "Provide all change reasons first" : undefined;
+
+  const openEcCount = (instId: string) => dataset.editChecks.filter((e) => e.form_instance_id === instId && e.status === "open").length;
+  const allSdvComplete = targetInstances.length > 0 && targetInstances.every((i) => i.sdv_complete);
+
+  function applyStatus(next: string) {
+    update((d: Dataset) => { for (const t of targetInstances) { const inst = d.formInstances.find((i) => i.id === t.id); if (inst) inst.status = next; } });
+  }
+  function advanceStatus() {
+    if (!flow || !canAdvance) return;
+    if (flow.esign) { setLockModalOpen(true); return; }
+    applyStatus(flow.next);
+  }
+  function confirmLock() { if (!lockPassword.trim()) return; applyStatus("locked"); setLockPassword(""); setLockModalOpen(false); }
+
+  // SDV blocking for a field on an instance (form-level; mirrors the per-field rule).
+  function sdvBlocked(d: Dataset, instId: string, field: FormFieldRow, fvId: string): boolean {
+    if (d.editChecks.some((e) => e.field_value_id === fvId && e.status === "open")) return true;
+    if (d.deltaRecords.some((r) => r.field_value_id === fvId && r.status === "pending")) return true;
+    const q = d.queries.filter((x) => x.field_value_id === fvId).find((x) => x.status === "open" || x.status === "responded");
+    return !!q;
+  }
+  function verifyAll() {
+    if (!canSdv || locked) return;
+    update((d: Dataset) => {
+      for (const t of targetInstances) {
+        for (const f of fields.filter(isSdvEligible)) {
+          const fv = d.fieldValues.find((v) => v.form_instance_id === t.id && v.form_field_id === f.id);
+          if (!fv || (fv.value ?? "") === "" || sdvBlocked(d, t.id, f, fv.id)) continue;
+          const rec = d.sdvRecords.find((r) => r.field_value_id === fv.id);
+          if (rec) { rec.status = "verified"; rec.verified_by_name = ndaName; rec.verified_at = todayISO(); }
+          else d.sdvRecords.push({ id: newId(), form_instance_id: fv.form_instance_id, field_value_id: fv.id, status: "verified", verified_by_name: ndaName, verified_at: todayISO() });
+        }
+      }
+    });
+  }
+  function markSdvComplete() { if (!canSdv || locked) return; update((d: Dataset) => { for (const t of targetInstances) { const inst = d.formInstances.find((i) => i.id === t.id); if (inst) inst.sdv_complete = true; } }); }
+
+  const statusLabel = (st: string) => (st === "in_work" ? "In-Work" : st === "in_review" ? "In-Review" : STATUS_CAP(st));
+
+  // ─── Sticky header (title + Remarks + status CTA) ─────────────────────────
+  const header = (
+    <div className="form-sticky-header">
+      <div className="form-header">
+        <h1 className="form-title">{form.name}</h1>
+        <div className="form-actions">
+          <div className="remarks-wrap">
+            <button className="btn-secondary" onClick={() => setRemarksOpen((o) => !o)} type="button">
+              Remarks: {[modeQueries && "Queries", modeSdv && "SDV mode"].filter(Boolean).join(", ") || "Off"}
+              <i className="ti ti-chevron-down" style={{ fontSize: "11px", color: "var(--color-text-tertiary)" }}></i>
+            </button>
+            {remarksOpen && <div className="remarks-backdrop" onClick={() => setRemarksOpen(false)} />}
+            <div className={`remarks-menu${remarksOpen ? " open" : ""}`}>
+              <div className="remarks-section-label">Activate mode</div>
+              <button className={`remarks-item${modeQueries ? " active-mode" : ""}`} onClick={() => setModeQueries((m) => !m)} type="button"><span>Queries</span>{modeQueries && <i className="ti ti-check" style={{ fontSize: "13px", color: "var(--blue-600)" }}></i>}</button>
+              {canSdv && <button className={`remarks-item${modeSdv ? " active-mode" : ""}`} onClick={() => setModeSdv((m) => !m)} type="button"><span>SDV mode</span>{modeSdv && <i className="ti ti-check" style={{ fontSize: "13px", color: "var(--blue-600)" }}></i>}</button>}
+            </div>
+          </div>
+          {modeSdv ? (
+            <>
+              <button className="btn-secondary" type="button" disabled={!canSdv} onClick={verifyAll}>Verify all</button>
+              <button className="btn-primary" type="button" disabled={!canSdv} onClick={markSdvComplete}>{allSdvComplete ? <><i className="ti ti-shield-check-filled"></i> SDV complete</> : "Mark SDV complete"}</button>
+            </>
+          ) : formStatus === "empty" || formStatus === "in_work" ? (
+            <button className="btn-primary" type="button" disabled={!formHasData || submitBlocked || !STATUS_FLOW.in_work.roles.includes(activeRole)} onClick={advanceStatus}
+              title={!formHasData ? "Enter data before submitting for review" : submitBlockReason ?? (STATUS_FLOW.in_work.roles.includes(activeRole) ? undefined : `Submit for Review — not permitted for ${activeRole}`)}>Submit for Review</button>
+          ) : flow ? (
+            <button className="btn-primary" type="button" disabled={!canAdvance} onClick={advanceStatus} title={canAdvance ? undefined : `${flow.label} — not permitted for ${activeRole}`}>{flow.esign && <i className="ti ti-lock"></i>}{flow.label}</button>
+          ) : (
+            <span className="badge badge-success" style={{ alignSelf: "center" }}>{STATUS_CAP(formStatus)}</span>
+          )}
+        </div>
+      </div>
+    </div>
+  );
+
+  // ─── Body ──────────────────────────────────────────────────────────────────
+  let body: React.ReactNode;
+  if (repeating) {
+    body = (
+      <>
+        {topNote && <div className="scf-banner note"><i className="ti ti-info-circle"></i> {topNote}</div>}
+        <div className="scf-toolbar">
+          <span className="scf-count">{instances.length} {instances.length === 1 ? "entry" : "entries"}</span>
+          {!locked && <button className="st-btn-secondary" type="button" onClick={() => setEntryInst(s.addInstance(form.id))}><i className="ti ti-plus"></i> {ADD_LABEL[form.name] ?? "New entry"}</button>}
+        </div>
+        {instances.length === 0 ? (
+          <div className="scf-empty">No entries yet.</div>
+        ) : (
+          <table className="scf-table">
+            <thead><tr>{cols.map((c, i) => <th key={i}>{c.label}</th>)}<th>Alerts</th><th>Status</th></tr></thead>
+            <tbody>
+              {instances.map((i) => {
+                const ecN = openEcCount(i.id);
+                return (
+                  <tr key={i.id} className="clickable" onClick={() => setEntryInst(i.id)}>
+                    {cols.map((c, ci) => { const f = fields.find((x) => x.code === c.code); const raw = c.code ? s.valByCode(i.id, fields, c.code) : ""; const disp = f?.field_type === "multiselect" ? parseMulti(raw).join(", ") : raw; return <td key={ci} className={f?.field_type === "date" ? "mono" : ""}><span className={c.trunc ? "trunc" : ""}>{disp || "—"}</span></td>; })}
+                    <td>{ecN > 0 ? <span className="scf-status-pill overdue"><i className="ti ti-alert-circle"></i> {ecN}</span> : <span className="scf-hint">—</span>}</td>
+                    <td><span className={`scf-status-pill ${i.status === "reviewed" || i.status === "finalized" || i.status === "locked" ? "current" : "due"}`}>{statusLabel(i.status)}</span></td>
+                  </tr>
+                );
+              })}
+            </tbody>
+          </table>
+        )}
+        {/* Fields-only slide-in entry panel (no Remarks / no Submit — those are form-level) */}
+        {entryInst && (
+          <>
+            <div className="scf-overlay" onClick={() => setEntryInst(null)} />
+            <div className="scf-panel">
+              <div className="scf-panel-head"><div className="scf-panel-title">{form.name} — entry</div><button className="scf-panel-close" type="button" onClick={() => setEntryInst(null)}><i className="ti ti-x"></i></button></div>
+              <div className="scf-panel-body">
+                <ScopedFieldGrid key={entryInst} studyId={studyId} scope={scope} scopeId={scopeId} form={form} instanceId={entryInst} modeQueries={modeQueries} modeSdv={modeSdv} readOnly={locked} panel />
+              </div>
+              <div className="scf-panel-foot"><button className="st-btn-primary" type="button" onClick={() => setEntryInst(null)}>Done</button></div>
+            </div>
+          </>
+        )}
+      </>
+    );
+  } else {
+    body = (
+      <>
+        {topNote && <div className="scf-banner note"><i className="ti ti-info-circle"></i> {topNote}</div>}
+        <ScopedFieldGrid key={singleId!} studyId={studyId} scope={scope} scopeId={scopeId} form={form} instanceId={singleId!} modeQueries={modeQueries} modeSdv={modeSdv} readOnly={locked} />
+      </>
+    );
+  }
 
   return (
-    <div>
-      {topNote && <div className="scf-banner note"><i className="ti ti-info-circle"></i> {topNote}</div>}
-      <div className="scf-toolbar">
-        <span className="scf-count">{instances.length} {instances.length === 1 ? "entry" : "entries"}</span>
-        <button className="st-btn-secondary" type="button" onClick={() => setPanelInst(s.addInstance(form.id))}><i className="ti ti-plus"></i> {ADD_LABEL[form.name] ?? "New entry"}</button>
-      </div>
-      {instances.length === 0 ? (
-        <div className="scf-empty">No entries yet.</div>
-      ) : (
-        <table className="scf-table">
-          <thead><tr>{cols.map((c, i) => <th key={i}>{c.label}</th>)}<th>Alerts</th><th>Status</th></tr></thead>
-          <tbody>
-            {instances.map((i) => {
-              const ecN = openEcCount(i.id);
-              return (
-                <tr key={i.id} className="clickable" onClick={() => setPanelInst(i.id)}>
-                  {cols.map((c, ci) => { const f = fields.find((x) => x.code === c.code); const raw = c.code ? s.valByCode(i.id, fields, c.code) : ""; const disp = f?.field_type === "multiselect" ? parseMulti(raw).join(", ") : raw; return <td key={ci} className={f?.field_type === "date" ? "mono" : ""}><span className={c.trunc ? "trunc" : ""}>{disp || "—"}</span></td>; })}
-                  <td>{ecN > 0 ? <span className="scf-status-pill overdue"><i className="ti ti-alert-circle"></i> {ecN}</span> : <span className="scf-hint">—</span>}</td>
-                  <td><span className={`scf-status-pill ${i.status === "reviewed" || i.status === "finalized" || i.status === "locked" ? "current" : "due"}`}>{statusLabel(i.status)}</span></td>
-                </tr>
-              );
-            })}
-          </tbody>
-        </table>
-      )}
-      {panelInst && (
-        <>
-          <div className="scf-overlay" onClick={() => setPanelInst(null)} />
-          <div className="scf-panel" style={{ width: 420 }}>
-            <div className="scf-panel-head"><div className="scf-panel-title">{form.name}</div><button className="scf-panel-close" type="button" onClick={() => setPanelInst(null)}><i className="ti ti-x"></i></button></div>
-            <div className="scf-panel-body" style={{ padding: "var(--space-4)" }}>
-              <ScopedFormRenderer key={panelInst} studyId={studyId} scope={scope} scopeId={scopeId} form={form} instanceId={panelInst} panel />
-            </div>
-            <div className="scf-panel-foot"><button className="st-btn-primary" type="button" onClick={() => setPanelInst(null)}>Done</button></div>
+    <div className="form-content">
+      {header}
+      <div className="form-body">{body}</div>
+
+      {/* E-signature modal (form-level Lock) */}
+      {lockModalOpen && (
+        <div className="sr-modal-overlay" onClick={() => { setLockModalOpen(false); setLockPassword(""); }}>
+          <div className="sr-modal" onClick={(e) => e.stopPropagation()} role="dialog" aria-modal="true">
+            <div className="sr-modal-title"><i className="ti ti-lock"></i> Electronic signature</div>
+            <div className="sr-modal-body">Locking finalizes this form and makes it read-only. Re-enter your password to sign (21 CFR Part 11).</div>
+            <input type="password" className="sr-modal-input" placeholder="Password" value={lockPassword} onChange={(e) => setLockPassword(e.target.value)} onKeyDown={(e) => { if (e.key === "Enter") confirmLock(); }} autoFocus />
+            <div className="sr-modal-actions"><button className="btn-secondary" type="button" onClick={() => { setLockModalOpen(false); setLockPassword(""); }}>Cancel</button><button className="btn-primary" type="button" disabled={!lockPassword.trim()} onClick={confirmLock}><i className="ti ti-lock"></i> Sign &amp; Lock</button></div>
           </div>
-        </>
+        </div>
       )}
     </div>
   );
 }
 
-// ─── Forms tab: form list + content (each form rendered with the FULL flow) ────
+// ─── Forms tab: Subject-Record-style sidebar + the selected form's content ────
 export function ScopedFormFlow({ studyId, scope, scopeId, exclude = [], topNote }: { studyId: string; scope: Scope; scopeId: string; exclude?: string[]; topNote?: Record<string, string> }) {
   const s = useScoped(studyId, scope, scopeId);
-  const forms = s.dataset.forms
+  const { dataset } = s;
+  const { activeRole } = useShell();
+  const canSdv = canSDV(activeRole);
+  const forms = dataset.forms
     .filter((f) => f.study_id === studyId && f.scope === scope && !exclude.includes(f.name))
     .slice().sort((a, b) => a.sequence - b.sequence);
   const [selId, setSelId] = useState<string | null>(null);
-  const pendingRef = useRef<Record<string, string>>({}); // one-time forms not yet saved
+  // Remarks modes live at the record level (like the Subject Record) so the sidebar
+  // SDV shields and the active form's panel share one state.
+  const [modeQueries, setModeQueries] = useState(false);
+  const [modeSdv, setModeSdv] = useState(false);
+  // If the role loses SDV permission, leave SDV mode (never stuck in an unusable mode).
+  useEffect(() => { if (!canSdv) setModeSdv(false); }, [canSdv]);
+
   const form = forms.find((f) => f.id === selId) ?? forms[0];
 
   if (forms.length === 0) return <div className="scf-empty">No {scope === "site" ? "site" : "house"}-level forms for this study.</div>;
 
-  const glyphFor = (f: FormRow) => {
+  // Sidebar metadata for a form (rolled up across its instances).
+  function sidebarMeta(f: FormRow): { icon: SidebarIcon; status: string; queryCount: number; sdv: "complete" | "partial" | "none" } {
     const insts = s.instancesFor(f.id);
-    if (insts.length === 0) return "empty";
-    if (insts.every((i) => i.status === "reviewed" || i.status === "finalized" || i.status === "locked")) return "reviewed";
-    return "in_work";
-  };
-
-  const recurring = form ? SCOPED_REPEATING.has(form.name) : false;
-  // One-time forms: a single instance (a stable generated id until first saved).
-  const oneTimeId = !form || recurring ? undefined : (s.instancesFor(form.id)[0]?.id ?? (pendingRef.current[form.id] ||= crypto.randomUUID()));
+    const openQ = insts.flatMap((i) => dataset.queries.filter((q) => q.form_instance_id === i.id && (q.status === "open" || q.status === "responded")));
+    const worst = insts.length ? insts.reduce<string>((acc, i) => (STATUS_RANK[i.status] < STATUS_RANK[acc] ? i.status : acc), "locked") : "empty";
+    const icon: SidebarIcon = openQ.length ? "queried" : iconForInstance(worst);
+    const anyVerified = insts.some((i) => dataset.sdvRecords.some((r) => r.status === "verified" && dataset.fieldValues.some((v) => v.id === r.field_value_id && v.form_instance_id === i.id)));
+    const allComplete = insts.length > 0 && insts.every((i) => i.sdv_complete);
+    const sdv: "complete" | "partial" | "none" = allComplete ? "complete" : anyVerified ? "partial" : "none";
+    return { icon, status: worst, queryCount: openQ.length, sdv };
+  }
 
   return (
-    <div className="scf">
-      <div className="scf-list">
-        <div className="scf-list-label">Forms</div>
-        {forms.map((f) => (
-          <button key={f.id} className={`scf-list-item${f.id === form?.id ? " active" : ""}`} type="button" onClick={() => setSelId(f.id)} title={f.name}>
-            <span className="scf-name">{f.name}</span>
-            <span className={`scf-glyph ${glyphFor(f)}`}></span>
-          </button>
-        ))}
-      </div>
-      <div className="scf-content">
-        {form && (recurring
-          ? <ScopedLogTable studyId={studyId} scope={scope} scopeId={scopeId} form={form} topNote={topNote?.[form.name]} />
-          : oneTimeId
-          ? <>
-              {topNote?.[form.name] && <div className="scf-banner note"><i className="ti ti-info-circle"></i> {topNote[form.name]}</div>}
-              <ScopedFormRenderer key={oneTimeId} studyId={studyId} scope={scope} scopeId={scopeId} form={form} instanceId={oneTimeId} />
-            </>
-          : null)}
-      </div>
+    <div className="scf-shell">
+      <nav className="form-sidebar" aria-label="Forms">
+        {forms.map((f) => {
+          const m = sidebarMeta(f);
+          return (
+            <button key={f.id} className={`form-item${f.id === form?.id ? " active" : ""}${m.icon === "final" ? " done" : ""}`} onClick={() => setSelId(f.id)} title={f.name} type="button">
+              <span className="form-item-label">{f.name}</span>
+              <div className="form-item-right">
+                {m.queryCount > 0 && <span className="issue-badge warning">{m.queryCount}</span>}
+                <SidebarSdv active={modeSdv} sdv={m.sdv} />
+                <StatusGlyph icon={m.icon} title={m.icon === "queried" ? "Open query" : STATUS_LABEL[m.status] ?? ICON_LABEL[m.icon]} />
+              </div>
+            </button>
+          );
+        })}
+      </nav>
+      {form && (
+        <ScopedFormView key={form.id} studyId={studyId} scope={scope} scopeId={scopeId} form={form}
+          modeQueries={modeQueries} modeSdv={modeSdv} setModeQueries={setModeQueries} setModeSdv={setModeSdv} topNote={topNote?.[form.name]} />
+      )}
     </div>
   );
 }

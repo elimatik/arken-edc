@@ -147,10 +147,9 @@ export default function SiteRecordPage() {
       </div>
       )}
 
-      <div className="sr-scroll">
-        <div className="sr-content-col">
-          {tab === "overview" ? (
-            <>
+      {tab === "overview" ? (
+        <div className="sr-scroll">
+          <div className="sr-content-col">
               {/* Site information */}
               <div className="sr-card">
                 <div className="sr-card-header"><div><div className="sr-card-title">Site information</div><div className="sr-card-sub">General details and address</div></div>
@@ -198,16 +197,11 @@ export default function SiteRecordPage() {
                 </div>
                 {editingReg && <div className="sr-card-footer"><button className="st-btn-secondary" type="button" onClick={() => setEditingReg(false)}>Cancel</button><button className="st-btn-primary" type="button" onClick={save}><i className="ti ti-circle-check"></i> Save changes</button></div>}
               </div>
-            </>
-          ) : (
-            <div className="sr-card">
-              <div className="sr-card-body">
-                <ScopedFormFlow studyId={studyId} scope="site" scopeId={siteId} exclude={["Continuing Review"]} />
-              </div>
-            </div>
-          )}
+          </div>
         </div>
-      </div>
+      ) : (
+        <ScopedFormFlow studyId={studyId} scope="site" scopeId={siteId} exclude={["Continuing Review"]} />
+      )}
     </div>
   );
 }

@@ -175,10 +175,9 @@ export default function BarnRecordPage() {
       </div>
       )}
 
-      <div className="sr-scroll">
-        <div className="sr-content-col">
-          {tab === "overview" ? (
-            <>
+      {tab === "overview" ? (
+        <div className="sr-scroll">
+          <div className="sr-content-col">
               {/* House information */}
               <div className="sr-card">
                 <div className="sr-card-header"><div><div className="sr-card-title">House information</div><div className="sr-card-sub">Housing configuration for this house</div></div>
@@ -266,17 +265,12 @@ export default function BarnRecordPage() {
                   )}
                 </div>
               </div>
-            </>
-          ) : (
-            <div className="sr-card">
-              <div className="sr-card-body">
-                <ScopedFormFlow studyId={studyId} scope="barn" scopeId={barnId} exclude={["Equipment Calibration Log"]}
-                  topNote={{ "Daily Environmental Log": "Single-point environmental monitoring — assumes uniform conditions across all pens in this house." }} />
-              </div>
-            </div>
-          )}
+          </div>
         </div>
-      </div>
+      ) : (
+        <ScopedFormFlow studyId={studyId} scope="barn" scopeId={barnId} exclude={["Equipment Calibration Log"]}
+          topNote={{ "Daily Environmental Log": "Single-point environmental monitoring — assumes uniform conditions across all pens in this house." }} />
+      )}
     </div>
   );
 }

@@ -1,25 +1,20 @@
 "use client";
 
 // ════════════════════════════════════════════════════════════════════════════
-// ScopedFormRenderer — the full Subject-Record form flow for a SINGLE site- or
-// barn-scoped form instance (instances keyed by site_id / barn_id, not subject_id).
-// Reuses the exact session-store data model the Subject Record uses (editChecks,
-// queries, deltaRecords, sdvRecords, queryMessages), the same validation engine,
-// and the same subject-record.css classes — so every behavior is identical:
-//   1. Edit checks  — out-of-range value → orange EC- icon + inline state + panel
-//      (correct the value to clear it, or explain it → converts to a query).
-//   2. Manual queries — flag in Queries mode → Raise Query panel; Raised →
-//      Responded → Resolved, role-gated (CRC respond · CRA raise/resolve · DM manage).
-//   3. Change reason Δ — every change of a saved value pushes a pending Δ; reason →
-//      responded; DM approve → green.
-//   4. SDV — CRA SDV mode → shield per eligible field; verify ⇄ unverify; blocked
-//      while an open EC / pending Δ / open query exists.
-//   5. Status — Empty → In-Work → In-Review → Reviewed → Finalized → Locked
-//      (Lock requires the e-signature modal), role-gated.
-//   6. Remarks dropdown — Queries / SDV (CRA-only) / Off.
+// ScopedFieldGrid — the per-field editing surface for ONE site-/barn-scoped form
+// instance: the field grid plus the query / edit-check / change-reason (Δ) slide-
+// in panels. It is the body that sits below the form-level sticky header (which
+// owns Remarks + the status CTA — see ScopedFormRenderer). The Remarks modes
+// (Queries / SDV) are passed in as props so a single form-level Remarks dropdown
+// drives the whole form, including the entry panel of a repeating form.
+//
+// Behaviour is identical to the Subject Record (same subject-record.css classes,
+// same validation engine, same session-store data model keyed by instance):
+//   • edit checks (orange EC-), manual queries (Raise→Respond→Resolve, role-gated),
+//   • change-reason Δ (pending→responded→approved), per-field SDV verify (CRA).
 // ════════════════════════════════════════════════════════════════════════════
 
-import { Fragment, useEffect, useRef, useState } from "react";
+import { Fragment, useRef, useState } from "react";
 import { useShell } from "@/components/shell/ShellContext";
 import { useStudySession } from "@/lib/session-store/SessionStore";
 import { canQuery, canSDV } from "@/lib/permissions";
@@ -35,26 +30,18 @@ const STATUS_CAP = (s: string) => s.charAt(0).toUpperCase() + s.slice(1);
 const qCodeFor = (id: string) => `Q-${id.slice(0, 4).toUpperCase()}`;
 const ecCodeFor = (id: string) => `EC-${id.slice(0, 4).toUpperCase()}`;
 const QS_CLS: Record<string, string> = { open: "qs-open", responded: "qs-responded", resolved: "qs-resolved" };
-const STATUS_FLOW: Record<string, { next: string; label: string; roles: string[]; esign?: boolean }> = {
-  in_work: { next: "in_review", label: "Submit for Review", roles: ["CRC", "CRA"] },
-  in_review: { next: "reviewed", label: "Mark Reviewed", roles: ["CRA", "DM", "PI"] },
-  reviewed: { next: "finalized", label: "Finalize", roles: ["PI", "DM"] },
-  finalized: { next: "locked", label: "Lock", roles: ["DM"], esign: true },
-};
-const isSdvEligible = (f: FormFieldRow) => !["file", "calculated", "textarea"].includes(f.field_type);
+export const isSdvEligible = (f: FormFieldRow) => !["file", "calculated", "textarea"].includes(f.field_type);
 const parseMulti = (v: string): string[] => { try { const a = JSON.parse(v || "[]"); return Array.isArray(a) ? a : []; } catch { return v ? v.split(",").map((s) => s.trim()).filter(Boolean) : []; } };
 
-export function ScopedFormRenderer({ studyId, scope, scopeId, form, instanceId, readOnly: propReadOnly, panel }: {
-  studyId: string; scope: "site" | "barn"; scopeId: string; form: FormRow; instanceId: string; readOnly?: boolean; panel?: boolean;
+export function ScopedFieldGrid({ studyId, scope, scopeId, form, instanceId, modeQueries, modeSdv, readOnly, panel }: {
+  studyId: string; scope: "site" | "barn"; scopeId: string; form: FormRow; instanceId: string;
+  modeQueries: boolean; modeSdv: boolean; readOnly: boolean; panel?: boolean;
 }) {
   const { dataset, update } = useStudySession();
   const { activeRole } = useShell();
   const ndaName = useNdaName();
   const species = dataset.studies.find((s) => s.id === studyId)?.species ?? "chicken";
 
-  const [modeQueries, setModeQueries] = useState(false);
-  const [modeSdv, setModeSdv] = useState(false);
-  const [remarksOpen, setRemarksOpen] = useState(false);
   const [panelField, setPanelField] = useState<FormFieldRow | null>(null);
   const [panelKind, setPanelKind] = useState<"query" | "edit_check">("query");
   const [reply, setReply] = useState("");
@@ -62,25 +49,16 @@ export function ScopedFormRenderer({ studyId, scope, scopeId, form, instanceId, 
   const [recordReasons, setRecordReasons] = useState<Record<string, string>>({});
   const [editingFieldId, setEditingFieldId] = useState<string | null>(null);
   const editStartRef = useRef<{ fieldId: string; value: string } | null>(null);
-  const [lockModalOpen, setLockModalOpen] = useState(false);
-  const [lockPassword, setLockPassword] = useState("");
   const [manageOpenQuery, setManageOpenQuery] = useState(false);
   const [closeModalOpen, setCloseModalOpen] = useState(false);
   const [closeReason, setCloseReason] = useState("");
 
   const canSdv = canSDV(activeRole);
-  useEffect(() => { if (!canSdv) setModeSdv(false); }, [canSdv]);
   const canRespond = canQuery(activeRole, "respond");
   const canResolve = canQuery(activeRole, "resolve");
   const canRaise = canQuery(activeRole, "raise");
 
   const fields = dataset.formFields.filter((f) => f.form_id === form.id).slice().sort((a, b) => a.sequence - b.sequence);
-  const instance = dataset.formInstances.find((i) => i.id === instanceId);
-  const currentStatus = instance?.status ?? "in_work";
-  const locked = currentStatus === "locked";
-  const readOnly = !!propReadOnly || locked;
-  const flow = STATUS_FLOW[currentStatus];
-  const canAdvance = !!flow && flow.roles.includes(activeRole);
 
   const instScope = () => (scope === "site" ? { subject_id: null, barn_id: null, site_id: scopeId } : { subject_id: null, barn_id: scopeId, site_id: null });
   const ensureInst = (d: Dataset) => {
@@ -155,7 +133,7 @@ export function ScopedFormRenderer({ studyId, scope, scopeId, form, instanceId, 
     return null;
   }
   function toggleSdv(field: FormFieldRow) {
-    if (!canSdv || locked) return;
+    if (!canSdv || readOnly) return;
     const fv0 = fvFor(field.id);
     if (!fv0 || (fv0.value ?? "") === "") return;
     if (sdvBlockReason(field, fv0.id)) return;
@@ -165,26 +143,6 @@ export function ScopedFormRenderer({ studyId, scope, scopeId, form, instanceId, 
       else d.sdvRecords.push({ id: newId(), form_instance_id: fv0.form_instance_id, field_value_id: fv0.id, status: "verified", verified_by_name: ndaName, verified_at: todayISO() });
     });
   }
-  function verifyAll() {
-    if (!canSdv || locked) return;
-    update((d: Dataset) => {
-      for (const f of fields.filter(isSdvEligible)) {
-        const fv = d.fieldValues.find((v) => v.form_instance_id === instanceId && v.form_field_id === f.id);
-        if (!fv || (fv.value ?? "") === "" || sdvBlockReason(f, fv.id)) continue;
-        const rec = d.sdvRecords.find((r) => r.field_value_id === fv.id);
-        if (rec) { rec.status = "verified"; rec.verified_by_name = ndaName; rec.verified_at = todayISO(); }
-        else d.sdvRecords.push({ id: newId(), form_instance_id: fv.form_instance_id, field_value_id: fv.id, status: "verified", verified_by_name: ndaName, verified_at: todayISO() });
-      }
-    });
-  }
-  function markSdvComplete() { if (!canSdv || locked) return; update((d: Dataset) => { const inst = ensureInst(d); inst.sdv_complete = true; }); }
-
-  function advanceStatus() {
-    if (!flow || !canAdvance) return;
-    if (flow.esign) { setLockModalOpen(true); return; }
-    update((d: Dataset) => { const inst = d.formInstances.find((i) => i.id === instanceId); if (inst) inst.status = flow.next; });
-  }
-  function confirmLock() { if (!lockPassword.trim()) return; update((d: Dataset) => { const inst = d.formInstances.find((i) => i.id === instanceId); if (inst) inst.status = "locked"; }); setLockPassword(""); setLockModalOpen(false); }
 
   function submitReasonForRecord(recordId: string) {
     const text = (recordReasons[recordId] ?? "").trim(); if (!text) return;
@@ -230,7 +188,7 @@ export function ScopedFormRenderer({ studyId, scope, scopeId, form, instanceId, 
     setCloseReason(""); setCloseModalOpen(false); setManageOpenQuery(false); setPanelField(null);
   }
 
-  // ─── Derived (panels + submit gating) ───────────────────────────────────────
+  // ─── Derived (panels) ───────────────────────────────────────────────────────
   const panelFv = panelField ? fvFor(panelField.id) : undefined;
   const panelQueries = panelFv ? dataset.queries.filter((q) => q.field_value_id === panelFv.id).slice().sort((a, b) => ((a.created_at ?? "") < (b.created_at ?? "") ? -1 : 1)) : [];
   const panelQuery = fieldQueryFor(panelFv?.id);
@@ -239,13 +197,6 @@ export function ScopedFormRenderer({ studyId, scope, scopeId, form, instanceId, 
   const panelResolved = panelQuery?.status === "resolved";
   const msgsForQuery = (qid: string) => dataset.queryMessages.filter((m) => m.query_id === qid).slice().sort((a, b) => (a.created_at < b.created_at ? -1 : 1));
   const panelHasResponse = panelQuery ? msgsForQuery(panelQuery.id).some((m) => m.author_role && !m.author_role.includes("System")) : false;
-
-  const formHasData = fields.some((f) => (fvFor(f.id)?.value ?? "") !== "");
-  const hasOpenEditCheck = fields.some((f) => !!editCheckFor(fvFor(f.id)?.id));
-  const hasPendingDelta = fields.some((f) => deltaStateFor(f.id, fvFor(f.id)?.id) === "pending");
-  const hasEmptyRequired = fields.some((f) => f.is_required && (fvFor(f.id)?.value ?? "") === "");
-  const submitBlocked = hasOpenEditCheck || hasPendingDelta || hasEmptyRequired;
-  const submitBlockReason = hasEmptyRequired ? "Complete all required fields first" : hasOpenEditCheck ? "Resolve all edit checks first" : hasPendingDelta ? "Provide all change reasons first" : undefined;
 
   const deltaFv = deltaField ? fvFor(deltaField.id) : undefined;
   const deltaHistory = deltaFv ? dataset.deltaRecords.filter((r) => r.field_value_id === deltaFv.id).slice().sort((a, b) => (a.created_at < b.created_at ? -1 : 1)) : [];
@@ -305,39 +256,7 @@ export function ScopedFormRenderer({ studyId, scope, scopeId, form, instanceId, 
   }
 
   return (
-    <div className="scoped-form-flow">
-      {/* Toolbar — Remarks + SDV + status */}
-      <div className="form-header" style={{ marginBottom: "var(--space-3)" }}>
-        <div className="form-actions">
-          <div className="remarks-wrap">
-            <button className="btn-secondary" onClick={() => setRemarksOpen((o) => !o)} type="button">
-              Remarks: {[modeQueries && "Queries", modeSdv && "SDV mode"].filter(Boolean).join(", ") || "Off"}
-              <i className="ti ti-chevron-down" style={{ fontSize: "11px", color: "var(--color-text-tertiary)" }}></i>
-            </button>
-            {remarksOpen && <div className="remarks-backdrop" onClick={() => setRemarksOpen(false)} />}
-            <div className={`remarks-menu${remarksOpen ? " open" : ""}`}>
-              <div className="remarks-section-label">Activate mode</div>
-              <button className={`remarks-item${modeQueries ? " active-mode" : ""}`} onClick={() => setModeQueries((m) => !m)} type="button"><span>Queries</span>{modeQueries && <i className="ti ti-check" style={{ fontSize: "13px", color: "var(--blue-600)" }}></i>}</button>
-              {canSdv && <button className={`remarks-item${modeSdv ? " active-mode" : ""}`} onClick={() => setModeSdv((m) => !m)} type="button"><span>SDV mode</span>{modeSdv && <i className="ti ti-check" style={{ fontSize: "13px", color: "var(--blue-600)" }}></i>}</button>}
-            </div>
-          </div>
-          {modeSdv ? (
-            <>
-              <button className="btn-secondary" type="button" disabled={!canSdv} onClick={verifyAll}>Verify all</button>
-              <button className="btn-primary" type="button" disabled={!canSdv} onClick={markSdvComplete}>{instance?.sdv_complete ? <><i className="ti ti-shield-check-filled"></i> SDV complete</> : "Mark SDV complete"}</button>
-            </>
-          ) : currentStatus === "empty" || currentStatus === "in_work" ? (
-            <button className="btn-primary" type="button" disabled={currentStatus === "empty" || !formHasData || submitBlocked || !STATUS_FLOW.in_work.roles.includes(activeRole)} onClick={advanceStatus}
-              title={currentStatus === "empty" || !formHasData ? "Enter data before submitting for review" : submitBlockReason ?? (STATUS_FLOW.in_work.roles.includes(activeRole) ? undefined : `Submit for Review — not permitted for ${activeRole}`)}>Submit for Review</button>
-          ) : flow ? (
-            <button className="btn-primary" type="button" disabled={!canAdvance} onClick={advanceStatus} title={canAdvance ? undefined : `${flow.label} — not permitted for ${activeRole}`}>{flow.esign && <i className="ti ti-lock"></i>}{flow.label}</button>
-          ) : (
-            <span className="badge badge-success" style={{ alignSelf: "center" }}>{STATUS_CAP(currentStatus)}</span>
-          )}
-        </div>
-      </div>
-
-      {/* Field grid (single column inside a slide-in panel) */}
+    <>
       <div className="field-grid-2" style={panel ? { gridTemplateColumns: "1fr" } : undefined}>
         {fields.map((field, fIdx) => {
           const section = sectionForIdx(fIdx);
@@ -498,17 +417,6 @@ export function ScopedFormRenderer({ studyId, scope, scopeId, form, instanceId, 
         </div>
       </div>
 
-      {/* E-signature modal */}
-      {lockModalOpen && (
-        <div className="sr-modal-overlay" onClick={() => { setLockModalOpen(false); setLockPassword(""); }}>
-          <div className="sr-modal" onClick={(e) => e.stopPropagation()} role="dialog" aria-modal="true">
-            <div className="sr-modal-title"><i className="ti ti-lock"></i> Electronic signature</div>
-            <div className="sr-modal-body">Locking finalizes this form and makes it read-only. Re-enter your password to sign (21 CFR Part 11).</div>
-            <input type="password" className="sr-modal-input" placeholder="Password" value={lockPassword} onChange={(e) => setLockPassword(e.target.value)} onKeyDown={(e) => { if (e.key === "Enter") confirmLock(); }} autoFocus />
-            <div className="sr-modal-actions"><button className="btn-secondary" type="button" onClick={() => { setLockModalOpen(false); setLockPassword(""); }}>Cancel</button><button className="btn-primary" type="button" disabled={!lockPassword.trim()} onClick={confirmLock}><i className="ti ti-lock"></i> Sign &amp; Lock</button></div>
-          </div>
-        </div>
-      )}
       {/* Close-without-response modal (DM) */}
       {closeModalOpen && (
         <div className="sr-modal-overlay" onClick={() => { setCloseModalOpen(false); setCloseReason(""); }}>
@@ -520,6 +428,6 @@ export function ScopedFormRenderer({ studyId, scope, scopeId, form, instanceId, 
           </div>
         </div>
       )}
-    </div>
+    </>
   );
 }

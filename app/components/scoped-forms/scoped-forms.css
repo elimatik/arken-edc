@@ -6,20 +6,10 @@
    checks fire inline, range hints show under numeric fields).
    ════════════════════════════════════════════════════════════════════════════ */
 
-.scf { display: flex; gap: var(--space-5); align-items: flex-start; }
-.scf-list { width: 240px; flex-shrink: 0; display: flex; flex-direction: column; gap: 2px; }
-.scf-list-label { font-size: var(--text-xs); font-weight: var(--weight-medium); text-transform: uppercase; letter-spacing: var(--tracking-caps); color: var(--color-text-tertiary); padding: var(--space-2) var(--space-2) var(--space-1); }
-.scf-list-item { display: flex; align-items: center; gap: var(--space-2); width: 100%; padding: var(--space-2) var(--space-3); border: none; background: none; border-radius: var(--radius-md); cursor: pointer; text-align: left; font-size: var(--text-sm); color: var(--color-text-secondary); }
-.scf-list-item:hover { background: var(--color-hover-bg); }
-.scf-list-item.active { background: var(--color-selected-bg, var(--blue-50)); color: var(--color-text-primary); font-weight: var(--weight-medium); }
-.scf-list-item .scf-glyph { margin-left: auto; }
-.scf-name { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-
-.scf-content { flex: 1; min-width: 0; }
-.scf-glyph { width: 10px; height: 10px; border-radius: 50%; flex-shrink: 0; display: inline-block; }
-.scf-glyph.empty { border: 1.5px solid var(--color-border-strong, #cbd5e1); }
-.scf-glyph.in_work { background: var(--amber-400); }
-.scf-glyph.reviewed, .scf-glyph.finalized, .scf-glyph.locked { background: var(--green-500); }
+/* Forms-tab two-pane shell — the Subject-Record split: a .form-sidebar (from
+   subject-record.css) + a .form-content pane (sticky header over a scrolling
+   body). Fills the record page's remaining height below the tabs. */
+.scf-shell { flex: 1; min-height: 0; display: flex; background: var(--color-page-bg); }
 
 .scf-banner { display: flex; gap: var(--space-2); align-items: center; padding: var(--space-3) var(--space-4); border-radius: var(--radius-md); font-size: var(--text-sm); margin-bottom: var(--space-4); }
 .scf-banner.note { background: var(--color-surface-alt, #f8fafc); color: var(--color-text-secondary); border: 1px solid var(--color-border); }
