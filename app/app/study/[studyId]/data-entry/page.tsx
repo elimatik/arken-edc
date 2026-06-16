@@ -66,7 +66,7 @@ function FormsProgress({ complete, total }: { complete: number; total: number })
 // Queries cell — open (raised + responded) count, orange when > 0, dash when none.
 function QueriesCell({ count }: { count: number }) {
   return count > 0
-    ? <span className="de-q has"><i className="ti ti-message-circle" style={{ fontSize: "11px" }}></i> {count}</span>
+    ? <span className="de-q has">{count}</span>
     : <span className="mono muted">—</span>;
 }
 
