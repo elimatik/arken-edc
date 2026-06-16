@@ -1481,7 +1481,7 @@ export function SubjectRecord({ studyId, subjectId, initialFormId }: Props) {
                   {repeatingEntries.length} {selectedForm?.name} {repeatingEntries.length === 1 ? "entry" : "entries"}
                 </span>
                 {!readOnly && (
-                  <button className="btn-primary" type="button" onClick={addEntry}>
+                  <button className="btn-secondary" type="button" onClick={addEntry}>
                     <i className="ti ti-plus"></i> {repeatingAddLabel}
                   </button>
                 )}
