@@ -73,6 +73,8 @@ const STATUS_FLOW: Record<string, { next: string; label: string; roles: string[]
   reviewed: { next: "finalized", label: "Finalize", roles: ["PI", "DM"] },
   finalized: { next: "locked", label: "Lock", roles: ["DM"], esign: true },
 };
+// Weakest-first ranking — a repeating form rolls its status up to its weakest entry.
+const STATUS_RANK: Record<string, number> = { empty: 0, in_work: 1, in_review: 2, reviewed: 3, finalized: 4, locked: 5 };
 // Human label for a sidebar status icon (tooltip).
 const ICON_LABEL: Record<SidebarIcon, string> = {
   empty: "Empty", inwork: "In-Work", inreview: "In-Review", reviewed: "Reviewed", final: "Finalized", queried: "Open query",
@@ -224,14 +226,17 @@ export function SubjectRecord({ studyId, subjectId, initialFormId }: Props) {
   const groupIds = new Set(studyForms.map((f) => f.parent_form_id).filter(Boolean) as string[]);
 
   // A single leaf (sub-form or standalone form): its status icon + open-query count.
+  // Rolled up across every instance, so a repeating (log) form reflects the whole
+  // form — weakest status, summed open queries, all-entries-complete SDV.
   function leafItem(f: { id: string; name: string }) {
-    const inst = dataset.formInstances.find((i) => i.subject_id === subjectId && i.form_id === f.id);
-    const openQ = inst ? dataset.queries.filter((q) => q.form_instance_id === inst.id && (q.status === "open" || q.status === "responded")) : [];
-    const icon: SidebarIcon = openQ.length ? "queried" : iconForInstance(inst?.status);
+    const insts = dataset.formInstances.filter((i) => i.subject_id === subjectId && i.form_id === f.id);
+    const openQ = insts.flatMap((i) => dataset.queries.filter((q) => q.form_instance_id === i.id && (q.status === "open" || q.status === "responded")));
+    const status = insts.length ? insts.reduce<string>((acc, i) => (STATUS_RANK[i.status] < STATUS_RANK[acc] ? i.status : acc), "locked") : "empty";
+    const icon: SidebarIcon = openQ.length ? "queried" : iconForInstance(status);
     // SDV state for the sidebar (item 6): complete > any verified field > none.
-    const anyVerified = inst ? dataset.sdvRecords.some((r) => r.status === "verified" && dataset.fieldValues.some((v) => v.id === r.field_value_id && v.form_instance_id === inst.id)) : false;
-    const sdv: "complete" | "partial" | "none" = inst?.sdv_complete ? "complete" : anyVerified ? "partial" : "none";
-    return { id: f.id, name: f.name, icon, queryCount: openQ.length, status: inst?.status ?? "empty", sdv };
+    const anyVerified = insts.some((i) => dataset.sdvRecords.some((r) => r.status === "verified" && dataset.fieldValues.some((v) => v.id === r.field_value_id && v.form_instance_id === i.id)));
+    const sdv: "complete" | "partial" | "none" = (insts.length > 0 && insts.every((i) => i.sdv_complete)) ? "complete" : anyVerified ? "partial" : "none";
+    return { id: f.id, name: f.name, icon, queryCount: openQ.length, status, sdv };
   }
 
   type LeafItem = ReturnType<typeof leafItem>;
@@ -386,15 +391,30 @@ export function SubjectRecord({ studyId, subjectId, initialFormId }: Props) {
     return recs.every((r) => r.status === "approved") ? "approved" : "responded";
   }
 
-  const sdvFieldIds = fields.filter(isSdvEligible).map((f) => f.id);
-  const verifiedCount = sdvFieldIds.filter((id) => sdvVerified(fvFor(id)?.id)).length;
-  const sdvPct = sdvFieldIds.length ? Math.round((verifiedCount / sdvFieldIds.length) * 100) : 0;
-
   // ─── Form status (empty → in_work → in_review → reviewed → finalized → locked) ─
-  const currentStatus = instance?.status ?? "empty";
+  // Repeating (log) forms have one instance per entry; the form-level status rolls
+  // up to the WEAKEST entry, so Submit / Finalize / Lock advance the whole form
+  // together. One-time forms use their single instance.
+  const isRepeatingForm = REPEATING_FORMS.includes(selectedForm?.name ?? "");
+  const repeatingEntries = isRepeatingForm
+    ? dataset.formInstances.filter((i) => i.subject_id === subjectId && i.form_id === activeFormId)
+    : [];
+  const formInstanceList = isRepeatingForm ? repeatingEntries : (instance ? [instance] : []);
+  const currentStatus = isRepeatingForm
+    ? (repeatingEntries.length ? repeatingEntries.reduce<string>((acc, i) => (STATUS_RANK[i.status] < STATUS_RANK[acc] ? i.status : acc), "locked") : "empty")
+    : (instance?.status ?? "empty");
   const locked = currentStatus === "locked";
   const flow = STATUS_FLOW[currentStatus];
   const canAdvance = !!flow && flow.roles.includes(activeRole);
+  const allSdvComplete = formInstanceList.length > 0 && formInstanceList.every((i) => i.sdv_complete);
+
+  // SDV progress (header bar) — counts verified SDV-eligible cells across every
+  // instance of the form (so a repeating form sums all its entries).
+  const sdvEligibleFields = fields.filter(isSdvEligible);
+  const sdvFvIdOf = (instId: string, fieldId: string) => dataset.fieldValues.find((v) => v.form_instance_id === instId && v.form_field_id === fieldId)?.id;
+  const sdvCellTotal = sdvEligibleFields.length * (isRepeatingForm ? formInstanceList.length : 1);
+  const verifiedCount = formInstanceList.reduce((n, inst) => n + sdvEligibleFields.filter((f) => sdvVerified(sdvFvIdOf(inst.id, f.id))).length, 0);
+  const sdvPct = sdvCellTotal ? Math.round((verifiedCount / sdvCellTotal) * 100) : 0;
 
   // ePRO — Owner Daily Diary is a read-only stub: data flows from the owner
   // portal, so the Subject Record shows an info note and disabled fields.
@@ -442,10 +462,6 @@ export function SubjectRecord({ studyId, subjectId, initialFormId }: Props) {
   // Production Summary — a read-only, auto-generated rollup (no fields to edit, no
   // SDV / queries / submit). Its values aggregate across the weekly visit forms.
   const isSummaryForm = selectedForm?.name === "Production Summary";
-  const isRepeatingForm = REPEATING_FORMS.includes(selectedForm?.name ?? "");
-  const repeatingEntries = isRepeatingForm
-    ? dataset.formInstances.filter((i) => i.subject_id === subjectId && i.form_id === activeFormId)
-    : [];
   const repeatingCols = REPEATING_COLUMNS[selectedForm?.name ?? ""] ?? [];
   const repeatingAddLabel = REPEATING_ADD_LABEL[selectedForm?.name ?? ""] ?? `Add ${selectedForm?.name}`;
   const fieldByCode = (code: string) => fields.find((f) => f.code === code);
@@ -739,16 +755,17 @@ export function SubjectRecord({ studyId, subjectId, initialFormId }: Props) {
       return;
     }
     const next = flow.next;
+    // Repeating forms advance every entry together; one-time forms, the single instance.
+    const ids = new Set(formInstanceList.map((i) => i.id));
     update((d: Dataset) => {
-      const inst = d.formInstances.find((i) => i.subject_id === subjectId && i.form_id === activeFormId);
-      if (inst) inst.status = next;
+      for (const inst of d.formInstances) if (ids.has(inst.id)) inst.status = next;
     });
   }
   function confirmLock() {
     if (!lockPassword.trim()) return; // e-signature required
+    const ids = new Set(formInstanceList.map((i) => i.id));
     update((d: Dataset) => {
-      const inst = d.formInstances.find((i) => i.subject_id === subjectId && i.form_id === activeFormId);
-      if (inst) inst.status = "locked";
+      for (const inst of d.formInstances) if (ids.has(inst.id)) inst.status = "locked";
     });
     setLockPassword("");
     setLockModalOpen(false);
@@ -789,26 +806,30 @@ export function SubjectRecord({ studyId, subjectId, initialFormId }: Props) {
   // form (CRA). Empty/never-entered fields and un-clean fields are skipped (item 5).
   function verifyAll() {
     if (!canSdv || locked) return;
-    const inst = dataset.formInstances.find((i) => i.subject_id === subjectId && i.form_id === activeFormId);
-    if (!inst) return; // no instance → nothing entered → nothing to verify
+    // Repeating forms verify every entry's fields; one-time forms, the single instance.
+    const ids = formInstanceList.map((i) => i.id);
+    if (ids.length === 0) return; // nothing entered → nothing to verify
     update((d: Dataset) => {
-      for (const f of fields.filter(isSdvEligible)) {
-        const fv = d.fieldValues.find((v) => v.form_instance_id === inst.id && v.form_field_id === f.id);
-        if (!fv || (fv.value ?? "") === "") continue; // only fields with a saved value
-        if (sdvBlockReason(f, fv.id)) continue; // skip un-clean fields
-        const rec = d.sdvRecords.find((r) => r.field_value_id === fv.id);
-        if (rec) { rec.status = "verified"; rec.verified_by_name = ndaName; rec.verified_at = todayISO(); }
-        else d.sdvRecords.push({ id: newId(), form_instance_id: fv.form_instance_id, field_value_id: fv.id, status: "verified", verified_by_name: ndaName, verified_at: todayISO() });
+      for (const instId of ids) {
+        for (const f of fields.filter(isSdvEligible)) {
+          const fv = d.fieldValues.find((v) => v.form_instance_id === instId && v.form_field_id === f.id);
+          if (!fv || (fv.value ?? "") === "") continue; // only fields with a saved value
+          if (sdvBlockReason(f, fv.id)) continue; // skip un-clean fields
+          const rec = d.sdvRecords.find((r) => r.field_value_id === fv.id);
+          if (rec) { rec.status = "verified"; rec.verified_by_name = ndaName; rec.verified_at = todayISO(); }
+          else d.sdvRecords.push({ id: newId(), form_instance_id: fv.form_instance_id, field_value_id: fv.id, status: "verified", verified_by_name: ndaName, verified_at: todayISO() });
+        }
       }
     });
   }
-  // Mark this form's source-data verification complete (item 6).
+  // Mark this form's source-data verification complete (item 6) — every entry for a
+  // repeating form, the single instance otherwise.
   function markSdvComplete() {
     if (!canSdv || locked) return;
+    const ids = new Set(formInstanceList.map((i) => i.id));
     update((d: Dataset) => {
-      let inst = d.formInstances.find((i) => i.subject_id === subjectId && i.form_id === activeFormId);
-      if (!inst && activeFormId) { inst = { id: newId(), form_id: activeFormId, subject_id: subjectId, status: "in_work" }; d.formInstances.push(inst); }
-      if (inst) inst.sdv_complete = true;
+      if (ids.size === 0 && activeFormId) { d.formInstances.push({ id: newId(), form_id: activeFormId, subject_id: subjectId, status: "in_work", sdv_complete: true }); return; }
+      for (const inst of d.formInstances) if (ids.has(inst.id)) inst.sdv_complete = true;
     });
   }
 
@@ -929,12 +950,28 @@ export function SubjectRecord({ studyId, subjectId, initialFormId }: Props) {
   const msgsForQuery = (qid: string) => dataset.queryMessages.filter((m) => m.query_id === qid).slice().sort((a, b) => (a.created_at < b.created_at ? -1 : 1));
   const panelHasResponse = panelQuery ? msgsForQuery(panelQuery.id).some((m) => m.author_role && !m.author_role.includes("System")) : false;
 
-  const formHasData = fields.some((f) => (fvFor(f.id)?.value ?? "") !== "");
-  // Submit for Review is blocked by unresolved edit checks, pending change reasons,
-  // or empty required fields — but NOT by open manual queries (those don't block).
-  const hasOpenEditCheck = fields.some((f) => !!editCheckFor(fvFor(f.id)?.id));
-  const hasPendingDelta = fields.some((f) => deltaStateFor(f.id, fvFor(f.id)?.id) === "pending");
-  const hasEmptyRequired = fields.some((f) => f.is_required && (fvFor(f.id)?.value ?? "") === "");
+  // Submit gating. One-time forms test the single active instance; repeating forms
+  // test EVERY entry (the form advances as a whole). Submit for Review is blocked by
+  // unresolved edit checks, pending change reasons, or empty required fields — but
+  // NOT by open manual queries (those don't block).
+  const instFvId = (instId: string, fieldId: string) => dataset.fieldValues.find((v) => v.form_instance_id === instId && v.form_field_id === fieldId)?.id;
+  const instHasData = (instId: string) => fields.some((f) => entryVal(instId, f.id).trim() !== "");
+  const instOpenEC = (instId: string) => fields.some((f) => { const id = instFvId(instId, f.id); return !!id && !!dataset.editChecks.find((e) => e.field_value_id === id && e.status === "open"); });
+  const instPendingDelta = (instId: string) => fields.some((f) => { const id = instFvId(instId, f.id); return !!id && dataset.deltaRecords.some((r) => r.field_value_id === id && r.status === "pending"); });
+  const instEmptyRequired = (instId: string) => fields.some((f) => f.is_required && entryVal(instId, f.id).trim() === "");
+
+  const formHasData = isRepeatingForm
+    ? repeatingEntries.some((i) => instHasData(i.id))
+    : fields.some((f) => (fvFor(f.id)?.value ?? "") !== "");
+  const hasOpenEditCheck = isRepeatingForm
+    ? repeatingEntries.some((i) => instOpenEC(i.id))
+    : fields.some((f) => !!editCheckFor(fvFor(f.id)?.id));
+  const hasPendingDelta = isRepeatingForm
+    ? repeatingEntries.some((i) => instPendingDelta(i.id))
+    : fields.some((f) => deltaStateFor(f.id, fvFor(f.id)?.id) === "pending");
+  const hasEmptyRequired = isRepeatingForm
+    ? repeatingEntries.some((i) => instEmptyRequired(i.id))
+    : fields.some((f) => f.is_required && (fvFor(f.id)?.value ?? "") === "");
   const submitBlocked = hasOpenEditCheck || hasPendingDelta || hasEmptyRequired;
   const submitBlockReason = hasEmptyRequired ? "Complete all required fields first" : hasOpenEditCheck ? "Resolve all edit checks first" : hasPendingDelta ? "Provide all change reasons first" : undefined;
 
@@ -1198,14 +1235,15 @@ export function SubjectRecord({ studyId, subjectId, initialFormId }: Props) {
             <i className="ti ti-shield-check-filled" style={{ fontSize: "14px", flexShrink: 0 }}></i>
             <span>SDV mode active</span>
             <div className="sdv-progress-bar"><div className="sdv-progress-fill" style={{ width: `${sdvPct}%` }}></div></div>
-            <span style={{ fontFamily: "var(--font-mono)", fontWeight: "var(--weight-medium)" }}>{verifiedCount}/{sdvFieldIds.length} verified</span>
+            <span style={{ fontFamily: "var(--font-mono)", fontWeight: "var(--weight-medium)" }}>{verifiedCount}/{sdvCellTotal} verified</span>
           </div>
 
           <div className="form-header">
             <h1 className="form-title">{selectedForm?.name || "Form"}</h1>
-            {/* Repeating (log) forms manage entries via the table's own Add button —
-                the per-form Remarks / SDV / advance toolbar doesn't apply. */}
-            <div className="form-actions" style={isRepeatingForm || isSummaryForm ? { display: "none" } : undefined}>
+            {/* The Remarks dropdown + status CTA apply to the whole form — including
+                repeating (log) forms, whose status/SDV roll up across every entry.
+                Only the auto-generated Production Summary (read-only) has no toolbar. */}
+            <div className="form-actions" style={isSummaryForm ? { display: "none" } : undefined}>
               <div className="remarks-wrap">
                 <button className="btn-secondary" onClick={() => setRemarksOpen((o) => !o)} type="button">
                   Remarks: {[modeQueries && "Queries", modeSdv && "SDV mode"].filter(Boolean).join(", ") || "Off"}
@@ -1232,8 +1270,8 @@ export function SubjectRecord({ studyId, subjectId, initialFormId }: Props) {
                   <button className="btn-secondary" type="button" disabled={!canSdv} onClick={verifyAll} title={canSdv ? "Verify all entered fields" : "SDV verify — CRA only"}>
                     Verify all
                   </button>
-                  <button className="btn-primary" type="button" disabled={!canSdv} onClick={markSdvComplete} title={instance?.sdv_complete ? "SDV marked complete" : "Mark source-data verification complete for this form"}>
-                    {instance?.sdv_complete ? <><i className="ti ti-shield-check-filled"></i> SDV complete</> : "Mark SDV complete"}
+                  <button className="btn-primary" type="button" disabled={!canSdv} onClick={markSdvComplete} title={allSdvComplete ? "SDV marked complete" : "Mark source-data verification complete for this form"}>
+                    {allSdvComplete ? <><i className="ti ti-shield-check-filled"></i> SDV complete</> : "Mark SDV complete"}
                   </button>
                 </>
               )}
