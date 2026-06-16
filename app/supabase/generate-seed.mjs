@@ -558,10 +558,20 @@ const BR_RESPONSE_FIELDS = [
   yn("requires_retreatment", "Requires re-treatment"),
   txt("assessor", "Assessor"),
 ];
+// Day 0 has no baseline yet → no "Response vs baseline"; a simpler assessment set.
+const BR_RESPONSE_FIELDS_D0 = [
+  date("visit_date", "Visit date", true),
+  sel("clinical_illness_score", "Clinical Illness Score", ["0", "1", "2", "3"]),
+  sel("attitude", "Attitude / Demeanor", ["Bright", "Quiet", "Depressed", "Recumbent"]),
+  sel("hydration", "Hydration status", ["Normal", "Mild dehydration", "Moderate dehydration", "Severe dehydration"]),
+  sel("bcs", "Body condition score", ["1", "2", "3", "4", "5", "6", "7", "8", "9"]),
+  sel("appetite", "Appetite", ["Normal", "Reduced", "None"]),
+  ta("notes", "Notes"),
+];
 // One visit-day group (B–F): Vital Signs + Clinical Response, both batch_eligible.
 const brVisitGroup = (day) => grp(`Visit Day ${day}`, [
   batchLeaf(`vital_signs_d${day}`, `Vital Signs — Day ${day}`, BR_VITAL_FIELDS),
-  batchLeaf(`clinical_response_d${day}`, `Clinical Response — Day ${day}`, BR_RESPONSE_FIELDS),
+  batchLeaf(`clinical_response_d${day}`, `Clinical Response — Day ${day}`, day === 0 ? BR_RESPONSE_FIELDS_D0 : BR_RESPONSE_FIELDS),
 ]);
 
 const BR_TREE = [
@@ -1072,26 +1082,29 @@ const BR_ALL_DAYS = [0, 3, 7, 14, 28];
 const brAddDays = (iso, n) => { const d = new Date(`${iso}T00:00:00Z`); d.setUTCDate(d.getUTCDate() + n); return d.toISOString().slice(0, 10); };
 
 // code · site · arm · status · age (months — ≤6 = calf) · enroll date · visits done
-// flags: ec (TX temp edit check) · retreat (re-treatment flag set) · withdrawReason
+// flags: ec (TX-001 temp edit check) · query (KS-002 responded query, D3 vitals) ·
+// retreat (re-treatment flag set) · withdrawReason. Enrollment dates anchored to
+// BR_TODAY so the Batch Entry "due today" suggestions land on the right visit day.
 const BR_ANIMALS = [
-  { code: "BR-2502-TX-001", site: "TX", arm: "T01", status: "active",    age: 14, enroll: "2026-06-13", done: ["d0"], ec: true },
-  { code: "BR-2502-TX-002", site: "TX", arm: "T02", status: "active",    age: 5,  enroll: "2026-06-13", done: ["d0"] },
-  { code: "BR-2502-TX-003", site: "TX", arm: "T03", status: "completed", age: 12, enroll: "2026-05-12", done: "all" },
-  { code: "BR-2502-KS-001", site: "KS", arm: "T01", status: "active",    age: 16, enroll: "2026-06-13", done: ["d0"] },
-  { code: "BR-2502-KS-002", site: "KS", arm: "T02", status: "active",    age: 5,  enroll: "2026-06-13", done: ["d0"] },
-  { code: "BR-2502-KS-003", site: "KS", arm: "T03", status: "withdrawn", age: 18, enroll: "2026-05-20", done: ["d0", "d3"], withdrawReason: "Intercurrent illness unrelated to the test article (lameness, left fore) — removed from study per protocol §7.3; not attributable to BRD or treatment." },
-  { code: "BR-2502-NE-001", site: "NE", arm: "T01", status: "active",    age: 6,  enroll: "2026-06-09", done: ["d0", "d3"] },
-  { code: "BR-2502-NE-002", site: "NE", arm: "T02", status: "completed", age: 10, enroll: "2026-05-09", done: "all" },
-  { code: "BR-2502-NE-003", site: "NE", arm: "T03", status: "active",    age: 13, enroll: "2026-06-09", done: ["d0", "d3"], query: true },
+  { code: "BR-2502-TX-001", site: "TX", arm: "T01", status: "active",    age: 5,  enroll: "2026-06-13", done: ["d0"], ec: true },
+  { code: "BR-2502-TX-002", site: "TX", arm: "T02", status: "active",    age: 14, enroll: "2026-06-13", done: ["d0"] },
+  { code: "BR-2502-TX-003", site: "TX", arm: "T03", status: "active",    age: 12, enroll: "2026-06-13", done: ["d0"] },
+  { code: "BR-2502-KS-001", site: "KS", arm: "T01", status: "completed", age: 6,  enroll: "2026-05-12", done: "all" },
+  { code: "BR-2502-KS-002", site: "KS", arm: "T02", status: "active",    age: 13, enroll: "2026-06-09", done: ["d0", "d3"], query: true },
+  { code: "BR-2502-KS-003", site: "KS", arm: "T03", status: "active",    age: 16, enroll: "2026-06-13", done: ["d0"] },
+  { code: "BR-2502-NE-001", site: "NE", arm: "T01", status: "completed", age: 5,  enroll: "2026-05-09", done: "all" },
+  { code: "BR-2502-NE-002", site: "NE", arm: "T02", status: "completed", age: 10, enroll: "2026-05-06", done: "all" },
+  { code: "BR-2502-NE-003", site: "NE", arm: "T03", status: "active",    age: 15, enroll: "2026-06-09", done: ["d0", "d3"] },
   { code: "BR-2502-CO-001", site: "CO", arm: "T01", status: "active",    age: 4,  enroll: "2026-06-13", done: ["d0"], retreat: true },
-  { code: "BR-2502-CO-002", site: "CO", arm: "T02", status: "completed", age: 11, enroll: "2026-05-06", done: "all" },
-  { code: "BR-2502-CO-003", site: "CO", arm: "T03", status: "active",    age: 15, enroll: "2026-06-13", done: ["d0"] },
+  { code: "BR-2502-CO-002", site: "CO", arm: "T02", status: "active",    age: 11, enroll: "2026-06-13", done: ["d0"] },
+  { code: "BR-2502-CO-003", site: "CO", arm: "T03", status: "withdrawn", age: 15, enroll: "2026-06-05", done: ["d0", "d3"], withdrawReason: "Owner request — animal removed from the study at the owner's request on Day 7; no safety concern, not attributable to BRD or the test article." },
 ];
 const BR_BREEDS = ["Angus", "Hereford", "Simmental", "Cross"];
 const brDemo = BR_ANIMALS.map((a, idx) => {
   const completed = a.status === "completed";
   const tag = `${a.site}-${1000 + idx}`;
-  const sex = a.age <= 6 ? "Heifer" : "Steer";
+  const calf = a.age <= 6;
+  const sex = calf ? "Heifer" : "Steer";
   const breed = BR_BREEDS[idx % BR_BREEDS.length];
   const weight = 150 + a.age * 9; // rough arrival weight by age
   const oneTimeStatus = completed ? "finalized" : "reviewed";
@@ -1121,21 +1134,23 @@ const brDemo = BR_ANIMALS.map((a, idx) => {
     const isEC = a.ec && d === 0;
     const vitalStatus = completed ? "finalized" : d === 0 && a.status === "active" ? "in_work" : "reviewed";
     const temp = isEC ? ["40.6", 40.6] : d === 0 ? ["40.1", 40.1] : ["38.7", 38.7];
-    const hr = isEC ? ["120", 120] : a.age <= 6 ? ["118", 118] : ["72", 72];
+    // HR within the animal's own age-class range (calf 100–140 / adult 48–84).
+    const hr = calf ? ["120", 120] : ["72", 72];
     const vf = { key: `vital_signs_d${d}`, status: vitalStatus, values: {
       visit_date: vDate, rectal_temp: temp, heart_rate: hr, resp_rate: [d === 0 ? "42" : "30", d === 0 ? 42 : 30],
       clinical_illness_score: d === 0 ? "2" : "1", attitude: d === 0 ? "Depressed" : "Bright",
       hydration: d === 0 ? "Mild dehydration" : "Normal", bcs: "5", appetite: d === 0 ? "Reduced" : "Normal" } };
-    if (isEC) vf.editCheck = { field: "rectal_temp", message: "Rectal temperature 40.6 °C exceeds the bovine range (38.0–39.3 °C) — consistent with a febrile BRD episode; confirm against source and the screening reading. (Heart rate 120 bpm is also above the adult range 48–84 bpm for this 14-month animal.)" };
+    if (isEC) vf.editCheck = { field: "rectal_temp", message: "Rectal temperature 40.6 °C exceeds the bovine range (38.0–39.3 °C) — consistent with a febrile BRD episode; confirm against source and the screening reading." };
+    // A responded query on the Day-3 vital signs (heart rate) of the flagged animal.
+    if (a.query && d === 3) vf.query = { field: "heart_rate", title: "Day-3 heart rate vs trend",
+      raise: "Day-3 heart rate of 72 bpm is at the low end versus the Day-0 reading for this animal. Confirm the chute-side count against the source worksheet.",
+      response: "Re-counted at the chute — 72 bpm is correct; the animal had settled and the Day-0 reading was elevated by handling stress. Value confirmed." };
     forms.push(vf);
-    const rf = { key: `clinical_response_d${d}`, status: vitalStatus, values: {
-      visit_date: vDate, clinical_illness_score: d === 0 ? "2" : "1",
-      response_vs_baseline: d === 0 ? "No change" : "Improved", temperature_normalized: d === 0 ? "No" : "Yes",
-      treatment_success_interim: d >= 7 ? "Yes" : "No", requires_retreatment: "No", assessor: "Elisa Tron" } };
-    // A responded query on the day-3 heart rate of the flagged animal.
-    if (a.query && d === 3) rf.query = { field: "clinical_illness_score", title: "DART score vs vital-sign trend",
-      raise: "Day-3 DART score recorded as 1 but the rectal temperature and demeanor on the same visit suggest continued mild illness. Confirm the score against the source worksheet.",
-      response: "Re-checked against the chute-side worksheet — DART 1 is correct (temperature normalised to 38.7 °C, animal bright and feeding). Score confirmed." };
+    // Day 0 Clinical Response has no baseline → simpler assessment set.
+    const rf = { key: `clinical_response_d${d}`, status: vitalStatus, values: d === 0
+      ? { visit_date: vDate, clinical_illness_score: "2", attitude: "Depressed", hydration: "Mild dehydration", bcs: "5", appetite: "Reduced" }
+      : { visit_date: vDate, clinical_illness_score: "1", response_vs_baseline: "Improved", temperature_normalized: "Yes",
+          treatment_success_interim: d >= 7 ? "Yes" : "No", requires_retreatment: "No", assessor: "Elisa Tron" } };
     forms.push(rf);
   }
 
@@ -1143,8 +1158,8 @@ const brDemo = BR_ANIMALS.map((a, idx) => {
     completion_date: brAddDays(a.enroll, 28), final_body_weight: [String(weight + 45), weight + 45],
     clinical_outcome: "Cure", final_temp: ["38.6", 38.6], disposition: "Returned to pen" } });
   if (a.status === "withdrawn") forms.push({ key: "eos", status: "reviewed", values: {
-    completion_date: brAddDays(a.enroll, 6), clinical_outcome: "Removed", final_temp: ["38.9", 38.9],
-    disposition: "Shipped", withdrawal_reason: a.withdrawReason } });
+    completion_date: brAddDays(a.enroll, 7), clinical_outcome: "Removed", final_temp: ["38.9", 38.9],
+    disposition: "Returned to pen", withdrawal_reason: a.withdrawReason } });
   if (a.retreat) forms.push({ key: "retreatment", status: "in_work", values: {
     date: brAddDays(a.enroll, 2), reason: "Treatment failure", rectal_temp: ["40.2", 40.2],
     clinical_illness_score: "2", rescue_product: "Florfenicol", dose_route: "40 mg/kg SC",

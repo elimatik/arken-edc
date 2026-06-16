@@ -6,7 +6,6 @@ import { useShell } from "@/components/shell/ShellContext";
 import { useStudySession } from "@/lib/session-store/SessionStore";
 import { hierarchyLevels } from "@/lib/terminology";
 import { studyHasBatch } from "@/lib/batch-entry";
-import { BatchEntryModal } from "@/components/batch-entry/BatchEntryModal";
 import "./data-entry.css";
 
 // ─── Types ───────────────────────────────────────────────────────────────────
@@ -73,7 +72,6 @@ export default function DataEntryPage() {
   const siteParam = useSearchParams().get("site"); // ?site=<id> pre-filters a site (e.g. from the Subject Record breadcrumb)
 
   const [nav, setNav] = useState<{ key: string; label: string }[]>([]);
-  const [batchOpen, setBatchOpen] = useState(false);
   const [search, setSearch] = useState("");
   const [statusFilter, setStatusFilter] = useState("");
   // Add-record modal: "site" (Admin) or "container" (barn/pen/stable/stall, CRC/DM/Admin).
@@ -333,7 +331,6 @@ export default function DataEntryPage() {
   // Batch Entry — available at the animal level (the bottom of the hierarchy) for
   // studies with batch_eligible forms (BR-2502). Hidden for PH/CA (no such forms).
   const showBatch = ready && childLevel === subjectIdx && studyHasBatch(dataset, studyId);
-  const batchSubjectIds = items.filter((n) => n.level === subjectIdx).map((n) => n.id);
 
   // ─── Add-record permissions (per level) ─────────────────────────────────────
   const addLevel: "site" | "container" | "subject" =
@@ -476,8 +473,8 @@ export default function DataEntryPage() {
               </button>
             )}
             {showBatch && (
-              <button className="btn-secondary" type="button" onClick={() => setBatchOpen(true)}>
-                <i className="ti ti-layout-grid-add"></i> Batch entry
+              <button className="btn-secondary" type="button" onClick={() => router.push(`/study/${studyId}/batch-entry?from=data-entry${parentNode ? `&loc=${parentNode.id}` : ""}`)}>
+                <i className="ti ti-table"></i> Batch entry
               </button>
             )}
             {canAdd && (
@@ -702,15 +699,6 @@ export default function DataEntryPage() {
             </div>
           </div>
         </div>
-      )}
-      {batchOpen && (
-        <BatchEntryModal
-          studyId={studyId}
-          subjectIds={batchSubjectIds}
-          loc={parentNode?.id}
-          from="data-entry"
-          onClose={() => setBatchOpen(false)}
-        />
       )}
     </div>
   );

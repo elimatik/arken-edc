@@ -36,12 +36,20 @@ const STATUS_MAP: Record<string, { cls: string; label: string }> = {
 
 // Repeating (log) forms — rendered as a table of entries (one form instance each)
 // with Add / Edit / Delete, instead of a single field grid. Summary columns per form.
-const REPEATING_FORMS = ["ConMed", "Adverse Event", "Protocol Deviation", "Mortality & Cull Record"];
+const REPEATING_FORMS = [
+  "ConMed", "Adverse Event", "Protocol Deviation", "Mortality & Cull Record",
+  // BR-2502 Group G — Safety & Events (as-needed repeating logs).
+  "Injection Site Reaction", "Re-treatment / Rescue Therapy", "Sample Collection", "Concomitant Medication Log",
+];
 const REPEATING_COLUMNS: Record<string, [string, string][]> = {
   ConMed: [["medication_name", "Drug name"], ["dose", "Dose"], ["route", "Route"], ["start_date", "Start date"], ["ongoing", "Ongoing"]],
   "Adverse Event": [["ae_number", "AE #"], ["ae_term", "AE term"], ["severity", "Severity"], ["outcome", "Outcome"], ["sae_flag", "SAE"]],
   "Protocol Deviation": [["deviation_type", "Type"], ["deviation_date", "Date"], ["major_minor", "Major / Minor"], ["description", "Description"]],
   "Mortality & Cull Record": [["event_date", "Date"], ["death_count", "Deaths"], ["cull_count", "Culls"], ["cause_deaths", "Cause"]],
+  "Injection Site Reaction": [["observation_date", "Date"], ["injection_site", "Site"], ["grade", "Grade"], ["reaction_present", "Reaction"]],
+  "Re-treatment / Rescue Therapy": [["date", "Date"], ["reason", "Reason"], ["rescue_product", "Product"], ["treatment_failure", "Failure"]],
+  "Sample Collection": [["collection_date", "Date"], ["sample_type", "Type"], ["sample_ids", "Sample IDs"], ["sent_to_lab", "Sent"]],
+  "Concomitant Medication Log": [["start_date", "Start"], ["medication", "Medication"], ["dose_route", "Dose / route"], ["indication", "Indication"]],
 };
 // Custom "Add" button label per repeating form (defaults to "Add <name>").
 const REPEATING_ADD_LABEL: Record<string, string> = {
@@ -219,10 +227,28 @@ export function SubjectRecord({ studyId, subjectId, initialFormId }: Props) {
   const studyBarnIds = new Set(dataset.barns.filter((b) => studySiteIds.has(b.site_id)).map((b) => b.id));
   const penOptions = dataset.pens.filter((p) => studyBarnIds.has(p.barn_id)).map((p) => p.name);
 
+  // ─── Conditional forms (BR-2502 Group G) ───────────────────────────────────
+  // Some forms only apply in specific circumstances: Re-treatment / Rescue is
+  // shown only when the Treatment form's re-treatment flag is Yes; Necropsy only
+  // when the animal died / was euthanized. Derived from this subject's values.
+  const valByCode = (code: string): string | undefined => {
+    const fieldIds = new Set(dataset.formFields.filter((f) => f.code === code).map((f) => f.id));
+    const instIds = new Set(dataset.formInstances.filter((i) => i.subject_id === subjectId).map((i) => i.id));
+    return dataset.fieldValues.find((v) => instIds.has(v.form_instance_id) && fieldIds.has(v.form_field_id) && v.value)?.value ?? undefined;
+  };
+  const retreatFlagYes = valByCode("retreatment_flag") === "Yes";
+  const animalDied = ["died", "euthanized"].includes(subject.status) ||
+    ["Died", "Euthanized"].includes(valByCode("disposition") ?? "") || valByCode("clinical_outcome") === "Death";
+  const formHidden = (name: string) =>
+    (name === "Re-treatment / Rescue Therapy" && !retreatFlagYes) ||
+    (name === "Necropsy / Post-mortem" && !animalDied);
+
   // ─── Sidebar forms — grouped tree (store-derived) ──────────────────────────
   // Only subject-scoped forms appear in the pen/subject sidebar — barn-scoped
   // (House record) and site-scoped (Site record) forms are rendered elsewhere.
-  const studyForms = dataset.forms.filter((f) => f.study_id === studyId && (f.scope ?? "subject") === "subject").slice().sort((a, b) => a.sequence - b.sequence);
+  const studyForms = dataset.forms
+    .filter((f) => f.study_id === studyId && (f.scope ?? "subject") === "subject" && !formHidden(f.name))
+    .slice().sort((a, b) => a.sequence - b.sequence);
   const groupIds = new Set(studyForms.map((f) => f.parent_form_id).filter(Boolean) as string[]);
 
   // A single leaf (sub-form or standalone form): its status icon + open-query count.
