@@ -53,21 +53,13 @@ function statusLabel(s: string): string {
   return s.charAt(0).toUpperCase() + s.slice(1).replace(/-/g, " ");
 }
 
-// Forms cell — completed / total form instances as a progress bar ("24 / 36").
-function FormsProgress({ complete, total }: { complete: number; total: number }) {
-  const pct = total > 0 ? Math.round((complete / total) * 100) : 0;
-  return (
-    <div className="progress-cell">
-      <div className="progress-track"><div className={`progress-fill${pct < 40 ? " low" : ""}`} style={{ width: `${pct}%` }}></div></div>
-      <span className="progress-label">{complete} / {total}</span>
-    </div>
-  );
+// Forms cell — completed / total form instances ("24 / 36"). Always plain .cell-num.
+function FormsCell({ complete, total }: { complete: number; total: number }) {
+  return <span className="cell-num">{complete} / {total}</span>;
 }
-// Queries cell — open (raised + responded) count, orange when > 0, dash when none.
+// Queries cell — open (raised + responded) count, amber (.warn) when > 0, dash when none.
 function QueriesCell({ count }: { count: number }) {
-  return count > 0
-    ? <span className="de-q has">{count}</span>
-    : <span className="mono muted">—</span>;
+  return <span className={`cell-num${count > 0 ? " warn" : ""}`}>{count > 0 ? count : "—"}</span>;
 }
 
 export default function DataEntryPage() {
@@ -558,7 +550,6 @@ export default function DataEntryPage() {
                     const isSubjectRow = n.level === subjectIdx;
                     const done = n.forms ? n.forms.filter((f) => f.status === "complete").length : 0;
                     const total = n.forms ? n.forms.length : 0;
-                    const pct = total > 0 ? Math.round((done / total) * 100) : 0;
                     return (
                       <tr
                         key={n.id}
@@ -582,7 +573,7 @@ export default function DataEntryPage() {
                             <td>
                               <span className={`badge ${BADGE_CLS[n.status] || "badge-pending"}`}>{statusLabel(n.status)}</span>
                             </td>
-                            <td><FormsProgress complete={n.formsComplete ?? 0} total={n.formsTotal ?? 0} /></td>
+                            <td><FormsCell complete={n.formsComplete ?? 0} total={n.formsTotal ?? 0} /></td>
                             <td><QueriesCell count={n.openQueries ?? 0} /></td>
                           </>
                         ) : (
@@ -602,16 +593,7 @@ export default function DataEntryPage() {
                                 <span className="muted" style={{ fontSize: "var(--text-xs)" }}>{n.arm || "—"}</span>
                               </td>
                             )}
-                            <td>
-                              <div className="progress-cell">
-                                <div className="progress-track">
-                                  <div className={`progress-fill${pct < 40 ? " low" : ""}`} style={{ width: `${pct}%` }}></div>
-                                </div>
-                                <span className="progress-label">
-                                  {done}/{total}
-                                </span>
-                              </div>
-                            </td>
+                            <td><FormsCell complete={done} total={total} /></td>
                             <td><QueriesCell count={n.openQueries ?? 0} /></td>
                           </>
                         )}
