@@ -67,8 +67,8 @@ const COLUMNS: Record<string, Col[]> = {
     { compute: "status", label: "Status" },
   ],
   "Daily Environmental Log": [
-    { code: "log_date", label: "Log Date" }, { code: "temp_morning", label: "AM °C" }, { code: "temp_evening", label: "PM °C" },
-    { code: "ammonia_ppm", label: "NH₃ ppm" }, { compute: "flags", label: "Flags" },
+    { code: "log_date", label: "Date" }, { code: "temp_morning", label: "Morning Temp °C" }, { code: "temp_evening", label: "Evening Temp °C" },
+    { code: "ammonia_ppm", label: "Ammonia ppm" }, { code: "co2_ppm", label: "CO₂ ppm" }, { code: "rh_morning", label: "Humidity %" },
   ],
 };
 const ADD_LABEL: Record<string, string> = {
@@ -239,6 +239,61 @@ export function ScopedRepeatingTable({ studyId, scope, scopeId, form }: { studyI
   );
 }
 
+// ─── Recurring/log form: a repeating TABLE + a slide-in panel running the full
+// ScopedFormRenderer flow (edit checks fire inline, ammonia >25 / temp out of
+// range → EC-). One row per entry; an Alerts column counts the row's open edit
+// checks; Status shows the instance status. Scales to 40+ rows (no per-day tabs).
+function ScopedLogTable({ studyId, scope, scopeId, form, topNote }: { studyId: string; scope: Scope; scopeId: string; form: FormRow; topNote?: string }) {
+  const s = useScoped(studyId, scope, scopeId);
+  const fields = s.fieldsFor(form.id);
+  const instances = s.instancesFor(form.id);
+  const cols = COLUMNS[form.name] ?? fields.slice(0, 5).map((f) => ({ code: f.code, label: f.label }));
+  const [panelInst, setPanelInst] = useState<string | null>(null);
+  const openEcCount = (instId: string) => s.dataset.editChecks.filter((e) => e.form_instance_id === instId && e.status === "open").length;
+  const statusLabel = (st: string) => (st === "in_work" ? "In-Work" : st === "in_review" ? "In-Review" : st.charAt(0).toUpperCase() + st.slice(1));
+
+  return (
+    <div>
+      {topNote && <div className="scf-banner note"><i className="ti ti-info-circle"></i> {topNote}</div>}
+      <div className="scf-toolbar">
+        <span className="scf-count">{instances.length} {instances.length === 1 ? "entry" : "entries"}</span>
+        <button className="st-btn-secondary" type="button" onClick={() => setPanelInst(s.addInstance(form.id))}><i className="ti ti-plus"></i> {ADD_LABEL[form.name] ?? "New entry"}</button>
+      </div>
+      {instances.length === 0 ? (
+        <div className="scf-empty">No entries yet.</div>
+      ) : (
+        <table className="scf-table">
+          <thead><tr>{cols.map((c, i) => <th key={i}>{c.label}</th>)}<th>Alerts</th><th>Status</th></tr></thead>
+          <tbody>
+            {instances.map((i) => {
+              const ecN = openEcCount(i.id);
+              return (
+                <tr key={i.id} className="clickable" onClick={() => setPanelInst(i.id)}>
+                  {cols.map((c, ci) => { const f = fields.find((x) => x.code === c.code); const raw = c.code ? s.valByCode(i.id, fields, c.code) : ""; const disp = f?.field_type === "multiselect" ? parseMulti(raw).join(", ") : raw; return <td key={ci} className={f?.field_type === "date" ? "mono" : ""}><span className={c.trunc ? "trunc" : ""}>{disp || "—"}</span></td>; })}
+                  <td>{ecN > 0 ? <span className="scf-status-pill overdue"><i className="ti ti-alert-circle"></i> {ecN}</span> : <span className="scf-hint">—</span>}</td>
+                  <td><span className={`scf-status-pill ${i.status === "reviewed" || i.status === "finalized" || i.status === "locked" ? "current" : "due"}`}>{statusLabel(i.status)}</span></td>
+                </tr>
+              );
+            })}
+          </tbody>
+        </table>
+      )}
+      {panelInst && (
+        <>
+          <div className="scf-overlay" onClick={() => setPanelInst(null)} />
+          <div className="scf-panel" style={{ width: 420 }}>
+            <div className="scf-panel-head"><div className="scf-panel-title">{form.name}</div><button className="scf-panel-close" type="button" onClick={() => setPanelInst(null)}><i className="ti ti-x"></i></button></div>
+            <div className="scf-panel-body" style={{ padding: "var(--space-4)" }}>
+              <ScopedFormRenderer key={panelInst} studyId={studyId} scope={scope} scopeId={scopeId} form={form} instanceId={panelInst} panel />
+            </div>
+            <div className="scf-panel-foot"><button className="st-btn-primary" type="button" onClick={() => setPanelInst(null)}>Done</button></div>
+          </div>
+        </>
+      )}
+    </div>
+  );
+}
+
 // ─── Forms tab: form list + content (each form rendered with the FULL flow) ────
 export function ScopedFormFlow({ studyId, scope, scopeId, exclude = [], topNote }: { studyId: string; scope: Scope; scopeId: string; exclude?: string[]; topNote?: Record<string, string> }) {
   const s = useScoped(studyId, scope, scopeId);
@@ -246,7 +301,6 @@ export function ScopedFormFlow({ studyId, scope, scopeId, exclude = [], topNote 
     .filter((f) => f.study_id === studyId && f.scope === scope && !exclude.includes(f.name))
     .slice().sort((a, b) => a.sequence - b.sequence);
   const [selId, setSelId] = useState<string | null>(null);
-  const [activeInstId, setActiveInstId] = useState<string | null>(null);
   const pendingRef = useRef<Record<string, string>>({}); // one-time forms not yet saved
   const form = forms.find((f) => f.id === selId) ?? forms[0];
 
@@ -259,44 +313,29 @@ export function ScopedFormFlow({ studyId, scope, scopeId, exclude = [], topNote 
     return "in_work";
   };
 
-  const fields = form ? s.fieldsFor(form.id) : [];
-  const insts = form ? s.instancesFor(form.id) : [];
   const recurring = form ? SCOPED_REPEATING.has(form.name) : false;
-  const dateField = fields.find((f) => f.field_type === "date");
-  const instLabel = (inst: { id: string }, idx: number) => (dateField ? s.valueOf(inst.id, dateField.id) : "") || `Entry ${idx + 1}`;
-  // The instance to render: a selected/first entry for recurring logs; for one-time
-  // forms the single instance (a stable generated id until first saved).
-  const renderInstId = !form ? undefined : recurring
-    ? (activeInstId && insts.some((i) => i.id === activeInstId) ? activeInstId : insts[0]?.id)
-    : (insts[0]?.id ?? (pendingRef.current[form.id] ||= crypto.randomUUID()));
-
-  function addEntry() { if (!form) return; setActiveInstId(s.addInstance(form.id)); }
+  // One-time forms: a single instance (a stable generated id until first saved).
+  const oneTimeId = !form || recurring ? undefined : (s.instancesFor(form.id)[0]?.id ?? (pendingRef.current[form.id] ||= crypto.randomUUID()));
 
   return (
     <div className="scf">
       <div className="scf-list">
         <div className="scf-list-label">Forms</div>
         {forms.map((f) => (
-          <button key={f.id} className={`scf-list-item${f.id === form?.id ? " active" : ""}`} type="button" onClick={() => { setSelId(f.id); setActiveInstId(null); }} title={f.name}>
+          <button key={f.id} className={`scf-list-item${f.id === form?.id ? " active" : ""}`} type="button" onClick={() => setSelId(f.id)} title={f.name}>
             <span className="scf-name">{f.name}</span>
             <span className={`scf-glyph ${glyphFor(f)}`}></span>
           </button>
         ))}
       </div>
       <div className="scf-content">
-        {form && topNote?.[form.name] && <div className="scf-banner note"><i className="ti ti-info-circle"></i> {topNote[form.name]}</div>}
-        {form && recurring && (
-          <div className="scf-entries">
-            {insts.map((i, idx) => (
-              <button key={i.id} type="button" className={`scf-entry-chip${i.id === renderInstId ? " active" : ""}`} onClick={() => setActiveInstId(i.id)}>{instLabel(i, idx)}</button>
-            ))}
-            <button type="button" className="scf-entry-add" onClick={addEntry}><i className="ti ti-plus"></i> New entry</button>
-          </div>
-        )}
-        {form && (recurring && !renderInstId
-          ? <div className="scf-empty">No entries yet. Use “New entry” to start.</div>
-          : renderInstId
-          ? <ScopedFormRenderer key={renderInstId} studyId={studyId} scope={scope} scopeId={scopeId} form={form} instanceId={renderInstId} />
+        {form && (recurring
+          ? <ScopedLogTable studyId={studyId} scope={scope} scopeId={scopeId} form={form} topNote={topNote?.[form.name]} />
+          : oneTimeId
+          ? <>
+              {topNote?.[form.name] && <div className="scf-banner note"><i className="ti ti-info-circle"></i> {topNote[form.name]}</div>}
+              <ScopedFormRenderer key={oneTimeId} studyId={studyId} scope={scope} scopeId={scopeId} form={form} instanceId={oneTimeId} />
+            </>
           : null)}
       </div>
     </div>

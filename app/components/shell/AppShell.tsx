@@ -24,11 +24,12 @@ export function AppShell({ study, sites, children }: AppShellProps) {
 
   // The active nav item is derived from the route (first path segment under the study).
   const base = `/study/${study.id}`;
-  const sub = pathname.startsWith(base)
-    ? pathname.slice(base.length).replace(/^\//, "").split("/")[0]
-    : "";
-  const activeKey =
-    Object.entries(NAV_ROUTES).find(([, route]) => route === sub)?.[0] ?? "dashboard";
+  const segs = pathname.startsWith(base) ? pathname.slice(base.length).replace(/^\//, "").split("/").filter(Boolean) : [];
+  const sub = segs[0] ?? "";
+  let activeKey = Object.entries(NAV_ROUTES).find(([, route]) => route === sub)?.[0] ?? "dashboard";
+  // Site/House record pages (/sites/[id], /barns/[id]) are reached from the Data
+  // Entry drill-down — keep "Data Entry" highlighted there (the /sites list stays "Sites").
+  if ((sub === "sites" && segs.length > 1) || sub === "barns") activeKey = "data-entry";
 
   function navigate(key: string) {
     const route = NAV_ROUTES[key];

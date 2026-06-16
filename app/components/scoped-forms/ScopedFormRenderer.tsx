@@ -44,8 +44,8 @@ const STATUS_FLOW: Record<string, { next: string; label: string; roles: string[]
 const isSdvEligible = (f: FormFieldRow) => !["file", "calculated", "textarea"].includes(f.field_type);
 const parseMulti = (v: string): string[] => { try { const a = JSON.parse(v || "[]"); return Array.isArray(a) ? a : []; } catch { return v ? v.split(",").map((s) => s.trim()).filter(Boolean) : []; } };
 
-export function ScopedFormRenderer({ studyId, scope, scopeId, form, instanceId, readOnly: propReadOnly }: {
-  studyId: string; scope: "site" | "barn"; scopeId: string; form: FormRow; instanceId: string; readOnly?: boolean;
+export function ScopedFormRenderer({ studyId, scope, scopeId, form, instanceId, readOnly: propReadOnly, panel }: {
+  studyId: string; scope: "site" | "barn"; scopeId: string; form: FormRow; instanceId: string; readOnly?: boolean; panel?: boolean;
 }) {
   const { dataset, update } = useStudySession();
   const { activeRole } = useShell();
@@ -265,32 +265,43 @@ export function ScopedFormRenderer({ studyId, scope, scopeId, form, instanceId, 
     const onFocus = () => { setEditingFieldId(field.id); snapshotTextFocus(field); };
     const onBlur = () => { setEditingFieldId(null); recordTextEdit(field); };
     const ro = readOnly;
-    const t = field.field_type;
-    const opts = field.options ?? [];
-    if (t === "calculated") return <div className="calc-value">{computed(field)}</div>;
-    if (t === "radio" || (opts.length === 2 && opts.includes("Yes"))) {
+    const type = field.field_type;
+    if (type === "calculated") return <div className="calc-value">{computed(field)}</div>;
+    if (type === "textarea") return <textarea className={`field-input${queried ? " query" : ""}`} style={{ height: 60, fontFamily: "var(--font-sans)" }} value={value} disabled={ro} onChange={(e) => typeChange(e.target.value)} onFocus={onFocus} onBlur={onBlur} />;
+    // yes/no radio → two-button toggle (.yn-toggle / .yn-btn — same as the Subject Record)
+    if (type === "radio") {
+      const opts = field.options?.length ? field.options : ["Yes", "No"];
       return (
         <div className={`yn-toggle${queried ? " query" : ""}`} role="group">
-          {(opts.length ? opts : ["Yes", "No"]).map((o) => (
-            <button key={o} type="button" className={`yn-opt${value === o ? " active" : ""}`} disabled={ro} onClick={() => commit(o)}>{o}</button>
+          {opts.map((o) => (
+            <button key={o} type="button" disabled={ro} className={`yn-btn${value === o ? " active" : ""}`} onClick={() => commit(value === o ? "" : o)}>{o}</button>
           ))}
         </div>
       );
     }
-    if (t === "multiselect") {
+    if (type === "multiselect" || type === "checkbox") {
+      const sel = parseMulti(value);
       return (
         <div className={`check-group${queried ? " query" : ""}`}>
-          {opts.map((o) => { const on = parseMulti(value).includes(o); return (
-            <label key={o} className={`check-opt${on ? " checked" : ""}`}><input type="checkbox" checked={on} disabled={ro} onChange={() => toggleMulti(field, o, value)} /> {o}</label>
-          ); })}
+          {(field.options ?? []).map((o) => (
+            <label key={o} className="check-item"><input type="checkbox" checked={sel.includes(o)} disabled={ro} onChange={() => toggleMulti(field, o, value)} /><span>{o}</span></label>
+          ))}
         </div>
       );
     }
-    if (opts.length > 0) return <select className={`field-input${queried ? " query" : ""}`} value={value} disabled={ro} onChange={(e) => commit(e.target.value)}><option value="">—</option>{opts.map((o) => <option key={o} value={o}>{o}</option>)}</select>;
-    if (t === "textarea") return <textarea className={`field-input${queried ? " query" : ""}`} value={value} disabled={ro} onFocus={onFocus} onBlur={onBlur} onChange={(e) => typeChange(e.target.value)} />;
-    if (t === "date") return <input className={`field-input${queried ? " query" : ""}`} type="date" value={value} disabled={ro} onChange={(e) => commit(e.target.value)} />;
-    if (t === "number" || t === "integer") return <input className={`field-input${queried ? " query" : ""}`} type="number" value={value} disabled={ro} onFocus={onFocus} onBlur={onBlur} onChange={(e) => typeChange(e.target.value)} />;
-    return <input className={`field-input${queried ? " query" : ""}`} type="text" value={value} disabled={ro} onFocus={onFocus} onBlur={onBlur} onChange={(e) => typeChange(e.target.value)} />;
+    if (type === "select") {
+      return (
+        <select className={`field-select${queried ? " query" : ""}`} value={value} disabled={ro} onChange={(e) => commit(e.target.value)}>
+          <option value="">—</option>{(field.options ?? []).map((o) => <option key={o} value={o}>{o}</option>)}
+        </select>
+      );
+    }
+    if (type === "date" || type === "datetime") {
+      return <input type={type === "datetime" ? "datetime-local" : "date"} className={`field-input field-date${queried ? " query" : ""}`} value={value} disabled={ro} onChange={(e) => commit(e.target.value)}
+        onClick={(e) => { try { (e.currentTarget as HTMLInputElement & { showPicker?: () => void }).showPicker?.(); } catch { /* not supported */ } }} />;
+    }
+    const mono = type === "number" || type === "integer";
+    return <input className={`field-input${queried ? " query" : ""}`} inputMode={mono ? "decimal" : undefined} style={mono ? undefined : { fontFamily: "var(--font-sans)" }} value={value} disabled={ro} onFocus={onFocus} onBlur={onBlur} onChange={(e) => typeChange(e.target.value)} />;
   }
 
   return (
@@ -326,8 +337,8 @@ export function ScopedFormRenderer({ studyId, scope, scopeId, form, instanceId, 
         </div>
       </div>
 
-      {/* Field grid */}
-      <div className="field-grid-2">
+      {/* Field grid (single column inside a slide-in panel) */}
+      <div className="field-grid-2" style={panel ? { gridTemplateColumns: "1fr" } : undefined}>
         {fields.map((field, fIdx) => {
           const section = sectionForIdx(fIdx);
           const showSection = !!section && section !== sectionForIdx(fIdx - 1);

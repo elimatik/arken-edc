@@ -164,7 +164,8 @@ export default function BarnRecordPage() {
         <button className={`sr-tab${tab === "forms" ? " active" : ""}`} role="tab" type="button" onClick={() => setTab("forms")}><i className="ti ti-forms"></i> Forms</button>
       </div>
 
-      {/* Stat strip */}
+      {/* Stat strip — Overview tab only */}
+      {tab === "overview" && (
       <div className="sr-stat-strip">
         <div className="sr-stat"><div className="sr-stat-val">{penSubjects.length} <span className="sr-stat-of">/ {pens.length}</span></div><div className="sr-stat-lbl">Pens enrolled</div></div>
         <div className="sr-stat"><div className="sr-stat-val">{totalBirds || "—"}</div><div className="sr-stat-lbl">Total birds</div></div>
@@ -172,6 +173,7 @@ export default function BarnRecordPage() {
         <div className="sr-stat"><div className={`sr-stat-val${openQueries > 0 ? " warn" : ""}`}>{openQueries}</div><div className="sr-stat-lbl">Open queries</div></div>
         <div className="sr-stat"><div className="sr-stat-val">{formsSubmitted}</div><div className="sr-stat-lbl">Forms submitted</div></div>
       </div>
+      )}
 
       <div className="sr-scroll">
         <div className="sr-content-col">

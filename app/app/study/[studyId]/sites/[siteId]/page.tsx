@@ -135,7 +135,8 @@ export default function SiteRecordPage() {
         <button className={`sr-tab${tab === "forms" ? " active" : ""}`} role="tab" type="button" onClick={() => setTab("forms")}><i className="ti ti-forms"></i> Forms</button>
       </div>
 
-      {/* Enrollment metrics stat strip */}
+      {/* Enrollment metrics stat strip — Overview tab only */}
+      {tab === "overview" && (
       <div className="sr-stat-strip">
         <div className="sr-stat"><div className="sr-stat-val">{metrics.enrolled} <span className="sr-stat-of">/ {metrics.target}</span></div><div className="sr-stat-lbl">Enrolled</div></div>
         <div className="sr-stat"><div className="sr-stat-val">{metrics.active}</div><div className="sr-stat-lbl">Active</div></div>
@@ -144,6 +145,7 @@ export default function SiteRecordPage() {
         <div className="sr-stat"><div className="sr-stat-val">{metrics.screening}</div><div className="sr-stat-lbl">Screening</div></div>
         <div className="sr-stat"><div className={`sr-stat-val${metrics.openQueries > 0 ? " warn" : ""}`}>{metrics.openQueries}</div><div className="sr-stat-lbl">Open queries</div></div>
       </div>
+      )}
 
       <div className="sr-scroll">
         <div className="sr-content-col">
