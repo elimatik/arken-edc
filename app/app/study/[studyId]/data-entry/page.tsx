@@ -26,6 +26,11 @@ interface Node {
   arm?: string | null;
   forms?: FormItem[];
   ineligible?: boolean;
+  // Rolled-up across every subject beneath this node (the node itself for a subject
+  // row): completed / total form instances, and open (raised + responded) queries.
+  formsComplete?: number;
+  formsTotal?: number;
+  openQueries?: number;
 }
 
 // ─── Status mapping (instance_status → prototype's 3 buckets) ────────────────
@@ -46,6 +51,23 @@ const BADGE_CLS: Record<string, string> = {
 };
 function statusLabel(s: string): string {
   return s.charAt(0).toUpperCase() + s.slice(1).replace(/-/g, " ");
+}
+
+// Forms cell — completed / total form instances as a progress bar ("24 / 36").
+function FormsProgress({ complete, total }: { complete: number; total: number }) {
+  const pct = total > 0 ? Math.round((complete / total) * 100) : 0;
+  return (
+    <div className="progress-cell">
+      <div className="progress-track"><div className={`progress-fill${pct < 40 ? " low" : ""}`} style={{ width: `${pct}%` }}></div></div>
+      <span className="progress-label">{complete} / {total}</span>
+    </div>
+  );
+}
+// Queries cell — open (raised + responded) count, orange when > 0, dash when none.
+function QueriesCell({ count }: { count: number }) {
+  return count > 0
+    ? <span className="de-q has"><i className="ti ti-message-circle" style={{ fontSize: "11px" }}></i> {count}</span>
+    : <span className="mono muted">—</span>;
 }
 
 export default function DataEntryPage() {
@@ -128,6 +150,30 @@ export default function DataEntryPage() {
     const subjectIdSet = new Set(subjects.map((s) => s.id));
     const instances = dataset.formInstances.filter((i) => i.subject_id != null && subjectIdSet.has(i.subject_id));
 
+    // ─── Forms / Queries rollup (all derived from the session store) ───────────
+    // Completed instance = submitted past in_work (in_review / reviewed / finalized
+    // / locked). Open query = raised (open) or responded. Summarised per subject so
+    // a site / barn / pen row can sum its descendants.
+    const DONE_STATUS = new Set(["in_review", "reviewed", "finalized", "locked"]);
+    const openQByInstance: Record<string, number> = {};
+    for (const q of dataset.queries) {
+      if (q.status === "open" || q.status === "responded") openQByInstance[q.form_instance_id] = (openQByInstance[q.form_instance_id] ?? 0) + 1;
+    }
+    const bySubject: Record<string, { complete: number; total: number; openQ: number }> = {};
+    for (const s of subjects) bySubject[s.id] = { complete: 0, total: 0, openQ: 0 };
+    for (const inst of instances) {
+      const b = bySubject[inst.subject_id as string];
+      if (!b) continue;
+      b.total += 1;
+      if (DONE_STATUS.has(inst.status)) b.complete += 1;
+      b.openQ += openQByInstance[inst.id] ?? 0;
+    }
+    const rollup = (pred: (s: (typeof subjects)[number]) => boolean) => {
+      let complete = 0, total = 0, openQ = 0;
+      for (const s of subjects) if (pred(s)) { const b = bySubject[s.id]; complete += b.complete; total += b.total; openQ += b.openQ; }
+      return { formsComplete: complete, formsTotal: total, openQueries: openQ };
+    };
+
     // Per-subject form list = every study form, with status from its instance.
     const subjectForms = (subjId: string): FormItem[] =>
       forms.map((f) => {
@@ -146,6 +192,9 @@ export default function DataEntryPage() {
       arm: s.randomization_arm,
       forms: subjectForms(s.id),
       ineligible: s.ineligible,
+      formsComplete: bySubject[s.id].complete,
+      formsTotal: bySubject[s.id].total,
+      openQueries: bySubject[s.id].openQ,
     });
 
     const map: Record<string, Node[]> = {};
@@ -159,6 +208,7 @@ export default function DataEntryPage() {
         status: site.status,
         childCount: barns.filter((b) => b.site_id === site.id).length,
         subjectCount: subjects.filter((x) => x.site_id === site.id).length,
+        ...rollup((x) => x.site_id === site.id),
       }));
       barns.forEach((b) => {
         (map[b.site_id] = map[b.site_id] || []).push({
@@ -169,6 +219,7 @@ export default function DataEntryPage() {
           status: "active",
           childCount: pens.filter((p) => p.barn_id === b.id).length,
           subjectCount: subjects.filter((x) => x.barn_id === b.id).length,
+          ...rollup((x) => x.barn_id === b.id),
         });
       });
       if (isGroup) {
@@ -191,6 +242,7 @@ export default function DataEntryPage() {
             level: 2,
             status: "active",
             childCount: subjects.filter((x) => x.pen_id === p.id).length,
+            ...rollup((x) => x.pen_id === p.id),
           });
         });
         subjects.forEach((s) => {
@@ -209,6 +261,7 @@ export default function DataEntryPage() {
           status: site.status,
           childCount: n,
           subjectCount: n,
+          ...rollup((x) => x.site_id === site.id),
         };
       });
       subjects.forEach((s) => {
@@ -476,6 +529,8 @@ export default function DataEntryPage() {
                       <th>{levels[childLevel + 1] ? `${levels[childLevel + 1]}s` : "Animals"}</th>
                       <th>Subjects</th>
                       <th>Status</th>
+                      <th>Forms</th>
+                      <th>Queries</th>
                     </>
                   ) : (
                     <>
@@ -491,7 +546,7 @@ export default function DataEntryPage() {
               <tbody>
                 {items.length === 0 ? (
                   <tr>
-                    <td colSpan={7}>
+                    <td colSpan={8}>
                       <div className="de-empty">
                         <i className="ti ti-database"></i>
                         Nothing here yet
@@ -527,6 +582,8 @@ export default function DataEntryPage() {
                             <td>
                               <span className={`badge ${BADGE_CLS[n.status] || "badge-pending"}`}>{statusLabel(n.status)}</span>
                             </td>
+                            <td><FormsProgress complete={n.formsComplete ?? 0} total={n.formsTotal ?? 0} /></td>
+                            <td><QueriesCell count={n.openQueries ?? 0} /></td>
                           </>
                         ) : (
                           <>
@@ -555,10 +612,7 @@ export default function DataEntryPage() {
                                 </span>
                               </div>
                             </td>
-                            {/* Live open-query counts not yet wired (pending the query layer). */}
-                            <td>
-                              <span className="mono muted">—</span>
-                            </td>
+                            <td><QueriesCell count={n.openQueries ?? 0} /></td>
                           </>
                         )}
                         <td>

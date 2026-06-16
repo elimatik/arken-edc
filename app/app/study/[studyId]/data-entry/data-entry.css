@@ -82,6 +82,10 @@
 .progress-fill.low { background: var(--orange-600); }
 .progress-label { font-family: var(--font-mono); font-size: var(--text-xs); color: var(--color-text-secondary); white-space: nowrap; }
 
+/* Open-query count cell — orange when the node has open (raised/responded) queries. */
+.de-q { display: inline-flex; align-items: center; gap: 4px; font-family: var(--font-mono); font-size: var(--text-sm); color: var(--color-text-secondary); }
+.de-q.has { color: var(--amber-700); font-weight: var(--weight-bold); }
+
 /* ─── Summary bar ── */
 .de-summary { padding: var(--space-2) var(--space-5); background: var(--color-surface); border-top: 1px solid var(--color-border); display: flex; align-items: center; gap: var(--space-4); font-size: var(--text-xs); color: var(--color-text-tertiary); flex-shrink: 0; }
 .de-summary .sv { font-weight: var(--weight-medium); color: var(--color-text-primary); font-family: var(--font-mono); }
