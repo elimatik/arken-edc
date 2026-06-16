@@ -106,6 +106,7 @@ export interface FormRow {
   name: string;
   sequence: number;
   scope?: string; // 'subject' (default, pen/animal record) | 'barn' (house record)
+  batch_eligible?: boolean; // fillable for many animals at once in Batch Entry
 }
 
 export interface FormInstanceRow {

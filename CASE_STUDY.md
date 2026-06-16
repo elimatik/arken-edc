@@ -188,7 +188,27 @@ Putting randomization on its own form — with the supply link as a first-class 
 
 ---
 
-> **Case Study 5 is coming** — **conditional demographics** (breed lists, age auto-calculation from date of birth, and production-purpose tags that appear and validate based on the animal). The form layer it builds on is now live.
+## Case Study 5 — Batch Entry: capturing a pen, not a patient
+
+### The problem
+
+Human-subject EDCs are built around one premise: a record is a person, and you sit with that person and fill their form. Veterinary trials break that premise. A feedlot BRD study enrolls cattle in pens; on Day 3 a single technician walks a pen of forty head and records the same vital-signs form for every animal, one after another, at the chute. Force that workflow through a one-subject-at-a-time eCRF and you've designed for the wrong unit of work — forty navigations, forty form-opens, forty save clicks, for what is operationally a single pass down the alley.
+
+### The insight
+
+The form is the same; only the animal changes. So the right surface isn't a record — it's a **grid**: the form's fields as columns, the pen's animals as rows. And the system already knows *which* form is due — every animal carries an enrollment date, and the protocol defines visit windows (Day 3 ±1, Day 7 ±2, …), so on any given day the EDC can compute exactly which visit form is due for how many animals and offer it before the user goes looking.
+
+### The solution
+
+A `batch_eligible` flag on the form definition marks the recurring visit forms (BR-2502's Vital Signs and Clinical Response, all five visit days). Where any such form exists, a **Batch entry** button appears — on the Animals list and at the animal level of the drill-down — and *only* there (PH-2401 and CA-0801 have no batch-eligible forms, so they never show it). It opens a two-step flow: a **suggestion modal** that reads each animal's enrollment date, applies the visit windows, and surfaces "Vital Signs — Day 3 · 5 animals due" cards; then a **full-screen grid** — one row per animal, one column per field, inline editing at design-system cell height, native selects, compact Yes/No toggles. The same validation engine runs **per cell**: an out-of-range temperature flags the cell amber and drops an `EC- n` chip in the row's Alerts column, age-class-aware (the calf and the steer in the same pen get different heart-rate ranges) — but it never blocks the technician mid-pass, because the field reality is that you record first and reconcile after. **Save all** writes every row that has data, skips the empty ones, and reports back: "6 records saved · 1 with open edit checks · 6 skipped."
+
+### Why it matters
+
+Batch entry is the clearest single answer to "why does veterinary need its own EDC?" It isn't a re-skin of a human system — it's a different unit of work modeled honestly: the pen. Built on the exact same form definitions, validation, and session store as the one-animal record (the grid persists ordinary `form_instances`, `field_values`, and edit-check records — a batch-saved form is indistinguishable downstream from one entered animal-by-animal), it adds a workflow no human-subject EDC has a reason to build, without forking the data model to get it.
+
+---
+
+> **Case Study 6 is coming** — **conditional demographics** (breed lists, age auto-calculation from date of birth, and production-purpose tags that appear and validate based on the animal). The form layer it builds on is now live.
 
 ---
 

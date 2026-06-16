@@ -62,6 +62,10 @@ const sec = (name, fields) =>
 const grp = (name, children) => ({ name, children });
 const leaf = (key, name, fields) => ({ key, name, fields });
 const alone = (key, name, fields) => ({ key, name, fields, standalone: true });
+// A leaf marked batch_eligible — surfaced in the Batch Entry feature (fill one
+// form for many animals at once; veterinary pen/herd monitoring). The flag rides
+// on the form row (forms.batch_eligible).
+const batchLeaf = (key, name, fields) => ({ key, name, fields, batch_eligible: true });
 // Recurring visit forms — instead of one form with an "Assessment day" selector,
 // emit one individual form PER visit day (its own sidebar item, status icon,
 // query badge and SDV shield). The visit day is embedded in the form name; the
@@ -524,21 +528,66 @@ const SITE_FORMS = [
 // STUDY 2 — BR-2502  Bovine Respiratory Disease Treatment Trial (cattle, individual)
 // 8 individual-level forms. Heart rate uses AGE-CLASS validation (calf vs adult).
 // ═══════════════════════════════════════════════════════════════════════════
+// Shared field sets for the recurring visit forms (Vital Signs + Clinical
+// Response). Marked batch_eligible so they appear in the Batch Entry grid.
+const BR_VITAL_FIELDS = [
+  ...sec("Visit Information", [
+    date("visit_date", "Visit date", true),
+    calc("visit_within_window", "Visit within window"),
+  ]),
+  ...sec("Vital Signs", [
+    vital("rectal_temp", "Rectal temperature", "temperature", "°C"),
+    vitalAge("heart_rate", "Heart rate", "heart_rate", "bpm"),
+    vital("resp_rate", "Respiratory rate", "respiratory_rate", "breaths/min"),
+  ]),
+  ...sec("Clinical Assessment", [
+    sel("clinical_illness_score", "Clinical Illness Score (DART)", ["0", "1", "2", "3"]),
+    sel("attitude", "Attitude / Demeanor", ["Bright", "Quiet", "Depressed", "Recumbent"]),
+    sel("hydration", "Hydration status", ["Normal", "Mild dehydration", "Moderate dehydration", "Severe dehydration"]),
+    sel("bcs", "Body condition score", ["1", "2", "3", "4", "5", "6", "7", "8", "9"]),
+    sel("appetite", "Appetite", ["Normal", "Reduced", "None"]),
+    ta("notes", "Notes"),
+  ]),
+];
+const BR_RESPONSE_FIELDS = [
+  date("visit_date", "Visit date", true),
+  sel("clinical_illness_score", "Clinical Illness Score", ["0", "1", "2", "3"]),
+  sel("response_vs_baseline", "Response vs baseline", ["Improved", "No change", "Worsened"]),
+  yn("temperature_normalized", "Temperature normalized (< 40.0 °C)"),
+  yn("treatment_success_interim", "Treatment success (interim)"),
+  yn("requires_retreatment", "Requires re-treatment"),
+  txt("assessor", "Assessor"),
+];
+// One visit-day group (B–F): Vital Signs + Clinical Response, both batch_eligible.
+const brVisitGroup = (day) => grp(`Visit Day ${day}`, [
+  batchLeaf(`vital_signs_d${day}`, `Vital Signs — Day ${day}`, BR_VITAL_FIELDS),
+  batchLeaf(`clinical_response_d${day}`, `Clinical Response — Day ${day}`, BR_RESPONSE_FIELDS),
+]);
+
 const BR_TREE = [
+  // ── Group A — Enrollment & Randomization (one-time) ──
   grp("Enrollment & Randomization", [
-    leaf("demographics", "Animal Demographics / Enrollment", [
+    leaf("screening", "Screening / BRD Case Definition", [
+      date("screening_date", "Screening date", true),
+      sel("dart_score", "Clinical illness score (DART)", ["0", "1", "2", "3"]),
+      rng("screening_temp", "Rectal temperature", 35, 43, "°C"),
+      calc("meets_temp_criterion", "Meets temperature criterion (≥ 40.0)"),
+      msel("visual_brd_signs", "Visual BRD signs", ["Nasal discharge", "Cough", "Lethargy", "Drooped ears", "Other"]),
+      num("days_on_feed", "Days on feed"),
+      yn("prior_brd_treatment", "Prior BRD treatment"),
+      yn("inclusion_met", "Inclusion criteria met"),
+      msel("exclusion_criteria", "Exclusion criteria", ["Pregnant", "Chronic illness", "Concurrent illness", "Prior treatment", "Other"]),
+      crit("eligible", "Eligible"),
+      sel("randomized_arm", "Randomized arm", ["T01", "T02", "T03"]),
+    ]),
+    leaf("demographics", "Animal Demographics", [
       txt("animal_id", "Animal ID / ear tag", true),
-      sel("site", "Site", ["Feedlot TX", "Feedlot KS", "Feedlot NE", "Feedlot CO"]),
       txt("eid_rfid", "EID / RFID"),
-      sel("home_pen", "Home pen", ["Pen 1", "Pen 2", "Pen 3"]),
       sel("sex", "Sex", ["Steer", "Heifer", "Bull"]),
       sel("breed_type", "Breed / type", ["Angus", "Hereford", "Simmental", "Cross", "Other"]),
-      txt("source_lot", "Source / origin lot"),
-      date("arrival_date", "Arrival date"),
       num("age_months", "Estimated age", "months"),
       num("arrival_weight", "Arrival body weight", "kg"),
-      txt("color_markings", "Color / markings"),
-      file("animal_photo", "Animal photo"),
+      date("arrival_date", "Arrival date"),
       date("enrollment_date", "Enrollment date", true),
     ]),
     leaf("randomization", "Randomization & Allocation", [
@@ -546,17 +595,13 @@ const BR_TREE = [
       num("block_number", "Block number"),
       sel("assigned_arm", "Assigned arm", ["T01", "T02", "T03"]),
       txt("allocation_number", "Allocation kit / number"),
-      sel("site", "Site", ["Feedlot TX", "Feedlot KS", "Feedlot NE", "Feedlot CO"]),
       txt("randomized_by", "Randomized by"),
       yn("blinding_maintained", "Blinding maintained"),
     ]),
-  ]),
-  grp("Treatment", [
     leaf("treatment", "Treatment Administration", [
       ...sec("Drug Information", [
-        date("treatment_datetime", "Treatment date / time", true),
         num("body_weight_dosing", "Body weight at dosing", "kg", true),
-        sel("test_article", "Test article", ["T01 Test Article", "T02 Reference", "T03 Saline"]),
+        sel("test_article", "Test article", ["T01", "T02", "T03"]),
         num("dose_mg_kg", "Dose", "mg/kg"),
         calc("total_dose", "Total dose", "mg"),
         num("volume_ml", "Volume", "mL"),
@@ -564,75 +609,35 @@ const BR_TREE = [
       ...sec("Administration", [
         sel("route", "Route", ["SC", "IM", "IV"]),
         msel("injection_site", "Injection site", ["Left neck", "Right neck"]),
-        num("volume_per_site", "Volume per site", "mL"),
         txt("lot_expiry", "Lot / expiry"),
+        calc("withdrawal_days", "Withdrawal period", "days"),
+        calc("withdrawal_end", "Withdrawal end date"),
         txt("administered_by", "Administered by"),
         yn("retreatment_flag", "Re-treatment flag"),
       ]),
-      ...sec("Withdrawal", [
-        calc("withdrawal_days", "Withdrawal period", "days"),
-        calc("withdrawal_end", "Withdrawal end date"),
-      ]),
-    ]),
-    leaf("conmed", "Concomitant Medication Log", [
-      date("start_date", "Start date"),
-      date("stop_date", "Stop date"),
-      txt("medication", "Medication"),
-      txt("indication", "Indication"),
-      txt("dose_route", "Dose / route"),
-      yn("related_to_ae", "Related to AE"),
-      yn("prohibited_per_protocol", "Prohibited per protocol"),
-      txt("recorded_by", "Recorded by"),
     ]),
   ]),
-  grp("Clinical Monitoring", [
-    // Recurring vital-sign visits — one individual form per visit day.
-    ...recurring("vital_signs", "Vital Signs", BR_VITAL_DAYS, [
-      ...sec("Identification", [
-        date("datetime", "Date / time", true),
-      ]),
-      ...sec("Vital Signs", [
-        vital("rectal_temp", "Rectal temperature", "temperature", "°C"),
-        vitalAge("heart_rate", "Heart rate", "heart_rate", "bpm"),
-        vital("resp_rate", "Respiratory rate", "respiratory_rate", "breaths/min"),
-      ]),
-      ...sec("Clinical Assessment", [
-        sel("clinical_illness_score", "Clinical illness score", ["0", "1", "2", "3"]),
-        sel("attitude", "Attitude / demeanor", ["Bright", "Quiet", "Depressed", "Recumbent"]),
-        sel("hydration", "Hydration status", ["Normal", "Mild", "Moderate", "Severe dehydration"]),
-        sel("bcs", "Body condition score", ["1", "2", "3", "4", "5", "6", "7", "8", "9"]),
-        sel("appetite", "Appetite", ["Normal", "Reduced", "None"]),
-        ta("notes", "Notes"),
-      ]),
-    ]),
-    ...recurring("clinical_response", "Clinical Response", BR_RESPONSE_DAYS, [
-      date("date", "Date"),
-      sel("clinical_illness_score", "Clinical illness score", ["0", "1", "2", "3"]),
-      sel("response_vs_baseline", "Response vs baseline", ["Improved", "No change", "Worsened"]),
-      yn("temperature_normalized", "Temperature normalized (< 40.0 °C)"),
-      yn("treatment_success_interim", "Treatment success (interim)"),
-      yn("requires_retreatment", "Requires re-treatment"),
-      txt("assessor", "Assessor"),
-    ]),
-  ]),
-  grp("Safety & Pathology", [
+  // ── Groups B–F — one group per visit day (Vital Signs + Clinical Response) ──
+  brVisitGroup(0),
+  brVisitGroup(3),
+  brVisitGroup(7),
+  brVisitGroup(14),
+  brVisitGroup(28),
+  // ── Group G — Safety & Events (as needed; several repeating) ──
+  grp("Safety & Events", [
     leaf("adverse_event", "Adverse Event", [
       ...sec("Event Details", [
         date("ae_onset_date", "AE onset date"),
-        txt("animal_id", "Animal ID"),
         ta("event_description", "Event description"),
         sel("body_system", "Body system affected", ["Respiratory", "GI", "Cardiac", "Injection site", "Other"]),
       ]),
       ...sec("Assessment", [
-        yn("injection_site_reaction", "Injection site reaction"),
-        sel("injection_site_grade", "Injection site grade", ["0", "1", "2", "3"]),
         sel("severity", "Severity", ["Mild", "Moderate", "Severe"]),
         yn("serious_sae", "Serious (SAE)"),
         sel("relationship", "Relationship to test article", ["Related", "Possibly", "Unlikely", "Not related"]),
       ]),
       ...sec("Resolution", [
         sel("action_taken", "Action taken", ["Continued", "Withdrawn", "Treated"]),
-        txt("concomitant_treatment", "Concomitant treatment"),
         sel("outcome", "Outcome", ["Recovered", "Recovering", "Not recovered", "Fatal"]),
         date("resolution_date", "Resolution date"),
       ]),
@@ -649,41 +654,12 @@ const BR_TREE = [
     ]),
     leaf("protocol_deviation", "Protocol Deviation", [
       date("deviation_date", "Deviation date"),
-      sel("animal_id", "Animal ID", ["—"]),
       sel("category", "Category", ["Dosing", "Procedure", "Schedule", "Eligibility", "Other"]),
       ta("description", "Description"),
       sel("impact", "Impact", ["None", "Minor", "Major"]),
       ta("corrective_action", "Corrective action"),
       txt("reported_by", "Reported by"),
-      txt("reported_to", "Reported to"),
     ]),
-    leaf("necropsy", "Necropsy / Post-mortem", [
-      date("death_date", "Death date"),
-      sel("manner", "Manner", ["Found dead", "Euthanized"]),
-      date("necropsy_date", "Necropsy date"),
-      txt("performed_by", "Performed by"),
-      sel("body_condition", "Body condition", ["1", "2", "3", "4", "5", "6", "7", "8", "9"]),
-      ta("respiratory_findings", "Respiratory findings"),
-      num("lung_consolidation", "Lung consolidation (cranioventral)", "%"),
-      sel("lung_lesion_score", "Lung lesion score", ["0", "1", "2", "3", "4"]),
-      yn("pleural_adhesions", "Pleural adhesions"),
-      ta("other_organ_findings", "Other organ findings"),
-      msel("samples_collected", "Samples collected", ["Histopath", "Culture", "Lung", "Other"]),
-      txt("presumptive_cause", "Presumptive cause of death"),
-      yn("brd_attributable", "BRD-attributable"),
-    ]),
-    leaf("sample_collection", "Sample Collection", [
-      date("collection_date", "Collection date"),
-      sel("animal_id", "Animal ID", ["—"]),
-      msel("sample_type", "Sample type", ["Lung histopath", "Lung culture", "Other tissue"]),
-      txt("sample_ids", "Sample IDs"),
-      sel("fixative_transport", "Fixative / transport", ["Formalin", "Chilled", "Frozen"]),
-      yn("sent_to_lab", "Sent to lab"),
-      txt("lab_destination", "Lab destination"),
-      txt("collected_by", "Collected by"),
-    ]),
-  ]),
-  grp("Rescue", [
     leaf("retreatment", "Re-treatment / Rescue Therapy", [
       date("date", "Date"),
       sel("reason", "Reason", ["Relapse", "Treatment failure", "Worsening"]),
@@ -694,31 +670,40 @@ const BR_TREE = [
       yn("treatment_failure", "Classified as treatment failure"),
       yn("removed_from_study", "Removed from study"),
     ]),
-    leaf("screening", "Screening / BRD Case Definition", [
-      date("screening_date", "Screening date", true),
-      sel("dart_score", "Clinical illness score (DART)", ["0", "1", "2", "3"]),
-      rng("screening_temp", "Rectal temperature", 35, 43, "°C"),
-      calc("meets_temp_criterion", "Meets temperature criterion (≥ 40.0)"),
-      msel("visual_brd_signs", "Visual BRD signs", ["Nasal discharge", "Cough", "Lethargy", "Drooped ears", "Other"]),
-      num("days_on_feed", "Days on feed"),
-      yn("prior_brd_treatment", "Prior BRD treatment"),
-      yn("inclusion_met", "Inclusion criteria met"),
-      msel("exclusion_criteria", "Exclusion criteria", ["Pregnant", "Chronic illness", "Concurrent illness", "Prior treatment", "Other"]),
-      crit("eligible", "Eligible"),
-      sel("randomized_arm", "Randomized arm", ["T01", "T02", "T03"]),
+    leaf("necropsy", "Necropsy / Post-mortem", [
+      date("death_date", "Death date"),
+      sel("manner", "Manner", ["Found dead", "Euthanized"]),
+      date("necropsy_date", "Necropsy date"),
+      txt("performed_by", "Performed by"),
+      ta("respiratory_findings", "Respiratory findings"),
+      num("lung_consolidation", "Lung consolidation (cranioventral)", "%"),
+      sel("lung_lesion_score", "Lung lesion score", ["0", "1", "2", "3", "4"]),
+      yn("pleural_adhesions", "Pleural adhesions"),
+      ta("other_organ_findings", "Other organ findings"),
+      txt("presumptive_cause", "Presumptive cause of death"),
+      yn("brd_attributable", "BRD-attributable"),
+    ]),
+    leaf("sample_collection", "Sample Collection", [
+      date("collection_date", "Collection date"),
+      msel("sample_type", "Sample type", ["Lung histopath", "Lung culture", "Other tissue"]),
+      txt("sample_ids", "Sample IDs"),
+      sel("fixative_transport", "Fixative / transport", ["Formalin", "Chilled", "Frozen"]),
+      yn("sent_to_lab", "Sent to lab"),
+      txt("lab_destination", "Lab destination"),
+      txt("collected_by", "Collected by"),
     ]),
   ]),
+  // ── Group H — Closeout (one-time) ──
   grp("Closeout", [
-    leaf("eos", "End of Study / Final Disposition", [
-      date("completion_date", "Completion date"),
-      calc("days_on_study", "Days on study", "days"),
-      num("final_body_weight", "Final body weight", "kg"),
-      calc("adg", "Average daily gain", "kg/day"),
-      calc("treatments_received", "Treatments received"),
-      sel("clinical_outcome", "Clinical outcome", ["Cure", "Treatment success", "Treatment failure", "Relapse", "Death", "Removed"]),
-      num("final_temp", "Final temperature", "°C"),
-      sel("disposition", "Disposition", ["Returned to pen", "Shipped", "Died", "Euthanized"]),
-      calc("withdrawal_end", "Withdrawal period end date"),
+    leaf("conmed", "Concomitant Medication Log", [
+      date("start_date", "Start date"),
+      date("stop_date", "Stop date"),
+      txt("medication", "Medication"),
+      txt("indication", "Indication"),
+      txt("dose_route", "Dose / route"),
+      yn("related_to_ae", "Related to AE"),
+      yn("prohibited_per_protocol", "Prohibited per protocol"),
+      txt("recorded_by", "Recorded by"),
     ]),
     leaf("withdrawal_confirm", "Withdrawal Period Confirmation", [
       date("last_treatment_date", "Last treatment date"),
@@ -726,6 +711,16 @@ const BR_TREE = [
       calc("withdrawal_end_date", "Withdrawal end date"),
       calc("eligible_for_shipment", "Eligible for shipment / slaughter"),
       txt("confirmed_by", "Confirmed by"),
+    ]),
+    leaf("eos", "End of Study / Final Disposition", [
+      date("completion_date", "Completion date"),
+      calc("days_on_study", "Days on study", "days"),
+      num("final_body_weight", "Final body weight", "kg"),
+      calc("adg", "Average daily gain", "kg/day"),
+      sel("clinical_outcome", "Clinical outcome", ["Cure", "Treatment success", "Treatment failure", "Relapse", "Death", "Removed"]),
+      num("final_temp", "Final temperature", "°C"),
+      sel("disposition", "Disposition", ["Returned to pen", "Shipped", "Died", "Euthanized"]),
+      txt("withdrawal_reason", "Withdrawal reason (if withdrawn)"),
     ]),
   ]),
 ];
@@ -1066,6 +1061,98 @@ const caDemo = CA_DOGS.map((d, i) => {
   return { subject: d.code, forms };
 });
 
+// ═══════════════════════════════════════════════════════════════════════════
+// BR-2502 — 12 animals across 4 feedlots, expanded from a compact per-animal spec.
+// Enrollment dates are anchored to BR_TODAY (the app's demo "today") so the Batch
+// Entry suggestion modal lands on the visit day that is actually due. Visit
+// windows: D0 ±0 · D3 ±1 · D7 ±2 · D14 ±3 · D28 ±4.
+// ═══════════════════════════════════════════════════════════════════════════
+const BR_TODAY = "2026-06-16";
+const BR_ALL_DAYS = [0, 3, 7, 14, 28];
+const brAddDays = (iso, n) => { const d = new Date(`${iso}T00:00:00Z`); d.setUTCDate(d.getUTCDate() + n); return d.toISOString().slice(0, 10); };
+
+// code · site · arm · status · age (months — ≤6 = calf) · enroll date · visits done
+// flags: ec (TX temp edit check) · retreat (re-treatment flag set) · withdrawReason
+const BR_ANIMALS = [
+  { code: "BR-2502-TX-001", site: "TX", arm: "T01", status: "active",    age: 14, enroll: "2026-06-13", done: ["d0"], ec: true },
+  { code: "BR-2502-TX-002", site: "TX", arm: "T02", status: "active",    age: 5,  enroll: "2026-06-13", done: ["d0"] },
+  { code: "BR-2502-TX-003", site: "TX", arm: "T03", status: "completed", age: 12, enroll: "2026-05-12", done: "all" },
+  { code: "BR-2502-KS-001", site: "KS", arm: "T01", status: "active",    age: 16, enroll: "2026-06-13", done: ["d0"] },
+  { code: "BR-2502-KS-002", site: "KS", arm: "T02", status: "active",    age: 5,  enroll: "2026-06-13", done: ["d0"] },
+  { code: "BR-2502-KS-003", site: "KS", arm: "T03", status: "withdrawn", age: 18, enroll: "2026-05-20", done: ["d0", "d3"], withdrawReason: "Intercurrent illness unrelated to the test article (lameness, left fore) — removed from study per protocol §7.3; not attributable to BRD or treatment." },
+  { code: "BR-2502-NE-001", site: "NE", arm: "T01", status: "active",    age: 6,  enroll: "2026-06-09", done: ["d0", "d3"] },
+  { code: "BR-2502-NE-002", site: "NE", arm: "T02", status: "completed", age: 10, enroll: "2026-05-09", done: "all" },
+  { code: "BR-2502-NE-003", site: "NE", arm: "T03", status: "active",    age: 13, enroll: "2026-06-09", done: ["d0", "d3"], query: true },
+  { code: "BR-2502-CO-001", site: "CO", arm: "T01", status: "active",    age: 4,  enroll: "2026-06-13", done: ["d0"], retreat: true },
+  { code: "BR-2502-CO-002", site: "CO", arm: "T02", status: "completed", age: 11, enroll: "2026-05-06", done: "all" },
+  { code: "BR-2502-CO-003", site: "CO", arm: "T03", status: "active",    age: 15, enroll: "2026-06-13", done: ["d0"] },
+];
+const BR_BREEDS = ["Angus", "Hereford", "Simmental", "Cross"];
+const brDemo = BR_ANIMALS.map((a, idx) => {
+  const completed = a.status === "completed";
+  const tag = `${a.site}-${1000 + idx}`;
+  const sex = a.age <= 6 ? "Heifer" : "Steer";
+  const breed = BR_BREEDS[idx % BR_BREEDS.length];
+  const weight = 150 + a.age * 9; // rough arrival weight by age
+  const oneTimeStatus = completed ? "finalized" : "reviewed";
+  const doseByArm = { T01: 2.5, T02: 2.5, T03: 0 };
+  const forms = [];
+
+  forms.push({ key: "screening", status: oneTimeStatus, values: {
+    screening_date: a.enroll, dart_score: "2", screening_temp: ["40.2", 40.2],
+    visual_brd_signs: ["Nasal discharge", "Cough"], days_on_feed: ["2", 2],
+    prior_brd_treatment: "No", inclusion_met: "Yes", eligible: "Yes", randomized_arm: a.arm } });
+  forms.push({ key: "demographics", status: oneTimeStatus, values: {
+    animal_id: tag, eid_rfid: `8400032025${String(10000 + idx).padStart(5, "0")}`, sex, breed_type: breed,
+    age_months: [String(a.age), a.age], arrival_weight: [String(weight), weight],
+    arrival_date: brAddDays(a.enroll, -2), enrollment_date: a.enroll } });
+  forms.push({ key: "randomization", status: oneTimeStatus, values: {
+    randomization_date: a.enroll, block_number: [String((idx % 4) + 1), (idx % 4) + 1], assigned_arm: a.arm,
+    allocation_number: `KIT-${a.site}-${100 + idx}`, randomized_by: "Elisa Tron", blinding_maintained: "Yes" } });
+  forms.push({ key: "treatment", status: oneTimeStatus, values: {
+    body_weight_dosing: [String(weight), weight], test_article: a.arm, dose_mg_kg: [String(doseByArm[a.arm]), doseByArm[a.arm]],
+    volume_ml: [String(Math.max(1, Math.round(weight / 17))), Math.max(1, Math.round(weight / 17))], route: "SC",
+    injection_site: idx % 2 ? ["Right neck"] : ["Left neck"], lot_expiry: `${a.arm}-${4400 + idx} / 2027-01`,
+    administered_by: "Elisa Tron", retreatment_flag: a.retreat ? "Yes" : "No" } });
+
+  const doneDays = a.done === "all" ? BR_ALL_DAYS : a.done.map((d) => Number(d.slice(1)));
+  for (const d of doneDays) {
+    const vDate = brAddDays(a.enroll, d);
+    const isEC = a.ec && d === 0;
+    const vitalStatus = completed ? "finalized" : d === 0 && a.status === "active" ? "in_work" : "reviewed";
+    const temp = isEC ? ["40.6", 40.6] : d === 0 ? ["40.1", 40.1] : ["38.7", 38.7];
+    const hr = isEC ? ["120", 120] : a.age <= 6 ? ["118", 118] : ["72", 72];
+    const vf = { key: `vital_signs_d${d}`, status: vitalStatus, values: {
+      visit_date: vDate, rectal_temp: temp, heart_rate: hr, resp_rate: [d === 0 ? "42" : "30", d === 0 ? 42 : 30],
+      clinical_illness_score: d === 0 ? "2" : "1", attitude: d === 0 ? "Depressed" : "Bright",
+      hydration: d === 0 ? "Mild dehydration" : "Normal", bcs: "5", appetite: d === 0 ? "Reduced" : "Normal" } };
+    if (isEC) vf.editCheck = { field: "rectal_temp", message: "Rectal temperature 40.6 °C exceeds the bovine range (38.0–39.3 °C) — consistent with a febrile BRD episode; confirm against source and the screening reading. (Heart rate 120 bpm is also above the adult range 48–84 bpm for this 14-month animal.)" };
+    forms.push(vf);
+    const rf = { key: `clinical_response_d${d}`, status: vitalStatus, values: {
+      visit_date: vDate, clinical_illness_score: d === 0 ? "2" : "1",
+      response_vs_baseline: d === 0 ? "No change" : "Improved", temperature_normalized: d === 0 ? "No" : "Yes",
+      treatment_success_interim: d >= 7 ? "Yes" : "No", requires_retreatment: "No", assessor: "Elisa Tron" } };
+    // A responded query on the day-3 heart rate of the flagged animal.
+    if (a.query && d === 3) rf.query = { field: "clinical_illness_score", title: "DART score vs vital-sign trend",
+      raise: "Day-3 DART score recorded as 1 but the rectal temperature and demeanor on the same visit suggest continued mild illness. Confirm the score against the source worksheet.",
+      response: "Re-checked against the chute-side worksheet — DART 1 is correct (temperature normalised to 38.7 °C, animal bright and feeding). Score confirmed." };
+    forms.push(rf);
+  }
+
+  if (completed) forms.push({ key: "eos", status: "finalized", values: {
+    completion_date: brAddDays(a.enroll, 28), final_body_weight: [String(weight + 45), weight + 45],
+    clinical_outcome: "Cure", final_temp: ["38.6", 38.6], disposition: "Returned to pen" } });
+  if (a.status === "withdrawn") forms.push({ key: "eos", status: "reviewed", values: {
+    completion_date: brAddDays(a.enroll, 6), clinical_outcome: "Removed", final_temp: ["38.9", 38.9],
+    disposition: "Shipped", withdrawal_reason: a.withdrawReason } });
+  if (a.retreat) forms.push({ key: "retreatment", status: "in_work", values: {
+    date: brAddDays(a.enroll, 2), reason: "Treatment failure", rectal_temp: ["40.2", 40.2],
+    clinical_illness_score: "2", rescue_product: "Florfenicol", dose_route: "40 mg/kg SC",
+    treatment_failure: "Yes", removed_from_study: "No" } });
+
+  return { subject: a.code, forms };
+});
+
 // ─── Study configs (meta + hierarchy + subjects + demo) ──────────────────────
 const STUDIES = [
   {
@@ -1265,88 +1352,8 @@ const STUDIES = [
       { code: "NEP", name: "Pen 1", barn: "NEB", capacity: 60 },
       { code: "COP", name: "Pen 1", barn: "COB", capacity: 60 },
     ],
-    subjects: [
-      { code: "BR-2502-TX-001", status: "active",    arm: "T01", pen: "TXP", site: "TX" },
-      { code: "BR-2502-TX-002", status: "active",    arm: "T02", pen: "TXP", site: "TX" },
-      { code: "BR-2502-TX-003", status: "completed", arm: "T03", pen: "TXP", site: "TX" },
-      { code: "BR-2502-KS-001", status: "active",    arm: "T01", pen: "KSP", site: "KS" },
-      { code: "BR-2502-KS-002", status: "active",    arm: "T02", pen: "KSP", site: "KS" },
-      { code: "BR-2502-KS-003", status: "withdrawn", arm: "T03", pen: "KSP", site: "KS" },
-      { code: "BR-2502-NE-001", status: "active",    arm: "T01", pen: "NEP", site: "NE" },
-      { code: "BR-2502-NE-002", status: "completed", arm: "T02", pen: "NEP", site: "NE" },
-      { code: "BR-2502-NE-003", status: "active",    arm: "T03", pen: "NEP", site: "NE" },
-      { code: "BR-2502-CO-001", status: "active",    arm: "T01", pen: "COP", site: "CO" },
-      { code: "BR-2502-CO-002", status: "completed", arm: "T02", pen: "COP", site: "CO" },
-      { code: "BR-2502-CO-003", status: "active",    arm: "T03", pen: "COP", site: "CO" },
-    ],
-    demo: [
-      { subject: "BR-2502-TX-001", forms: [
-        { key: "demographics", status: "reviewed", values: {
-          animal_id: "TX-1001", site: "Feedlot TX", eid_rfid: "840003202511001", home_pen: "Pen 1",
-          sex: "Steer", breed_type: "Angus", source_lot: "Lot 22-A", arrival_date: "2026-05-20",
-          age_months: ["14", 14], arrival_weight: ["265", 265], color_markings: "Black", enrollment_date: "2026-05-22" } },
-        { key: "screening", status: "reviewed", values: {
-          screening_date: "2026-05-22", dart_score: "2", screening_temp: ["40.4", 40.4],
-          visual_brd_signs: ["Nasal discharge", "Cough", "Drooped ears"], days_on_feed: ["2", 2],
-          prior_brd_treatment: "No", inclusion_met: "Yes", eligible: "Yes", randomized_arm: "T01" } },
-        { key: "vital_signs_d0", status: "in_work", values: {
-          datetime: "2026-05-22", rectal_temp: ["40.6", 40.6], heart_rate: ["120", 120],
-          resp_rate: ["44", 44], clinical_illness_score: "2", attitude: "Depressed", hydration: "Mild",
-          bcs: "4", appetite: "Reduced" },
-          editCheck: { field: "rectal_temp", message: "Rectal temperature 40.6 °C exceeds the bovine range (38.0–39.3 °C) — consistent with a febrile BRD episode; confirm against source and the screening reading. (Heart rate 120 bpm is also above the adult range 48–84 bpm for this 14-month animal.)" } },
-      ] },
-      { subject: "BR-2502-KS-002", forms: [
-        { key: "demographics", status: "reviewed", values: {
-          animal_id: "KS-2042", site: "Feedlot KS", eid_rfid: "840003202520042", home_pen: "Pen 1",
-          sex: "Heifer", breed_type: "Hereford", source_lot: "Lot 14", arrival_date: "2026-05-25",
-          age_months: ["5", 5], arrival_weight: ["180", 180], enrollment_date: "2026-05-26" } },
-        { key: "screening", status: "reviewed", values: {
-          screening_date: "2026-05-26", dart_score: "1", screening_temp: ["40.1", 40.1],
-          visual_brd_signs: ["Nasal discharge", "Cough"], days_on_feed: ["1", 1],
-          prior_brd_treatment: "No", inclusion_met: "Yes", eligible: "Yes", randomized_arm: "T02" } },
-        { key: "vital_signs_d0", status: "in_work", values: {
-          datetime: "2026-05-26", rectal_temp: ["39.1", 39.1], heart_rate: ["120", 120],
-          resp_rate: ["40", 40], clinical_illness_score: "1", attitude: "Quiet", hydration: "Normal",
-          bcs: "4", appetite: "Normal" } },
-      ] },
-      { subject: "BR-2502-TX-003", forms: [
-        { key: "demographics", status: "reviewed", values: {
-          animal_id: "TX-1015", site: "Feedlot TX", eid_rfid: "840003202511015", home_pen: "Pen 1",
-          sex: "Steer", breed_type: "Simmental", source_lot: "Lot 22-B", arrival_date: "2026-05-10",
-          age_months: ["12", 12], arrival_weight: ["278", 278], enrollment_date: "2026-05-12" } },
-        { key: "screening", status: "reviewed", values: {
-          screening_date: "2026-05-12", dart_score: "2", screening_temp: ["40.2", 40.2],
-          visual_brd_signs: ["Nasal discharge", "Lethargy"], days_on_feed: ["2", 2],
-          prior_brd_treatment: "No", inclusion_met: "Yes", eligible: "Yes", randomized_arm: "T03" } },
-        { key: "treatment", status: "reviewed", values: {
-          treatment_datetime: "2026-05-12", body_weight_dosing: ["278", 278], test_article: "T03 Saline",
-          dose_mg_kg: ["0", 0], volume_ml: ["14", 14], route: "SC", injection_site: ["Left neck"],
-          volume_per_site: ["14", 14], lot_expiry: "SAL-7781 / 2027-01", administered_by: "Elisa Tron", retreatment_flag: "No" },
-          query: { field: "body_weight_dosing", title: "Dosing weight vs arrival weight",
-            raise: "Body weight at dosing (278 kg) differs from the arrival weight (272 kg) on the manifest by more than 5 kg. Confirm the chute scale reading used for the dose calculation.",
-            response: "Re-verified at the chute — 278 kg is correct; the manifest carried an estimated arrival weight. Dose volume recalculated and unchanged." } },
-        { key: "eos", status: "reviewed", values: {
-          completion_date: "2026-06-09", final_body_weight: ["318", 318], clinical_outcome: "Treatment success",
-          final_temp: ["38.8", 38.8], disposition: "Returned to pen" } },
-      ] },
-      { subject: "BR-2502-NE-002", forms: [
-        { key: "demographics", status: "reviewed", values: {
-          animal_id: "NE-3007", site: "Feedlot NE", eid_rfid: "840003202530007", home_pen: "Pen 1",
-          sex: "Steer", breed_type: "Cross", source_lot: "Lot 09", arrival_date: "2026-05-08",
-          age_months: ["10", 10], arrival_weight: ["255", 255], enrollment_date: "2026-05-09" } },
-        { key: "screening", status: "reviewed", values: {
-          screening_date: "2026-05-09", dart_score: "2", screening_temp: ["40.3", 40.3],
-          visual_brd_signs: ["Cough", "Drooped ears"], days_on_feed: ["1", 1],
-          prior_brd_treatment: "No", inclusion_met: "Yes", eligible: "Yes", randomized_arm: "T02" } },
-        { key: "treatment", status: "reviewed", values: {
-          treatment_datetime: "2026-05-09", body_weight_dosing: ["255", 255], test_article: "T02 Reference",
-          dose_mg_kg: ["2.5", 2.5], volume_ml: ["19", 19], route: "SC", injection_site: ["Right neck"],
-          volume_per_site: ["19", 19], lot_expiry: "REF-4410 / 2026-12", administered_by: "Elisa Tron", retreatment_flag: "No" } },
-        { key: "eos", status: "reviewed", values: {
-          completion_date: "2026-06-06", final_body_weight: ["300", 300], clinical_outcome: "Cure",
-          final_temp: ["38.6", 38.6], disposition: "Returned to pen" } },
-      ] },
-    ],
+    subjects: BR_ANIMALS.map((a) => ({ code: a.code, status: a.status, arm: a.arm, pen: `${a.site}P`, site: a.site })),
+    demo: brDemo,
   },
   {
     key: "CA", suffix: "000000000801", code: "CA-0801",
@@ -1430,7 +1437,7 @@ for (const study of STUDIES) {
     const id = `61${h6(formCounter)}-0000-0000-0000-${suffix}`;
     const code = `F${String(formCounter).padStart(3, "0")}`;
     formRows.push(
-      `  ('${id}','${sUuid}',${parentId ? `'${parentId}'` : "null"},'${code}',${sqlStr(node.name)},${seq},'subject')`,
+      `  ('${id}','${sUuid}',${parentId ? `'${parentId}'` : "null"},'${code}',${sqlStr(node.name)},${seq},'subject',${node.batch_eligible ? "true" : "false"})`,
     );
     if (node.key) formIdByKey[study.key][node.key] = id;
     if (node.children) {
@@ -1460,7 +1467,7 @@ for (const study of STUDIES) {
       seq += 1;
       const bb = h2(bi + 1);
       const id = `${formPre}${bb}0000-0000-0000-0000-${suffix}`;
-      formRows.push(`  ('${id}','${sUuid}',null,'${codePre}${bb}',${sqlStr(node.name)},${seq},'${scope}')`);
+      formRows.push(`  ('${id}','${sUuid}',null,'${codePre}${bb}',${sqlStr(node.name)},${seq},'${scope}',false)`);
       formIdByKey[study.key][node.key] = id;
       fieldIdByKey[study.key][node.key] = {};
       node.fields.forEach((f, i) => {
@@ -1723,7 +1730,7 @@ const out = [
   "\n-- ════════════════════════════════════════════════════════════════════════════",
   "-- FORMS — per-study tree (parent_form_id links sub-forms → their group container)",
   "-- ════════════════════════════════════════════════════════════════════════════",
-  "insert into forms (id, study_id, parent_form_id, code, name, sequence, scope) values",
+  "insert into forms (id, study_id, parent_form_id, code, name, sequence, scope, batch_eligible) values",
   formRows.join(",\n") + ";",
   "\n-- ─── Fields (groups have none; sub-forms + standalone forms carry them) ──────",
   "insert into form_fields (id, form_id, code, label, field_type, options, unit, is_required, sequence, validation) values",

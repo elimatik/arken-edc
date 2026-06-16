@@ -6,6 +6,8 @@ import { useShell } from "@/components/shell/ShellContext";
 import { useStudySession } from "@/lib/session-store/SessionStore";
 import { housingTerms, animalsLabel } from "@/lib/terminology";
 import { canQuery } from "@/lib/permissions";
+import { studyHasBatch } from "@/lib/batch-entry";
+import { BatchEntryModal } from "@/components/batch-entry/BatchEntryModal";
 import "./animals.css";
 
 // ─── Status → shared badge class (mirrors the Data Entry drill-down) ─────────
@@ -93,6 +95,9 @@ export default function AnimalsPage() {
   const subjLabel = animalsLabel(studyRow); // "Pens" for livestock_group, else "Animals"
   const subjSingular = subjLabel === "Pens" ? "pen" : "animal";
   const canRaise = canQuery(activeRole, "raise");
+  // Batch Entry — only studies with batch_eligible forms (BR-2502).
+  const hasBatch = ready && studyHasBatch(dataset, studyId);
+  const [batchOpen, setBatchOpen] = useState(false);
 
   // ─── Filters / sort / selection state ──────────────────────────────────────
   const [search, setSearch] = useState("");
@@ -425,6 +430,11 @@ export default function AnimalsPage() {
             <button className="btn-secondary" type="button">
               <i className="ti ti-table-export"></i> SEND export
             </button>
+            {hasBatch && (
+              <button className="btn-secondary" type="button" onClick={() => setBatchOpen(true)}>
+                <i className="ti ti-layout-grid-add"></i> Batch entry
+              </button>
+            )}
             <button className="btn-primary" type="button">
               <i className="ti ti-plus"></i> Add {subjSingular}
             </button>
@@ -732,6 +742,14 @@ export default function AnimalsPage() {
           queries={panelQueries}
           fieldRefGroups={fieldRefGroups}
           onClose={() => setQueryPanelFor(null)}
+        />
+      )}
+      {batchOpen && (
+        <BatchEntryModal
+          studyId={studyId}
+          subjectIds={dataset.subjects.filter((s) => s.study_id === studyId).map((s) => s.id)}
+          from="animals"
+          onClose={() => setBatchOpen(false)}
         />
       )}
     </div>

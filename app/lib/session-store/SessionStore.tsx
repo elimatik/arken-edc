@@ -10,7 +10,7 @@ import type { Role } from "@/lib/permissions";
 // visit it hydrates from Supabase; thereafter ALL reads/writes are in-session —
 // nothing is written back to Supabase.
 // Bump the version when the dataset shape changes (forces a fresh hydrate).
-const DATA_KEY = "arken_session_store_v20"; // v20: site-scoped forms (SIV/Staff/Monitoring/Amendments/Close-out) + two-tab Site/House records; form_instances.site_id
+const DATA_KEY = "arken_session_store_v21"; // v21: forms.batch_eligible + BR-2502 restructured into 8 groups (Batch Entry feature)
 const ROLE_KEY = "arken_active_role_v1";
 
 interface StudySessionValue {
