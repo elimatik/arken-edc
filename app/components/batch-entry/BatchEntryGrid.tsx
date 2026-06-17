@@ -259,17 +259,20 @@ export function BatchEntryGrid({
         <span className="tb-count">{visible.length} animal{visible.length === 1 ? "" : "s"}{day != null ? ` · Day ${day}` : ""}</span>
       </div>
 
-      {/* Shared batch-header fields (Visit date) — applied to all animals */}
+      {/* Shared batch-header fields — a section header above a row of compact fields,
+          each with its own label above its input. Applied to every animal in the batch. */}
       {headerFields.length > 0 && (
         <div className="batch-header-bar">
-          <div className="bhb-label"><i className="ti ti-circles-relation"></i> Shared for all animals</div>
-          {headerFields.map((f) => (
-            <div className="bhb-field" key={f.id}>
-              <label className="bhb-field-label">{f.label}{f.is_required ? <span className="req"> *</span> : ""}</label>
-              <input type="date" className="bhb-input" value={headerVals[f.id] ?? ""} onChange={(e) => setHeaderField(f, e.target.value)} />
-              {(headerVals[f.id] ?? "") !== "" && <span className="bhb-note"><i className="ti ti-circles-relation"></i> Auto-filled where empty</span>}
-            </div>
-          ))}
+          <div className="bhb-label"><i className="ti ti-link"></i> {headerFields.map((f) => f.label).join(" · ")} — applied to all rows</div>
+          <div className="bhb-fields">
+            {headerFields.map((f) => (
+              <div className="bhb-field" key={f.id}>
+                <label className="bhb-field-label">{f.label}{f.is_required ? <span className="req"> *</span> : ""}</label>
+                <input type="date" className="bhb-input" value={headerVals[f.id] ?? ""} onChange={(e) => setHeaderField(f, e.target.value)} />
+                {(headerVals[f.id] ?? "") !== "" && <span className="bhb-note"><i className="ti ti-circles-relation"></i> Auto-filled where empty</span>}
+              </div>
+            ))}
+          </div>
         </div>
       )}
 
