@@ -1,2 +1,6 @@
 .vercel
 .env*
+
+# Next.js build output (any location)
+.next/
+**/.next/
