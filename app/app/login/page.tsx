@@ -181,6 +181,8 @@ export default function LoginPage() {
             <span>Incorrect email or password. Please try again.</span>
           </div>
 
+          {/* Credentials — wrapped in a form with autofill / LastPass detection off */}
+          <form autoComplete="off" data-form-type="other" onSubmit={(e) => e.preventDefault()}>
           {/* Email */}
           <div className="field-group">
             <label className="field-label" htmlFor="login-email">
@@ -263,6 +265,7 @@ export default function LoginPage() {
               </>
             )}
           </button>
+          </form>
 
           {/* Footer */}
           <div className="login-footer">
@@ -294,6 +297,7 @@ export default function LoginPage() {
               work is prohibited.
             </p>
 
+            <form autoComplete="off" data-form-type="other" onSubmit={(e) => e.preventDefault()}>
             <div className="nda-field">
               <label className="nda-label" htmlFor="nda-name">Full name <span className="nda-req">*</span></label>
               <input
@@ -324,6 +328,7 @@ export default function LoginPage() {
                 data-1p-ignore="true"
               />
             </div>
+            </form>
 
             <label className="nda-check">
               <input type="checkbox" checked={ndaAgree} onChange={(e) => setNdaAgree(e.target.checked)} />

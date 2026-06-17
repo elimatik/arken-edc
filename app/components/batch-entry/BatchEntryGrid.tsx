@@ -291,7 +291,6 @@ export function BatchEntryGrid({
             ) : visible.map((s) => {
               const alerts = rowAlerts(s.id);
               const hasData = rowHasData(s.id);
-              const dirty = cols.some((f) => deltaStateFor(s.id, f.id, fvFor(s.id, f.id)?.id) === "pending");
               return (
                 <tr key={s.id}>
                   <td className="td-subject"><div className="td-subject-inner"><div className="subj-id">{s.subject_code}</div><div className="subj-meta">{rowMeta(s)}</div></div></td>
@@ -311,12 +310,11 @@ export function BatchEntryGrid({
                       </td>
                     );
                   })}
+                  {/* Error (any open edit check) takes priority over Saved; empty rows show nothing. */}
                   <td className="td-status">
-                    {alerts > 0 ? <span className="row-badge rb-alert"><i className="ti ti-alert-triangle"></i> Alert</span>
-                      : dirty ? <span className="row-badge rb-partial"><i className="ti ti-pencil"></i> Changed</span>
-                      : hasData ? <span className="row-badge rb-ready"><i className="ti ti-check"></i> Saved</span>
-                      : <span className="row-badge rb-empty"><i className="ti ti-circle"></i> Empty</span>}
-                    {alerts > 0 && <div><span className="ec-chip"><i className="ti ti-alert-circle"></i> EC- {alerts}</span></div>}
+                    {alerts > 0 ? <span className="row-badge rb-error"><i className="ti ti-alert-circle"></i> Error</span>
+                      : hasData ? <span className="row-badge rb-saved"><i className="ti ti-check"></i> Saved</span>
+                      : null}
                   </td>
                 </tr>
               );
