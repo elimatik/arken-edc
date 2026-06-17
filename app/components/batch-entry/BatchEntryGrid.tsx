@@ -4,23 +4,20 @@
 // Batch Entry — Step 2: the entry grid (translated from 20-batch-entry.html's
 // #view-grid). One row per animal, one column per field, inline editing. NO
 // checkboxes — every visible animal is included. Each cell LIVE-PERSISTS to that
-// animal's own form instance (so the Subject Record shows the same data), and
-// carries the *exact* per-field flow of the Subject Record:
-//   • edit checks (orange EC- icon → Edit Check panel; convert-to-query),
-//   • manual queries (Queries mode → flag icon → Query panel; raise/respond/resolve),
-//   • change reasons (Δ): changing a saved value shows the dashed-red Δ button →
-//     the 380px Δ slide-in panel (old→new, reason textarea, history). DM approval
-//     happens on the individual Subject Record only.
-// Queries/SDV/the Submit→Lock form-flow live on the Subject Record, never here.
-// The bottom rfc-bar is a summary shortcut for setting a reason across all pending
-// changes at once. SDV mode is intentionally unavailable in batch.
+// animal's own form instance (so the Subject Record shows the same data).
+//   • Edit checks fire per cell (amber cell + orange EC- indicator, non-blocking)
+//     — a validation indicator only; queries are raised on the Subject Record.
+//   • Change reasons (Δ): editing a saved value shows the dashed-red Δ button →
+//     the 380px Δ slide-in (old→new, reason, history). DM approval is on the
+//     Subject Record only.
+//   • A shared "batch header field" (Visit date) sits above the rows and auto-
+//     fills every animal that doesn't already have a saved visit date.
+// No Remarks / Queries / SDV in batch — those live on the individual record.
 // ════════════════════════════════════════════════════════════════════════════
 
 import { useRef, useState } from "react";
 import { useShell } from "@/components/shell/ShellContext";
 import { useStudySession } from "@/lib/session-store/SessionStore";
-import { canQuery } from "@/lib/permissions";
-import { DEMO_USER_ID } from "@/lib/constants";
 import { useNdaName } from "@/lib/use-nda-name";
 import { evaluateField } from "@/lib/forms/validation";
 import { visitDayOf } from "@/lib/batch-entry";
@@ -29,11 +26,10 @@ import "@/components/subject-record/subject-record.css";
 import "./batch-entry.css";
 
 const newId = () => crypto.randomUUID();
-const STATUS_CAP = (s: string) => s.charAt(0).toUpperCase() + s.slice(1);
-const qCodeFor = (id: string) => `Q-${id.slice(0, 4).toUpperCase()}`;
-const ecCodeFor = (id: string) => `EC-${id.slice(0, 4).toUpperCase()}`;
-const QS_CLS: Record<string, string> = { open: "qs-open", responded: "qs-responded", resolved: "qs-resolved" };
 const RFC_REASONS = ["Data correction", "Transcription error", "Updated source document", "Other"];
+// Fields rendered as a shared "batch header" above the rows (applied to every
+// animal) rather than as a per-row column. For now: the visit date.
+const BATCH_HEADER_CODES = ["visit_date"];
 const parseMulti = (v: string): string[] => { try { const a = JSON.parse(v || "[]"); return Array.isArray(a) ? a : []; } catch { return v ? [v] : []; } };
 
 type Target = { sid: string; field: FormFieldRow };
@@ -58,29 +54,20 @@ export function BatchEntryGrid({
   const form = dataset.forms.find((f) => f.id === formId);
 
   const fields = dataset.formFields.filter((f) => f.form_id === formId).slice().sort((a, b) => a.sequence - b.sequence);
-  const cols = fields.filter((f) => f.field_type !== "calculated");
+  const headerFields = fields.filter((f) => f.field_type !== "calculated" && BATCH_HEADER_CODES.includes(f.code));
+  const cols = fields.filter((f) => f.field_type !== "calculated" && !BATCH_HEADER_CODES.includes(f.code));
 
   const subjects = (() => {
     const set = new Set(subjectIds);
     return dataset.subjects.filter((s) => set.has(s.id)).slice().sort((a, b) => a.subject_code.localeCompare(b.subject_code));
   })();
 
-  const canRespond = canQuery(activeRole, "respond");
-  const canResolve = canQuery(activeRole, "resolve");
-  const canRaise = canQuery(activeRole, "raise");
-
   // ── State ───────────────────────────────────────────────────────────────────
-  const [modeQueries, setModeQueries] = useState(false);
-  const [remarksOpen, setRemarksOpen] = useState(false);
-  const [panel, setPanel] = useState<(Target & { kind: "query" | "edit_check" }) | null>(null);
-  const [reply, setReply] = useState("");
   const [delta, setDelta] = useState<Target | null>(null);
   const [recordReasons, setRecordReasons] = useState<Record<string, string>>({});
   const [editing, setEditing] = useState<{ sid: string; fieldId: string } | null>(null);
   const editStartRef = useRef<{ sid: string; fieldId: string; value: string } | null>(null);
-  const [manageOpenQuery, setManageOpenQuery] = useState(false);
-  const [closeModalOpen, setCloseModalOpen] = useState(false);
-  const [closeReason, setCloseReason] = useState("");
+  const [headerVals, setHeaderVals] = useState<Record<string, string>>({});
   const [search, setSearch] = useState("");
   const [siteF, setSiteF] = useState("");
   const [barnF, setBarnF] = useState("");
@@ -105,11 +92,6 @@ export function BatchEntryGrid({
     const n = v ? Number(v.value) : NaN;
     return Number.isFinite(n) ? n : null;
   };
-  const fieldQueryFor = (fvId?: string) => {
-    if (!fvId) return undefined;
-    const qs = dataset.queries.filter((q) => q.field_value_id === fvId);
-    return qs.find((q) => q.status === "open" || q.status === "responded") ?? qs.filter((q) => q.status === "resolved").slice(-1)[0];
-  };
   const editCheckFor = (fvId?: string) => (fvId ? dataset.editChecks.find((e) => e.field_value_id === fvId && e.status === "open") : undefined);
   const deltaStateFor = (sid: string, fieldId: string, fvId?: string): "pending" | "responded" | "approved" | null => {
     if (editing?.sid === sid && editing?.fieldId === fieldId) return null;
@@ -124,20 +106,20 @@ export function BatchEntryGrid({
     if (prev === "" || prev === next) return;
     d.deltaRecords.push({ id: newId(), field_value_id: fvId, old_value: prev, new_value: next, reason: "", author_name: ndaName, author_role: activeRole, created_at: new Date().toISOString(), status: "pending" });
   }
+  function writeValue(d: Dataset, sid: string, field: FormFieldRow, value: string, recordChange: boolean) {
+    const inst = ensureInst(d, sid);
+    let fv = d.fieldValues.find((v) => v.form_instance_id === inst.id && v.form_field_id === field.id);
+    const prev = fv?.value ?? "";
+    if (!fv) { fv = { id: newId(), form_instance_id: inst.id, form_field_id: field.id, value }; d.fieldValues.push(fv); }
+    else fv.value = value;
+    if (recordChange) recordTransition(d, fv.id, prev, value);
+    const check = evaluateField(field, value, species, d.speciesRanges, ageOf(sid));
+    const ec = d.editChecks.find((e) => e.field_value_id === fv!.id && e.status === "open");
+    if (check) { if (!ec) d.editChecks.push({ id: newId(), form_instance_id: inst.id, field_value_id: fv.id, message: check.message, status: "open", created_at: new Date().toISOString() }); else ec.message = check.message; }
+    else if (ec) ec.status = "resolved";
+  }
   function setFieldValue(sid: string, field: FormFieldRow, value: string, recordChange = false) {
-    update((d: Dataset) => {
-      const inst = ensureInst(d, sid);
-      let fv = d.fieldValues.find((v) => v.form_instance_id === inst.id && v.form_field_id === field.id);
-      const prev = fv?.value ?? "";
-      if (!fv) { fv = { id: newId(), form_instance_id: inst.id, form_field_id: field.id, value }; d.fieldValues.push(fv); }
-      else fv.value = value;
-      if (recordChange) recordTransition(d, fv.id, prev, value);
-      const check = evaluateField(field, value, species, d.speciesRanges, ageOf(sid));
-      const ec = d.editChecks.find((e) => e.field_value_id === fv!.id && e.status === "open");
-      const hasConvertedQ = d.queries.some((q) => q.field_value_id === fv!.id && (q.status === "open" || q.status === "responded"));
-      if (check) { if (!ec && !hasConvertedQ) d.editChecks.push({ id: newId(), form_instance_id: inst.id, field_value_id: fv.id, message: check.message, status: "open", created_at: new Date().toISOString() }); else if (ec) ec.message = check.message; }
-      else if (ec) ec.status = "resolved";
-    });
+    update((d: Dataset) => writeValue(d, sid, field, value, recordChange));
   }
   function snapshotTextFocus(sid: string, field: FormFieldRow) { editStartRef.current = { sid, fieldId: field.id, value: fvFor(sid, field.id)?.value ?? "" }; }
   function recordTextEdit(sid: string, field: FormFieldRow) {
@@ -147,6 +129,20 @@ export function BatchEntryGrid({
     const cur = fv.value ?? ""; if (cur === snap.value) return;
     update((d: Dataset) => { const f = d.fieldValues.find((v) => v.id === fv.id); if (f) recordTransition(d, f.id, snap.value, cur); });
   }
+  // Shared batch-header field (Visit date) — auto-fills every animal that does NOT
+  // already have a saved value for it (never overwrites a saved date).
+  function setHeaderField(field: FormFieldRow, value: string) {
+    setHeaderVals((p) => ({ ...p, [field.id]: value }));
+    if (value === "") return;
+    update((d: Dataset) => {
+      for (const s of subjects) {
+        const inst = d.formInstances.find((i) => i.subject_id === s.id && i.form_id === formId);
+        const existing = inst ? d.fieldValues.find((v) => v.form_instance_id === inst.id && v.form_field_id === field.id) : undefined;
+        if (existing && (existing.value ?? "") !== "") continue; // already has a saved date
+        writeValue(d, s.id, field, value, false);
+      }
+    });
+  }
 
   function submitReasonForRecord(recordId: string) {
     const text = (recordReasons[recordId] ?? "").trim(); if (!text) return;
@@ -155,52 +151,7 @@ export function BatchEntryGrid({
   }
   function approveDelta(recordId: string) { if (activeRole !== "DM") return; update((d: Dataset) => { const r = d.deltaRecords.find((x) => x.id === recordId); if (r) r.status = "approved"; }); }
 
-  function pushMsg(d: Dataset, queryId: string, body: string) { d.queryMessages.push({ id: newId(), query_id: queryId, author_id: DEMO_USER_ID, author_name: ndaName, author_role: activeRole, body, created_at: new Date().toISOString() }); }
-  function raiseQuery(t: Target) {
-    if (!canRaise) return;
-    const body = reply.trim() || `Manual query raised by ${activeRole}.`;
-    update((d: Dataset) => {
-      const inst = ensureInst(d, t.sid);
-      let fv = d.fieldValues.find((v) => v.form_instance_id === inst.id && v.form_field_id === t.field.id);
-      if (!fv) { fv = { id: newId(), form_instance_id: inst.id, form_field_id: t.field.id, value: "" }; d.fieldValues.push(fv); }
-      const qid = newId();
-      d.queries.push({ id: qid, form_instance_id: inst.id, field_value_id: fv.id, status: "open", title: body, from_edit_check: false, created_at: new Date().toISOString() });
-      pushMsg(d, qid, body);
-    });
-    setReply("");
-  }
-  function convertEditCheck(t: Target) {
-    const explanation = reply.trim(); if (!explanation) return;
-    update((d: Dataset) => {
-      const inst = d.formInstances.find((i) => i.subject_id === t.sid && i.form_id === formId); if (!inst) return;
-      const fv = d.fieldValues.find((v) => v.form_instance_id === inst.id && v.form_field_id === t.field.id); if (!fv) return;
-      const ec = d.editChecks.find((e) => e.field_value_id === fv.id && e.status === "open"); if (!ec) return;
-      ec.status = "converted";
-      const qid = newId();
-      d.queries.push({ id: qid, form_instance_id: inst.id, field_value_id: fv.id, status: "open", title: ec.message, from_edit_check: true, created_at: new Date().toISOString() });
-      d.queryMessages.push({ id: newId(), query_id: qid, author_id: DEMO_USER_ID, body: `Auto edit-check: ${ec.message}`, created_at: ec.created_at });
-      pushMsg(d, qid, explanation);
-    });
-    setReply(""); setPanel((p) => (p ? { ...p, kind: "query" } : p));
-  }
-  function respondQuery(queryId: string) { const body = reply.trim() || `Response acknowledged by ${activeRole}.`; update((d: Dataset) => { const q = d.queries.find((x) => x.id === queryId); if (!q) return; q.status = "responded"; pushMsg(d, queryId, body); }); setReply(""); }
-  function resolveQuery(queryId: string) { const body = reply.trim(); update((d: Dataset) => { const q = d.queries.find((x) => x.id === queryId); if (!q) return; if (body) pushMsg(d, queryId, body); q.status = "resolved"; }); setReply(""); setPanel(null); }
-  function confirmCloseWithoutResponse(queryId: string) {
-    if (!closeReason.trim()) return;
-    update((d: Dataset) => { const q = d.queries.find((x) => x.id === queryId); if (!q) return; d.queryMessages.push({ id: newId(), query_id: queryId, author_id: DEMO_USER_ID, author_name: ndaName, author_role: `${activeRole} · System`, body: `Closed without response — ${closeReason.trim()}`, created_at: new Date().toISOString() }); q.status = "resolved"; });
-    setCloseReason(""); setCloseModalOpen(false); setManageOpenQuery(false); setPanel(null);
-  }
-
-  // ── Derived (panels) ─────────────────────────────────────────────────────────
-  const panelFv = panel ? fvFor(panel.sid, panel.field.id) : undefined;
-  const panelQueries = panelFv ? dataset.queries.filter((q) => q.field_value_id === panelFv.id).slice().sort((a, b) => ((a.created_at ?? "") < (b.created_at ?? "") ? -1 : 1)) : [];
-  const panelQuery = fieldQueryFor(panelFv?.id);
-  const panelEC = editCheckFor(panelFv?.id);
-  const isECPanel = panel?.kind === "edit_check" && !!panelEC;
-  const panelResolved = panelQuery?.status === "resolved";
-  const msgsForQuery = (qid: string) => dataset.queryMessages.filter((m) => m.query_id === qid).slice().sort((a, b) => (a.created_at < b.created_at ? -1 : 1));
-  const panelHasResponse = panelQuery ? msgsForQuery(panelQuery.id).some((m) => m.author_role && !m.author_role.includes("System")) : false;
-
+  // ── Derived (Δ panel) ────────────────────────────────────────────────────────
   const deltaFv = delta ? fvFor(delta.sid, delta.field.id) : undefined;
   const deltaHistory = deltaFv ? dataset.deltaRecords.filter((r) => r.field_value_id === deltaFv.id).slice().sort((a, b) => (a.created_at < b.created_at ? -1 : 1)) : [];
   const deltaPendingCount = deltaHistory.filter((r) => r.status === "pending").length;
@@ -248,24 +199,25 @@ export function BatchEntryGrid({
   if (!form) return <div className="be-screen"><div className="grid-empty">Form not found.</div></div>;
   const day = visitDayOf(form);
 
-  // ── Cell control (batch styling: amber=EC/query · dashed-red=pending Δ · no green) ──
-  function renderControl(sid: string, field: FormFieldRow, value: string, stateCls: string) {
+  // ── Cell control (amber = edit check; Δ shown via the button, not the border) ──
+  function renderControl(sid: string, field: FormFieldRow, value: string, warn: boolean) {
     const commit = (v: string) => setFieldValue(sid, field, v, true);
     const typeChange = (v: string) => setFieldValue(sid, field, v);
     const onFocus = () => { setEditing({ sid, fieldId: field.id }); snapshotTextFocus(sid, field); };
     const onBlur = () => { setEditing(null); recordTextEdit(sid, field); };
     const t = field.field_type;
+    const cls = warn ? " warn" : "";
     if (t === "radio") {
       const opts = field.options?.length ? field.options : ["Yes", "No"];
-      return <div className={`batch-yn${stateCls}`}>{opts.map((o) => <button key={o} type="button" className={`batch-yn-btn${value === o ? " active" : ""}`} onClick={() => commit(value === o ? "" : o)}>{o}</button>)}</div>;
+      return <div className={`batch-yn${cls}`}>{opts.map((o) => <button key={o} type="button" className={`batch-yn-btn${value === o ? " active" : ""}`} onClick={() => commit(value === o ? "" : o)}>{o}</button>)}</div>;
     }
     if (t === "select" || t === "multiselect") {
       const cur = t === "multiselect" ? (parseMulti(value)[0] ?? "") : value;
-      return <select className={`batch-select${stateCls}`} value={cur} onChange={(e) => commit(t === "multiselect" ? (e.target.value ? JSON.stringify([e.target.value]) : "") : e.target.value)}><option value="">—</option>{(field.options ?? []).map((o) => <option key={o} value={o}>{o}</option>)}</select>;
+      return <select className={`batch-select${cls}`} value={cur} onChange={(e) => commit(t === "multiselect" ? (e.target.value ? JSON.stringify([e.target.value]) : "") : e.target.value)}><option value="">—</option>{(field.options ?? []).map((o) => <option key={o} value={o}>{o}</option>)}</select>;
     }
-    if (t === "date" || t === "datetime") return <input type="date" className={`batch-input sans${stateCls}`} value={value} onChange={(e) => commit(e.target.value)} />;
+    if (t === "date" || t === "datetime") return <input type="date" className={`batch-input sans${cls}`} value={value} onChange={(e) => commit(e.target.value)} />;
     const numeric = t === "number" || t === "integer";
-    return <input type="text" inputMode={numeric ? "decimal" : undefined} autoComplete="off" className={`batch-input${numeric ? "" : " sans"}${stateCls}`} value={value} onFocus={onFocus} onBlur={onBlur} onChange={(e) => typeChange(e.target.value)} />;
+    return <input type="text" inputMode={numeric ? "decimal" : undefined} autoComplete="off" className={`batch-input${numeric ? "" : " sans"}${cls}`} value={value} onFocus={onFocus} onBlur={onBlur} onChange={(e) => typeChange(e.target.value)} />;
   }
 
   return (
@@ -281,17 +233,6 @@ export function BatchEntryGrid({
           <div className="grid-title">{form.name}</div>
         </div>
         <div className="grid-header-right">
-          {/* Remarks dropdown — Off / Queries (SDV happens on the Subject Record only) */}
-          <div className="remarks-wrap">
-            <button className="btn-secondary" onClick={() => setRemarksOpen((o) => !o)} type="button">
-              Remarks: {modeQueries ? "Queries" : "Off"}<i className="ti ti-chevron-down" style={{ fontSize: "11px", color: "var(--color-text-tertiary)" }}></i>
-            </button>
-            {remarksOpen && <div className="remarks-backdrop" onClick={() => setRemarksOpen(false)} />}
-            <div className={`remarks-menu${remarksOpen ? " open" : ""}`}>
-              <div className="remarks-section-label">Activate mode</div>
-              <button className={`remarks-item${modeQueries ? " active-mode" : ""}`} onClick={() => setModeQueries((m) => !m)} type="button"><span>Queries</span>{modeQueries && <i className="ti ti-check" style={{ fontSize: "13px", color: "var(--blue-600)" }}></i>}</button>
-            </div>
-          </div>
           <button className="btn-secondary" type="button" onClick={onExitOrigin}><i className="ti ti-arrow-left"></i> Exit batch</button>
           <button className="btn-primary" type="button" disabled={dataN === 0} onClick={submitAll}><i className="ti ti-check"></i> Submit all</button>
         </div>
@@ -305,6 +246,20 @@ export function BatchEntryGrid({
         <select className="filter-select" value={penF} onChange={(e) => setPenF(e.target.value)}><option value="">All pens</option>{pens.map((p) => <option key={p.id} value={p.id}>{p.name}</option>)}</select>
         <span className="tb-count">{visible.length} animal{visible.length === 1 ? "" : "s"}{day != null ? ` · Day ${day}` : ""}</span>
       </div>
+
+      {/* Shared batch-header fields (Visit date) — applied to all animals */}
+      {headerFields.length > 0 && (
+        <div className="batch-header-bar">
+          <div className="bhb-label"><i className="ti ti-circles-relation"></i> Shared for all animals</div>
+          {headerFields.map((f) => (
+            <div className="bhb-field" key={f.id}>
+              <label className="bhb-field-label">{f.label}{f.is_required ? <span className="req"> *</span> : ""}</label>
+              <input type="date" className="bhb-input" value={headerVals[f.id] ?? ""} onChange={(e) => setHeaderField(f, e.target.value)} />
+              {(headerVals[f.id] ?? "") !== "" && <span className="bhb-note"><i className="ti ti-circles-relation"></i> Auto-filled where empty</span>}
+            </div>
+          ))}
+        </div>
+      )}
 
       {/* Grid */}
       <div className="grid-wrap">
@@ -332,19 +287,13 @@ export function BatchEntryGrid({
                     const fv = fvFor(s.id, f.id);
                     const value = fv?.value ?? "";
                     const ec = editCheckFor(fv?.id);
-                    const dispQ = fieldQueryFor(fv?.id);
                     const dState = deltaStateFor(s.id, f.id, fv?.id);
-                    const amber = !!ec || (!!dispQ && dispQ.status !== "resolved");
-                    const stateCls = amber ? " warn" : dState === "pending" ? " delta-pending" : "";
                     return (
                       <td className="batch-cell" key={f.id}>
                         <div className="be-cell-row">
-                          {renderControl(s.id, f, value, stateCls)}
-                          {dState && <button className={`delta-btn ${dState}`} title={dState === "approved" ? "Change approved by DM" : dState === "responded" ? "Change reason submitted — awaiting DM review" : "Change reason required"} onClick={() => setDelta({ sid: s.id, field: f })} type="button">Δ</button>}
-                          {ec && <button className="ec-btn" title="Edit check — out of range. Click to review." onClick={() => setPanel({ sid: s.id, field: f, kind: "edit_check" })} type="button"><i className="ti ti-alert-circle"></i></button>}
-                          {!ec && (modeQueries || dispQ) && (
-                            <button className={`flag-btn${dispQ ? (dispQ.status === "resolved" ? " resolved" : " flagged") : ""}`} title={dispQ ? (dispQ.status === "resolved" ? "Query resolved — click to view" : "Query — click to view") : "Raise a query"} onClick={() => setPanel({ sid: s.id, field: f, kind: "query" })} type="button"><i className={`ti ${dispQ ? (dispQ.status === "resolved" ? "ti-flag-check" : "ti-flag-filled") : "ti-flag"}`}></i></button>
-                          )}
+                          {renderControl(s.id, f, value, !!ec)}
+                          {dState && <button className={`delta-btn ${dState}`} title={dState === "approved" ? "Change approved by DM (on the subject record)" : dState === "responded" ? "Change reason submitted — awaiting DM review" : "Change reason required"} onClick={() => setDelta({ sid: s.id, field: f })} type="button">Δ</button>}
+                          {ec && <span className="ec-ind" title={ec.message} aria-label="Edit check — value out of range"><i className="ti ti-alert-circle"></i></span>}
                         </div>
                         <span className={`val-hint${ec ? " warn" : ""}`}>{ec ? ec.message.replace(/—.*/, "").trim() : ""}</span>
                       </td>
@@ -385,84 +334,6 @@ export function BatchEntryGrid({
         <span style={{ marginLeft: "auto" }}>{form.name}</span>
       </div>
 
-      {/* Query / Edit-check slide-in panel (same as the Subject Record) */}
-      <div className={`panel-overlay${panel ? " open" : ""}`} onClick={() => { setPanel(null); setReply(""); }}></div>
-      <div className={`slide-panel${panel ? " open" : ""}`}>
-        <div className="panel-header">
-          <div className="panel-header-left">
-            <div className="panel-title">{isECPanel ? "Edit Check" : panelQuery ? "Query thread" : "Raise a query"}</div>
-            <div className="panel-title-meta">{isECPanel && panelEC && <span className="query-id">{ecCodeFor(panelEC.id)}</span>}{!isECPanel && panelQuery && <span className="query-id">{qCodeFor(panelQuery.id)}</span>}{panel && <span className="query-id" style={{ marginLeft: 6 }}>{subjects.find((s) => s.id === panel.sid)?.subject_code}</span>}</div>
-          </div>
-          <button className="panel-close" onClick={() => { setPanel(null); setReply(""); }} type="button"><i className="ti ti-x"></i></button>
-        </div>
-        {isECPanel ? (
-          <div className="status-bar"><span className="status-bar-label">Status</span><span className="query-status qs-editcheck">Edit check</span><span className="status-desc">Out of range — correct the value or explain it</span></div>
-        ) : panelQuery ? (
-          <div className="status-bar"><span className="status-bar-label">Status</span><span className={`query-status ${QS_CLS[panelQuery.status] || "qs-open"}`}>{STATUS_CAP(panelQuery.status)}</span><span className="status-desc">{panelQuery.status === "open" ? "Awaiting response" : panelQuery.status === "responded" ? "Awaiting CRA review" : "Resolved — no further action"}</span></div>
-        ) : null}
-        <div className="field-context">
-          <div className="fc-label">Field</div>
-          <div style={{ display: "flex", alignItems: "center", gap: "var(--space-2)", marginBottom: "4px" }}><span className="fc-field">{panel?.field.label}</span><span className="fc-code">{(panel?.field.code ?? "").toUpperCase()}</span></div>
-          <div style={{ fontFamily: "var(--font-mono)", fontSize: "10px", lineHeight: 1.6, color: "var(--color-text-primary)" }}>{panelFv?.value ? `${panelFv.value}${panel?.field.unit ? ` ${panel.field.unit}` : ""}` : "—"}</div>
-        </div>
-        <div className="thread-body">
-          {isECPanel && panelEC ? (
-            <div className="message"><div className="msg-header"><div className="msg-avatar av-auto">EC</div><span className="msg-author">Edit check</span><span className="msg-role">· Auto</span></div><div className="msg-bubble">{panelEC.message}</div></div>
-          ) : panelQueries.length > 0 ? (
-            panelQueries.map((q) => (
-              <div className="query-block" key={q.id}>
-                <div className="query-block-head"><span className="query-id">{qCodeFor(q.id)}</span><span className={`query-status ${QS_CLS[q.status] || "qs-open"}`}>{STATUS_CAP(q.status)}</span></div>
-                {msgsForQuery(q.id).map((m) => { const isHuman = !!m.author_role; const name = m.author_name ?? "Edit check"; const initials = isHuman ? name.split(/\s+/).map((p) => p[0]).join("").slice(0, 2).toUpperCase() : "EC"; return (
-                  <div className="message" key={m.id}><div className="msg-header"><div className={`msg-avatar${isHuman ? "" : " av-auto"}`}>{initials}</div><span className="msg-author">{name}</span><span className="msg-role">· {isHuman ? m.author_role : "Auto"}</span></div><div className="msg-bubble">{m.body}</div></div>
-                ); })}
-              </div>
-            ))
-          ) : <p style={{ fontSize: "var(--text-sm)", color: "var(--color-text-tertiary)" }}>No query has been raised on this field yet.</p>}
-        </div>
-        <div className="compose-area">
-          {isECPanel ? (
-            <><div className="compose-context"><i className="ti ti-user-circle"></i> Explain this value, or correct it in the grid to clear the check</div>
-            <textarea className="compose-textarea" placeholder="Explain why this value is correct — this escalates to a formal query…" value={reply} onChange={(e) => setReply(e.target.value)}></textarea>
-            <div className="compose-btns"><span className="compose-sub">Converting raises a formal query</span><button className="btn-respond" type="button" disabled={!reply.trim()} onClick={() => panel && convertEditCheck(panel)}>Convert to query</button></div></>
-          ) : panelResolved ? (
-            canRaise ? (
-              <><div className="compose-context"><i className="ti ti-flag-check"></i> This query is resolved — raise a new query if a fresh issue remains (as {activeRole})</div>
-              <textarea className="compose-textarea" placeholder="Describe a new issue with this value…" value={reply} onChange={(e) => setReply(e.target.value)}></textarea>
-              <div className="compose-btns"><span className="compose-sub">Opens a new query</span><button className="btn-respond" type="button" disabled={!reply.trim()} onClick={() => panel && raiseQuery(panel)}>Raise new query</button></div></>
-            ) : <div className="sr-perm-note"><i className="ti ti-flag-check"></i> This query is resolved — no further action.</div>
-          ) : !panelQuery ? (
-            canRaise ? (
-              <><div className="compose-context"><i className="ti ti-user-circle"></i> Raising as {activeRole}</div>
-              <textarea className="compose-textarea" placeholder="Describe the issue with this value…" value={reply} onChange={(e) => setReply(e.target.value)}></textarea>
-              <div className="compose-btns"><span className="compose-sub">Shift+Enter for new line</span><button className="btn-respond" type="button" disabled={!reply.trim()} onClick={() => panel && raiseQuery(panel)}>Raise query</button></div></>
-            ) : <div className="sr-perm-note"><i className="ti ti-lock"></i> Your role ({activeRole}) cannot raise queries.</div>
-          ) : activeRole === "DM" ? (
-            <><div className="compose-context"><i className="ti ti-user-circle"></i> Managing as DM</div>
-            <textarea className="compose-textarea" placeholder="Add a comment…" value={reply} onChange={(e) => setReply(e.target.value)}></textarea>
-            <div className="compose-btns"><span className="compose-sub">Shift+Enter for new line</span>
-              <div className="manage-q-wrap">
-                <button className="btn-respond" type="button" onClick={() => setManageOpenQuery((o) => !o)}>Manage <i className="ti ti-chevron-down" style={{ fontSize: "11px" }}></i></button>
-                {manageOpenQuery && <div className="manage-q-backdrop" onClick={() => setManageOpenQuery(false)} />}
-                <div className={`manage-q-menu${manageOpenQuery ? " open" : ""}`} role="menu">
-                  <button className="manage-item" type="button" onClick={() => { respondQuery(panelQuery.id); setManageOpenQuery(false); }}><i className="ti ti-message"></i> Respond</button>
-                  <button className="manage-item" type="button" disabled={!panelHasResponse} title={panelHasResponse ? undefined : "A response is required before resolving"} onClick={() => { if (panelHasResponse) { resolveQuery(panelQuery.id); setManageOpenQuery(false); } }}><i className="ti ti-flag-check"></i> Resolve</button>
-                  <button className="manage-item" type="button" onClick={() => { setManageOpenQuery(false); setCloseReason(""); setCloseModalOpen(true); }}><i className="ti ti-square-x"></i> Close without response</button>
-                </div>
-              </div>
-            </div></>
-          ) : canRespond || canResolve || activeRole === "CRA" ? (
-            <><div className="compose-context"><i className="ti ti-user-circle"></i> Acting as {activeRole}</div>
-            <textarea className="compose-textarea" placeholder="Add a response…" value={reply} onChange={(e) => setReply(e.target.value)}></textarea>
-            <div className="compose-btns"><span className="compose-sub">Shift+Enter for new line</span>
-              <div style={{ display: "flex", gap: "var(--space-2)" }}>
-                {(canRespond || activeRole === "CRA") && <button className={canResolve ? "btn-comment" : "btn-respond"} type="button" onClick={() => respondQuery(panelQuery.id)}>Respond</button>}
-                {canResolve && <button className="btn-respond" type="button" onClick={() => resolveQuery(panelQuery.id)}>Resolve</button>}
-              </div>
-            </div></>
-          ) : <div className="sr-perm-note"><i className="ti ti-lock"></i> Your role ({activeRole}) has no query actions — read only.</div>}
-        </div>
-      </div>
-
       {/* Change-reason (Δ) slide-in panel (same as the Subject Record) */}
       <div className={`panel-overlay${delta ? " open" : ""}`} onClick={() => setDelta(null)}></div>
       <div className={`delta-panel${delta ? " open" : ""}`}>
@@ -494,18 +365,6 @@ export function BatchEntryGrid({
           ))}
         </div>
       </div>
-
-      {/* Close-without-response modal (DM) */}
-      {closeModalOpen && (
-        <div className="sr-modal-overlay" onClick={() => { setCloseModalOpen(false); setCloseReason(""); }}>
-          <div className="sr-modal" onClick={(e) => e.stopPropagation()} role="dialog" aria-modal="true">
-            <div className="sr-modal-title"><i className="ti ti-square-x"></i> Close without response</div>
-            <div className="sr-modal-body">Document an auditable reason for closing this query without a response.</div>
-            <textarea className="sr-modal-input" placeholder="Reason…" value={closeReason} onChange={(e) => setCloseReason(e.target.value)} />
-            <div className="sr-modal-actions" style={{ marginTop: "var(--space-4)" }}><button className="btn-secondary" type="button" onClick={() => { setCloseModalOpen(false); setCloseReason(""); }}>Cancel</button><button className="btn-primary" type="button" disabled={!closeReason.trim()} onClick={() => panelQuery && confirmCloseWithoutResponse(panelQuery.id)}>Close query</button></div>
-          </div>
-        </div>
-      )}
 
       {toast && <div className="be-toast" role="status"><i className="ti ti-circle-check"></i> {toast}<button className="be-toast-x" type="button" onClick={() => setToast(null)}><i className="ti ti-x"></i></button></div>}
     </div>
