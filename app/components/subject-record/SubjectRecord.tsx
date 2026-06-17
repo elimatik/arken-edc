@@ -15,6 +15,7 @@ interface Props {
   studyId: string;
   subjectId: string;
   initialFormId?: string;
+  initialPanelFieldId?: string; // deep-link from the Queries screen: open this field's query/EC panel
 }
 
 const SPECIES_ICON: Record<string, string> = {
@@ -132,7 +133,7 @@ function isSdvEligible(field: FormFieldRow): boolean {
   return !["file", "calculated", "textarea"].includes(field.field_type);
 }
 
-export function SubjectRecord({ studyId, subjectId, initialFormId }: Props) {
+export function SubjectRecord({ studyId, subjectId, initialFormId, initialPanelFieldId }: Props) {
   const router = useRouter();
   const ndaName = useNdaName(); // visitor name from the access agreement (acting user)
   const { activeRole } = useShell();
@@ -176,6 +177,21 @@ export function SubjectRecord({ studyId, subjectId, initialFormId }: Props) {
     const t = setTimeout(() => setToast(null), 2500);
     return () => clearTimeout(t);
   }, [toast]);
+
+  // Deep-link from the Queries screen: once hydrated, open the query/EC panel on
+  // the linked field (kind = edit_check if it carries an open edit check, else query).
+  const deepLinkedRef = useRef(false);
+  useEffect(() => {
+    if (deepLinkedRef.current || !ready || !initialPanelFieldId) return;
+    const f = dataset.formFields.find((x) => x.id === initialPanelFieldId);
+    if (!f) return;
+    deepLinkedRef.current = true;
+    const inst = dataset.formInstances.find((i) => i.subject_id === subjectId && i.form_id === f.form_id);
+    const fv = inst ? dataset.fieldValues.find((v) => v.form_instance_id === inst.id && v.form_field_id === f.id) : undefined;
+    const hasOpenEC = !!fv && dataset.editChecks.some((e) => e.field_value_id === fv.id && e.status === "open");
+    setPanelKind(hasOpenEC ? "edit_check" : "query");
+    setPanelField(f);
+  }, [ready, initialPanelFieldId, dataset, subjectId]);
 
   const canSdv = canSDV(activeRole);
   // If the role changes to one without SDV permission, leave SDV mode so a non-CRA

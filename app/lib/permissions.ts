@@ -80,6 +80,7 @@ export const NAV_ROUTES: Partial<Record<string, string>> = {
   dashboard: "",
   "data-entry": "data-entry",
   animals: "animals",
+  queries: "queries",
   sites: "sites",
   settings: "settings",
 };

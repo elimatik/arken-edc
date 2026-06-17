@@ -1005,16 +1005,32 @@ const caSubjects = CA_DOGS.map((d, i) => ({ code: d.code, status: d.status, arm:
 const CA_EXTRA = {
   // Cooper — completed Screening + Randomization (#1)
   "CA-0801-101-01": [
-    { key: "screen_pe", status: "reviewed", values: { visit_date: "2026-03-02", temperature: ["38.6", 38.6], heart_rate: ["96", 96], respiratory_rate: ["20", 20], body_weight: ["12.4", 12.4], body_condition_score: ["5", 5], general_health: "Normal", significant_findings: "Erythema and excoriation on ventral abdomen and pedal regions; no systemic abnormalities." } },
-    { key: "screen_derm", status: "reviewed", values: { pruritus_severity: "Severe", lesion_severity: "Moderate", infection_assessment: "Mild", ear_assessment: "Otitis Externa", cadesi04_score: ["58", 58] } },
+    { key: "screen_pe", status: "reviewed", values: { visit_date: "2026-03-02", temperature: ["38.6", 38.6], heart_rate: ["96", 96], respiratory_rate: ["20", 20], body_weight: ["12.4", 12.4], body_condition_score: ["5", 5], general_health: "Normal", significant_findings: "Erythema and excoriation on ventral abdomen and pedal regions; no systemic abnormalities." },
+      queries: [
+        { field: "heart_rate", title: "Resting heart rate vs prior visit", raise: "Resting heart rate of 96 bpm is higher than the typical resting range for this patient. Confirm the dog was settled at the time of measurement." },
+        { field: "respiratory_rate", title: "Respiratory rate plausibility", raise: "Respiratory rate of 20/min recorded during an excited exam — confirm whether this was a true resting measurement.",
+          response: "Re-measured after a 5-minute acclimation period; resting respiratory rate confirmed at 20/min. No respiratory abnormality." } ] },
+    { key: "screen_derm", status: "reviewed", values: { pruritus_severity: "Severe", lesion_severity: "Moderate", infection_assessment: "Mild", ear_assessment: "Otitis Externa", cadesi04_score: ["58", 58] },
+      queries: [
+        { field: "cadesi04_score", title: "CADESI-04 vs pruritus severity", raise: "CADESI-04 of 58 is high relative to the recorded lesion severity (Moderate). Please confirm the lesion scoring against the regional map." },
+        { field: "ear_assessment", title: "Otitis externa — secondary infection?", raise: "Otitis externa noted. Confirm whether cytology was performed and whether a secondary infection requires concomitant treatment per protocol.",
+          response: "Cytology performed — mild Malassezia overgrowth, managed topically; not an exclusionary systemic infection. Documented in the source." } ] },
     { key: "screen_consent", status: "reviewed", values: { consent_signed: "Yes", consent_version: "v2.1", consent_date: "2026-03-02", witness_name: "L. Park, RVT" } },
     { key: "screen_eligibility", status: "reviewed", values: { age_1yr_plus: "Yes", cad_diagnosis: "Yes", chronic_itching_6mo: "Yes", pruritus_5plus: "Yes", owner_daily_assessments: "Yes", severe_systemic_illness: "No", recent_immunotherapy: "No", active_mange: "No", pregnant_breeding: "No", another_study_30d: "No", eligibility_status: "Eligible", investigator_approval: "Yes" } },
     { key: "screen_labs", status: "reviewed", values: { cbc: "Normal", chemistry_panel: "Normal", urinalysis: "Normal", investigator_review: "Yes" } },
     { key: "randomization", status: "reviewed", values: { randomization_number: "101-001", treatment_arm: "DermAlliv™ Active", randomization_date: "2026-03-09", drug_kit_assigned: "KIT-1042" } },
     { key: "baseline_clinical", status: "in_work", values: { cadesi04_score: ["58", 58], pvas_score: ["7.2", 7.2], disease_severity: "Severe", iga: "4" },
       query: { field: "pvas_score", title: "Baseline PVAS vs owner diary",
-        raise: "Baseline owner PVAS of 7.2 is higher than the average of the pre-baseline diary entries (≈5.8). Please confirm the score was transcribed from the correct diary week." } },
-    { key: "drug_dispensation", status: "reviewed", values: { drug_kit_number: "KIT-1042", quantity_dispensed: ["84", 84], dispensation_date: "2026-03-09" } },
+        raise: "Baseline owner PVAS of 7.2 is higher than the average of the pre-baseline diary entries (≈5.8). Please confirm the score was transcribed from the correct diary week." },
+      queries: [
+        { field: "cadesi04_score", title: "Baseline CADESI-04 vs screening", raise: "Baseline CADESI-04 of 58 is identical to the screening value recorded one week earlier. Confirm this was independently re-scored at the baseline visit rather than carried forward.",
+          response: "Re-scored independently at baseline by the same assessor; score genuinely unchanged at 58. Source confirms two separate assessments." },
+        { field: "iga", title: "IGA vs disease severity", raise: "Investigator Global Assessment recorded as 4 (severe) — confirm this aligns with the CADESI-04 regional findings and the lesion photographs." } ] },
+    { key: "drug_dispensation", status: "reviewed", values: { drug_kit_number: "KIT-1042", quantity_dispensed: ["84", 84], dispensation_date: "2026-03-09" },
+      queries: [
+        { field: "quantity_dispensed", title: "Dispensed quantity vs dosing schedule", raise: "84 units dispensed for an 84-day supply assumes once-daily dosing. Confirm against the protocol dosing schedule and the dog's body weight band.",
+          response: "Protocol specifies once-daily dosing; 12.4 kg falls in the single-unit band. 84 units = 84 days confirmed correct.",
+          resolution: "Verified against the dosing schedule and dispensation log. Quantity correct — query resolved." } ] },
   ],
   // Bella — completed Screening + Randomization (#2) + End of Study = Completed
   "CA-0801-101-03": [
@@ -1022,9 +1038,14 @@ const CA_EXTRA = {
       query: { field: "body_weight", title: "Screening weight vs referral record",
         raise: "Screening weight 31.2 kg differs from the referral record (29.4 kg). Confirm the scale reading and recent weight history.",
         response: "Re-weighed on a calibrated scale at 31.2 kg; owner reports recent weight gain on the current diet. Value confirmed." } },
-    { key: "screen_eligibility", status: "reviewed", values: { age_1yr_plus: "Yes", cad_diagnosis: "Yes", chronic_itching_6mo: "Yes", pruritus_5plus: "Yes", owner_daily_assessments: "Yes", severe_systemic_illness: "No", recent_immunotherapy: "No", active_mange: "No", pregnant_breeding: "No", another_study_30d: "No", eligibility_status: "Eligible", investigator_approval: "Yes" } },
+    { key: "screen_eligibility", status: "reviewed", values: { age_1yr_plus: "Yes", cad_diagnosis: "Yes", chronic_itching_6mo: "Yes", pruritus_5plus: "Yes", owner_daily_assessments: "Yes", severe_systemic_illness: "No", recent_immunotherapy: "No", active_mange: "No", pregnant_breeding: "No", another_study_30d: "No", eligibility_status: "Eligible", investigator_approval: "Yes" },
+      queries: [
+        { field: "chronic_itching_6mo", title: "Duration of pruritus — source support", raise: "Chronic itching ≥6 months marked Yes. Confirm the referral history documents a pruritus onset date supporting the ≥6-month criterion.",
+          response: "Referral letter dated 2025-08 documents pruritus onset ~10 months prior to screening. Criterion met; source filed." } ] },
     { key: "randomization", status: "reviewed", values: { randomization_number: "101-003", treatment_arm: "DermAlliv™ Active", randomization_date: "2026-02-25", drug_kit_assigned: "KIT-1051" } },
-    { key: "eos_completion", status: "reviewed", values: { completion_status: "Completed", investigator_final: "Subject completed all six visits. CADESI-04 improved 58 → 14 and owner PVAS 7.0 → 2.1 by Day 84. No drug-related adverse events." } },
+    { key: "eos_completion", status: "reviewed", values: { completion_status: "Completed", investigator_final: "Subject completed all six visits. CADESI-04 improved 58 → 14 and owner PVAS 7.0 → 2.1 by Day 84. No drug-related adverse events." },
+      queries: [
+        { field: "investigator_final", title: "End-of-study narrative vs visit data", raise: "Investigator narrative cites a final PVAS of 2.1, but please confirm this matches the Day 84 owner diary entry rather than the clinic-recorded value." } ] },
   ],
   // Charlie — open edit check (out-of-range temperature on Screening PE)
   "CA-0801-102-02": [
@@ -1034,11 +1055,15 @@ const CA_EXTRA = {
   // Daisy — open manual query (no response yet)
   "CA-0801-102-01": [
     { key: "screen_derm", status: "in_work", values: { pruritus_severity: "Moderate", lesion_severity: "Moderate", ear_assessment: "Normal", cadesi04_score: ["22", 22] },
-      query: { field: "cadesi04_score", title: "CADESI-04 score vs lesion photos", raise: "CADESI-04 recorded as 22 but the uploaded lesion photographs suggest more extensive truncal involvement. Please re-score against the photo set and confirm." } },
+      query: { field: "cadesi04_score", title: "CADESI-04 score vs lesion photos", raise: "CADESI-04 recorded as 22 but the uploaded lesion photographs suggest more extensive truncal involvement. Please re-score against the photo set and confirm." },
+      queries: [
+        { field: "lesion_severity", title: "Lesion severity vs pruritus", raise: "Lesion severity recorded as Moderate while pruritus is Moderate — confirm the lesion grade against the regional examination notes." } ] },
   ],
   // Milo — screen failure (fails the baseline pruritus inclusion criterion)
   "CA-0801-101-05": [
-    { key: "screen_eligibility", status: "in_work", values: { age_1yr_plus: "Yes", cad_diagnosis: "Yes", chronic_itching_6mo: "Yes", pruritus_5plus: "No", owner_daily_assessments: "Yes", severe_systemic_illness: "No", recent_immunotherapy: "No", active_mange: "No", pregnant_breeding: "No", another_study_30d: "No", eligibility_status: "Screen Failure", investigator_approval: "No" } },
+    { key: "screen_eligibility", status: "in_work", values: { age_1yr_plus: "Yes", cad_diagnosis: "Yes", chronic_itching_6mo: "Yes", pruritus_5plus: "No", owner_daily_assessments: "Yes", severe_systemic_illness: "No", recent_immunotherapy: "No", active_mange: "No", pregnant_breeding: "No", another_study_30d: "No", eligibility_status: "Screen Failure", investigator_approval: "No" },
+      queries: [
+        { field: "pruritus_5plus", title: "Pruritus score at screen failure", raise: "Subject failed on the baseline pruritus criterion (owner PVAS <5). Confirm the screening pruritus score was taken from the validated owner assessment, not a clinic estimate." } ] },
   ],
   // Molly — withdrawn: Subject Status carries the withdrawal date + reason (drives the banner).
   "CA-0801-102-03": [
@@ -1627,17 +1652,20 @@ for (const study of STUDIES) {
         );
         messageRows.push(`  ('${mid}','${qid}','${DEMO_USER}',${sqlStr("Auto edit-check: " + f.editCheck.message)})`);
       }
-      if (f.query) {
-        // A manual query. With a `response` it's seeded as responded (raise +
-        // reply); without one it stays open (raise only).
-        const open = !f.query.response;
+      // A manual query: `raise` only → open; `+response` → responded; `+resolution`
+      // → resolved. Supports a single `f.query` or an array `f.queries`.
+      const emitQuery = (qy) => {
+        const status = qy.resolution ? "resolved" : qy.response ? "responded" : "open";
         const qid = demoId("70", (qc += 1), suffix);
         queryRows.push(
-          `  ('${qid}','${instId}','${vidByCode[f.query.field]}','${open ? "open" : "responded"}','minor',${sqlStr(f.query.title)},'${DEMO_USER}',now())`,
+          `  ('${qid}','${instId}','${vidByCode[qy.field]}','${status}','minor',${sqlStr(qy.title)},'${DEMO_USER}',now())`,
         );
-        messageRows.push(`  ('${demoId("71", (mc += 1), suffix)}','${qid}','${DEMO_USER}',${sqlStr(f.query.raise)})`);
-        if (!open) messageRows.push(`  ('${demoId("71", (mc += 1), suffix)}','${qid}','${DEMO_USER}',${sqlStr(f.query.response)})`);
-      }
+        messageRows.push(`  ('${demoId("71", (mc += 1), suffix)}','${qid}','${DEMO_USER}',${sqlStr(qy.raise)})`);
+        if (qy.response) messageRows.push(`  ('${demoId("71", (mc += 1), suffix)}','${qid}','${DEMO_USER}',${sqlStr(qy.response)})`);
+        if (qy.resolution) messageRows.push(`  ('${demoId("71", (mc += 1), suffix)}','${qid}','${DEMO_USER}',${sqlStr(qy.resolution)})`);
+      };
+      if (f.query) emitQuery(f.query);
+      if (f.queries) for (const qy of f.queries) emitQuery(qy);
     }
   }
 }

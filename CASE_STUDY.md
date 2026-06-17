@@ -69,6 +69,14 @@ The split even changes what *blocks* a form. Submitting a form for review is gat
 
 The same principle guards **source-data verification**: a monitor can't tick the SDV shield on a field that still carries an open edit check, a pending change reason, or an open query. Verifying means *"this matches the source and is settled"* — so the field must actually be settled first. The shield greys out with a reason until it is. It's a small interlock, but it's the difference between SDV that means something and a checkbox that doesn't.
 
+### Two views of one log — the record and the workstation
+
+The inline flag is the right tool when you're *inside* a subject's record. But a data manager doesn't live there — they live across the **whole study**, asking "what's open, what's overdue, whose turn is it?" The same query log therefore has a second view: a **study-wide Queries screen** that rolls up every query *and* every open edit-check across all subjects and forms into one worklist. It isn't a different system — it reads the same session-store records the record panels write, so a query resolved on either surface is resolved on both.
+
+The screen is designed as a **triage queue, not a second editor**. A **stat strip** answers the at-a-glance questions (total open, raised vs responded, resolved, average days open); a dense table carries the rest — query ID, subject, site, form, field, a status chip, and a **days-open counter that turns red once it breaches the SLA** (>7 days raised, >3 days responded) so the backlog surfaces itself. The two click targets encode the two intents: clicking a **row opens the thread in place** (a 420px slide-in that reuses the record's own panel markup — you triage without losing the list), while clicking the **subject ID navigates into the record and deep-links straight to that field's panel** — for when triage isn't enough and you need the full clinical context around the value.
+
+The same **role model** carries over verbatim — CRC responds, CRA resolves, DM manages, PI responds, **Sponsor and Admin are read-only**, and the Sponsor's view additionally **hides every `EC-` row** because an unconverted edit-check can leak an out-of-range value the sponsor is blinded to. Edit-checks appear on the worklist (so the DM sees the full anomaly surface) but stay **non-actionable here** — they carry a "resolve on the subject record" note, because converting an edit-check is a clinical judgement that belongs next to the source, not in a queue. The worklist is where you *see and route* anomalies; the record is where you *resolve* them. One log, two views, each shaped to what its user is actually trying to do.
+
 ---
 
 ## Case Study 2 — Dual-Mode Enrollment Architecture
