@@ -256,7 +256,12 @@ export function SubjectRecord({ studyId, subjectId, initialFormId }: Props) {
   // form — weakest status, summed open queries, all-entries-complete SDV.
   function leafItem(f: { id: string; name: string }) {
     const insts = dataset.formInstances.filter((i) => i.subject_id === subjectId && i.form_id === f.id);
-    const openQ = insts.flatMap((i) => dataset.queries.filter((q) => q.form_instance_id === i.id && (q.status === "open" || q.status === "responded")));
+    // Badge = queries that (a) belong to THIS form instance, (b) are open/responded
+    // (resolved never counts), and (c) resolve to a field value on the instance — so
+    // an orphaned query can never produce a phantom badge with no visible flag.
+    const openQ = insts.flatMap((i) => dataset.queries.filter((q) =>
+      q.form_instance_id === i.id && (q.status === "open" || q.status === "responded") &&
+      dataset.fieldValues.some((v) => v.id === q.field_value_id && v.form_instance_id === i.id)));
     const status = insts.length ? insts.reduce<string>((acc, i) => (STATUS_RANK[i.status] < STATUS_RANK[acc] ? i.status : acc), "locked") : "empty";
     const icon: SidebarIcon = openQ.length ? "queried" : iconForInstance(status);
     // SDV state for the sidebar (item 6): complete > any verified field > none.
@@ -673,7 +678,7 @@ export function SubjectRecord({ studyId, subjectId, initialFormId }: Props) {
   // date / file), whose every change is an atomic commit → record the transition now.
   // Text inputs pass false (they would record a half-typed entry) and instead record
   // one transition per focus→blur edit via recordTextEdit().
-  function setFieldValue(field: FormFieldRow, value: string, recordChange = false) {
+  function setFieldValue(field: FormFieldRow, value: string, recordChange = false, skipCheck = false) {
     if (readOnly) return; // locked forms + the ePRO stub are read-only
     update((d: Dataset) => {
       let inst = d.formInstances.find((i) => i.subject_id === subjectId && i.form_id === field.form_id);
@@ -696,19 +701,10 @@ export function SubjectRecord({ studyId, subjectId, initialFormId }: Props) {
       if (recordChange) recordTransition(d, fv.id, prev, value);
 
       // Live EDIT CHECK (not a query): out of range → raise/keep an open edit check;
-      // back in range → resolve it. (Converting to a query is a separate user action.)
-      const check = evaluateField(field, value, species, d.speciesRanges, subjectAgeMonths);
-      const ec = d.editChecks.find((e) => e.field_value_id === fv!.id && e.status === "open");
-      const hasConvertedQ = d.queries.some((q) => q.field_value_id === fv!.id && (q.status === "open" || q.status === "responded"));
-      if (check) {
-        if (!ec && !hasConvertedQ) {
-          d.editChecks.push({ id: newId(), form_instance_id: inst.id, field_value_id: fv.id, message: check.message, status: "open", created_at: new Date().toISOString() });
-        } else if (ec) {
-          ec.message = check.message;
-        }
-      } else if (ec) {
-        ec.status = "resolved"; // value corrected
-      }
+      // back in range → resolve it. Discrete controls evaluate on change; free-text /
+      // numeric inputs pass skipCheck while typing and evaluate on BLUR (so the amber
+      // state doesn't flicker mid-keystroke). Converting to a query is a separate action.
+      if (!skipCheck) evalEditCheckInline(d, inst, fv, field, value);
       // Inclusion/Exclusion: recompute eligibility from all criterion fields in
       // this form. Each criterion declares the answer that FAILS it via
       // exclusion_if (default "No" — a positively-phrased inclusion criterion);
@@ -722,6 +718,32 @@ export function SubjectRecord({ studyId, subjectId, initialFormId }: Props) {
         const subj = d.subjects.find((s) => s.id === subjectId);
         if (subj) subj.ineligible = fail;
       }
+    });
+  }
+
+  // Out-of-range → raise/keep an open edit check; back in range → resolve it. Never
+  // raises a new check if the field already has a (converted) live query.
+  function evalEditCheckInline(d: Dataset, inst: { id: string }, fv: { id: string }, field: FormFieldRow, value: string) {
+    const check = evaluateField(field, value, species, d.speciesRanges, subjectAgeMonths);
+    const ec = d.editChecks.find((e) => e.field_value_id === fv.id && e.status === "open");
+    const hasConvertedQ = d.queries.some((q) => q.field_value_id === fv.id && (q.status === "open" || q.status === "responded"));
+    if (check) {
+      if (!ec && !hasConvertedQ) d.editChecks.push({ id: newId(), form_instance_id: inst.id, field_value_id: fv.id, message: check.message, status: "open", created_at: new Date().toISOString() });
+      else if (ec) ec.message = check.message;
+    } else if (ec) {
+      ec.status = "resolved"; // value corrected
+    }
+  }
+  // Blur-time edit-check evaluation for free-text / numeric inputs (Path A: a
+  // corrected value clears the check; an out-of-range one raises it on blur only).
+  function evalEditCheck(field: FormFieldRow) {
+    if (readOnly) return;
+    update((d: Dataset) => {
+      const inst = d.formInstances.find((i) => i.subject_id === subjectId && i.form_id === field.form_id);
+      if (!inst) return;
+      const fv = d.fieldValues.find((v) => v.form_instance_id === inst.id && v.form_field_id === field.id);
+      if (!fv) return;
+      evalEditCheckInline(d, inst, fv, field, fv.value ?? "");
     });
   }
 
@@ -1013,14 +1035,18 @@ export function SubjectRecord({ studyId, subjectId, initialFormId }: Props) {
   const deltaNew = deltaLatest?.new_value ?? (deltaFv?.value ?? "");
   const deltaCurState = deltaField ? deltaStateFor(deltaField.id, deltaFv?.id) : null;
 
-  function renderControl(field: FormFieldRow, value: string, queried: boolean) {
+  function renderControl(field: FormFieldRow, value: string, queried: boolean, editcheck = false) {
     // Discrete controls write directly and settle on change → record the transition
-    // atomically (pre-edit → new). Text inputs write per keystroke but record one
-    // transition per focus→blur edit (snapshot on focus, record on blur).
+    // atomically (pre-edit → new) and evaluate the edit check. Text/number inputs write
+    // per keystroke (skipping the check), record one transition per focus→blur edit, and
+    // evaluate the edit check on BLUR only (so the amber state never flickers mid-typing).
     const commit = (v: string) => setFieldValue(field, v, true);
-    const typeChange = (v: string) => setFieldValue(field, v);
+    const typeChange = (v: string) => setFieldValue(field, v, false, true);
     const onFocus = () => { setEditingFieldId(field.id); snapshotTextFocus(field); };
-    const onBlur = () => { setEditingFieldId(null); recordTextEdit(field); };
+    const onBlur = () => { setEditingFieldId(null); recordTextEdit(field); evalEditCheck(field); };
+    // Edit check turns the input amber (amber-200 border + amber-50 bg); an open query
+    // uses the deeper-amber .query. Edit check takes precedence (mutually exclusive).
+    const stateCls = editcheck ? " editcheck" : queried ? " query" : "";
     const ro = readOnly;
     const type = field.field_type;
     const isCoded = !!field.validation?.coded;
@@ -1028,7 +1054,7 @@ export function SubjectRecord({ studyId, subjectId, initialFormId }: Props) {
     // Pen / Lot ID — a select sourced from the study's pens (livestock_group only).
     if (field.code === "pen_lot_id" && isLivestockGroup) {
       return (
-        <select className={`field-select${queried ? " query" : ""}`} value={value} disabled={ro} onChange={(e) => commit(e.target.value)}>
+        <select className={`field-select${stateCls}`} value={value} disabled={ro} onChange={(e) => commit(e.target.value)}>
           <option value="">—</option>
           {penOptions.map((o) => (
             <option key={o} value={o}>{o}</option>
@@ -1053,7 +1079,7 @@ export function SubjectRecord({ studyId, subjectId, initialFormId }: Props) {
     if (type === "radio") {
       const opts = field.options?.length ? field.options : ["Yes", "No"];
       return (
-        <div className={`yn-toggle${queried ? " query" : ""}`} role="group">
+        <div className={`yn-toggle${stateCls}`} role="group">
           {opts.map((o) => (
             <button key={o} type="button" disabled={ro} className={`yn-btn${value === o ? " active" : ""}`} onClick={() => commit(value === o ? "" : o)}>
               {o}
@@ -1066,7 +1092,7 @@ export function SubjectRecord({ studyId, subjectId, initialFormId }: Props) {
     if (type === "multiselect" || type === "checkbox") {
       const sel = parseMulti(value);
       return (
-        <div className={`check-group${queried ? " query" : ""}`}>
+        <div className={`check-group${stateCls}`}>
           {(field.options ?? []).map((o) => (
             <label key={o} className="check-item">
               <input type="checkbox" checked={sel.includes(o)} disabled={ro} onChange={() => toggleMulti(field, o, value)} />
@@ -1079,7 +1105,7 @@ export function SubjectRecord({ studyId, subjectId, initialFormId }: Props) {
     // select dropdown
     if (type === "select") {
       return (
-        <select className={`field-select${queried ? " query" : ""}`} value={value} disabled={ro} onChange={(e) => commit(e.target.value)}>
+        <select className={`field-select${stateCls}`} value={value} disabled={ro} onChange={(e) => commit(e.target.value)}>
           <option value="">—</option>
           {(field.options ?? []).map((o) => (
             <option key={o} value={o}>{o}</option>
@@ -1105,7 +1131,7 @@ export function SubjectRecord({ studyId, subjectId, initialFormId }: Props) {
     if (isCoded) {
       return (
         <div className="coded-field">
-          <input className={`field-input${queried ? " query" : ""}`} style={{ fontFamily: "var(--font-sans)" }} value={value} disabled={ro} onChange={(e) => typeChange(e.target.value)} onFocus={onFocus} onBlur={onBlur} />
+          <input className={`field-input${stateCls}`} style={{ fontFamily: "var(--font-sans)" }} value={value} disabled={ro} onChange={(e) => typeChange(e.target.value)} onFocus={onFocus} onBlur={onBlur} />
           <button
             type="button"
             className="lookup-btn"
@@ -1123,7 +1149,7 @@ export function SubjectRecord({ studyId, subjectId, initialFormId }: Props) {
       return (
         <input
           type={type === "datetime" ? "datetime-local" : "date"}
-          className={`field-input field-date${queried ? " query" : ""}`}
+          className={`field-input field-date${stateCls}`}
           value={value}
           disabled={ro}
           onChange={(e) => commit(e.target.value)}
@@ -1135,7 +1161,7 @@ export function SubjectRecord({ studyId, subjectId, initialFormId }: Props) {
     const mono = type === "number" || type === "integer";
     return (
       <input
-        className={`field-input${queried ? " query" : ""}`}
+        className={`field-input${stateCls}`}
         inputMode={mono ? "decimal" : undefined}
         style={mono ? undefined : { fontFamily: "var(--font-sans)" }}
         value={value}
@@ -1596,7 +1622,7 @@ export function SubjectRecord({ studyId, subjectId, initialFormId }: Props) {
                     {field.is_required && <span className="field-req"> *</span>}
                   </label>
                   <div className="field-row">
-                    {renderControl(field, value, raised)}
+                    {renderControl(field, value, raised, !!ec)}
                     {showInteractiveSdv && (
                       <button
                         className={`sdv-btn visible${verified ? " verified" : ""}${(sdvBlock || value.trim() === "") && !verified ? " blocked" : ""}`}
@@ -1644,7 +1670,7 @@ export function SubjectRecord({ studyId, subjectId, initialFormId }: Props) {
                     <div className="field-state state-editcheck">
                       <i className="ti ti-alert-circle"></i>
                       <span className="ec-link" onClick={() => { setPanelField(field); setPanelKind("edit_check"); }}>
-                        [{ecCodeFor(ec.id)}] Value outside expected range
+                        [{ecCodeFor(ec.id)}] Value outside expected range{hint ? ` (${hint})` : ""}
                       </span>
                     </div>
                   ) : dispQ && dispQ.status !== "resolved" ? (

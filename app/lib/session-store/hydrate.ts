@@ -7,6 +7,24 @@ import { supabase } from "@/lib/supabase";
 import { DEMO_USER_ID } from "@/lib/constants";
 import type { Dataset } from "./types";
 
+// Supabase / PostgREST caps a single select at ~1000 rows (the project's Max Rows
+// setting). Tables like field_values (≈1500 across all studies) overflow that and
+// would be SILENTLY truncated — dropping field values and orphaning the queries /
+// edit checks / SDV records that reference them. Page through in 1000-row chunks so
+// every row is hydrated.
+async function fetchAll<T>(table: string, columns: string): Promise<T[]> {
+  const SIZE = 1000;
+  const out: T[] = [];
+  for (let from = 0; ; from += SIZE) {
+    const { data, error } = await supabase.from(table).select(columns).range(from, from + SIZE - 1);
+    if (error) { console.error(`hydrate: ${table} page ${from} failed`, error.message); break; }
+    if (!data || data.length === 0) break;
+    out.push(...(data as T[]));
+    if (data.length < SIZE) break;
+  }
+  return out;
+}
+
 export async function hydrateFromSupabase(): Promise<Dataset> {
   const [
     studies,
@@ -16,12 +34,6 @@ export async function hydrateFromSupabase(): Promise<Dataset> {
     subjects,
     owners,
     forms,
-    formFields,
-    formInstances,
-    fieldValues,
-    queries,
-    queryMessages,
-    sdvRecords,
     memberships,
     speciesRanges,
   ] = await Promise.all([
@@ -32,18 +44,21 @@ export async function hydrateFromSupabase(): Promise<Dataset> {
     supabase.from("subjects").select("id, study_id, site_id, barn_id, pen_id, owner_id, subject_code, species, status, randomization_arm"),
     supabase.from("companion_owners").select("id, study_id, full_name"),
     supabase.from("forms").select("id, study_id, visit_id, parent_form_id, code, name, sequence, scope, batch_eligible"),
-    supabase.from("form_fields").select("id, form_id, code, label, field_type, options, unit, is_required, sequence, validation"),
-    supabase.from("form_instances").select("id, form_id, subject_id, barn_id, site_id, status"),
-    supabase.from("field_values").select("id, form_instance_id, form_field_id, value"),
-    supabase.from("queries").select("id, form_instance_id, field_value_id, status, title"),
-    supabase.from("query_messages").select("id, query_id, author_id, body, created_at"),
-    supabase.from("sdv_records").select("id, form_instance_id, field_value_id, status"),
     supabase.from("study_memberships").select("study_id, role").eq("user_id", DEMO_USER_ID),
     supabase.from("species_ranges").select("species, vital, min, max, unit"),
   ]);
+  // Potentially-large tables — paged so none is truncated at 1000 rows.
+  const [formFields, formInstances, fieldValues, queries, queryMessages, sdvRecords] = await Promise.all([
+    fetchAll<Dataset["formFields"][number]>("form_fields", "id, form_id, code, label, field_type, options, unit, is_required, sequence, validation"),
+    fetchAll<Dataset["formInstances"][number]>("form_instances", "id, form_id, subject_id, barn_id, site_id, status"),
+    fetchAll<Dataset["fieldValues"][number]>("field_values", "id, form_instance_id, form_field_id, value"),
+    fetchAll<Dataset["queries"][number]>("queries", "id, form_instance_id, field_value_id, status, title"),
+    fetchAll<Dataset["queryMessages"][number]>("query_messages", "id, query_id, author_id, body, created_at"),
+    fetchAll<Dataset["sdvRecords"][number]>("sdv_records", "id, form_instance_id, field_value_id, status"),
+  ]);
 
-  const rawQueries = (queries.data ?? []) as Dataset["queries"];
-  const rawMsgs = (queryMessages.data ?? []) as Dataset["queryMessages"];
+  const rawQueries = queries;
+  const rawMsgs = queryMessages;
 
   // Split: a seeded "auto edit-check" query is really an edit check, not a query.
   // Detect it by its first message (Auto edit-check: …) and move it to editChecks.
@@ -73,13 +88,13 @@ export async function hydrateFromSupabase(): Promise<Dataset> {
     subjects: (subjects.data ?? []) as Dataset["subjects"],
     owners: (owners.data ?? []) as Dataset["owners"],
     forms: (forms.data ?? []) as Dataset["forms"],
-    formFields: (formFields.data ?? []) as Dataset["formFields"],
-    formInstances: (formInstances.data ?? []) as Dataset["formInstances"],
-    fieldValues: (fieldValues.data ?? []) as Dataset["fieldValues"],
+    formFields: formFields as Dataset["formFields"],
+    formInstances: formInstances as Dataset["formInstances"],
+    fieldValues: fieldValues as Dataset["fieldValues"],
     queries: splitQueries,
     queryMessages: rawMsgs,
     editChecks,
-    sdvRecords: (sdvRecords.data ?? []) as Dataset["sdvRecords"],
+    sdvRecords: sdvRecords as Dataset["sdvRecords"],
     deltaRecords: [], // session-only — not sourced from Supabase
     memberships: (memberships.data ?? []) as Dataset["memberships"],
     speciesRanges: (speciesRanges.data ?? []) as Dataset["speciesRanges"],

@@ -97,7 +97,16 @@ export function ScopedFieldGrid({ studyId, scope, scopeId, form, instanceId, mod
     if (prev === "" || prev === next) return;
     d.deltaRecords.push({ id: newId(), field_value_id: fvId, old_value: prev, new_value: next, reason: "", author_name: ndaName, author_role: activeRole, created_at: new Date().toISOString(), status: "pending" });
   }
-  function setFieldValue(field: FormFieldRow, value: string, recordChange = false) {
+  function evalEditCheckInline(d: Dataset, inst: { id: string }, fv: { id: string }, field: FormFieldRow, value: string) {
+    const check = evaluateField(field, value, species, d.speciesRanges);
+    const ec = d.editChecks.find((e) => e.field_value_id === fv.id && e.status === "open");
+    const hasConvertedQ = d.queries.some((q) => q.field_value_id === fv.id && (q.status === "open" || q.status === "responded"));
+    if (check) {
+      if (!ec && !hasConvertedQ) d.editChecks.push({ id: newId(), form_instance_id: inst.id, field_value_id: fv.id, message: check.message, status: "open", created_at: new Date().toISOString() });
+      else if (ec) ec.message = check.message;
+    } else if (ec) ec.status = "resolved";
+  }
+  function setFieldValue(field: FormFieldRow, value: string, recordChange = false, skipCheck = false) {
     if (readOnly) return;
     update((d: Dataset) => {
       const inst = ensureInst(d);
@@ -106,13 +115,9 @@ export function ScopedFieldGrid({ studyId, scope, scopeId, form, instanceId, mod
       if (!fv) { fv = { id: newId(), form_instance_id: inst.id, form_field_id: field.id, value }; d.fieldValues.push(fv); }
       else fv.value = value;
       if (recordChange) recordTransition(d, fv.id, prev, value);
-      const check = evaluateField(field, value, species, d.speciesRanges);
-      const ec = d.editChecks.find((e) => e.field_value_id === fv!.id && e.status === "open");
-      const hasConvertedQ = d.queries.some((q) => q.field_value_id === fv!.id && (q.status === "open" || q.status === "responded"));
-      if (check) {
-        if (!ec && !hasConvertedQ) d.editChecks.push({ id: newId(), form_instance_id: inst.id, field_value_id: fv.id, message: check.message, status: "open", created_at: new Date().toISOString() });
-        else if (ec) ec.message = check.message;
-      } else if (ec) ec.status = "resolved";
+      // Discrete controls evaluate the edit check on change; text/number inputs pass
+      // skipCheck while typing and evaluate on BLUR only (no amber flicker mid-keystroke).
+      if (!skipCheck) evalEditCheckInline(d, inst, fv, field, value);
     });
   }
   function snapshotTextFocus(field: FormFieldRow) { editStartRef.current = { fieldId: field.id, value: fvFor(field.id)?.value ?? "" }; }
@@ -122,6 +127,14 @@ export function ScopedFieldGrid({ studyId, scope, scopeId, form, instanceId, mod
     const fv = fvFor(field.id); if (!fv) return;
     const cur = fv.value ?? ""; if (cur === snap.value) return;
     update((d: Dataset) => { const f = d.fieldValues.find((v) => v.id === fv.id); if (f) recordTransition(d, f.id, snap.value, cur); });
+  }
+  function evalEditCheck(field: FormFieldRow) {
+    if (readOnly) return;
+    update((d: Dataset) => {
+      const inst = d.formInstances.find((i) => i.id === instanceId); if (!inst) return;
+      const fv = d.fieldValues.find((v) => v.form_instance_id === inst.id && v.form_field_id === field.id); if (!fv) return;
+      evalEditCheckInline(d, inst, fv, field, fv.value ?? "");
+    });
   }
   const toggleMulti = (field: FormFieldRow, opt: string, value: string) => { const cur = parseMulti(value); setFieldValue(field, JSON.stringify(cur.includes(opt) ? cur.filter((x) => x !== opt) : [...cur, opt]), true); };
 
@@ -210,20 +223,21 @@ export function ScopedFieldGrid({ studyId, scope, scopeId, form, instanceId, mod
     return (fields[idx].validation as { section?: string } | null)?.section ?? null;
   }
 
-  function renderControl(field: FormFieldRow, value: string, queried: boolean) {
+  function renderControl(field: FormFieldRow, value: string, queried: boolean, editcheck = false) {
     const commit = (v: string) => setFieldValue(field, v, true);
-    const typeChange = (v: string) => setFieldValue(field, v);
+    const typeChange = (v: string) => setFieldValue(field, v, false, true);
     const onFocus = () => { setEditingFieldId(field.id); snapshotTextFocus(field); };
-    const onBlur = () => { setEditingFieldId(null); recordTextEdit(field); };
+    const onBlur = () => { setEditingFieldId(null); recordTextEdit(field); evalEditCheck(field); };
+    const stateCls = editcheck ? " editcheck" : queried ? " query" : "";
     const ro = readOnly;
     const type = field.field_type;
     if (type === "calculated") return <div className="calc-value">{computed(field)}</div>;
-    if (type === "textarea") return <textarea className={`field-input${queried ? " query" : ""}`} style={{ height: 60, fontFamily: "var(--font-sans)" }} value={value} disabled={ro} onChange={(e) => typeChange(e.target.value)} onFocus={onFocus} onBlur={onBlur} />;
+    if (type === "textarea") return <textarea className={`field-input${stateCls}`} style={{ height: 60, fontFamily: "var(--font-sans)" }} value={value} disabled={ro} onChange={(e) => typeChange(e.target.value)} onFocus={onFocus} onBlur={onBlur} />;
     // yes/no radio → two-button toggle (.yn-toggle / .yn-btn — same as the Subject Record)
     if (type === "radio") {
       const opts = field.options?.length ? field.options : ["Yes", "No"];
       return (
-        <div className={`yn-toggle${queried ? " query" : ""}`} role="group">
+        <div className={`yn-toggle${stateCls}`} role="group">
           {opts.map((o) => (
             <button key={o} type="button" disabled={ro} className={`yn-btn${value === o ? " active" : ""}`} onClick={() => commit(value === o ? "" : o)}>{o}</button>
           ))}
@@ -233,7 +247,7 @@ export function ScopedFieldGrid({ studyId, scope, scopeId, form, instanceId, mod
     if (type === "multiselect" || type === "checkbox") {
       const sel = parseMulti(value);
       return (
-        <div className={`check-group${queried ? " query" : ""}`}>
+        <div className={`check-group${stateCls}`}>
           {(field.options ?? []).map((o) => (
             <label key={o} className="check-item"><input type="checkbox" checked={sel.includes(o)} disabled={ro} onChange={() => toggleMulti(field, o, value)} /><span>{o}</span></label>
           ))}
@@ -242,17 +256,17 @@ export function ScopedFieldGrid({ studyId, scope, scopeId, form, instanceId, mod
     }
     if (type === "select") {
       return (
-        <select className={`field-select${queried ? " query" : ""}`} value={value} disabled={ro} onChange={(e) => commit(e.target.value)}>
+        <select className={`field-select${stateCls}`} value={value} disabled={ro} onChange={(e) => commit(e.target.value)}>
           <option value="">—</option>{(field.options ?? []).map((o) => <option key={o} value={o}>{o}</option>)}
         </select>
       );
     }
     if (type === "date" || type === "datetime") {
-      return <input type={type === "datetime" ? "datetime-local" : "date"} className={`field-input field-date${queried ? " query" : ""}`} value={value} disabled={ro} onChange={(e) => commit(e.target.value)}
+      return <input type={type === "datetime" ? "datetime-local" : "date"} className={`field-input field-date${stateCls}`} value={value} disabled={ro} onChange={(e) => commit(e.target.value)}
         onClick={(e) => { try { (e.currentTarget as HTMLInputElement & { showPicker?: () => void }).showPicker?.(); } catch { /* not supported */ } }} />;
     }
     const mono = type === "number" || type === "integer";
-    return <input className={`field-input${queried ? " query" : ""}`} inputMode={mono ? "decimal" : undefined} style={mono ? undefined : { fontFamily: "var(--font-sans)" }} value={value} disabled={ro} onFocus={onFocus} onBlur={onBlur} onChange={(e) => typeChange(e.target.value)} />;
+    return <input className={`field-input${stateCls}`} inputMode={mono ? "decimal" : undefined} style={mono ? undefined : { fontFamily: "var(--font-sans)" }} value={value} disabled={ro} onFocus={onFocus} onBlur={onBlur} onChange={(e) => typeChange(e.target.value)} />;
   }
 
   return (
@@ -282,7 +296,7 @@ export function ScopedFieldGrid({ studyId, scope, scopeId, form, instanceId, mod
               <div className={`field${isWide ? " full" : ""}${readOnly ? " state-locked" : ""}`}>
                 <label className="field-label">{field.label}{field.is_required && <span className="field-req"> *</span>}{field.unit ? ` (${field.unit})` : ""}</label>
                 <div className="field-row">
-                  {renderControl(field, value, raised)}
+                  {renderControl(field, value, raised, !!ec)}
                   {showInteractiveSdv && (
                     <button className={`sdv-btn visible${verified ? " verified" : ""}${(sdvBlock || value.trim() === "") && !verified ? " blocked" : ""}`} onClick={() => toggleSdv(field)} disabled={!canSdv || (!verified && (value.trim() === "" || !!sdvBlock))}
                       title={!canSdv ? "SDV verify — CRA only" : verified ? "SDV verified — click to undo" : value.trim() === "" ? "Enter a value before verifying" : sdvBlock ?? "SDV: click to verify"} type="button"><i className={`ti ${verified ? "ti-shield-check-filled" : "ti-shield"}`}></i></button>
@@ -296,7 +310,7 @@ export function ScopedFieldGrid({ studyId, scope, scopeId, form, instanceId, mod
                   )}
                 </div>
                 {ec ? (
-                  <div className="field-state state-editcheck"><i className="ti ti-alert-circle"></i><span className="ec-link" onClick={() => { setPanelField(field); setPanelKind("edit_check"); }}>[{ecCodeFor(ec.id)}] Value outside expected range</span></div>
+                  <div className="field-state state-editcheck"><i className="ti ti-alert-circle"></i><span className="ec-link" onClick={() => { setPanelField(field); setPanelKind("edit_check"); }}>[{ecCodeFor(ec.id)}] Value outside expected range{hint ? ` (${hint})` : ""}</span></div>
                 ) : dispQ && dispQ.status !== "resolved" ? (
                   <div className="field-state state-query"><i className="ti ti-info-circle"></i><span className="query-link" onClick={() => { setPanelField(field); setPanelKind("query"); }}>{dispQ.status === "open" ? `[${qCodeFor(dispQ.id)}] ${dispQ.title}` : `[${qCodeFor(dispQ.id)}] open — view thread`}</span></div>
                 ) : (hint && <span className="field-hint">{hint}</span>)}

@@ -484,7 +484,11 @@ export function ScopedFormFlow({ studyId, scope, scopeId, exclude = [], topNote 
   // Sidebar metadata for a form (rolled up across its instances).
   function sidebarMeta(f: FormRow): { icon: SidebarIcon; status: string; queryCount: number; sdv: "complete" | "partial" | "none" } {
     const insts = s.instancesFor(f.id);
-    const openQ = insts.flatMap((i) => dataset.queries.filter((q) => q.form_instance_id === i.id && (q.status === "open" || q.status === "responded")));
+    // Open/responded queries on THIS instance that resolve to a field value on it
+    // (resolved never counts; orphaned queries never produce a phantom badge).
+    const openQ = insts.flatMap((i) => dataset.queries.filter((q) =>
+      q.form_instance_id === i.id && (q.status === "open" || q.status === "responded") &&
+      dataset.fieldValues.some((v) => v.id === q.field_value_id && v.form_instance_id === i.id)));
     const worst = insts.length ? insts.reduce<string>((acc, i) => (STATUS_RANK[i.status] < STATUS_RANK[acc] ? i.status : acc), "locked") : "empty";
     const icon: SidebarIcon = openQ.length ? "queried" : iconForInstance(worst);
     const anyVerified = insts.some((i) => dataset.sdvRecords.some((r) => r.status === "verified" && dataset.fieldValues.some((v) => v.id === r.field_value_id && v.form_instance_id === i.id)));

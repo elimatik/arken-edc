@@ -106,20 +106,23 @@ export function BatchEntryGrid({
     if (prev === "" || prev === next) return;
     d.deltaRecords.push({ id: newId(), field_value_id: fvId, old_value: prev, new_value: next, reason: "", author_name: ndaName, author_role: activeRole, created_at: new Date().toISOString(), status: "pending" });
   }
-  function writeValue(d: Dataset, sid: string, field: FormFieldRow, value: string, recordChange: boolean) {
+  function evalEC(d: Dataset, inst: { id: string }, fv: { id: string }, field: FormFieldRow, value: string, sid: string) {
+    const check = evaluateField(field, value, species, d.speciesRanges, ageOf(sid));
+    const ec = d.editChecks.find((e) => e.field_value_id === fv.id && e.status === "open");
+    if (check) { if (!ec) d.editChecks.push({ id: newId(), form_instance_id: inst.id, field_value_id: fv.id, message: check.message, status: "open", created_at: new Date().toISOString() }); else ec.message = check.message; }
+    else if (ec) ec.status = "resolved";
+  }
+  function writeValue(d: Dataset, sid: string, field: FormFieldRow, value: string, recordChange: boolean, skipCheck = false) {
     const inst = ensureInst(d, sid);
     let fv = d.fieldValues.find((v) => v.form_instance_id === inst.id && v.form_field_id === field.id);
     const prev = fv?.value ?? "";
     if (!fv) { fv = { id: newId(), form_instance_id: inst.id, form_field_id: field.id, value }; d.fieldValues.push(fv); }
     else fv.value = value;
     if (recordChange) recordTransition(d, fv.id, prev, value);
-    const check = evaluateField(field, value, species, d.speciesRanges, ageOf(sid));
-    const ec = d.editChecks.find((e) => e.field_value_id === fv!.id && e.status === "open");
-    if (check) { if (!ec) d.editChecks.push({ id: newId(), form_instance_id: inst.id, field_value_id: fv.id, message: check.message, status: "open", created_at: new Date().toISOString() }); else ec.message = check.message; }
-    else if (ec) ec.status = "resolved";
+    if (!skipCheck) evalEC(d, inst, fv, field, value, sid);
   }
-  function setFieldValue(sid: string, field: FormFieldRow, value: string, recordChange = false) {
-    update((d: Dataset) => writeValue(d, sid, field, value, recordChange));
+  function setFieldValue(sid: string, field: FormFieldRow, value: string, recordChange = false, skipCheck = false) {
+    update((d: Dataset) => writeValue(d, sid, field, value, recordChange, skipCheck));
   }
   function snapshotTextFocus(sid: string, field: FormFieldRow) { editStartRef.current = { sid, fieldId: field.id, value: fvFor(sid, field.id)?.value ?? "" }; }
   function recordTextEdit(sid: string, field: FormFieldRow) {
@@ -128,6 +131,14 @@ export function BatchEntryGrid({
     const fv = fvFor(sid, field.id); if (!fv) return;
     const cur = fv.value ?? ""; if (cur === snap.value) return;
     update((d: Dataset) => { const f = d.fieldValues.find((v) => v.id === fv.id); if (f) recordTransition(d, f.id, snap.value, cur); });
+  }
+  // Blur-time edit-check evaluation for free-text / numeric cells (fires on blur only).
+  function evalEditCheck(sid: string, field: FormFieldRow) {
+    update((d: Dataset) => {
+      const inst = d.formInstances.find((i) => i.subject_id === sid && i.form_id === formId); if (!inst) return;
+      const fv = d.fieldValues.find((v) => v.form_instance_id === inst.id && v.form_field_id === field.id); if (!fv) return;
+      evalEC(d, inst, fv, field, fv.value ?? "", sid);
+    });
   }
   // Shared batch-header field (Visit date) — auto-fills every animal that does NOT
   // already have a saved value for it (never overwrites a saved date).
@@ -202,9 +213,10 @@ export function BatchEntryGrid({
   // ── Cell control (amber = edit check; Δ shown via the button, not the border) ──
   function renderControl(sid: string, field: FormFieldRow, value: string, warn: boolean) {
     const commit = (v: string) => setFieldValue(sid, field, v, true);
-    const typeChange = (v: string) => setFieldValue(sid, field, v);
+    // Text/number: write per keystroke (skip the check), evaluate the edit check on BLUR.
+    const typeChange = (v: string) => setFieldValue(sid, field, v, false, true);
     const onFocus = () => { setEditing({ sid, fieldId: field.id }); snapshotTextFocus(sid, field); };
-    const onBlur = () => { setEditing(null); recordTextEdit(sid, field); };
+    const onBlur = () => { setEditing(null); recordTextEdit(sid, field); evalEditCheck(sid, field); };
     const t = field.field_type;
     const cls = warn ? " warn" : "";
     if (t === "radio") {
@@ -293,7 +305,7 @@ export function BatchEntryGrid({
                         <div className="be-cell-row">
                           {renderControl(s.id, f, value, !!ec)}
                           {dState && <button className={`delta-btn ${dState}`} title={dState === "approved" ? "Change approved by DM (on the subject record)" : dState === "responded" ? "Change reason submitted — awaiting DM review" : "Change reason required"} onClick={() => setDelta({ sid: s.id, field: f })} type="button">Δ</button>}
-                          {ec && <span className="ec-ind" title={ec.message} aria-label="Edit check — value out of range"><i className="ti ti-alert-circle"></i></span>}
+                          {ec && <span className="ec-ind" title="Edit check — value out of range. Review on the individual subject record." aria-label="Edit check — value out of range; review on the individual subject record"><i className="ti ti-alert-circle"></i></span>}
                         </div>
                         <span className={`val-hint${ec ? " warn" : ""}`}>{ec ? ec.message.replace(/—.*/, "").trim() : ""}</span>
                       </td>

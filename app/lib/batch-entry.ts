@@ -14,11 +14,30 @@ export const todayISO = (): string => new Date().toISOString().slice(0, 10);
 const daysBetween = (aISO: string, bISO: string): number =>
   Math.round((Date.parse(`${bISO}T00:00:00Z`) - Date.parse(`${aISO}T00:00:00Z`)) / 86400000);
 
+// An instance "complete" for batch purposes = past in-work (submitted onward).
+const DONE_STATUSES = new Set(["in_review", "reviewed", "finalized", "locked"]);
+
 export function batchForms(dataset: Dataset, studyId: string): FormRow[] {
   return dataset.forms
     .filter((f) => f.study_id === studyId && f.batch_eligible)
     .slice()
     .sort((a, b) => a.sequence - b.sequence);
+}
+// A form is "complete for all" when EVERY non-withdrawn animal in the study has an
+// instance for it with a done status (in-review/reviewed/finalized/locked). Such
+// forms are dropped from the batch picker entirely.
+export function formCompleteForAll(dataset: Dataset, form: FormRow): boolean {
+  const actives = dataset.subjects.filter((s) => s.study_id === form.study_id && s.status !== "withdrawn");
+  if (actives.length === 0) return false;
+  return actives.every((s) => {
+    const inst = dataset.formInstances.find((i) => i.subject_id === s.id && i.form_id === form.id);
+    return !!inst && DONE_STATUSES.has(inst.status);
+  });
+}
+// Batch-eligible forms minus any that every non-withdrawn animal has already
+// completed (the picker shows only forms still needing entry somewhere).
+export function batchFormsOpen(dataset: Dataset, studyId: string): FormRow[] {
+  return batchForms(dataset, studyId).filter((f) => !formCompleteForAll(dataset, f));
 }
 export function studyHasBatch(dataset: Dataset, studyId: string): boolean {
   return dataset.forms.some((f) => f.study_id === studyId && f.batch_eligible);

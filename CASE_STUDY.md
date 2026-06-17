@@ -58,7 +58,7 @@ The query state machine is deliberately short — **Raised → Responded → Res
 
 ### Edit checks vs queries — keeping the query log clean
 
-Not every anomaly deserves a query. When a value lands outside the species range, the system raises an **edit check**, not a query — a distinct, lighter object shown as an **orange `alert-circle`** beside the field (`EC-` prefix), separate from manual queries (which always use **flag** icons, `Q-` prefix). The edit check then forks on the person who knows best — the one entering the data:
+Not every anomaly deserves a query. When a value lands outside the species range, the system raises an **edit check**, not a query — a distinct, lighter object: the input itself goes **amber** (a soft amber-200 border on an amber-50 field, lighter than the deeper amber a real query draws), an **orange `alert-circle`** sits beside it (`EC-` prefix), and an inline note reads *"[EC-001] Value outside expected range (Normal: 38.0–39.3 °C)"* — separate from manual queries (which always use **flag** icons, `Q-` prefix). The check fires on **blur**, not on every keystroke, so the field doesn't flash amber while a technician is still mid-number. The edit check then forks on the person who knows best — the one entering the data:
 
 - **It's a typo →** they correct the value. The alert clears, the correction is captured under a **change reason** (the Δ flow fires automatically), and *no query is ever created*.
 - **It's a real finding →** they open the edit check, explain it, and on submit it **converts to a formal query** — the orange alert becomes an amber raised flag, and it follows the normal Raised → Responded → Resolved lifecycle.

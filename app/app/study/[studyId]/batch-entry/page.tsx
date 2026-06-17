@@ -18,9 +18,10 @@ export default function BatchEntryPage() {
   const [formId, setFormId] = useState<string | null>(null);
 
   // Candidate animals — the study's subjects, optionally scoped to one location.
+  // Withdrawn animals are excluded from batch entry entirely (rows + due counts).
   const subjectIds = useMemo(() => {
     if (!ready) return [];
-    let list = dataset.subjects.filter((s) => s.study_id === studyId);
+    let list = dataset.subjects.filter((s) => s.study_id === studyId && s.status !== "withdrawn");
     if (loc) list = list.filter((s) => s.site_id === loc || s.barn_id === loc || s.pen_id === loc);
     return list.map((s) => s.id);
   }, [dataset.subjects, studyId, loc, ready]);

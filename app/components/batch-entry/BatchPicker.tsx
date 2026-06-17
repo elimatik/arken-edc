@@ -10,7 +10,7 @@
 
 import { useMemo } from "react";
 import { useStudySession } from "@/lib/session-store/SessionStore";
-import { batchForms, dueSuggestions, visitDayOf } from "@/lib/batch-entry";
+import { batchFormsOpen, dueSuggestions, visitDayOf } from "@/lib/batch-entry";
 import type { FormRow } from "@/lib/session-store/types";
 import "./batch-entry.css";
 
@@ -27,7 +27,9 @@ export function BatchPicker({
 }) {
   const { dataset } = useStudySession();
   const suggestions = useMemo(() => dueSuggestions(dataset, studyId, subjectIds), [dataset, studyId, subjectIds]);
-  const allForms = useMemo(() => batchForms(dataset, studyId), [dataset, studyId]);
+  // Forms still needing entry somewhere — drops any form every non-withdrawn animal
+  // has already completed (so a fully-done visit form disappears from the picker).
+  const allForms = useMemo(() => batchFormsOpen(dataset, studyId), [dataset, studyId]);
   const fieldCount = (formId: string) => dataset.formFields.filter((f) => f.form_id === formId && f.field_type !== "calculated").length;
 
   // Remaining batch-eligible forms NOT already shown as a suggestion (no dupes).
