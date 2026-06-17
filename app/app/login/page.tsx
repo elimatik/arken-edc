@@ -190,9 +190,12 @@ export default function LoginPage() {
               <input
                 className={`field-input${emailErr ? " error" : ""}`}
                 id="login-email"
+                name="arken-access-id"
                 type="email"
                 placeholder="you@organization.com"
-                autoComplete="email"
+                autoComplete="off"
+                data-lpignore="true"
+                data-1p-ignore="true"
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
                 onKeyDown={onLoginKey}
@@ -214,9 +217,12 @@ export default function LoginPage() {
               <input
                 className={`field-input has-icon${pwErr ? " error" : ""}`}
                 id="login-password"
+                name="arken-access-code"
                 type={showPassword ? "text" : "password"}
                 placeholder="••••••••"
-                autoComplete="current-password"
+                autoComplete="new-password"
+                data-lpignore="true"
+                data-1p-ignore="true"
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
                 onKeyDown={onLoginKey}
@@ -292,10 +298,14 @@ export default function LoginPage() {
               <label className="nda-label" htmlFor="nda-name">Full name <span className="nda-req">*</span></label>
               <input
                 id="nda-name"
+                name="arken-visitor-name"
                 className="nda-input"
                 value={ndaName}
                 onChange={(e) => setNdaName(e.target.value)}
                 placeholder="Your full name"
+                autoComplete="off"
+                data-lpignore="true"
+                data-1p-ignore="true"
                 autoFocus
               />
             </div>
@@ -304,10 +314,14 @@ export default function LoginPage() {
               <label className="nda-label" htmlFor="nda-company">Company / Organization</label>
               <input
                 id="nda-company"
+                name="arken-visitor-org"
                 className="nda-input"
                 value={ndaCompany}
                 onChange={(e) => setNdaCompany(e.target.value)}
                 placeholder="Company or organization"
+                autoComplete="off"
+                data-lpignore="true"
+                data-1p-ignore="true"
               />
             </div>
 

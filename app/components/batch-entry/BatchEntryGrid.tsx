@@ -305,7 +305,7 @@ export function BatchEntryGrid({
                         <div className="be-cell-row">
                           {renderControl(s.id, f, value, !!ec)}
                           {dState && <button className={`delta-btn ${dState}`} title={dState === "approved" ? "Change approved by DM (on the subject record)" : dState === "responded" ? "Change reason submitted — awaiting DM review" : "Change reason required"} onClick={() => setDelta({ sid: s.id, field: f })} type="button">Δ</button>}
-                          {ec && <span className="ec-ind" title="Edit check — value out of range. Review on the individual subject record." aria-label="Edit check — value out of range; review on the individual subject record"><i className="ti ti-alert-circle"></i></span>}
+                          {ec && <span className="ec-ind" title="Review this value on the individual subject record" aria-label="Edit check — review this value on the individual subject record"><i className="ti ti-alert-circle"></i></span>}
                         </div>
                         <span className={`val-hint${ec ? " warn" : ""}`}>{ec ? ec.message.replace(/—.*/, "").trim() : ""}</span>
                       </td>
