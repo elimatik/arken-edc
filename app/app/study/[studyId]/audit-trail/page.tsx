@@ -25,22 +25,27 @@ type AuditType =
   | "data_entry" | "change_reason" | "edit_check"
   | "query_raised" | "query_responded" | "query_resolved"
   | "sdv" | "form_submitted" | "form_locked"
-  | "subject_enrolled" | "subject_withdrawn" | "login";
-type FilterCat = "data_entry" | "query" | "sdv" | "status_change" | "login" | "form_lock";
+  | "randomization" | "consent" | "protocol_deviation"
+  | "subject_enrolled" | "subject_withdrawn" | "unblinding" | "login";
+type FilterCat = "data_entry" | "query" | "sdv" | "status_change" | "form_lock" | "randomization" | "consent" | "deviation" | "unblinding" | "login";
 
 const TYPE_META: Record<AuditType, { label: string; cls: string; icon: string; cat: FilterCat }> = {
-  data_entry:        { label: "Data Entry",        cls: "at-entry",    icon: "pencil",          cat: "data_entry" },
-  change_reason:     { label: "Change Reason",     cls: "at-change",   icon: "history",         cat: "data_entry" },
-  edit_check:        { label: "Edit Check",        cls: "at-check",    icon: "alert-triangle",  cat: "data_entry" },
-  query_raised:      { label: "Query Raised",      cls: "at-query",    icon: "flag",            cat: "query" },
-  query_responded:   { label: "Query Responded",   cls: "at-qresp",    icon: "message",         cat: "query" },
-  query_resolved:    { label: "Query Resolved",    cls: "at-qres",     icon: "flag-check",      cat: "query" },
-  sdv:               { label: "SDV Verified",      cls: "at-sdv",      icon: "circle-check",    cat: "sdv" },
-  form_submitted:    { label: "Form Submitted",    cls: "at-submit",   icon: "send",            cat: "status_change" },
-  form_locked:       { label: "Form Locked",       cls: "at-lock",     icon: "lock",            cat: "form_lock" },
-  subject_enrolled:  { label: "Subject Enrolled",  cls: "at-enroll",   icon: "user-plus",       cat: "status_change" },
-  subject_withdrawn: { label: "Subject Withdrawn", cls: "at-withdraw", icon: "user-minus",      cat: "status_change" },
-  login:             { label: "Login",             cls: "at-login",    icon: "login",           cat: "login" },
+  data_entry:        { label: "Data Entry",         cls: "at-entry",     icon: "pencil",          cat: "data_entry" },
+  change_reason:     { label: "Change Reason",      cls: "at-change",    icon: "history",         cat: "data_entry" },
+  edit_check:        { label: "Edit Check",         cls: "at-check",     icon: "alert-triangle",  cat: "data_entry" },
+  query_raised:      { label: "Query Raised",       cls: "at-query",     icon: "flag",            cat: "query" },
+  query_responded:   { label: "Query Responded",    cls: "at-qresp",     icon: "message",         cat: "query" },
+  query_resolved:    { label: "Query Resolved",     cls: "at-qres",      icon: "flag-check",      cat: "query" },
+  sdv:               { label: "SDV Verified",       cls: "at-sdv",       icon: "circle-check",    cat: "sdv" },
+  form_submitted:    { label: "Form Submitted",     cls: "at-submit",    icon: "send",            cat: "status_change" },
+  form_locked:       { label: "Form Locked",        cls: "at-lock",      icon: "lock",            cat: "form_lock" },
+  randomization:     { label: "Randomization",      cls: "at-rand",      icon: "arrows-shuffle",  cat: "randomization" },
+  consent:           { label: "Consent Obtained",   cls: "at-consent",   icon: "file-check",      cat: "consent" },
+  protocol_deviation:{ label: "Protocol Deviation", cls: "at-deviation", icon: "alert-triangle",  cat: "deviation" },
+  subject_enrolled:  { label: "Subject Enrolled",   cls: "at-enroll",    icon: "user-plus",       cat: "status_change" },
+  subject_withdrawn: { label: "Subject Withdrawn",  cls: "at-withdraw",  icon: "user-minus",      cat: "status_change" },
+  unblinding:        { label: "Emergency Unblinding",cls: "at-unblind",  icon: "eye-exclamation", cat: "unblinding" },
+  login:             { label: "Login",              cls: "at-login",     icon: "login",           cat: "login" },
 };
 
 const CAT_OPTIONS: { value: string; label: string }[] = [
@@ -50,6 +55,10 @@ const CAT_OPTIONS: { value: string; label: string }[] = [
   { value: "sdv", label: "SDV" },
   { value: "status_change", label: "Status change" },
   { value: "form_lock", label: "Form lock" },
+  { value: "randomization", label: "Randomization" },
+  { value: "consent", label: "Consent" },
+  { value: "deviation", label: "Protocol deviation" },
+  { value: "unblinding", label: "Emergency unblinding" },
   { value: "login", label: "Login" },
 ];
 
@@ -105,13 +114,14 @@ function synthTs(seed: string, baseNow: number, days = 60): string {
   const off = hashStr(seed) % (days * 86400000);
   return new Date(baseNow - off).toISOString();
 }
+// 21 CFR Part 11 audit timestamps are recorded and displayed in UTC.
 function fmtTs(iso: string): string {
   const d = new Date(iso); const p = (n: number) => String(n).padStart(2, "0");
-  return `${d.getFullYear()}-${p(d.getMonth() + 1)}-${p(d.getDate())} ${p(d.getHours())}:${p(d.getMinutes())}`;
+  return `${d.getUTCFullYear()}-${p(d.getUTCMonth() + 1)}-${p(d.getUTCDate())} ${p(d.getUTCHours())}:${p(d.getUTCMinutes())} UTC`;
 }
 function dateKey(iso: string): string {
   const d = new Date(iso); const p = (n: number) => String(n).padStart(2, "0");
-  return `${d.getFullYear()}-${p(d.getMonth() + 1)}-${p(d.getDate())}`;
+  return `${d.getUTCFullYear()}-${p(d.getUTCMonth() + 1)}-${p(d.getUTCDate())}`;
 }
 
 function buildAuditEvents(dataset: Dataset, studyId: string, baseNow: number): AuditEvent[] {
@@ -215,18 +225,48 @@ function buildAuditEvents(dataset: Dataset, studyId: string, baseNow: number): A
       oldValue: null, newValue: null, details: fo?.field ? `${fo.field.label} verified against source` : "Source data verified" });
   }
 
-  // 6 — Form status: submitted + locked.
+  // 6 — Form status: submitted + locked, plus milestone events keyed on the form.
+  const advanced = (st: string) => ["in_review", "reviewed", "finalized", "locked"].includes(st);
+  const finalized = (st: string) => ["finalized", "locked"].includes(st);
   for (const inst of dataset.formInstances) {
     const ctx = ctxOfInstance(inst.id); if (!ctx) continue;
     const st = inst.status;
-    if (["in_review", "reviewed", "finalized", "locked"].includes(st)) {
-      push({ ts: synthTs(`sub${inst.id}`, baseNow), type: "form_submitted", user: CAST.CRC, ...ctx, fieldId: null, fieldLabel: "", fieldCode: "",
-        oldValue: null, newValue: null, details: `${ctx.formName} submitted for review`, statusBefore: "in_work", statusAfter: st === "locked" ? "reviewed" : st });
+    const name = ctx.formName;
+    const noField = { fieldId: null, fieldLabel: "", fieldCode: "" };
+    if (advanced(st)) {
+      push({ ts: synthTs(`sub${inst.id}`, baseNow), type: "form_submitted", user: CAST.CRC, ...ctx, ...noField,
+        oldValue: null, newValue: null, details: `${name} submitted for review`, statusBefore: "in_work", statusAfter: st === "locked" ? "reviewed" : st });
     }
     if (st === "locked") {
-      push({ ts: synthTs(`lck${inst.id}`, baseNow), type: "form_locked", user: CAST.CRA, ...ctx, fieldId: null, fieldLabel: "", fieldCode: "",
-        oldValue: null, newValue: null, details: `${ctx.formName} locked after SDV and signature`, statusBefore: "reviewed", statusAfter: "locked" });
+      push({ ts: synthTs(`lck${inst.id}`, baseNow), type: "form_locked", user: CAST.CRA, ...ctx, ...noField,
+        oldValue: null, newValue: null, details: `${name} locked after SDV and signature`, statusBefore: "reviewed", statusAfter: "locked" });
     }
+    // Randomization — the randomization/allocation form finalized.
+    if (/Randomization/i.test(name) && finalized(st)) {
+      push({ ts: synthTs(`rand${inst.id}`, baseNow), type: "randomization", user: CAST.DM, ...ctx, ...noField,
+        oldValue: null, newValue: null, details: `${ctx.subjectCode} randomized — treatment arm assigned (blinded)`, statusBefore: "Screened", statusAfter: "Randomized" });
+    }
+    // Consent obtained — Owner Consent form finalized (CA-0801).
+    if (/Owner Consent|Informed Consent/i.test(name) && finalized(st)) {
+      push({ ts: synthTs(`csnt${inst.id}`, baseNow), type: "consent", user: CAST.CRC, ...ctx, ...noField,
+        oldValue: null, newValue: null, details: "Owner informed consent obtained and documented" });
+    }
+    // Protocol deviation — a deviation form submitted.
+    if (/Protocol Deviation/i.test(name) && advanced(st)) {
+      push({ ts: synthTs(`dev${inst.id}`, baseNow), type: "protocol_deviation", user: CAST.CRA, ...ctx, ...noField,
+        oldValue: null, newValue: null, details: `Protocol deviation recorded on ${name}` });
+    }
+  }
+
+  // 6b — Emergency unblinding (session-only log; double-blind studies).
+  for (const u of dataset.unblindings ?? []) {
+    const subj = subjById.get(u.subject_id);
+    if (!subj || subj.study_id !== studyId) continue;
+    const siteName = subj.site_id ? siteById.get(subj.site_id)?.name ?? "—" : "—";
+    push({ ts: u.created_at, type: "unblinding", user: mkUser(u.author_name, u.author_role),
+      subjectId: subj.id, subjectCode: subj.subject_code, siteName, formId: null, formName: "Subject record", formPath: "Subject record",
+      fieldId: null, fieldLabel: "", fieldCode: "", oldValue: "Blinded", newValue: u.arm,
+      details: `Emergency unblinding — treatment arm revealed: ${u.arm}`, reason: u.reason });
   }
 
   // 7 — Subject enrolment + withdrawal.
@@ -477,7 +517,7 @@ export default function AuditTrailPage() {
                 {row("Timestamp", fmtTs(panelEvent.ts), true)}
                 {row("Action", <span className={`au-type ${meta.cls}`}><i className={`ti ti-${meta.icon}`}></i> {meta.label}</span>)}
                 {row("User", <>{panelEvent.user.name} <span className="au-role" style={{ marginLeft: 4 }}>{panelEvent.user.role}</span></>)}
-                {row("Session", <span style={{ color: "var(--color-text-tertiary)" }}><i className="ti ti-device-desktop" style={{ fontSize: 12, marginRight: 4 }}></i>Session recorded (IP withheld in demo)</span>)}
+                {row("Session", <span style={{ color: "var(--color-text-tertiary)" }}><i className="ti ti-device-desktop" style={{ fontSize: 12, marginRight: 4 }}></i>Timestamp: UTC · Electronic signature: session-authenticated</span>)}
                 {panelEvent.subjectCode !== "—" && row("Subject", <span style={{ fontFamily: "var(--font-mono)" }}>{panelEvent.subjectCode}</span>)}
                 {panelEvent.siteName !== "—" && row("Site", panelEvent.siteName)}
                 {panelEvent.formName !== "—" && row("Form", panelEvent.formPath)}
@@ -489,6 +529,7 @@ export default function AuditTrailPage() {
                 {panelEvent.reason && row("Reason", panelEvent.reason)}
                 {row("Detail", panelEvent.details)}
               </div>
+              <div className="au-panel-footer"><i className="ti ti-shield-lock"></i> In production: tamper-evident, append-only per 21 CFR Part 11</div>
             </>
           );
         })()}

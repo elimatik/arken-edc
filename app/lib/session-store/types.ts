@@ -187,6 +187,19 @@ export interface MembershipRow {
   role: Role;
 }
 
+// Emergency unblinding (double-blind studies only) — session-only. Records who
+// revealed a subject's arm and why; drives the Subject-Record arm reveal and an
+// "Emergency Unblinding" entry in the Audit Trail. Permanent + auditable.
+export interface UnblindingRow {
+  id: string;
+  subject_id: string;
+  arm: string; // the revealed treatment arm
+  reason: string;
+  author_name: string;
+  author_role: string;
+  created_at: string;
+}
+
 // Field validation declared on a form field. `vital` resolves a species-specific
 // range from species_ranges; `min`/`max` are species-independent static bounds.
 export interface FieldValidation {
@@ -199,6 +212,8 @@ export interface FieldValidation {
   exclusion_if?: "Yes" | "No"; // the answer that FAILS the criterion (default "No")
   ageClass?: boolean; // vital whose range depends on the animal's age class (calf/adult)
   section?: string; // explicit in-form section heading this field belongs to
+  hint?: string; // persistent help text shown under the field (e.g. score-scale legend)
+  message?: string; // custom edit-check message (overrides the generic out-of-range text)
 }
 
 export interface FormFieldRow {
@@ -239,6 +254,7 @@ export interface Dataset {
   editChecks: EditCheckRow[];
   sdvRecords: SdvRecordRow[];
   deltaRecords: DeltaRecordRow[];
+  unblindings: UnblindingRow[]; // session-only emergency-unblinding log
   memberships: MembershipRow[];
   speciesRanges: SpeciesRangeRow[];
 }
@@ -259,6 +275,7 @@ export const EMPTY_DATASET: Dataset = {
   editChecks: [],
   sdvRecords: [],
   deltaRecords: [],
+  unblindings: [],
   memberships: [],
   speciesRanges: [],
 };

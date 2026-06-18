@@ -52,6 +52,21 @@ const crit = (code, label, req = false, failOn = "No") =>
   ({ code, label, type: "radio", options: ["Yes", "No"], req, validation: { exclusion_criterion: true, exclusion_if: failOn } });
 const excl = (code, label, req = false) => crit(code, label, req, "Yes");
 
+// ── Clinical field hints + soft edit-checks (BR DART · CA CADESI / PVAS / ePRO) ──
+const withHint = (f, hint) => ({ ...f, validation: { ...(f.validation || {}), hint } });
+const DART_HINT = "DART score: 0 = Normal · 1 = Mild (1 clinical sign) · 2 = Moderate (2 signs, reduced feed/water intake) · 3 = Severe (≥3 signs or recumbent)";
+const CADESI_HINT = "Enter the calculated total score from the CADESI-04 scoring worksheet (0–180). Score >120 is unusual — verify with investigator.";
+const CADESI_MSG = "CADESI-04 score >120 is unusual. Please verify with the investigator before proceeding.";
+const PVAS_HINT = "0 = No itching (normal dog) · 10 = Extremely severe itching. Owner-reported — transcribed by investigator from diary card.";
+const EPRO_HINT = "Enter % from owner portal or paper diary card. ePRO = Electronic Patient-Reported Outcome, collected by owner between visits.";
+const dartSel = (code, label) => withHint(sel(code, label, ["0", "1", "2", "3"]), DART_HINT);
+// CADESI-04 is valid 0–180, but a score >120 is unusual → a SOFT edit-check (query,
+// non-blocking) at max 120 with a custom "verify with investigator" message.
+const cadesi = (code, label, req = false) =>
+  ({ code, label, type: "number", req, validation: { min: 0, max: 120, onViolation: "query", hint: CADESI_HINT, message: CADESI_MSG } });
+const cadesiWorksheet = () => withHint(file("cadesi04_worksheet", "CADESI-04 worksheet"), "Upload completed scoring worksheet");
+const pvas = (code, label, req = false) => withHint(rng(code, label, 0.0, 10.0, null, req), PVAS_HINT);
+
 // Tag a list of fields with a named in-form section (rendered as a divider in
 // the Subject Record). Merges into any existing validation so vitals/criteria
 // keep their rules. Concatenate several sec() calls to lay out a form's sections.
@@ -541,7 +556,7 @@ const BR_VITAL_FIELDS = [
     vital("resp_rate", "Respiratory rate", "respiratory_rate", "breaths/min"),
   ]),
   ...sec("Clinical Assessment", [
-    sel("clinical_illness_score", "Clinical Illness Score (DART)", ["0", "1", "2", "3"]),
+    dartSel("clinical_illness_score", "Clinical Illness Score (DART)"),
     sel("attitude", "Attitude / Demeanor", ["Bright", "Quiet", "Depressed", "Recumbent"]),
     sel("hydration", "Hydration status", ["Normal", "Mild dehydration", "Moderate dehydration", "Severe dehydration"]),
     sel("bcs", "Body condition score", ["1", "2", "3", "4", "5", "6", "7", "8", "9"]),
@@ -551,7 +566,7 @@ const BR_VITAL_FIELDS = [
 ];
 const BR_RESPONSE_FIELDS = [
   date("visit_date", "Visit date", true),
-  sel("clinical_illness_score", "Clinical Illness Score", ["0", "1", "2", "3"]),
+  dartSel("clinical_illness_score", "Clinical Illness Score"),
   sel("response_vs_baseline", "Response vs baseline", ["Improved", "No change", "Worsened"]),
   yn("temperature_normalized", "Temperature normalized (< 40.0 °C)"),
   yn("treatment_success_interim", "Treatment success (interim)"),
@@ -561,7 +576,7 @@ const BR_RESPONSE_FIELDS = [
 // Day 0 has no baseline yet → no "Response vs baseline"; a simpler assessment set.
 const BR_RESPONSE_FIELDS_D0 = [
   date("visit_date", "Visit date", true),
-  sel("clinical_illness_score", "Clinical Illness Score", ["0", "1", "2", "3"]),
+  dartSel("clinical_illness_score", "Clinical Illness Score"),
   sel("attitude", "Attitude / Demeanor", ["Bright", "Quiet", "Depressed", "Recumbent"]),
   sel("hydration", "Hydration status", ["Normal", "Mild dehydration", "Moderate dehydration", "Severe dehydration"]),
   sel("bcs", "Body condition score", ["1", "2", "3", "4", "5", "6", "7", "8", "9"]),
@@ -579,7 +594,7 @@ const BR_TREE = [
   grp("Enrollment & Randomization", [
     leaf("screening", "Screening / BRD Case Definition", [
       date("screening_date", "Screening date", true),
-      sel("dart_score", "Clinical illness score (DART)", ["0", "1", "2", "3"]),
+      dartSel("dart_score", "Clinical illness score (DART)"),
       rng("screening_temp", "Rectal temperature", 35, 43, "°C"),
       calc("meets_temp_criterion", "Meets temperature criterion (≥ 40.0)"),
       msel("visual_brd_signs", "Visual BRD signs", ["Nasal discharge", "Cough", "Lethargy", "Drooped ears", "Other"]),
@@ -674,7 +689,7 @@ const BR_TREE = [
       date("date", "Date"),
       sel("reason", "Reason", ["Relapse", "Treatment failure", "Worsening"]),
       vital("rectal_temp", "Rectal temperature", "temperature", "°C"),
-      sel("clinical_illness_score", "Clinical illness score", ["0", "1", "2", "3"]),
+      dartSel("clinical_illness_score", "Clinical illness score"),
       sel("rescue_product", "Rescue product", ["Florfenicol", "Tulathromycin", "Other"]),
       txt("dose_route", "Dose / route"),
       yn("treatment_failure", "Classified as treatment failure"),
@@ -759,8 +774,9 @@ const caFollowup = (n, day) =>
   grp(`Follow-Up ${n} — Day ${day}`, [
     leaf(`fu${n}_pe`, "Physical Examination", caFollowupPE()),
     leaf(`fu${n}_derm`, "Dermatology Assessment", [
-      rng("cadesi04_score", "CADESI-04 score", 0, 180),
-      rng("pvas_score", "PVAS score (owner-reported)", 0.0, 10.0),
+      cadesi("cadesi04_score", "CADESI-04 score"),
+      cadesiWorksheet(),
+      pvas("pvas_score", "PVAS score (owner-reported)"),
       sel("disease_severity", "Overall disease severity", ["Mild", "Moderate", "Severe", "Resolved"]),
       sel("ear_assessment", "Ear assessment", ["Normal", "Otitis Externa", "Otitis Media"]),
     ]),
@@ -781,7 +797,7 @@ const caFollowup = (n, day) =>
       ta("ae_description", "AE description"),
     ]),
     leaf(`fu${n}_compliance`, "Compliance Review", [
-      rng("epro_completion_pct", "ePRO diary completion", 0, 100, "%"),
+      withHint(rng("epro_completion_pct", "ePRO diary completion", 0, 100, "%"), EPRO_HINT),
       rng("missed_doses", "Missed doses", 0, 100),
       ta("missed_doses_reason", "Reason for missed doses"),
     ]),
@@ -833,7 +849,8 @@ const CA_TREE = [
       sel("lesion_severity", "Skin lesion severity", ["Mild", "Moderate", "Severe"]),
       sel("infection_assessment", "Infection assessment", ["None", "Mild", "Moderate", "Severe"]),
       sel("ear_assessment", "Ear assessment", ["Normal", "Otitis Externa", "Otitis Media"]),
-      rng("cadesi04_score", "CADESI-04 score", 0, 180),
+      cadesi("cadesi04_score", "CADESI-04 score"),
+      cadesiWorksheet(),
     ]),
     leaf("screen_consent", "Owner Consent", [
       yn("consent_signed", "Consent signed", true),
@@ -877,8 +894,9 @@ const CA_TREE = [
       txt("drug_kit_assigned", "Drug kit assigned"),
     ]),
     leaf("baseline_clinical", "Baseline Clinical Assessment", [
-      rng("cadesi04_score", "CADESI-04 score", 0, 180, null, true),
-      rng("pvas_score", "PVAS score (owner-reported)", 0.0, 10.0, null, true),
+      cadesi("cadesi04_score", "CADESI-04 score", true),
+      cadesiWorksheet(),
+      pvas("pvas_score", "PVAS score (owner-reported)", true),
       sel("disease_severity", "Overall disease severity", ["Mild", "Moderate", "Severe"]),
       sel("iga", "Investigator global assessment", ["1", "2", "3", "4", "5"]),
     ]),
@@ -899,8 +917,8 @@ const CA_TREE = [
   caFollowup(3, 56),
   grp("End of Study — Day 84", [
     leaf("eos_pe", "Final Physical Examination", caFollowupPE()),
-    leaf("eos_cadesi", "Final CADESI Assessment", [rng("cadesi04_score", "CADESI-04 score", 0, 180, null, true)]),
-    leaf("eos_pvas", "Final PVAS Assessment", [rng("pvas_score", "PVAS score", 0.0, 10.0, null, true)]),
+    leaf("eos_cadesi", "Final CADESI Assessment", [cadesi("cadesi04_score", "CADESI-04 score", true), cadesiWorksheet()]),
+    leaf("eos_pvas", "Final PVAS Assessment", [pvas("pvas_score", "PVAS score", true)]),
     leaf("eos_qol", "Final Quality of Life Survey", caQol()),
     leaf("eos_drug_return", "Study Drug Return", [
       yn("drug_kit_returned", "Drug kit returned"),
@@ -1125,6 +1143,9 @@ const BR_ANIMALS = [
   { code: "BR-2502-CO-003", site: "CO", arm: "T03", status: "withdrawn", age: 15, enroll: "2026-06-05", done: ["d0", "d3"], withdrawReason: "Owner request — animal removed from the study at the owner's request on Day 7; no safety concern, not attributable to BRD or the test article." },
 ];
 const BR_BREEDS = ["Angus", "Hereford", "Simmental", "Cross"];
+// Last-treatment date ~5 days before build (so a 35-day withdrawal period ends
+// ~30 days in the future) — makes the EOS "Shipped" hard block demonstrable.
+const BR_WD_LAST_TX = new Date(Date.now() - 5 * 86400000).toISOString().slice(0, 10);
 const brDemo = BR_ANIMALS.map((a, idx) => {
   const completed = a.status === "completed";
   const tag = `${a.site}-${1000 + idx}`;
@@ -1179,6 +1200,13 @@ const brDemo = BR_ANIMALS.map((a, idx) => {
     forms.push(rf);
   }
 
+  // Withdrawal Period Confirmation — last treatment ~5 days before build, 35-day
+  // withdrawal → end date ~30 days in the future. Seeded for every non-withdrawn
+  // animal so the EOS "Shipped" food-safety hard block is demonstrable on an
+  // editable record (today < withdrawal end). Completed animals are read-only, so
+  // the live demo of the block uses an in-progress animal's (editable) EOS form.
+  if (a.status !== "withdrawn") forms.push({ key: "withdrawal_confirm", status: "in_work", values: {
+    last_treatment_date: BR_WD_LAST_TX, withdrawal_period_days: ["35", 35], confirmed_by: "Elisa Tron" } });
   if (completed) forms.push({ key: "eos", status: "finalized", values: {
     completion_date: brAddDays(a.enroll, 28), final_body_weight: [String(weight + 45), weight + 45],
     clinical_outcome: "Cure", final_temp: ["38.6", 38.6], disposition: "Returned to pen" } });

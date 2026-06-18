@@ -167,6 +167,8 @@ export function SubjectRecord({ studyId, subjectId, initialFormId, initialPanelF
   const [deleteEntryId, setDeleteEntryId] = useState<string | null>(null); // repeating-form entry pending delete
   const [overrideOpen, setOverrideOpen] = useState(false); // PI override modal
   const [overrideReason, setOverrideReason] = useState("");
+  const [unblindOpen, setUnblindOpen] = useState(false); // emergency-unblinding modal (DM/Admin, double-blind only)
+  const [unblindReason, setUnblindReason] = useState("");
   const [manageOpenQuery, setManageOpenQuery] = useState(false); // DM query Manage dropdown
   const [closeModalOpen, setCloseModalOpen] = useState(false); // "Close without response" modal
   const [closeReason, setCloseReason] = useState("");
@@ -474,6 +476,23 @@ export function SubjectRecord({ studyId, subjectId, initialFormId, initialPanelF
   // (the query panel isn't gated by read-only) so a DM can resolve open items.
   const subjectClosed = subject.status === "completed" || subject.status === "withdrawn";
   const readOnly = locked || isEproForm || subjectClosed; // fields are non-editable when true
+
+  // ─── Emergency unblinding (double-blind studies only — CA-0801) ─────────────
+  const isDoubleBlind = studyRow?.code === "CA-0801";
+  const unblindRec = (dataset.unblindings ?? []).find((u) => u.subject_id === subjectId);
+  const armRevealed = !isDoubleBlind || !!unblindRec; // a non-blind study shows its arm normally
+  const canUnblind = isDoubleBlind && !unblindRec && (activeRole === "DM" || activeRole === "Admin");
+  const displayArm = !subject.randomization_arm ? null : armRevealed ? subject.randomization_arm : "Blinded";
+  function confirmUnblind() {
+    if (!unblindReason.trim()) return;
+    update((d) => {
+      (d.unblindings ??= []).push({
+        id: newId(), subject_id: subjectId, arm: subject?.randomization_arm ?? "—",
+        reason: unblindReason.trim(), author_name: ndaName, author_role: activeRole, created_at: new Date().toISOString(),
+      });
+    });
+    setUnblindOpen(false); setUnblindReason("");
+  }
 
   // Withdrawal details for the banner — sourced from any field value the subject
   // carries for these codes (Subject Status / End of Study forms).
@@ -1036,8 +1055,27 @@ export function SubjectRecord({ studyId, subjectId, initialFormId, initialPanelF
   const hasEmptyRequired = isRepeatingForm
     ? repeatingEntries.some((i) => instEmptyRequired(i.id))
     : fields.some((f) => f.is_required && (fvFor(f.id)?.value ?? "") === "");
-  const submitBlocked = hasOpenEditCheck || hasPendingDelta || hasEmptyRequired;
-  const submitBlockReason = hasEmptyRequired ? "Complete all required fields first" : hasOpenEditCheck ? "Resolve all edit checks first" : hasPendingDelta ? "Provide all change reasons first" : undefined;
+  // ─── Withdrawal-period food-safety HARD block (BR-2502) ─────────────────────
+  // An animal still inside its drug withdrawal period must NOT be marked Shipped
+  // (cleared for slaughter). Hard block — the CRC cannot override; only a DM can,
+  // by recording a protocol deviation. The withdrawal end is read from the subject
+  // (Withdrawal Period Confirmation form: last treatment + withdrawal-period days).
+  const addDaysISO = (iso: string, days: number) => { const d = new Date(iso); if (Number.isNaN(d.getTime())) return null; d.setDate(d.getDate() + days); return d.toISOString().slice(0, 10); };
+  const wdLastTx = subjectValueByCode("last_treatment_date");
+  const wdDays = subjectValueByCode("withdrawal_period_days");
+  const withdrawalEnd = subjectValueByCode("withdrawal_end_date") || (wdLastTx && wdDays && !Number.isNaN(Number(wdDays)) ? addDaysISO(wdLastTx, Number(wdDays)) : null);
+  const periodActive = !!withdrawalEnd && todayISO() < withdrawalEnd;
+  const dispField = fields.find((f) => f.code === "disposition");
+  const dispositionVal = dispField ? (fvFor(dispField.id)?.value ?? "") : "";
+  const isEosDispositionForm = selectedForm?.name === "End of Study / Final Disposition";
+  const isWithdrawalConfirmForm = selectedForm?.name === "Withdrawal Period Confirmation";
+  const shipHardBlock = isEosDispositionForm && dispositionVal === "Shipped" && periodActive;
+  const withdrawalBlockBanner = shipHardBlock || (isWithdrawalConfirmForm && periodActive)
+    ? `Cannot mark as Shipped — withdrawal period ends on ${withdrawalEnd}. This animal is not cleared for slaughter.`
+    : null;
+
+  const submitBlocked = hasOpenEditCheck || hasPendingDelta || hasEmptyRequired || shipHardBlock;
+  const submitBlockReason = shipHardBlock ? "Withdrawal period active — cannot ship for slaughter" : hasEmptyRequired ? "Complete all required fields first" : hasOpenEditCheck ? "Resolve all edit checks first" : hasPendingDelta ? "Provide all change reasons first" : undefined;
 
   // Δ change-reason panel — all records for the field, chronological. Each pending
   // record is reasoned on its own; the top context shows the most recent transition.
@@ -1271,14 +1309,23 @@ export function SubjectRecord({ studyId, subjectId, initialFormId, initialPanelF
             )}
             <div className="subject-meta">
               <span className="meta-item">{species.charAt(0).toUpperCase() + species.slice(1)}</span>
-              {subject.randomization_arm && (
+              {displayArm && (
                 <>
                   <span className="meta-sep">·</span>
-                  <span className="meta-item group">{subject.randomization_arm}</span>
+                  <span className={`subject-arm${displayArm === "Blinded" ? " blinded" : ""}${unblindRec ? " revealed" : ""}`}>
+                    {displayArm === "Blinded" && <i className="ti ti-eye-off" style={{ fontSize: "11px", marginRight: 3 }}></i>}
+                    {unblindRec && <i className="ti ti-eye-exclamation" style={{ fontSize: "11px", marginRight: 3 }}></i>}
+                    {displayArm}{unblindRec && " · unblinded"}
+                  </span>
                 </>
               )}
             </div>
             <div className="subject-actions">
+              {canUnblind && (
+                <button className="btn-unblind" type="button" onClick={() => { setUnblindReason(""); setUnblindOpen(true); }} title="Emergency unblinding — reveal the treatment arm (DM / Admin)">
+                  <i className="ti ti-eye-exclamation" style={{ fontSize: "13px" }}></i> Emergency Unblinding
+                </button>
+              )}
               <div className="manage-wrap">
                 <button className="btn-secondary" onClick={() => setManageOpen((o) => !o)} type="button">
                   Manage <i className="ti ti-chevron-down" style={{ fontSize: "12px" }}></i>
@@ -1410,6 +1457,16 @@ export function SubjectRecord({ studyId, subjectId, initialFormId, initialPanelF
             <div className="ie-banner override" role="status">
               <i className="ti ti-shield-check"></i>
               Eligibility override — PI {subject.override_by ?? "—"} documented a reason for override on {subject.override_at ?? "—"}. This subject was initially flagged as ineligible.
+            </div>
+          )}
+          {/* Withdrawal-period food-safety HARD block (BR-2502 EOS / Withdrawal Confirmation). */}
+          {withdrawalBlockBanner && (
+            <div className="ie-banner withdrawal-block" role="alert">
+              <i className="ti ti-alert-octagon"></i>
+              <div>
+                <strong>{withdrawalBlockBanner}</strong>
+                <div style={{ fontWeight: "var(--weight-regular,400)", marginTop: 2 }}>Food-safety hard stop — the CRC cannot override. A Data Manager must record a protocol deviation to release this animal.</div>
+              </div>
             </div>
           )}
           {/* Assessment-day display (read-only) for recurring per-visit forms — the
@@ -1627,6 +1684,7 @@ export function SubjectRecord({ studyId, subjectId, initialFormId, initialPanelF
               const sdvBlock = sdvBlockReason(field, fv?.id); // null if clean
               const numeric = field.field_type === "number" || field.field_type === "integer";
               const hint = rangeLabel(field, species, dataset.speciesRanges, subjectAgeMonths) ?? (numeric && field.unit ? field.unit : null);
+              const helpHint = field.validation?.hint ?? null; // persistent help text (score-scale legend, etc.)
               const isWide = field.field_type === "textarea" || field.field_type === "multiselect";
               const deltaTitle = dState === "approved" ? "Change approved by DM" : dState === "responded" ? "Change reason submitted — awaiting DM review" : "Change reason required";
               return (
@@ -1686,7 +1744,7 @@ export function SubjectRecord({ studyId, subjectId, initialFormId, initialPanelF
                     <div className="field-state state-editcheck">
                       <i className="ti ti-alert-circle"></i>
                       <span className="ec-link" onClick={() => { setPanelField(field); setPanelKind("edit_check"); }}>
-                        [{ecCodeFor(ec.id)}] Value outside expected range{hint ? ` (${hint})` : ""}
+                        [{ecCodeFor(ec.id)}] {ec.message || `Value outside expected range${hint ? ` (${hint})` : ""}`}
                       </span>
                     </div>
                   ) : dispQ && dispQ.status !== "resolved" ? (
@@ -1696,6 +1754,8 @@ export function SubjectRecord({ studyId, subjectId, initialFormId, initialPanelF
                         {dispQ.status === "open" ? `[${qCodeFor(dispQ.id)}] ${dispQ.title}` : `[${qCodeFor(dispQ.id)}] open — view thread`}
                       </span>
                     </div>
+                  ) : helpHint ? (
+                    <span className="field-hint">{helpHint}</span>
                   ) : (
                     hint && <span className="field-hint">{hint}</span>
                   )}
@@ -2083,6 +2143,29 @@ export function SubjectRecord({ studyId, subjectId, initialFormId, initialPanelF
             <div className="sr-modal-actions" style={{ marginTop: "var(--space-4)" }}>
               <button className="btn-secondary" type="button" onClick={() => { setOverrideOpen(false); setOverrideReason(""); }}>Cancel</button>
               <button className="btn-primary" type="button" disabled={!overrideReason.trim()} onClick={confirmOverride}>Confirm override</button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Emergency unblinding — DM/Admin only, double-blind study only */}
+      {unblindOpen && (
+        <div className="sr-modal-overlay" onClick={() => { setUnblindOpen(false); setUnblindReason(""); }}>
+          <div className="sr-modal" onClick={(e) => e.stopPropagation()} role="dialog" aria-modal="true" aria-label="Emergency unblinding">
+            <div className="sr-modal-title" style={{ color: "var(--red-600)" }}><i className="ti ti-eye-exclamation"></i> Emergency Unblinding</div>
+            <div className="sr-modal-body">
+              This action will reveal the treatment arm for <strong>{subject.subject_code}</strong> and create a permanent audit entry. <strong>This action cannot be undone.</strong>
+            </div>
+            <textarea
+              className="compose-textarea"
+              placeholder="Reason for unblinding (required)…"
+              value={unblindReason}
+              onChange={(e) => setUnblindReason(e.target.value)}
+              autoFocus
+            ></textarea>
+            <div className="sr-modal-actions" style={{ marginTop: "var(--space-4)" }}>
+              <button className="btn-secondary" type="button" onClick={() => { setUnblindOpen(false); setUnblindReason(""); }}>Cancel</button>
+              <button className="btn-unblind solid" type="button" disabled={!unblindReason.trim()} onClick={confirmUnblind}><i className="ti ti-eye-exclamation" style={{ fontSize: "13px" }}></i> Confirm unblinding</button>
             </div>
           </div>
         </div>

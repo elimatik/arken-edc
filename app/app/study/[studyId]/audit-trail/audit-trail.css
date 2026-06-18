@@ -77,7 +77,15 @@
 .at-check  { background: var(--orange-50); border-color: var(--orange-200); color: var(--orange-700); }
 .at-enroll { background: var(--green-50);  border-color: var(--green-200);  color: var(--green-600); }
 .at-withdraw { background: var(--red-50);  border-color: var(--red-200);    color: var(--red-600); }
+.at-rand   { background: var(--purple-50); border-color: var(--purple-200); color: var(--purple-600); }
+.at-consent{ background: var(--green-50);  border-color: var(--green-200);  color: var(--green-600); }
+.at-deviation { background: var(--red-50); border-color: var(--red-200);    color: var(--red-600); }
+.at-unblind { background: var(--red-50);   border-color: var(--red-200);    color: var(--red-600); }
 .at-login  { background: var(--slate-50);  border-color: var(--slate-200);  color: var(--slate-600); }
+
+/* Slide-in panel compliance footer. */
+.au-panel-footer { display: flex; align-items: center; gap: var(--space-2); margin-top: auto; padding: var(--space-3) var(--space-4); border-top: 1px solid var(--color-border); background: var(--slate-50); color: var(--slate-600); font-size: var(--text-xs); flex-shrink: 0; }
+.au-panel-footer i { font-size: 13px; }
 
 /* Empty state */
 .au-empty { display: flex; flex-direction: column; align-items: center; justify-content: center; gap: var(--space-3); padding: var(--space-8) var(--space-5); color: var(--color-text-tertiary); }

@@ -431,6 +431,18 @@
 /* PI-override amber banner (Inclusion/Exclusion form, replaces the red one) */
 .ie-banner.override { background: var(--amber-50); border-color: var(--amber-200); color: var(--amber-700); }
 .ie-banner.withdrawn { background: var(--amber-50); border-color: var(--amber-200); color: var(--amber-700); }
+.ie-banner.withdrawal-block { background: var(--red-50); border-color: var(--red-200); color: var(--red-600); align-items: flex-start; }
+.ie-banner.withdrawal-block i { margin-top: 1px; }
+
+/* Treatment-arm badge (blinding) + Emergency-Unblinding button. */
+.subject-arm { display: inline-flex; align-items: center; padding: 1px var(--space-2); border-radius: var(--radius-sm); font-size: var(--text-xs); font-weight: var(--weight-medium); background: var(--color-page-bg); border: 1px solid var(--color-border); color: var(--color-text-secondary); white-space: nowrap; }
+.subject-arm.blinded { background: var(--slate-50); border-color: var(--slate-200); color: var(--slate-600); }
+.subject-arm.revealed { background: var(--amber-50); border-color: var(--amber-200); color: var(--amber-700); }
+.btn-unblind { display: inline-flex; align-items: center; gap: 4px; height: 32px; padding: 0 var(--space-3); font-size: var(--text-sm); font-weight: var(--weight-medium); font-family: var(--font-sans); border: 1px solid var(--amber-200); border-radius: var(--radius-md); background: var(--amber-50); color: var(--amber-700); cursor: pointer; white-space: nowrap; transition: all var(--duration-fast); }
+.btn-unblind:hover { border-color: var(--red-200); background: var(--red-50); color: var(--red-600); }
+.btn-unblind.solid { border-color: var(--red-600); background: var(--red-600); color: #fff; }
+.btn-unblind.solid:hover { background: var(--red-600); }
+.btn-unblind:disabled { opacity: 0.5; cursor: not-allowed; }
 
 /* Queried (amber) state for non-input controls (batch 5, item 3) */
 .field-select.query { background: var(--amber-50); border-color: var(--amber-700); color: #7A4F00; }

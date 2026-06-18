@@ -72,7 +72,9 @@ export function evaluateField(
     return {
       fieldId: field.id,
       fieldCode: field.code,
-      message: `Value outside expected range (${range.min}–${range.max}${unit}) — verify`,
+      // A field may carry a custom message (e.g. a soft "verify with investigator"
+      // check); otherwise fall back to the generic out-of-range text.
+      message: field.validation?.message ?? `Value outside expected range (${range.min}–${range.max}${unit}) — verify`,
       range,
       value,
     };
