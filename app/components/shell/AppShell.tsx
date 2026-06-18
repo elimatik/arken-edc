@@ -7,6 +7,7 @@ import { Topbar } from "./Topbar";
 import { ShellProvider, type ShellSite, type ShellStudy } from "./ShellContext";
 import { useStudySession } from "@/lib/session-store/SessionStore";
 import { navItemsForRole, NAV_ROUTES, type Role } from "@/lib/permissions";
+import { actionableQueryCount } from "@/lib/queries-data";
 import "./shell.css";
 
 interface AppShellProps {
@@ -18,7 +19,11 @@ interface AppShellProps {
 export function AppShell({ study, sites, children }: AppShellProps) {
   const router = useRouter();
   const pathname = usePathname();
-  const { activeRole, setActiveRole } = useStudySession(); // role lives in session, not Supabase
+  const { activeRole, setActiveRole, dataset } = useStudySession(); // role lives in session, not Supabase
+
+  // Live Queries badge — count of queries needing the active role's action.
+  // Recomputes on role switch and on any query mutation (dataset is session state).
+  const queriesBadge = actionableQueryCount(dataset, study.id, activeRole);
   const [expanded, setExpanded] = useState(false);
   const [selectedSiteId, setSelectedSiteId] = useState<string | null>(null); // null = All Sites
 
@@ -55,6 +60,7 @@ export function AppShell({ study, sites, children }: AppShellProps) {
           expanded={expanded}
           onSelect={navigate}
           onToggle={() => setExpanded((e) => !e)}
+          badges={{ queries: queriesBadge }}
         />
         <div className="main">
           <Topbar

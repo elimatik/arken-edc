@@ -10,9 +10,12 @@ interface SidenavProps {
   expanded: boolean;
   onSelect: (key: string) => void;
   onToggle: () => void;
+  // Per-nav-key live badge counts (computed by the shell), overriding any static
+  // item.badge. A value of 0 (or absent) hides the badge.
+  badges?: Partial<Record<string, number>>;
 }
 
-export function Sidenav({ role, studyType, activeKey, expanded, onSelect, onToggle }: SidenavProps) {
+export function Sidenav({ role, studyType, activeKey, expanded, onSelect, onToggle, badges }: SidenavProps) {
   const items = navItemsForRole(role);
   const topItems = items.filter((i) => !i.bottom);
   const bottomItems = items.filter((i) => i.bottom);
@@ -25,6 +28,8 @@ export function Sidenav({ role, studyType, activeKey, expanded, onSelect, onTogg
     if (access?.readonly) title += " (read-only)";
     if (access?.blinded) title += " (blinded)";
 
+    const badge = badges?.[item.key] ?? item.badge ?? 0;
+
     return (
     <button
       key={item.key}
@@ -36,9 +41,9 @@ export function Sidenav({ role, studyType, activeKey, expanded, onSelect, onTogg
     >
       <i className={`ti ti-${item.icon}`} aria-hidden="true"></i>
       <span className="nav-label">{label}</span>
-      {item.badge ? (
+      {badge > 0 ? (
         <span className="nav-badge" aria-hidden="true">
-          {item.badge}
+          {badge}
         </span>
       ) : null}
     </button>

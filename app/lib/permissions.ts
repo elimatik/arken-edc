@@ -46,7 +46,9 @@ export const NAV_ITEMS: NavItem[] = [
   // The Site → Barn → Pen drill-down for clinical roles lives inside Data Entry.
   { key: "sites", label: "Sites", icon: "building-hospital",
     access: { Admin: open } },
-  { key: "queries", label: "Queries", icon: "help-circle", badge: 4,
+  // The badge count is computed per-role at render time (actionableQueryCount),
+  // not static — see AppShell → Sidenav `badges`.
+  { key: "queries", label: "Queries", icon: "help-circle",
     access: { CRC: open, CRA: open, DM: open, PI: open } },
   { key: "visits", label: "Visits", icon: "calendar-event",
     access: { CRC: open, CRA: open, DM: open, PI: open } },

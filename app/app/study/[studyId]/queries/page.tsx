@@ -2,9 +2,11 @@
 
 // ════════════════════════════════════════════════════════════════════════════
 // Queries screen — the study-wide query worklist (the CRA/DM's workstation).
-// Aggregates every query (+ open edit check) across all subjects/forms of the
-// current study, with role-gated actions and an inline slide-in thread panel that
-// reuses the Subject Record's query panel. Translated from 15-queries-list.html.
+// Two tabs (faithful to 15-queries-list.html's tab pattern, repurposed by spec):
+//   • Queries     — manual queries (Q-…), the Raised → Responded → Resolved flow
+//   • Edit Checks — open auto edit-checks (EC-…), value + range, resolved on the record
+// Row click → inline slide-in thread panel (reuses the Subject Record query panel).
+// The Subject-ID link instead navigates into the record + deep-links the field.
 // ════════════════════════════════════════════════════════════════════════════
 
 import { useEffect, useMemo, useState } from "react";
@@ -13,6 +15,7 @@ import { useShell } from "@/components/shell/ShellContext";
 import { useStudySession } from "@/lib/session-store/SessionStore";
 import { useNdaName } from "@/lib/use-nda-name";
 import { canQuery } from "@/lib/permissions";
+import { resolveRange } from "@/lib/forms/validation";
 import { DEMO_USER_ID } from "@/lib/constants";
 import type { Dataset, EditCheckRow, QueryRow } from "@/lib/session-store/types";
 import "@/components/subject-record/subject-record.css";
@@ -24,6 +27,7 @@ const ecCodeFor = (id: string) => `EC-${id.slice(0, 4).toUpperCase()}`;
 const STATUS_CAP = (s: string) => s.charAt(0).toUpperCase() + s.slice(1);
 const QS_CLS: Record<string, string> = { open: "qs-open", responded: "qs-responded", resolved: "qs-resolved" };
 
+type TabKey = "queries" | "editchecks";
 type ItemStatus = "open" | "responded" | "resolved" | "editcheck";
 interface QueryItem {
   kind: "query" | "editcheck";
@@ -44,6 +48,8 @@ interface QueryItem {
   openedISO: string | null;
   daysOpen: number;
   lastAction: string;
+  enteredValue: string; // edit checks: the out-of-range value entered
+  normalRange: string; // edit checks: the expected range (e.g. "38.0–39.3 °C")
 }
 
 const daysSince = (iso: string | null | undefined, nowMs: number): number => {
@@ -56,6 +62,11 @@ const agoLabel = (iso: string | null | undefined, nowMs: number): string => {
   const d = daysSince(iso, nowMs);
   return d <= 0 ? "today" : `${d} day${d === 1 ? "" : "s"} ago`;
 };
+// Fallback: pull a "38.3–39.2 °C" range out of an edit-check message's parentheses.
+const rangeFromMessage = (msg: string): string => {
+  const m = msg.match(/\(([^()]*\d[^()]*[–-][^()]*)\)/);
+  return m ? m[1].trim() : "—";
+};
 
 function buildItems(dataset: Dataset, studyId: string, hideEC: boolean, nowMs: number): QueryItem[] {
   const instById = new Map(dataset.formInstances.map((i) => [i.id, i]));
@@ -65,6 +76,7 @@ function buildItems(dataset: Dataset, studyId: string, hideEC: boolean, nowMs: n
   const formById = new Map(dataset.forms.map((f) => [f.id, f]));
   const fieldById = new Map(dataset.formFields.map((f) => [f.id, f]));
   const fvById = new Map(dataset.fieldValues.map((v) => [v.id, v]));
+  const study = dataset.studies.find((s) => s.id === studyId);
 
   const ctxOf = (instanceId: string) => {
     const inst = instById.get(instanceId);
@@ -76,7 +88,8 @@ function buildItems(dataset: Dataset, studyId: string, hideEC: boolean, nowMs: n
     if (!siteId && inst.barn_id) siteId = barnById.get(inst.barn_id)?.site_id ?? null;
     const siteName = siteId ? siteById.get(siteId)?.name ?? "—" : "—";
     const subjectCode = subj?.subject_code ?? (inst.site_id ? siteById.get(inst.site_id)?.name : inst.barn_id ? barnById.get(inst.barn_id)?.name : null) ?? "—";
-    return { inst, form, subjectId: subj?.id ?? null, subjectCode, siteName };
+    const species = subj?.species ?? study?.species ?? "";
+    return { inst, form, subjectId: subj?.id ?? null, subjectCode, siteName, species };
   };
   const fieldOf = (fvId: string | null) => {
     if (!fvId) return null;
@@ -104,6 +117,7 @@ function buildItems(dataset: Dataset, studyId: string, hideEC: boolean, nowMs: n
       subjectId: ctx.subjectId, subjectCode: ctx.subjectCode, siteName: ctx.siteName,
       formId: ctx.form.id, formName: ctx.form.name, fieldId: fo.field.id, fieldLabel: fo.field.label, fieldCode: (fo.field.code ?? "").toUpperCase(),
       fieldValueId: q.field_value_id, openedISO: q.created_at ?? last?.created_at ?? null, daysOpen: daysSince(q.created_at ?? last?.created_at, nowMs), lastAction,
+      enteredValue: "", normalRange: "",
     });
   }
 
@@ -114,11 +128,18 @@ function buildItems(dataset: Dataset, studyId: string, hideEC: boolean, nowMs: n
       if (!ctx) continue;
       const fo = fieldOf(ec.field_value_id);
       if (!fo) continue;
+      const r = resolveRange(fo.field, ctx.species, dataset.speciesRanges, null);
+      const unit = fo.field.unit ? ` ${fo.field.unit}` : "";
+      const enteredValue = fo.fv.value ? `${fo.fv.value}${unit}` : "—";
+      const normalRange = r && Number.isFinite(r.min) && Number.isFinite(r.max)
+        ? `${r.min}–${r.max}${r.unit ? ` ${r.unit}` : ""}`
+        : rangeFromMessage(ec.message);
       items.push({
         kind: "editcheck", id: ec.id, code: ecCodeFor(ec.id), ec, status: "editcheck",
         subjectId: ctx.subjectId, subjectCode: ctx.subjectCode, siteName: ctx.siteName,
         formId: ctx.form.id, formName: ctx.form.name, fieldId: fo.field.id, fieldLabel: fo.field.label, fieldCode: (fo.field.code ?? "").toUpperCase(),
         fieldValueId: ec.field_value_id, openedISO: ec.created_at, daysOpen: daysSince(ec.created_at, nowMs), lastAction: "Auto edit check",
+        enteredValue, normalRange,
       });
     }
   }
@@ -143,12 +164,13 @@ export default function QueriesPage() {
   const nowMs = Date.now();
   const items = useMemo(() => buildItems(dataset, studyId, hideEC, nowMs), [dataset, studyId, hideEC, nowMs]);
 
+  const [tab, setTab] = useState<TabKey>("queries");
   const [search, setSearch] = useState("");
-  const [statusF, setStatusF] = useState("all"); // all | raised | responded | resolved
+  const [statusF, setStatusF] = useState("all"); // all | raised | responded | resolved (queries tab only)
   const [formF, setFormF] = useState("");
   const [siteF, setSiteF] = useState("");
   const [assignF, setAssignF] = useState("all"); // all | mine
-  const [sortF, setSortF] = useState("oldest"); // oldest | newest | subject | form
+  const [sortF, setSortF] = useState("oldest"); // oldest | newest | subject
   const [panelId, setPanelId] = useState<string | null>(null);
   const [reply, setReply] = useState("");
   const [manageOpen, setManageOpen] = useState(false);
@@ -157,18 +179,22 @@ export default function QueriesPage() {
   const [toast, setToast] = useState<string | null>(null);
   useEffect(() => { if (!toast) return; const t = setTimeout(() => setToast(null), 2800); return () => clearTimeout(t); }, [toast]);
 
-  // ─── Stats (queries only) ───────────────────────────────────────────────────
-  const queryItems = items.filter((i) => i.kind === "query");
+  // Sponsor never has an Edit Checks tab — keep them on Queries.
+  useEffect(() => { if (hideEC && tab === "editchecks") setTab("queries"); }, [hideEC, tab]);
+
+  // ─── Split by kind ──────────────────────────────────────────────────────────
+  const queryItems = useMemo(() => items.filter((i) => i.kind === "query"), [items]);
+  const ecItems = useMemo(() => items.filter((i) => i.kind === "editcheck"), [items]);
+
   const raised = queryItems.filter((i) => i.status === "open");
   const responded = queryItems.filter((i) => i.status === "responded");
-  const resolved = queryItems.filter((i) => i.status === "resolved");
   const openItems = [...raised, ...responded];
-  const avgDays = openItems.length ? Math.round(openItems.reduce((a, i) => a + i.daysOpen, 0) / openItems.length) : 0;
 
-  // ─── Filter options ─────────────────────────────────────────────────────────
-  const formNames = Array.from(new Set(items.map((i) => i.formName))).sort();
-  const siteNames = Array.from(new Set(items.map((i) => i.siteName).filter((s) => s !== "—"))).sort();
-  const showAssign = activeRole === "CRC" || activeRole === "PI" || activeRole === "CRA" || activeRole === "DM";
+  // ─── Filter options (scoped to the active tab's source) ─────────────────────
+  const tabItems = tab === "queries" ? queryItems : ecItems;
+  const formNames = Array.from(new Set(tabItems.map((i) => i.formName))).sort();
+  const siteNames = Array.from(new Set(tabItems.map((i) => i.siteName).filter((s) => s !== "—"))).sort();
+  const showAssign = tab === "queries" && (activeRole === "CRC" || activeRole === "PI" || activeRole === "CRA" || activeRole === "DM");
   const needsMyAction = (i: QueryItem) => {
     if (i.kind !== "query" || i.status === "resolved") return false;
     if (activeRole === "CRC" || activeRole === "PI") return i.status === "open";
@@ -176,15 +202,17 @@ export default function QueriesPage() {
     return false;
   };
 
-  // ─── Filter + sort ──────────────────────────────────────────────────────────
-  const filtered = items
+  // ─── Filter + sort the active tab ───────────────────────────────────────────
+  const filtered = tabItems
     .filter((i) => {
-      if (statusF === "raised" && !(i.kind === "query" && i.status === "open")) return false;
-      if (statusF === "responded" && !(i.kind === "query" && i.status === "responded")) return false;
-      if (statusF === "resolved" && !(i.kind === "query" && i.status === "resolved")) return false;
+      if (tab === "queries") {
+        if (statusF === "raised" && i.status !== "open") return false;
+        if (statusF === "responded" && i.status !== "responded") return false;
+        if (statusF === "resolved" && i.status !== "resolved") return false;
+        if (assignF === "mine" && !needsMyAction(i)) return false;
+      }
       if (formF && i.formName !== formF) return false;
       if (siteF && i.siteName !== siteF) return false;
-      if (assignF === "mine" && !needsMyAction(i)) return false;
       if (search) {
         const q = search.toLowerCase();
         if (![i.code, i.subjectCode, i.fieldLabel, i.fieldCode, i.formName, i.query?.title ?? i.ec?.message ?? ""].join(" ").toLowerCase().includes(q)) return false;
@@ -193,13 +221,12 @@ export default function QueriesPage() {
     })
     .sort((a, b) => {
       if (sortF === "subject") return a.subjectCode.localeCompare(b.subjectCode);
-      if (sortF === "form") return a.formName.localeCompare(b.formName) || a.subjectCode.localeCompare(b.subjectCode);
       const at = a.openedISO ? Date.parse(a.openedISO) : 0;
       const bt = b.openedISO ? Date.parse(b.openedISO) : 0;
       return sortF === "newest" ? bt - at : at - bt; // oldest first by default
     });
 
-  // ─── Handlers (mutate the session store — same as the Subject Record) ───────
+  // ─── Panel data ─────────────────────────────────────────────────────────────
   const panelItem = panelId ? items.find((i) => i.id === panelId) ?? null : null;
   const panelQueries = panelItem?.fieldValueId
     ? dataset.queries.filter((q) => q.field_value_id === panelItem.fieldValueId).slice().sort((a, b) => ((a.created_at ?? "") < (b.created_at ?? "") ? -1 : 1))
@@ -208,6 +235,7 @@ export default function QueriesPage() {
   const msgsForQuery = (qid: string) => dataset.queryMessages.filter((m) => m.query_id === qid).slice().sort((a, b) => (a.created_at < b.created_at ? -1 : 1));
   const panelHasResponse = panelQuery ? msgsForQuery(panelQuery.id).some((m) => m.author_role && !m.author_role.includes("System")) : false;
 
+  // ─── Handlers (mutate the session store — same as the Subject Record) ───────
   function pushMsg(d: Dataset, queryId: string, body: string) {
     d.queryMessages.push({ id: newId(), query_id: queryId, author_id: DEMO_USER_ID, author_name: ndaName, author_role: activeRole, body, created_at: new Date().toISOString() });
   }
@@ -234,15 +262,9 @@ export default function QueriesPage() {
   function openPanel(i: QueryItem) { setPanelId(i.id); setReply(""); setManageOpen(false); }
   function closePanel() { setPanelId(null); setReply(""); setManageOpen(false); }
 
-  const chipFor = (i: QueryItem) =>
-    i.kind === "editcheck" ? <span className="qy-chip qc-editcheck"><i className="ti ti-alert-circle" style={{ fontSize: 11 }}></i> Edit check</span>
-      : i.status === "open" ? <span className="qy-chip qc-raised">Raised</span>
-      : i.status === "responded" ? <span className="qy-chip qc-responded">Responded</span>
-      : <span className="qy-chip qc-resolved"><i className="ti ti-check" style={{ fontSize: 11 }}></i> Resolved</span>;
-  const daysCrit = (i: QueryItem) => i.kind === "query" && ((i.status === "open" && i.daysOpen > 7) || (i.status === "responded" && i.daysOpen > 3));
+  const daysCritQuery = (i: QueryItem) => (i.status === "open" && i.daysOpen > 7) || (i.status === "responded" && i.daysOpen > 3);
 
   function actionsFor(i: QueryItem) {
-    if (i.kind === "editcheck") return <span className="qy-act-note"><i className="ti ti-alert-circle"></i> Resolve on subject record</span>;
     if (readOnly) return <span className="qy-readonly">—</span>;
     if (i.status === "resolved") return <span className="qy-readonly">—</span>;
     const open = (e: React.MouseEvent) => { e.stopPropagation(); openPanel(i); };
@@ -259,9 +281,14 @@ export default function QueriesPage() {
 
   if (!ready) return <div className="qy-screen"><div className="qy-empty"><i className="ti ti-loader-2"></i> Loading…</div></div>;
 
+  const statusChip = (i: QueryItem) =>
+    i.status === "open" ? <span className="qy-chip qc-raised">Raised</span>
+      : i.status === "responded" ? <span className="qy-chip qc-responded">Responded</span>
+      : <span className="qy-chip qc-resolved"><i className="ti ti-check" style={{ fontSize: 11 }}></i> Resolved</span>;
+
   return (
     <div className="qy-screen">
-      {/* Header + stat strip */}
+      {/* Header */}
       <div className="qy-header">
         <div className="qy-bc">Queries</div>
         <div className="qy-title-row">
@@ -269,20 +296,27 @@ export default function QueriesPage() {
           <button className="btn-secondary" type="button"><i className="ti ti-download"></i> Export</button>
         </div>
       </div>
-      <div className="qy-stat-strip">
-        <div className="qy-stat"><div className="qy-stat-val"><span className="qy-stat-chip">{openItems.length}</span></div><div className="qy-stat-lbl">Total open (raised + responded)</div></div>
-        <div className="qy-stat"><div className="qy-stat-val">{raised.length}</div><div className="qy-stat-lbl">Raised — awaiting response</div></div>
-        <div className="qy-stat"><div className="qy-stat-val">{responded.length}</div><div className="qy-stat-lbl">Responded — awaiting resolution</div></div>
-        <div className="qy-stat"><div className="qy-stat-val">{resolved.length}</div><div className="qy-stat-lbl">Resolved (this study)</div></div>
-        <div className="qy-stat"><div className={`qy-stat-val${avgDays > 7 ? " warn" : ""}`}>{avgDays}</div><div className="qy-stat-lbl">Average days open</div></div>
+
+      {/* Tabs — Queries (Q-) vs Edit Checks (EC-) */}
+      <div className="qy-tabs">
+        <button className={`qy-tab${tab === "queries" ? " active" : ""}`} type="button" onClick={() => { setTab("queries"); setPanelId(null); }}>
+          Queries <span className="qy-tab-count tc-q">{queryItems.length}</span>
+        </button>
+        {!hideEC && (
+          <button className={`qy-tab${tab === "editchecks" ? " active" : ""}`} type="button" onClick={() => { setTab("editchecks"); setPanelId(null); }}>
+            Edit Checks <span className="qy-tab-count tc-ec">{ecItems.length}</span>
+          </button>
+        )}
       </div>
 
       {/* Filter toolbar */}
       <div className="qy-toolbar">
-        <div className="qy-search"><i className="ti ti-search"></i><input type="search" placeholder="Search query ID, subject, field…" value={search} onChange={(e) => setSearch(e.target.value)} /></div>
-        <select className="qy-select" value={statusF} onChange={(e) => setStatusF(e.target.value)}>
-          <option value="all">All statuses</option><option value="raised">Raised</option><option value="responded">Responded</option><option value="resolved">Resolved</option>
-        </select>
+        <div className="qy-search"><i className="ti ti-search"></i><input type="search" placeholder={tab === "queries" ? "Search query ID, subject, field…" : "Search edit check, subject, field…"} value={search} onChange={(e) => setSearch(e.target.value)} /></div>
+        {tab === "queries" && (
+          <select className="qy-select" value={statusF} onChange={(e) => setStatusF(e.target.value)}>
+            <option value="all">All statuses</option><option value="raised">Raised</option><option value="responded">Responded</option><option value="resolved">Resolved</option>
+          </select>
+        )}
         <select className="qy-select" value={formF} onChange={(e) => setFormF(e.target.value)}>
           <option value="">All forms</option>{formNames.map((n) => <option key={n} value={n}>{n}</option>)}
         </select>
@@ -295,9 +329,9 @@ export default function QueriesPage() {
           </select>
         )}
         <select className="qy-select" value={sortF} onChange={(e) => setSortF(e.target.value)}>
-          <option value="oldest">Oldest first</option><option value="newest">Newest first</option><option value="subject">By subject</option><option value="form">By form</option>
+          <option value="oldest">Oldest first</option><option value="newest">Newest first</option><option value="subject">By subject</option>
         </select>
-        <span className="qy-count">{filtered.length} {filtered.length === 1 ? "item" : "items"}</span>
+        <span className="qy-count">{filtered.length} {tab === "queries" ? (filtered.length === 1 ? "query" : "queries") : (filtered.length === 1 ? "edit check" : "edit checks")}</span>
       </div>
 
       {/* Table */}
@@ -305,14 +339,14 @@ export default function QueriesPage() {
         {filtered.length === 0 ? (
           <div className="qy-empty">
             <div className="qy-empty-icon"><i className="ti ti-checks"></i></div>
-            <div className="qy-empty-title">No open queries</div>
+            <div className="qy-empty-title">{tab === "queries" ? "No queries" : "No open edit checks"}</div>
             <div className="qy-empty-sub">Nothing matches the current filters.</div>
           </div>
-        ) : (
+        ) : tab === "queries" ? (
           <table className="qy-table">
             <thead>
               <tr>
-                <th style={{ width: 78 }}>ID</th>
+                <th style={{ width: 78 }}>Query ID</th>
                 <th style={{ width: 130 }}>Subject</th>
                 <th style={{ width: 110 }}>Site</th>
                 <th>Form</th>
@@ -327,16 +361,49 @@ export default function QueriesPage() {
             <tbody>
               {filtered.map((i) => (
                 <tr key={i.id} className={panelId === i.id ? "active-row" : ""} onClick={() => openPanel(i)}>
-                  <td><span className={`qy-id${i.kind === "editcheck" ? " ec" : ""}`}>{i.code}</span></td>
+                  <td><span className="qy-id">{i.code}</span></td>
                   <td>{i.subjectId ? <span className="qy-subj" onClick={(e) => { e.stopPropagation(); gotoRecord(i); }} title="Open in subject record">{i.subjectCode}</span> : <span className="qy-mono">{i.subjectCode}</span>}</td>
                   <td><span style={{ color: "var(--color-text-secondary)" }}>{i.siteName}</span></td>
                   <td><span className="qy-text" title={i.formName}>{i.formName}</span></td>
                   <td><span className="qy-text" title={`${i.fieldLabel} (${i.fieldCode})`}>{i.fieldLabel}</span></td>
-                  <td>{chipFor(i)}</td>
+                  <td>{statusChip(i)}</td>
                   <td><span className="qy-mono">{i.openedISO ? i.openedISO.slice(0, 10) : "—"}</span></td>
-                  <td><span className={`qy-days${daysCrit(i) ? " crit" : ""}`}>{i.daysOpen <= 0 ? "—" : `${i.daysOpen}d`}</span></td>
+                  <td><span className={`qy-days${daysCritQuery(i) ? " crit" : ""}`}>{i.daysOpen <= 0 ? "—" : `${i.daysOpen}d`}</span></td>
                   <td><span style={{ fontSize: "var(--text-xs)", color: "var(--color-text-tertiary)" }}>{i.lastAction}</span></td>
                   <td onClick={(e) => e.stopPropagation()}>{actionsFor(i)}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        ) : (
+          <table className="qy-table">
+            <thead>
+              <tr>
+                <th style={{ width: 78 }}>EC ID</th>
+                <th style={{ width: 130 }}>Subject</th>
+                <th style={{ width: 110 }}>Site</th>
+                <th>Form</th>
+                <th>Field</th>
+                <th style={{ width: 130 }}>Value entered</th>
+                <th style={{ width: 140 }}>Normal range</th>
+                <th style={{ width: 100 }}>Opened</th>
+                <th style={{ width: 80 }}>Days open</th>
+                <th style={{ width: 180 }}>Note</th>
+              </tr>
+            </thead>
+            <tbody>
+              {filtered.map((i) => (
+                <tr key={i.id} className={panelId === i.id ? "active-row" : ""} onClick={() => openPanel(i)}>
+                  <td><span className="qy-id ec">{i.code}</span></td>
+                  <td>{i.subjectId ? <span className="qy-subj" onClick={(e) => { e.stopPropagation(); gotoRecord(i); }} title="Open in subject record">{i.subjectCode}</span> : <span className="qy-mono">{i.subjectCode}</span>}</td>
+                  <td><span style={{ color: "var(--color-text-secondary)" }}>{i.siteName}</span></td>
+                  <td><span className="qy-text" title={i.formName}>{i.formName}</span></td>
+                  <td><span className="qy-text" title={`${i.fieldLabel} (${i.fieldCode})`}>{i.fieldLabel}</span></td>
+                  <td><span className="qy-ec-val">{i.enteredValue}</span></td>
+                  <td><span className="qy-mono">{i.normalRange}</span></td>
+                  <td><span className="qy-mono">{i.openedISO ? i.openedISO.slice(0, 10) : "—"}</span></td>
+                  <td><span className={`qy-days${i.daysOpen > 7 ? " crit" : ""}`}>{i.daysOpen <= 0 ? "—" : `${i.daysOpen}d`}</span></td>
+                  <td onClick={(e) => e.stopPropagation()}><span className="qy-act-note"><i className="ti ti-arrow-up-right"></i> Resolve on subject record</span></td>
                 </tr>
               ))}
             </tbody>
@@ -346,10 +413,20 @@ export default function QueriesPage() {
 
       {/* Summary bar */}
       <div className="qy-summary">
-        <span>Open: <span className="sv warn">{openItems.length}</span></span>
-        <span>&gt;7 days: <span className="sv crit">{queryItems.filter((i) => daysCrit(i)).length}</span></span>
-        <span>Edit checks: <span className="sv">{items.filter((i) => i.kind === "editcheck").length}</span></span>
-        <span style={{ marginLeft: "auto" }}>{study?.code} · {items.length} total</span>
+        {tab === "queries" ? (
+          <>
+            <span>Open: <span className="sv warn">{openItems.length}</span></span>
+            <span>Raised: <span className="sv">{raised.length}</span></span>
+            <span>Responded: <span className="sv">{responded.length}</span></span>
+            <span>&gt;7 days: <span className="sv crit">{queryItems.filter((i) => daysCritQuery(i)).length}</span></span>
+          </>
+        ) : (
+          <>
+            <span>Open edit checks: <span className="sv warn">{ecItems.length}</span></span>
+            <span>&gt;7 days: <span className="sv crit">{ecItems.filter((i) => i.daysOpen > 7).length}</span></span>
+          </>
+        )}
+        <span style={{ marginLeft: "auto" }}>{study?.code} · {queryItems.length} quer{queryItems.length === 1 ? "y" : "ies"}{hideEC ? "" : ` · ${ecItems.length} edit check${ecItems.length === 1 ? "" : "s"}`}</span>
       </div>
 
       {/* Slide-in thread panel — reuses the Subject Record query panel */}
@@ -359,7 +436,7 @@ export default function QueriesPage() {
           <>
             <div className="panel-header">
               <div className="panel-header-left">
-                <div className="panel-title">{panelItem.kind === "editcheck" ? "Edit Check" : panelQuery ? "Query thread" : "Query"}</div>
+                <div className="panel-title">{panelItem.kind === "editcheck" ? "Edit check" : "Query thread"}</div>
                 <div className="panel-title-meta"><span className="query-id">{panelItem.code}</span><span className="query-id" style={{ marginLeft: 6 }}>{panelItem.subjectCode}</span></div>
               </div>
               <button className="panel-close" onClick={closePanel} type="button"><i className="ti ti-x"></i></button>
@@ -378,6 +455,13 @@ export default function QueriesPage() {
               <div className="fc-label">Field</div>
               <div style={{ display: "flex", alignItems: "center", gap: "var(--space-2)", marginBottom: "4px" }}><span className="fc-field">{panelItem.fieldLabel}</span><span className="fc-code">{panelItem.fieldCode}</span></div>
               <div style={{ fontSize: "10px", color: "var(--color-text-tertiary)" }}>{panelItem.formName}</div>
+              {panelItem.kind === "editcheck" && (
+                <div className="qy-ec-detail">
+                  <span className="qy-ec-detail-row"><span className="qy-ec-detail-lbl">Value</span><span className="qy-ec-val">{panelItem.enteredValue}</span></span>
+                  <span className="qy-ec-detail-row"><span className="qy-ec-detail-lbl">Normal</span><span className="qy-mono">{panelItem.normalRange}</span></span>
+                  <span className="qy-ec-detail-row"><span className="qy-ec-detail-lbl">Fired</span><span className="qy-mono">{panelItem.openedISO ? panelItem.openedISO.slice(0, 10) : "—"}</span></span>
+                </div>
+              )}
             </div>
             <div className="thread-body">
               {panelItem.kind === "editcheck" && panelItem.ec ? (
