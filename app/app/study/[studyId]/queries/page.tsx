@@ -41,6 +41,7 @@ interface QueryItem {
   siteName: string;
   formId: string;
   formName: string;
+  formPath: string; // "Group — Form" (immediate parent group), or just "Form" when standalone
   fieldId: string;
   fieldLabel: string;
   fieldCode: string;
@@ -94,7 +95,10 @@ function buildItems(dataset: Dataset, studyId: string, hideEC: boolean, nowMs: n
     const siteName = siteId ? siteById.get(siteId)?.name ?? "—" : "—";
     const subjectCode = subj?.subject_code ?? (inst.site_id ? siteById.get(inst.site_id)?.name : inst.barn_id ? barnById.get(inst.barn_id)?.name : null) ?? "—";
     const species = subj?.species ?? study?.species ?? "";
-    return { inst, form, subjectId: subj?.id ?? null, subjectCode, siteName, species };
+    // Form path = immediate parent group name + form name (or just the form name).
+    const parent = form.parent_form_id ? formById.get(form.parent_form_id) : null;
+    const formPath = parent ? `${parent.name} — ${form.name}` : form.name;
+    return { inst, form, subjectId: subj?.id ?? null, subjectCode, siteName, species, formPath };
   };
   const fieldOf = (fvId: string | null) => {
     if (!fvId) return null;
@@ -118,7 +122,7 @@ function buildItems(dataset: Dataset, studyId: string, hideEC: boolean, nowMs: n
     items.push({
       kind: "query", id: q.id, code: qCodeFor(q.id), query: q, status: q.status as ItemStatus,
       subjectId: ctx.subjectId, subjectCode: ctx.subjectCode, siteName: ctx.siteName,
-      formId: ctx.form.id, formName: ctx.form.name, fieldId: fo.field.id, fieldLabel: fo.field.label, fieldCode: (fo.field.code ?? "").toUpperCase(),
+      formId: ctx.form.id, formName: ctx.form.name, formPath: ctx.formPath, fieldId: fo.field.id, fieldLabel: fo.field.label, fieldCode: (fo.field.code ?? "").toUpperCase(),
       fieldValueId: q.field_value_id, openedISO: q.created_at ?? last?.created_at ?? null, daysOpen: daysSince(q.created_at ?? last?.created_at, nowMs),
       enteredValue: fo.fv.value ? `${fo.fv.value}${qUnit}` : "—", queryText: q.title,
       raisedByName: first?.author_name ?? "Monitor", raisedByRole: first?.author_role ?? "CRA", normalRange: "",
@@ -141,7 +145,7 @@ function buildItems(dataset: Dataset, studyId: string, hideEC: boolean, nowMs: n
       items.push({
         kind: "editcheck", id: ec.id, code: ecCodeFor(ec.id), ec, status: "editcheck",
         subjectId: ctx.subjectId, subjectCode: ctx.subjectCode, siteName: ctx.siteName,
-        formId: ctx.form.id, formName: ctx.form.name, fieldId: fo.field.id, fieldLabel: fo.field.label, fieldCode: (fo.field.code ?? "").toUpperCase(),
+        formId: ctx.form.id, formName: ctx.form.name, formPath: ctx.formPath, fieldId: fo.field.id, fieldLabel: fo.field.label, fieldCode: (fo.field.code ?? "").toUpperCase(),
         fieldValueId: ec.field_value_id, openedISO: ec.created_at, daysOpen: daysSince(ec.created_at, nowMs),
         enteredValue, queryText: ec.message, raisedByName: "Edit check", raisedByRole: "Auto", normalRange,
       });
@@ -293,8 +297,11 @@ export default function QueriesPage() {
       : <span className="qy-chip qc-resolved"><i className="ti ti-check" style={{ fontSize: 11 }}></i> Resolved</span>;
   const fieldCell = (i: QueryItem) => (
     <span className="qy-field">
-      <span className="qy-field-label" title={`${i.fieldLabel} (${i.fieldCode})`}>{i.fieldLabel}</span>
-      <span className="qy-field-form" title={i.formName}>{i.formName}</span>
+      <span className="qy-field-top">
+        <span className="qy-field-label" title={i.fieldLabel}>{i.fieldLabel}</span>
+        {i.fieldCode && <span className="qy-field-code">{i.fieldCode}</span>}
+      </span>
+      <span className="qy-field-form" title={i.formPath}>{i.formPath}</span>
     </span>
   );
 
