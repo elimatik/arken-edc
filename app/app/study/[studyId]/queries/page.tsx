@@ -47,9 +47,18 @@ interface QueryItem {
   fieldValueId: string | null;
   openedISO: string | null;
   daysOpen: number;
-  lastAction: string;
-  enteredValue: string; // edit checks: the out-of-range value entered
+  enteredValue: string; // the field value that triggered the query / edit check
+  queryText: string; // the query message / EC description
+  raisedByName: string; // who raised it (name only — no avatar)
+  raisedByRole: string;
   normalRange: string; // edit checks: the expected range (e.g. "38.0–39.3 °C")
+}
+
+// Who the query is currently assigned to (who needs to act), derived from status.
+function assigneeFor(status: ItemStatus): { role: string; verb: string } | null {
+  if (status === "open") return { role: "CRC", verb: "to respond" };
+  if (status === "responded") return { role: "CRA", verb: "to resolve" };
+  return null; // resolved — no one
 }
 
 const daysSince = (iso: string | null | undefined, nowMs: number): number => {
@@ -108,16 +117,15 @@ function buildItems(dataset: Dataset, studyId: string, hideEC: boolean, nowMs: n
     if (!fo) continue; // orphaned (no resolvable field) — skip
     const msgs = dataset.queryMessages.filter((m) => m.query_id === q.id).slice().sort((a, b) => (a.created_at < b.created_at ? -1 : 1));
     const last = msgs[msgs.length - 1];
-    const lastAction =
-      q.status === "resolved" ? `Resolved · ${agoLabel(last?.created_at, nowMs)}`
-        : q.status === "responded" ? `Responded by ${last?.author_name ?? last?.author_role ?? "—"} · ${agoLabel(last?.created_at, nowMs)}`
-        : `Raised · ${agoLabel(q.created_at ?? last?.created_at, nowMs)}`;
+    const first = msgs[0];
+    const qUnit = fo.field.unit ? ` ${fo.field.unit}` : "";
     items.push({
       kind: "query", id: q.id, code: qCodeFor(q.id), query: q, status: q.status as ItemStatus,
       subjectId: ctx.subjectId, subjectCode: ctx.subjectCode, siteName: ctx.siteName,
       formId: ctx.form.id, formName: ctx.form.name, fieldId: fo.field.id, fieldLabel: fo.field.label, fieldCode: (fo.field.code ?? "").toUpperCase(),
-      fieldValueId: q.field_value_id, openedISO: q.created_at ?? last?.created_at ?? null, daysOpen: daysSince(q.created_at ?? last?.created_at, nowMs), lastAction,
-      enteredValue: "", normalRange: "",
+      fieldValueId: q.field_value_id, openedISO: q.created_at ?? last?.created_at ?? null, daysOpen: daysSince(q.created_at ?? last?.created_at, nowMs),
+      enteredValue: fo.fv.value ? `${fo.fv.value}${qUnit}` : "—", queryText: q.title,
+      raisedByName: first?.author_name ?? "Monitor", raisedByRole: first?.author_role ?? "CRA", normalRange: "",
     });
   }
 
@@ -138,8 +146,8 @@ function buildItems(dataset: Dataset, studyId: string, hideEC: boolean, nowMs: n
         kind: "editcheck", id: ec.id, code: ecCodeFor(ec.id), ec, status: "editcheck",
         subjectId: ctx.subjectId, subjectCode: ctx.subjectCode, siteName: ctx.siteName,
         formId: ctx.form.id, formName: ctx.form.name, fieldId: fo.field.id, fieldLabel: fo.field.label, fieldCode: (fo.field.code ?? "").toUpperCase(),
-        fieldValueId: ec.field_value_id, openedISO: ec.created_at, daysOpen: daysSince(ec.created_at, nowMs), lastAction: "Auto edit check",
-        enteredValue, normalRange,
+        fieldValueId: ec.field_value_id, openedISO: ec.created_at, daysOpen: daysSince(ec.created_at, nowMs),
+        enteredValue, queryText: ec.message, raisedByName: "Edit check", raisedByRole: "Auto", normalRange,
       });
     }
   }
@@ -281,11 +289,6 @@ export default function QueriesPage() {
 
   if (!ready) return <div className="qy-screen"><div className="qy-empty"><i className="ti ti-loader-2"></i> Loading…</div></div>;
 
-  const statusChip = (i: QueryItem) =>
-    i.status === "open" ? <span className="qy-chip qc-raised">Raised</span>
-      : i.status === "responded" ? <span className="qy-chip qc-responded">Responded</span>
-      : <span className="qy-chip qc-resolved"><i className="ti ti-check" style={{ fontSize: 11 }}></i> Resolved</span>;
-
   return (
     <div className="qy-screen">
       {/* Header */}
@@ -346,49 +349,55 @@ export default function QueriesPage() {
           <table className="qy-table">
             <thead>
               <tr>
-                <th style={{ width: 78 }}>Query ID</th>
+                <th style={{ width: 96 }}>Query ID</th>
                 <th style={{ width: 130 }}>Subject</th>
-                <th style={{ width: 110 }}>Site</th>
-                <th>Form</th>
-                <th>Field</th>
-                <th style={{ width: 110 }}>Status</th>
-                <th style={{ width: 100 }}>Opened</th>
+                <th style={{ width: 120 }}>Site</th>
+                <th style={{ width: 200 }}>Form</th>
+                <th style={{ width: 180 }}>Field</th>
+                <th style={{ width: 120 }}>Value</th>
+                <th style={{ width: 260 }}>Query text</th>
+                <th style={{ width: 150 }}>Raised by</th>
+                <th style={{ width: 110 }}>Raised</th>
+                <th style={{ width: 150 }}>Assigned to</th>
                 <th style={{ width: 80 }}>Days open</th>
-                <th>Last action</th>
                 <th style={{ width: 150 }}>Actions</th>
               </tr>
             </thead>
             <tbody>
-              {filtered.map((i) => (
+              {filtered.map((i) => {
+                const assignee = assigneeFor(i.status);
+                return (
                 <tr key={i.id} className={panelId === i.id ? "active-row" : ""} onClick={() => openPanel(i)}>
-                  <td><span className="qy-id">{i.code}</span></td>
+                  <td><span className="qy-id"><span className={`qy-id-dot st-${i.status}`} aria-hidden="true"></span>{i.code}</span></td>
                   <td>{i.subjectId ? <span className="qy-subj" onClick={(e) => { e.stopPropagation(); gotoRecord(i); }} title="Open in subject record">{i.subjectCode}</span> : <span className="qy-mono">{i.subjectCode}</span>}</td>
-                  <td><span style={{ color: "var(--color-text-secondary)" }}>{i.siteName}</span></td>
+                  <td><span className="qy-site">{i.siteName}</span></td>
                   <td><span className="qy-text" title={i.formName}>{i.formName}</span></td>
                   <td><span className="qy-text" title={`${i.fieldLabel} (${i.fieldCode})`}>{i.fieldLabel}</span></td>
-                  <td>{statusChip(i)}</td>
+                  <td><span className="qy-val">{i.enteredValue}</span></td>
+                  <td><span className="qy-qtext" title={i.queryText}>{i.queryText}</span></td>
+                  <td><span className="qy-uname">{i.raisedByName}</span> <span className="qy-role">{i.raisedByRole}</span></td>
                   <td><span className="qy-mono">{i.openedISO ? i.openedISO.slice(0, 10) : "—"}</span></td>
+                  <td>{assignee ? <><span className="qy-role">{assignee.role}</span> <span className="qy-assign-verb">{assignee.verb}</span></> : <span className="qy-readonly">—</span>}</td>
                   <td><span className={`qy-days${daysCritQuery(i) ? " crit" : ""}`}>{i.daysOpen <= 0 ? "—" : `${i.daysOpen}d`}</span></td>
-                  <td><span style={{ fontSize: "var(--text-xs)", color: "var(--color-text-tertiary)" }}>{i.lastAction}</span></td>
                   <td onClick={(e) => e.stopPropagation()}>{actionsFor(i)}</td>
                 </tr>
-              ))}
+              ); })}
             </tbody>
           </table>
         ) : (
           <table className="qy-table">
             <thead>
               <tr>
-                <th style={{ width: 78 }}>EC ID</th>
+                <th style={{ width: 96 }}>EC ID</th>
                 <th style={{ width: 130 }}>Subject</th>
-                <th style={{ width: 110 }}>Site</th>
-                <th>Form</th>
-                <th>Field</th>
-                <th style={{ width: 130 }}>Value entered</th>
-                <th style={{ width: 140 }}>Normal range</th>
-                <th style={{ width: 100 }}>Opened</th>
+                <th style={{ width: 120 }}>Site</th>
+                <th style={{ width: 200 }}>Form</th>
+                <th style={{ width: 180 }}>Field</th>
+                <th style={{ width: 120 }}>Value</th>
+                <th style={{ width: 150 }}>Normal range</th>
+                <th style={{ width: 110 }}>Raised</th>
                 <th style={{ width: 80 }}>Days open</th>
-                <th style={{ width: 180 }}>Note</th>
+                <th style={{ width: 200 }}>Note</th>
               </tr>
             </thead>
             <tbody>
@@ -396,10 +405,10 @@ export default function QueriesPage() {
                 <tr key={i.id} className={panelId === i.id ? "active-row" : ""} onClick={() => openPanel(i)}>
                   <td><span className="qy-id ec">{i.code}</span></td>
                   <td>{i.subjectId ? <span className="qy-subj" onClick={(e) => { e.stopPropagation(); gotoRecord(i); }} title="Open in subject record">{i.subjectCode}</span> : <span className="qy-mono">{i.subjectCode}</span>}</td>
-                  <td><span style={{ color: "var(--color-text-secondary)" }}>{i.siteName}</span></td>
+                  <td><span className="qy-site">{i.siteName}</span></td>
                   <td><span className="qy-text" title={i.formName}>{i.formName}</span></td>
                   <td><span className="qy-text" title={`${i.fieldLabel} (${i.fieldCode})`}>{i.fieldLabel}</span></td>
-                  <td><span className="qy-ec-val">{i.enteredValue}</span></td>
+                  <td><span className="qy-val">{i.enteredValue}</span></td>
                   <td><span className="qy-mono">{i.normalRange}</span></td>
                   <td><span className="qy-mono">{i.openedISO ? i.openedISO.slice(0, 10) : "—"}</span></td>
                   <td><span className={`qy-days${i.daysOpen > 7 ? " crit" : ""}`}>{i.daysOpen <= 0 ? "—" : `${i.daysOpen}d`}</span></td>
