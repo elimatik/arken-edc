@@ -478,10 +478,15 @@ export function SubjectRecord({ studyId, subjectId, initialFormId, initialPanelF
   const readOnly = locked || isEproForm || subjectClosed; // fields are non-editable when true
 
   // ─── Emergency unblinding (double-blind studies only — CA-0801) ─────────────
+  // The unblinding record persists in the session (for the audit trail), but the
+  // REVEAL is role-scoped: only DM / Admin see the arm after an unblinding. Switch
+  // to any other role and the subject re-blinds (no hint an unblinding occurred).
   const isDoubleBlind = studyRow?.code === "CA-0801";
+  const isPrivilegedViewer = activeRole === "DM" || activeRole === "Admin";
   const unblindRec = (dataset.unblindings ?? []).find((u) => u.subject_id === subjectId);
-  const armRevealed = !isDoubleBlind || !!unblindRec; // a non-blind study shows its arm normally
-  const canUnblind = isDoubleBlind && !unblindRec && (activeRole === "DM" || activeRole === "Admin");
+  const armRevealed = !isDoubleBlind || (!!unblindRec && isPrivilegedViewer);
+  const armUnblinded = isDoubleBlind && !!unblindRec && isPrivilegedViewer; // show the "unblinded" badge only to privileged viewers
+  const canUnblind = isDoubleBlind && !unblindRec && isPrivilegedViewer;
   const displayArm = !subject.randomization_arm ? null : armRevealed ? subject.randomization_arm : "Blinded";
   function confirmUnblind() {
     if (!unblindReason.trim()) return;
@@ -1312,10 +1317,10 @@ export function SubjectRecord({ studyId, subjectId, initialFormId, initialPanelF
               {displayArm && (
                 <>
                   <span className="meta-sep">·</span>
-                  <span className={`subject-arm${displayArm === "Blinded" ? " blinded" : ""}${unblindRec ? " revealed" : ""}`}>
+                  <span className={`subject-arm${displayArm === "Blinded" ? " blinded" : ""}${armUnblinded ? " revealed" : ""}`}>
                     {displayArm === "Blinded" && <i className="ti ti-eye-off" style={{ fontSize: "11px", marginRight: 3 }}></i>}
-                    {unblindRec && <i className="ti ti-eye-exclamation" style={{ fontSize: "11px", marginRight: 3 }}></i>}
-                    {displayArm}{unblindRec && " · unblinded"}
+                    {armUnblinded && <i className="ti ti-eye-exclamation" style={{ fontSize: "11px", marginRight: 3 }}></i>}
+                    {displayArm}{armUnblinded && " · unblinded"}
                   </span>
                 </>
               )}
@@ -2155,6 +2160,10 @@ export function SubjectRecord({ studyId, subjectId, initialFormId, initialPanelF
             <div className="sr-modal-title" style={{ color: "var(--red-600)" }}><i className="ti ti-eye-exclamation"></i> Emergency Unblinding</div>
             <div className="sr-modal-body">
               This action will reveal the treatment arm for <strong>{subject.subject_code}</strong> and create a permanent audit entry. <strong>This action cannot be undone.</strong>
+              <div style={{ marginTop: "var(--space-2)", color: "var(--color-text-tertiary)", fontSize: "var(--text-xs)" }}>
+                <i className="ti ti-eye-off" style={{ fontSize: "12px", marginRight: 4 }}></i>
+                The treatment arm will only be visible to DM and Admin roles. Other roles will continue to see the blinded view.
+              </div>
             </div>
             <textarea
               className="compose-textarea"
