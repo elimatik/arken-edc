@@ -63,13 +63,15 @@ const CAT_OPTIONS: { value: string; label: string }[] = [
 ];
 
 interface AuditUser { name: string; role: string; initials: string; auto?: boolean }
+type AuditScope = "subject" | "site" | "barn";
 interface AuditEvent {
   id: string;
   ts: string; // ISO
   type: AuditType;
   user: AuditUser;
+  scope: AuditScope; // which level the action occurred at (drives the Subject column)
   subjectId: string | null;
-  subjectCode: string;
+  subjectCode: string; // subject ID, or the site / barn name when not subject-scoped
   siteName: string;
   formId: string | null;
   formName: string;
@@ -143,10 +145,11 @@ function buildAuditEvents(dataset: Dataset, studyId: string, baseNow: number): A
     let siteId = subj?.site_id ?? inst.site_id ?? null;
     if (!siteId && inst.barn_id) siteId = barnById.get(inst.barn_id)?.site_id ?? null;
     const siteName = siteId ? siteById.get(siteId)?.name ?? "—" : "—";
+    const scope: AuditScope = subj ? "subject" : inst.site_id ? "site" : inst.barn_id ? "barn" : "subject";
     const subjectCode = subj?.subject_code ?? (inst.site_id ? siteById.get(inst.site_id)?.name : inst.barn_id ? barnById.get(inst.barn_id)?.name : null) ?? "—";
     const parent = form.parent_form_id ? formById.get(form.parent_form_id) : null;
     const formPath = parent ? `${parent.name} — ${form.name}` : form.name;
-    return { subjectId: subj?.id ?? null, subjectCode, siteName, formId: form.id, formName: form.name, formPath };
+    return { scope, subjectId: subj?.id ?? null, subjectCode, siteName, formId: form.id, formName: form.name, formPath };
   };
   const fieldOfValue = (fvId: string | null) => {
     if (!fvId) return null;
@@ -263,7 +266,7 @@ function buildAuditEvents(dataset: Dataset, studyId: string, baseNow: number): A
     const subj = subjById.get(u.subject_id);
     if (!subj || subj.study_id !== studyId) continue;
     const siteName = subj.site_id ? siteById.get(subj.site_id)?.name ?? "—" : "—";
-    push({ ts: u.created_at, type: "unblinding", user: mkUser(u.author_name, u.author_role),
+    push({ ts: u.created_at, type: "unblinding", user: mkUser(u.author_name, u.author_role), scope: "subject",
       subjectId: subj.id, subjectCode: subj.subject_code, siteName, formId: null, formName: "Subject record", formPath: "Subject record",
       fieldId: null, fieldLabel: "", fieldCode: "", oldValue: "Blinded", newValue: u.arm,
       details: `Emergency unblinding — treatment arm revealed: ${u.arm}`, reason: u.reason });
@@ -273,7 +276,7 @@ function buildAuditEvents(dataset: Dataset, studyId: string, baseNow: number): A
   for (const subj of dataset.subjects) {
     if (subj.study_id !== studyId) continue;
     const siteName = subj.site_id ? siteById.get(subj.site_id)?.name ?? "—" : "—";
-    const ctx = { subjectId: subj.id, subjectCode: subj.subject_code, siteName, formId: null, formName: "Subject record", formPath: "Subject record" };
+    const ctx = { scope: "subject" as AuditScope, subjectId: subj.id, subjectCode: subj.subject_code, siteName, formId: null, formName: "Subject record", formPath: "Subject record" };
     push({ ts: synthTs(`enr${subj.id}`, baseNow), type: "subject_enrolled", user: CAST.CRC, ...ctx, fieldId: null, fieldLabel: "", fieldCode: "",
       oldValue: null, newValue: null, details: "Subject enrolled — screening complete, all criteria met", statusBefore: "—", statusAfter: "Screened" });
     if (subj.status === "withdrawn") {
@@ -285,7 +288,7 @@ function buildAuditEvents(dataset: Dataset, studyId: string, baseNow: number): A
   // 8 — Login events (synthetic; surfaced to Admin only — see visibleTo).
   for (const role of ["CRC", "CRA", "DM", "PI"] as const) {
     const u = CAST[role];
-    push({ ts: synthTs(`login${role}`, baseNow, 7), type: "login", user: u, subjectId: null, subjectCode: "—", siteName: "—",
+    push({ ts: synthTs(`login${role}`, baseNow, 7), type: "login", user: u, scope: "subject", subjectId: null, subjectCode: "—", siteName: "—",
       formId: null, formName: "—", formPath: "—", fieldId: null, fieldLabel: "", fieldCode: "",
       oldValue: null, newValue: null, details: `${u.name} authenticated to the study` });
   }
@@ -436,6 +439,18 @@ export default function AuditTrailPage() {
   const userCell = (u: AuditUser) => (
     <span className="au-user"><span className="au-uname">{u.name}</span><span className="au-role">{u.role}</span></span>
   );
+  // Subject column — a linked subject ID for subject-scoped events; for site- or
+  // barn-level events show the location name in a distinct (non-ID) style so it
+  // reads as a level, not a subject.
+  const subjectCell = (e: AuditEvent) => {
+    if (e.scope === "subject" && e.subjectId) {
+      return <span className="au-subj" onClick={(ev) => { ev.stopPropagation(); gotoRecord(e); }} title="Open in subject record">{e.subjectCode}</span>;
+    }
+    if ((e.scope === "site" || e.scope === "barn") && e.subjectCode !== "—") {
+      return <span className={`au-scope au-scope-${e.scope}`} title={`${e.scope === "site" ? "Site" : "House / barn"}-level entry`}><i className={`ti ti-${e.scope === "site" ? "map-pin" : "building-warehouse"}`}></i> {e.subjectCode}</span>;
+    }
+    return <span className="au-subj plain">{e.subjectCode}</span>;
+  };
 
   return (
     <div className="au-screen">
@@ -508,7 +523,7 @@ export default function AuditTrailPage() {
                     <td><span className="au-ts">{fmtTs(e.ts)}</span></td>
                     <td>{userCell(e.user)}</td>
                     <td><span className={`au-type ${meta.cls}`}><i className={`ti ti-${meta.icon}`}></i> {meta.label}</span></td>
-                    <td>{e.subjectId ? <span className="au-subj" onClick={(ev) => { ev.stopPropagation(); gotoRecord(e); }} title="Open in subject record">{e.subjectCode}</span> : <span className="au-subj plain">{e.subjectCode}</span>}</td>
+                    <td>{subjectCell(e)}</td>
                     <td><span className="au-form" title={e.formPath}>{e.formName}</span></td>
                     <td>{e.fieldLabel ? <span className="au-field"><span className="au-field-label" title={e.fieldLabel}>{e.fieldLabel}</span>{e.fieldCode && <span className="au-field-code">{e.fieldCode}</span>}</span> : <span className="au-dash">—</span>}</td>
                     <td>{e.oldValue != null ? <span className="au-old" title={e.oldValue}>{e.oldValue}</span> : <span className="au-dash">—</span>}</td>
@@ -557,8 +572,10 @@ export default function AuditTrailPage() {
                 {row("Action", <span className={`au-type ${meta.cls}`}><i className={`ti ti-${meta.icon}`}></i> {meta.label}</span>)}
                 {row("User", <>{panelEvent.user.name} <span className="au-role" style={{ marginLeft: 4 }}>{panelEvent.user.role}</span></>)}
                 {row("Session", <span style={{ color: "var(--color-text-tertiary)" }}><i className="ti ti-device-desktop" style={{ fontSize: 12, marginRight: 4 }}></i>Timestamp: UTC · Electronic signature: session-authenticated</span>)}
-                {panelEvent.subjectCode !== "—" && row("Subject", <span style={{ fontFamily: "var(--font-mono)" }}>{panelEvent.subjectCode}</span>)}
-                {panelEvent.siteName !== "—" && row("Site", panelEvent.siteName)}
+                {panelEvent.subjectCode !== "—" && panelEvent.scope === "subject" && row("Subject", <span style={{ fontFamily: "var(--font-mono)" }}>{panelEvent.subjectCode}</span>)}
+                {panelEvent.subjectCode !== "—" && panelEvent.scope === "site" && row("Site (level)", <span className="au-scope au-scope-site"><i className="ti ti-map-pin"></i> {panelEvent.subjectCode}</span>)}
+                {panelEvent.subjectCode !== "—" && panelEvent.scope === "barn" && row("House (level)", <span className="au-scope au-scope-barn"><i className="ti ti-building-warehouse"></i> {panelEvent.subjectCode}</span>)}
+                {panelEvent.siteName !== "—" && panelEvent.scope !== "site" && row("Site", panelEvent.siteName)}
                 {panelEvent.formName !== "—" && row("Form", panelEvent.formPath)}
                 {panelEvent.fieldLabel && row("Field", <>{panelEvent.fieldLabel} {panelEvent.fieldCode && <span className="au-field-code">{panelEvent.fieldCode}</span>}</>)}
                 {panelEvent.oldValue != null && row("Old value", <span className="au-old">{panelEvent.oldValue}</span>)}

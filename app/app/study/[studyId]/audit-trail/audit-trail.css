@@ -53,6 +53,11 @@
 .au-subj { font-family: var(--font-mono); font-weight: var(--weight-medium); font-size: var(--text-xs); color: var(--blue-600); text-decoration: underline; text-underline-offset: 2px; cursor: pointer; white-space: nowrap; }
 .au-subj:hover { color: var(--blue-700, #0F4C8A); }
 .au-subj.plain { color: var(--color-text-secondary); text-decoration: none; cursor: default; }
+/* Site- / barn-level entries — location name, NOT a subject ID (italic + icon). */
+.au-scope { display: inline-flex; align-items: center; gap: 4px; font-size: var(--text-xs); font-style: italic; color: var(--color-text-secondary); white-space: nowrap; max-width: 150px; overflow: hidden; text-overflow: ellipsis; }
+.au-scope i { font-size: 12px; flex-shrink: 0; font-style: normal; }
+.au-scope-site i { color: var(--blue-600); }
+.au-scope-barn i { color: var(--amber-700); }
 .au-form { color: var(--color-text-secondary); max-width: 200px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; display: inline-block; }
 .au-field { display: inline-flex; align-items: center; gap: 6px; min-width: 0; max-width: 180px; }
 .au-field-label { font-size: var(--text-xs); color: var(--color-text-primary); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; min-width: 0; }
