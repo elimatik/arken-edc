@@ -21,19 +21,20 @@
 .au-banner { display: flex; align-items: center; gap: var(--space-2); padding: var(--space-2) var(--space-5); background: var(--slate-50); border-bottom: 1px solid var(--slate-200); color: var(--slate-600); font-size: var(--text-xs); flex-shrink: 0; }
 .au-banner i { font-size: 14px; flex-shrink: 0; }
 
-/* Filter toolbar */
-.au-toolbar { padding: var(--space-3) var(--space-5); background: var(--color-surface); border-bottom: 1px solid var(--color-border); display: flex; align-items: center; gap: var(--space-3); flex-wrap: wrap; flex-shrink: 0; }
-.au-search { display: flex; align-items: center; gap: var(--space-2); height: 32px; padding: 0 var(--space-3); border: 1px solid var(--color-border); border-radius: var(--radius-md); background: var(--color-surface); min-width: 220px; }
+/* Filter toolbar — single row for every role (no wrap); scrolls horizontally
+   only if a very narrow viewport can't fit it. */
+.au-toolbar { padding: var(--space-3) var(--space-5); background: var(--color-surface); border-bottom: 1px solid var(--color-border); display: flex; align-items: center; gap: var(--space-2); flex-wrap: nowrap; overflow-x: auto; flex-shrink: 0; }
+.au-search { display: flex; align-items: center; gap: var(--space-2); height: 32px; padding: 0 var(--space-3); border: 1px solid var(--color-border); border-radius: var(--radius-md); background: var(--color-surface); flex: 0 1 190px; min-width: 150px; }
 .au-search i { font-size: 14px; color: var(--color-text-placeholder); flex-shrink: 0; }
-.au-search input { border: none; outline: none; font-size: var(--text-sm); font-family: var(--font-sans); color: var(--color-text-primary); background: transparent; flex: 1; }
-/* Fixed min-width so every filter dropdown is the same size regardless of the
-   options available to the active role (Chrome sizes a <select> to its longest
-   option, which otherwise made shorter per-role lists render narrower). */
-.au-select { height: 32px; min-width: 160px; padding: 0 26px 0 var(--space-2); font-size: var(--text-sm); font-family: var(--font-sans); border: 1px solid var(--color-border); border-radius: var(--radius-md); background: var(--color-surface); color: var(--color-text-primary); cursor: pointer; appearance: none; background-image: url("data:image/svg+xml,%3Csvg width='8' height='12' viewBox='0 0 8 12' fill='none' xmlns='http://www.w3.org/2000/svg'%3E%3Cpath d='M1 1L6 6L1 11' stroke='%236D7480' stroke-width='1.5' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E"); background-repeat: no-repeat; background-position: right 8px center; outline: none; }
-.au-date { height: 32px; padding: 0 var(--space-2); font-size: var(--text-sm); font-family: var(--font-mono); border: 1px solid var(--color-border); border-radius: var(--radius-md); background: var(--color-surface); color: var(--color-text-primary); outline: none; width: 140px; }
-.au-date-group { display: inline-flex; align-items: center; gap: 6px; }
+.au-search input { border: none; outline: none; font-size: var(--text-sm); font-family: var(--font-sans); color: var(--color-text-primary); background: transparent; flex: 1; min-width: 0; }
+/* Every filter dropdown is exactly the same fixed width regardless of the
+   options available to the active role (Chrome otherwise sizes a <select> to its
+   longest option, so shorter per-role lists rendered narrower). */
+.au-select { height: 32px; width: 140px; flex-shrink: 0; padding: 0 26px 0 var(--space-2); font-size: var(--text-sm); font-family: var(--font-sans); border: 1px solid var(--color-border); border-radius: var(--radius-md); background: var(--color-surface); color: var(--color-text-primary); cursor: pointer; appearance: none; background-image: url("data:image/svg+xml,%3Csvg width='8' height='12' viewBox='0 0 8 12' fill='none' xmlns='http://www.w3.org/2000/svg'%3E%3Cpath d='M1 1L6 6L1 11' stroke='%236D7480' stroke-width='1.5' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E"); background-repeat: no-repeat; background-position: right 8px center; outline: none; }
+.au-date { height: 32px; padding: 0 var(--space-2); font-size: var(--text-sm); font-family: var(--font-mono); border: 1px solid var(--color-border); border-radius: var(--radius-md); background: var(--color-surface); color: var(--color-text-primary); outline: none; width: 120px; flex-shrink: 0; }
+.au-date-group { display: inline-flex; align-items: center; gap: 5px; flex-shrink: 0; }
 .au-date-lbl { font-size: var(--text-xs); font-weight: var(--weight-medium); text-transform: uppercase; letter-spacing: var(--tracking-caps); color: var(--color-text-tertiary); }
-.au-count { font-size: var(--text-xs); color: var(--color-text-tertiary); white-space: nowrap; margin-left: auto; }
+.au-count { font-size: var(--text-xs); color: var(--color-text-tertiary); white-space: nowrap; margin-left: auto; flex-shrink: 0; padding-left: var(--space-2); }
 
 /* Table */
 .au-table-wrap { flex: 1; overflow: auto; }

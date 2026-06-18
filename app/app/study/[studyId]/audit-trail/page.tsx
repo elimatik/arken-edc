@@ -293,13 +293,16 @@ function buildAuditEvents(dataset: Dataset, studyId: string, baseNow: number): A
   return events;
 }
 
-// Role-scoped visibility: PI sees only subject-level events; login events are
+// Role-scoped visibility. PI sees EVERY action type CRA sees (data entry, all
+// query states, SDV, form submitted/locked, edit check, change reason, enrolled/
+// withdrawn, consent, randomization, protocol deviation, …) — only narrowed to
+// subject-level events (no site/barn/study-level rows). Login events are
 // Admin-only. Emergency Unblinding rows ARE visible to every audit-trail role
 // (oversight transparency) — the sensitive details are masked instead (see
 // roleEvents), not the whole row. CRA/DM/Admin see everything else.
 function visibleTo(e: AuditEvent, role: string): boolean {
   if (e.type === "login") return role === "Admin";
-  if (role === "PI") return e.subjectId != null;
+  if (role === "PI") return e.subjectId != null; // all types, scoped to subjects
   return true;
 }
 
