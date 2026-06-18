@@ -62,8 +62,10 @@ export const NAV_ITEMS: NavItem[] = [
     access: { CRC: open, CRA: open, DM: open, PI: open, Sponsor: { blinded: true }, Admin: open } },
   { key: "inventory", label: "Inventory", icon: "package",
     access: { CRA: open, DM: open, Sponsor: { blinded: true }, Admin: open } },
+  // Audit Trail (21 CFR Part 11) — oversight roles only; the CRC who enters data
+  // does not review the immutable log of it.
   { key: "audit", label: "Audit Trail", title: "Audit Trail", icon: "clipboard-list",
-    access: { CRC: open, CRA: open, DM: open, PI: open, Admin: open } },
+    access: { CRA: open, DM: open, PI: open, Admin: open } },
   { key: "invoices", label: "Invoices", icon: "receipt",
     access: { Admin: open } },
   // Pinned to the bottom of the sidenav.
@@ -83,6 +85,7 @@ export const NAV_ROUTES: Partial<Record<string, string>> = {
   "data-entry": "data-entry",
   animals: "animals",
   queries: "queries",
+  audit: "audit-trail",
   sites: "sites",
   settings: "settings",
 };
