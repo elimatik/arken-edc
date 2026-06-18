@@ -67,10 +67,6 @@ const daysSince = (iso: string | null | undefined, nowMs: number): number => {
   if (Number.isNaN(t)) return 0;
   return Math.max(0, Math.round((nowMs - t) / 86400000));
 };
-const agoLabel = (iso: string | null | undefined, nowMs: number): string => {
-  const d = daysSince(iso, nowMs);
-  return d <= 0 ? "today" : `${d} day${d === 1 ? "" : "s"} ago`;
-};
 // Fallback: pull a "38.3–39.2 °C" range out of an edit-check message's parentheses.
 const rangeFromMessage = (msg: string): string => {
   const m = msg.match(/\(([^()]*\d[^()]*[–-][^()]*)\)/);
@@ -289,6 +285,19 @@ export default function QueriesPage() {
 
   if (!ready) return <div className="qy-screen"><div className="qy-empty"><i className="ti ti-loader-2"></i> Loading…</div></div>;
 
+  const truncate = (s: string, n = 60) => (s.length > n ? `${s.slice(0, n).trimEnd()}…` : s);
+  const statusChip = (i: QueryItem) =>
+    i.kind === "editcheck" ? <span className="qy-chip qc-editcheck"><i className="ti ti-alert-circle" style={{ fontSize: 11 }}></i> Edit Check</span>
+      : i.status === "open" ? <span className="qy-chip qc-raised">Raised</span>
+      : i.status === "responded" ? <span className="qy-chip qc-responded">Responded</span>
+      : <span className="qy-chip qc-resolved"><i className="ti ti-check" style={{ fontSize: 11 }}></i> Resolved</span>;
+  const fieldCell = (i: QueryItem) => (
+    <span className="qy-field">
+      <span className="qy-field-label" title={`${i.fieldLabel} (${i.fieldCode})`}>{i.fieldLabel}</span>
+      <span className="qy-field-form" title={i.formName}>{i.formName}</span>
+    </span>
+  );
+
   return (
     <div className="qy-screen">
       {/* Header */}
@@ -349,17 +358,15 @@ export default function QueriesPage() {
           <table className="qy-table">
             <thead>
               <tr>
-                <th style={{ width: 96 }}>Query ID</th>
+                <th style={{ width: 92 }}>Query ID</th>
                 <th style={{ width: 130 }}>Subject</th>
                 <th style={{ width: 120 }}>Site</th>
-                <th style={{ width: 200 }}>Form</th>
-                <th style={{ width: 180 }}>Field</th>
+                <th style={{ width: 220 }}>Field</th>
                 <th style={{ width: 120 }}>Value</th>
-                <th style={{ width: 260 }}>Query text</th>
-                <th style={{ width: 150 }}>Raised by</th>
-                <th style={{ width: 110 }}>Raised</th>
+                <th style={{ width: 300 }}>Query text</th>
+                <th style={{ width: 116 }}>Status</th>
+                <th style={{ width: 84 }}>Days open</th>
                 <th style={{ width: 150 }}>Assigned to</th>
-                <th style={{ width: 80 }}>Days open</th>
                 <th style={{ width: 150 }}>Actions</th>
               </tr>
             </thead>
@@ -368,17 +375,15 @@ export default function QueriesPage() {
                 const assignee = assigneeFor(i.status);
                 return (
                 <tr key={i.id} className={panelId === i.id ? "active-row" : ""} onClick={() => openPanel(i)}>
-                  <td><span className="qy-id"><span className={`qy-id-dot st-${i.status}`} aria-hidden="true"></span>{i.code}</span></td>
+                  <td><span className="qy-id">{i.code}</span></td>
                   <td>{i.subjectId ? <span className="qy-subj" onClick={(e) => { e.stopPropagation(); gotoRecord(i); }} title="Open in subject record">{i.subjectCode}</span> : <span className="qy-mono">{i.subjectCode}</span>}</td>
                   <td><span className="qy-site">{i.siteName}</span></td>
-                  <td><span className="qy-text" title={i.formName}>{i.formName}</span></td>
-                  <td><span className="qy-text" title={`${i.fieldLabel} (${i.fieldCode})`}>{i.fieldLabel}</span></td>
+                  <td>{fieldCell(i)}</td>
                   <td><span className="qy-val">{i.enteredValue}</span></td>
-                  <td><span className="qy-qtext" title={i.queryText}>{i.queryText}</span></td>
-                  <td><span className="qy-uname">{i.raisedByName}</span> <span className="qy-role">{i.raisedByRole}</span></td>
-                  <td><span className="qy-mono">{i.openedISO ? i.openedISO.slice(0, 10) : "—"}</span></td>
-                  <td>{assignee ? <><span className="qy-role">{assignee.role}</span> <span className="qy-assign-verb">{assignee.verb}</span></> : <span className="qy-readonly">—</span>}</td>
+                  <td><span className="qy-qtext" title={i.queryText}>{truncate(i.queryText)}</span></td>
+                  <td>{statusChip(i)}</td>
                   <td><span className={`qy-days${daysCritQuery(i) ? " crit" : ""}`}>{i.daysOpen <= 0 ? "—" : `${i.daysOpen}d`}</span></td>
+                  <td>{assignee ? <><span className="qy-role">{assignee.role}</span> <span className="qy-assign-verb">{assignee.verb}</span></> : <span className="qy-readonly">—</span>}</td>
                   <td onClick={(e) => e.stopPropagation()}>{actionsFor(i)}</td>
                 </tr>
               ); })}
@@ -388,16 +393,14 @@ export default function QueriesPage() {
           <table className="qy-table">
             <thead>
               <tr>
-                <th style={{ width: 96 }}>EC ID</th>
+                <th style={{ width: 92 }}>Edit check ID</th>
                 <th style={{ width: 130 }}>Subject</th>
                 <th style={{ width: 120 }}>Site</th>
-                <th style={{ width: 200 }}>Form</th>
-                <th style={{ width: 180 }}>Field</th>
+                <th style={{ width: 220 }}>Field</th>
                 <th style={{ width: 120 }}>Value</th>
                 <th style={{ width: 150 }}>Normal range</th>
-                <th style={{ width: 110 }}>Raised</th>
-                <th style={{ width: 80 }}>Days open</th>
-                <th style={{ width: 200 }}>Note</th>
+                <th style={{ width: 120 }}>Status</th>
+                <th style={{ width: 84 }}>Days open</th>
               </tr>
             </thead>
             <tbody>
@@ -406,13 +409,11 @@ export default function QueriesPage() {
                   <td><span className="qy-id ec">{i.code}</span></td>
                   <td>{i.subjectId ? <span className="qy-subj" onClick={(e) => { e.stopPropagation(); gotoRecord(i); }} title="Open in subject record">{i.subjectCode}</span> : <span className="qy-mono">{i.subjectCode}</span>}</td>
                   <td><span className="qy-site">{i.siteName}</span></td>
-                  <td><span className="qy-text" title={i.formName}>{i.formName}</span></td>
-                  <td><span className="qy-text" title={`${i.fieldLabel} (${i.fieldCode})`}>{i.fieldLabel}</span></td>
+                  <td>{fieldCell(i)}</td>
                   <td><span className="qy-val">{i.enteredValue}</span></td>
                   <td><span className="qy-mono">{i.normalRange}</span></td>
-                  <td><span className="qy-mono">{i.openedISO ? i.openedISO.slice(0, 10) : "—"}</span></td>
+                  <td>{statusChip(i)}</td>
                   <td><span className={`qy-days${i.daysOpen > 7 ? " crit" : ""}`}>{i.daysOpen <= 0 ? "—" : `${i.daysOpen}d`}</span></td>
-                  <td onClick={(e) => e.stopPropagation()}><span className="qy-act-note"><i className="ti ti-arrow-up-right"></i> Resolve on subject record</span></td>
                 </tr>
               ))}
             </tbody>

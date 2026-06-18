@@ -41,11 +41,6 @@
 .qy-table tbody td:last-child { padding-right: var(--space-5); }
 .qy-id { display: inline-flex; align-items: center; font-family: var(--font-mono); font-weight: var(--weight-medium); font-size: var(--text-sm); color: var(--color-text-primary); white-space: nowrap; }
 .qy-id.ec { color: var(--orange-600); }
-/* Status color indicator on the Query ID (replaces the Status column). */
-.qy-id-dot { display: inline-block; width: 7px; height: 7px; border-radius: 50%; margin-right: 7px; flex-shrink: 0; }
-.qy-id-dot.st-open { background: var(--orange-600); }
-.qy-id-dot.st-responded { background: var(--amber-700); }
-.qy-id-dot.st-resolved { background: var(--green-600); }
 .qy-subj { font-family: var(--font-mono); font-weight: var(--weight-medium); font-size: var(--text-sm); color: var(--blue-600); text-decoration: underline; text-underline-offset: 2px; cursor: pointer; }
 .qy-subj:hover { color: var(--blue-700, #0F4C8A); }
 .qy-site { color: var(--color-text-secondary); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; display: inline-block; max-width: 120px; }
@@ -53,12 +48,15 @@
 .qy-mono { font-family: var(--font-mono); font-size: var(--text-sm); color: var(--color-text-secondary); white-space: nowrap; }
 .qy-days { font-family: var(--font-mono); font-size: var(--text-sm); font-weight: var(--weight-medium); color: var(--color-text-secondary); }
 .qy-days.crit { color: var(--red-600); }
-/* Value column — the field value that triggered the query / EC (amber mono, as file 15). */
+/* Field column — field label (primary) over the form name (smaller, secondary). */
+.qy-field { display: flex; flex-direction: column; gap: 1px; max-width: 220px; min-width: 0; }
+.qy-field-label { font-size: var(--text-sm); font-weight: var(--weight-medium); color: var(--color-text-primary); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.qy-field-form { font-size: var(--text-xs); color: var(--color-text-tertiary); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+/* Value column — the field value related to the query / EC (amber mono, as file 15). */
 .qy-val { font-family: var(--font-mono); font-size: var(--text-xs); color: var(--amber-700); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; display: inline-block; max-width: 120px; }
-/* Query-text column — 2-line clamp, full text on hover (file 15 .query-text). */
-.qy-qtext { display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; font-size: var(--text-sm); color: var(--color-text-secondary); line-height: 1.4; max-width: 260px; }
-/* Raised-by / Assigned-to — name + role pill, NO avatar (file 15 minus .user-av). */
-.qy-uname { font-size: var(--text-sm); font-weight: var(--weight-medium); color: var(--color-text-primary); }
+/* Query-text column — single-line truncation; full text in the slide-in panel. */
+.qy-qtext { display: inline-block; max-width: 300px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; font-size: var(--text-sm); color: var(--color-text-secondary); }
+/* Assigned-to — role pill + action verb (no avatar). */
 .qy-role { display: inline-flex; align-items: center; padding: 1px 5px; border-radius: var(--radius-sm); background: var(--color-page-bg); border: 1px solid var(--color-border); font-size: 10px; font-weight: var(--weight-medium); color: var(--color-text-secondary); white-space: nowrap; }
 .qy-assign-verb { font-size: var(--text-xs); color: var(--color-text-tertiary); margin-left: 4px; }
 /* Edit-check "Value entered" chip — used in the slide-in panel detail block. */
