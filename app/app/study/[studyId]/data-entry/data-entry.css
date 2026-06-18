@@ -62,7 +62,7 @@
 .de-table tbody tr { border-bottom: 1px solid var(--color-border-subtle); transition: background var(--duration-fast); }
 .de-table tbody tr.clickable:hover { background: var(--color-hover-bg); cursor: pointer; }
 .de-table tbody td { padding: var(--space-2) var(--space-3); vertical-align: middle; }
-.de-table tbody td:first-child { padding-left: var(--space-5); }
+.de-table tbody td:first-child { padding-left: var(--space-5); white-space: nowrap; }
 .de-table tbody td:last-child { padding-right: var(--space-5); }
 .mono { font-family: var(--font-mono); font-size: var(--text-sm); }
 .muted { color: var(--color-text-secondary); }

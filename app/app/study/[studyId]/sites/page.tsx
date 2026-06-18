@@ -4,6 +4,8 @@ import { useMemo, useState } from "react";
 import { useRouter, useParams } from "next/navigation";
 import { useShell } from "@/components/shell/ShellContext";
 import { useStudySession } from "@/lib/session-store/SessionStore";
+import { useTableSort } from "@/lib/useTableSort";
+import { SortTh } from "@/components/common/SortTh";
 import { TIME_ZONES } from "./constants";
 import "./sites.css";
 
@@ -35,6 +37,7 @@ export default function SitesPage() {
   const { dataset, ready, update } = useStudySession();
 
   const isAdmin = activeRole === "Admin";
+  const { sort, toggle } = useTableSort(null);
   const [addOpen, setAddOpen] = useState(false);
   const [fName, setFName] = useState("");
   const [fNumber, setFNumber] = useState("");
@@ -67,6 +70,29 @@ export default function SitesPage() {
       };
     });
   }, [ready, dataset, studyId]);
+
+  // ─── Apply table sort (null = default order from `rows`) ────────────────────
+  const sortedRows = useMemo<SiteRow[]>(() => {
+    if (!sort) return rows;
+    const val = (r: SiteRow): string | number => {
+      switch (sort.col) {
+        case "code": return r.code;
+        case "name": return r.name;
+        case "pi": return r.pi;
+        case "location": return r.location;
+        case "status": return r.status;
+        case "enrollment": return r.enrolled;
+        case "queries": return r.openQueries;
+        default: return r.code;
+      }
+    };
+    const mul = sort.dir === "desc" ? -1 : 1;
+    return rows.slice().sort((a, b) => {
+      const av = val(a), bv = val(b);
+      const cmp = typeof av === "number" && typeof bv === "number" ? av - bv : String(av).localeCompare(String(bv));
+      return cmp * mul;
+    });
+  }, [rows, sort]);
 
   function createSite() {
     if (!fName.trim() || !fNumber.trim() || !fPiName.trim()) return;
@@ -107,25 +133,25 @@ export default function SitesPage() {
         <table className="sites-table">
           <thead>
             <tr>
-              <th>Site #</th>
-              <th>Site name</th>
-              <th>Principal investigator</th>
-              <th>Location</th>
-              <th>Status</th>
-              <th>Enrollment</th>
-              <th>Open queries</th>
+              <SortTh label="Site #" sortKey="code" sort={sort} onSort={toggle} />
+              <SortTh label="Site name" sortKey="name" sort={sort} onSort={toggle} />
+              <SortTh label="Principal investigator" sortKey="pi" sort={sort} onSort={toggle} />
+              <SortTh label="Location" sortKey="location" sort={sort} onSort={toggle} />
+              <SortTh label="Status" sortKey="status" sort={sort} onSort={toggle} />
+              <SortTh label="Enrollment" sortKey="enrollment" sort={sort} onSort={toggle} />
+              <SortTh label="Open queries" sortKey="queries" sort={sort} onSort={toggle} />
             </tr>
           </thead>
           <tbody>
-            {rows.length === 0 ? (
+            {sortedRows.length === 0 ? (
               <tr><td colSpan={7}><div className="sites-empty"><i className="ti ti-building-hospital"></i> No sites yet.</div></td></tr>
             ) : (
-              rows.map((r) => {
+              sortedRows.map((r) => {
                 const sm = STATUS_META[r.status] || { cls: "st-badge-setup", label: r.status };
                 const pct = r.target > 0 ? Math.min(100, Math.round((r.enrolled / r.target) * 100)) : 0;
                 return (
                   <tr key={r.id} className="clickable" onClick={() => router.push(`/study/${studyId}/sites/${r.id}`)}>
-                    <td><span className="st-mono st-link">{r.code}</span></td>
+                    <td className="sites-cell-id"><span className="st-mono st-link">{r.code}</span></td>
                     <td><span className="st-link">{r.name}</span></td>
                     <td className="st-muted">{r.pi}</td>
                     <td className="st-muted">{r.location}</td>

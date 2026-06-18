@@ -16,6 +16,8 @@ import { useStudySession } from "@/lib/session-store/SessionStore";
 import { useNdaName } from "@/lib/use-nda-name";
 import { canQuery } from "@/lib/permissions";
 import { resolveRange } from "@/lib/forms/validation";
+import { useTableSort } from "@/lib/useTableSort";
+import { SortTh } from "@/components/common/SortTh";
 import { DEMO_USER_ID } from "@/lib/constants";
 import type { Dataset, EditCheckRow, QueryRow } from "@/lib/session-store/types";
 import "@/components/subject-record/subject-record.css";
@@ -62,8 +64,7 @@ function assigneeFor(status: ItemStatus): { role: string; verb: string } | null 
   return null; // resolved — no one
 }
 
-// ─── Column sort (same pattern as the Animals list) ─────────────────────────
-type ColSort = { key: string; dir: "asc" | "desc" } | null;
+// ─── Column sort comparator (state handled by the shared useTableSort hook) ──
 const STATUS_RANK: Record<string, number> = { open: 0, responded: 1, resolved: 2, editcheck: 0 };
 const assignKey = (i: QueryItem): string => assigneeFor(i.status)?.role ?? "~"; // resolved sorts last
 function colCompare(a: QueryItem, b: QueryItem, key: string): number {
@@ -194,7 +195,7 @@ export default function QueriesPage() {
   const [siteF, setSiteF] = useState("");
   const [assignF, setAssignF] = useState("all"); // all | mine
   const [sortF, setSortF] = useState("oldest"); // oldest | newest | subject (toolbar default)
-  const [colSort, setColSort] = useState<ColSort>(null); // clickable-header sort; overrides sortF
+  const { sort: colSort, toggle: toggleSort, setSort: setColSort } = useTableSort(null); // header sort; overrides sortF
   const [panelId, setPanelId] = useState<string | null>(null);
   const [reply, setReply] = useState("");
   const [manageOpen, setManageOpen] = useState(false);
@@ -246,7 +247,7 @@ export default function QueriesPage() {
     .sort((a, b) => {
       // A clickable-header sort overrides the toolbar Sort dropdown when active.
       if (colSort) {
-        const r = colCompare(a, b, colSort.key);
+        const r = colCompare(a, b, colSort.col);
         return colSort.dir === "asc" ? r : -r;
       }
       if (sortF === "subject") return a.subjectCode.localeCompare(b.subjectCode);
@@ -291,10 +292,6 @@ export default function QueriesPage() {
   function openPanel(i: QueryItem) { setPanelId(i.id); setReply(""); setManageOpen(false); }
   function closePanel() { setPanelId(null); setReply(""); setManageOpen(false); }
 
-  // Click a sortable header: asc → desc → clear (back to the default oldest-first).
-  function toggleSort(key: string) {
-    setColSort((c) => (!c || c.key !== key ? { key, dir: "asc" } : c.dir === "asc" ? { key, dir: "desc" } : null));
-  }
   function switchTab(t: TabKey) { setTab(t); setPanelId(null); setColSort(null); }
 
   const daysCritQuery = (i: QueryItem) => (i.status === "open" && i.daysOpen > 7) || (i.status === "responded" && i.daysOpen > 3);
@@ -332,16 +329,9 @@ export default function QueriesPage() {
     </span>
   );
   // A table header — sortable (clickable, with the arrow icon) when `sortKey` is given.
-  const th = (label: string, width: number, sortKey?: string) => {
-    if (!sortKey) return <th style={{ width }}>{label}</th>;
-    const active = colSort?.key === sortKey;
-    const icon = active ? (colSort!.dir === "asc" ? "ti-arrow-up" : "ti-arrow-down") : "ti-arrows-sort";
-    return (
-      <th style={{ width }} className={`qy-sortable${active ? " sort-active" : ""}`} onClick={() => toggleSort(sortKey)}>
-        {label}<i className={`ti ${icon} qy-sort-icon`} aria-hidden="true"></i>
-      </th>
-    );
-  };
+  const th = (label: string, width: number, sortKey?: string) => (
+    <SortTh label={label} sortKey={sortKey} sort={colSort} onSort={toggleSort} style={{ width }} />
+  );
 
   return (
     <div className="qy-screen">

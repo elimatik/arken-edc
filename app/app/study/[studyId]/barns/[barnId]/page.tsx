@@ -17,6 +17,8 @@ import { useShell } from "@/components/shell/ShellContext";
 import { useStudySession } from "@/lib/session-store/SessionStore";
 import { evaluateField } from "@/lib/forms/validation";
 import { ScopedFormFlow, ScopedRepeatingTable, calibrationStatus } from "@/components/scoped-forms/ScopedForms";
+import { useTableSort } from "@/lib/useTableSort";
+import { SortTh } from "@/components/common/SortTh";
 import "../../sites/sites.css";
 import "../barns.css";
 
@@ -31,6 +33,7 @@ export default function BarnRecordPage() {
   const isAdmin = activeRole === "Admin";
   const [editingHouse, setEditingHouse] = useState(false);
   const [editingBio, setEditingBio] = useState(false);
+  const { sort, toggle } = useTableSort(null);
 
   const tab = sp.get("tab") === "forms" ? "forms" : "overview";
   const setTab = (t: "overview" | "forms") => router.replace(`/study/${studyId}/barns/${barnId}?tab=${t}`);
@@ -68,6 +71,24 @@ export default function BarnRecordPage() {
     const oq = subj ? dataset.queries.filter((q) => sIds.has(q.form_instance_id) && q.status !== "resolved").length : 0;
     return { pen: p, subj, arm: subj?.randomization_arm ?? "—", placed, status: subj?.status ?? "—", done, total: subjForms.length, oq };
   });
+  const penSortVal = (r: (typeof penRows)[number], col: string): string | number => {
+    switch (col) {
+      case "code": return r.pen.code;
+      case "arm": return r.arm;
+      case "birds": return Number(r.placed) || 0;
+      case "status": return r.status;
+      case "forms": return r.done;
+      case "queries": return r.oq;
+      default: return "";
+    }
+  };
+  const sortedPenRows = sort
+    ? penRows.slice().sort((a, b) => {
+        const av = penSortVal(a, sort.col), bv = penSortVal(b, sort.col);
+        const cmp = typeof av === "number" && typeof bv === "number" ? av - bv : String(av).localeCompare(String(bv));
+        return sort.dir === "asc" ? cmp : -cmp;
+      })
+    : penRows;
   const firstSubj = penRows.map((r) => r.subj).find(Boolean);
   const floorTotal = penRows.reduce((a, r) => a + (r.subj ? Number(subjVal(r.subj.id, penSetup?.id, "floor_area_m2")) || 0 : 0), 0);
   const defaults = {
@@ -236,11 +257,18 @@ export default function BarnRecordPage() {
                 <div className="sr-card-body">
                   {penRows.length === 0 ? <div className="brn-empty">No pens in this house yet.</div> : (
                     <table className="brn-table">
-                      <thead><tr><th>Pen ID</th><th>Arm</th><th>Birds Placed</th><th>Status</th><th>Forms Completed</th><th>Open Queries</th></tr></thead>
+                      <thead><tr>
+                        <SortTh label="Pen ID" sortKey="code" sort={sort} onSort={toggle} />
+                        <SortTh label="Arm" sortKey="arm" sort={sort} onSort={toggle} />
+                        <SortTh label="Birds Placed" sortKey="birds" sort={sort} onSort={toggle} />
+                        <SortTh label="Status" sortKey="status" sort={sort} onSort={toggle} />
+                        <SortTh label="Forms Completed" sortKey="forms" sort={sort} onSort={toggle} />
+                        <SortTh label="Open Queries" sortKey="queries" sort={sort} onSort={toggle} />
+                      </tr></thead>
                       <tbody>
-                        {penRows.map((r) => (
+                        {sortedPenRows.map((r) => (
                           <tr key={r.pen.id} className={r.subj ? "clickable" : ""} onClick={() => r.subj && router.push(`/study/${studyId}/data-entry/${r.subj.id}`)}>
-                            <td className="mono">{r.pen.code.toUpperCase()}</td><td>{r.arm}</td><td className="mono">{dash(r.placed)}</td>
+                            <td className="mono brn-pen-id">{r.pen.code.toUpperCase()}</td><td>{r.arm}</td><td className="mono">{dash(r.placed)}</td>
                             <td><span className={`badge ${r.status === "active" ? "badge-active" : r.status === "completed" ? "badge-success" : "badge-hold"}`}>{r.status}</span></td>
                             <td className="mono">{r.done}/{r.total}</td><td className="mono">{r.oq || "—"}</td>
                           </tr>

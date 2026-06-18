@@ -36,6 +36,7 @@
 .sites-table tbody td { padding: var(--space-2) var(--space-3); vertical-align: middle; }
 .sites-table tbody td:first-child { padding-left: var(--space-5); }
 .sites-table tbody td:last-child { padding-right: var(--space-5); }
+.sites-cell-id { white-space: nowrap; }
 .st-mono { font-family: var(--font-mono); font-size: var(--text-sm); }
 .st-muted { color: var(--color-text-secondary); }
 .st-warn { color: var(--amber-700); font-weight: var(--weight-medium); }

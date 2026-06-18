@@ -5,6 +5,8 @@ import { useRouter } from "next/navigation";
 import { useStudySession } from "@/lib/session-store/SessionStore";
 import { getPinnedStudies, togglePinnedStudy } from "@/lib/pinned-study";
 import { useNdaName, useNdaInitials } from "@/lib/use-nda-name";
+import { useTableSort } from "@/lib/useTableSort";
+import { SortTh } from "@/components/common/SortTh";
 import "./studies.css";
 
 type Study = {
@@ -63,6 +65,7 @@ export default function StudiesPage() {
   const [statusFilter, setStatusFilter] = useState("");
   const [speciesFilter, setSpeciesFilter] = useState("");
   const [pinnedIds, setPinnedIds] = useState<string[]>(() => getPinnedStudies());
+  const { sort, toggle } = useTableSort(null);
   // Add-study modal
   const [addOpen, setAddOpen] = useState(false);
   const [newName, setNewName] = useState("");
@@ -123,8 +126,17 @@ export default function StudiesPage() {
     setPinnedIds(togglePinnedStudy(id));
   }
 
-  // Pinned studies render first (sorted among themselves by code), then the rest.
+  // Default order: pinned studies render first (sorted among themselves by code),
+  // then the rest. When a column sort is active, sort all rows by that column
+  // (ignoring pinned-first); numbers numerically, strings via localeCompare.
   const ordered = [...filtered].sort((a, b) => {
+    if (sort) {
+      const mul = sort.dir === "asc" ? 1 : -1;
+      if (sort.col === "subjects") return (a.enrolled - b.enrolled) * mul;
+      const av = String(a[sort.col as keyof Study] ?? "");
+      const bv = String(b[sort.col as keyof Study] ?? "");
+      return av.localeCompare(bv) * mul;
+    }
     const ap = pinnedSet.has(a.id);
     const bp = pinnedSet.has(b.id);
     if (ap !== bp) return ap ? -1 : 1;
@@ -267,13 +279,13 @@ export default function StudiesPage() {
                 <thead>
                   <tr>
                     <th aria-label="Pinned"></th>
-                    <th>Study</th>
-                    <th>Name</th>
-                    <th>Sponsor</th>
-                    <th>Species</th>
-                    <th>Status</th>
+                    <SortTh label="Study" sortKey="code" sort={sort} onSort={toggle} />
+                    <SortTh label="Name" sortKey="name" sort={sort} onSort={toggle} />
+                    <SortTh label="Sponsor" sortKey="sponsor" sort={sort} onSort={toggle} />
+                    <SortTh label="Species" sortKey="species" sort={sort} onSort={toggle} />
+                    <SortTh label="Status" sortKey="status" sort={sort} onSort={toggle} />
                     <th>Role</th>
-                    <th>Subjects</th>
+                    <SortTh label="Subjects" sortKey="subjects" sort={sort} onSort={toggle} />
                   </tr>
                 </thead>
                 <tbody>

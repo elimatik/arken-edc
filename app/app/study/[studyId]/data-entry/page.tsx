@@ -6,6 +6,8 @@ import { useShell } from "@/components/shell/ShellContext";
 import { useStudySession } from "@/lib/session-store/SessionStore";
 import { hierarchyLevels } from "@/lib/terminology";
 import { studyHasBatch } from "@/lib/batch-entry";
+import { useTableSort } from "@/lib/useTableSort";
+import { SortTh } from "@/components/common/SortTh";
 import "./data-entry.css";
 
 // ─── Types ───────────────────────────────────────────────────────────────────
@@ -74,6 +76,7 @@ export default function DataEntryPage() {
   const [nav, setNav] = useState<{ key: string; label: string }[]>([]);
   const [search, setSearch] = useState("");
   const [statusFilter, setStatusFilter] = useState("");
+  const { sort, toggle: toggleSort } = useTableSort(null); // null → default (hierarchy) order
   // Add-record modal: "site" (Admin) or "container" (barn/pen/stable/stall, CRC/DM/Admin).
   const [addOpen, setAddOpen] = useState<"site" | "container" | null>(null);
   const [fName, setFName] = useState("");
@@ -325,6 +328,31 @@ export default function DataEntryPage() {
     const statusMatch = !statusFilter || n.status === statusFilter;
     return labelMatch && statusMatch;
   });
+  // Clickable-header sort (asc → desc → clear). null `sort` keeps the natural
+  // hierarchy order. `id` covers both the container code and the subject ID.
+  if (sort) {
+    const subjIdx = levels.length - 1;
+    const val = (n: (typeof items)[number]): string | number => {
+      switch (sort.col) {
+        case "id": return (n.level === subjIdx ? n.subjectId ?? "" : n.code ?? "").toLowerCase();
+        case "name": return (n.label ?? "").toLowerCase();
+        case "children": return n.childCount ?? 0;
+        case "subjects": return n.subjectCount ?? n.childCount ?? 0;
+        case "status": return n.status ?? "";
+        case "arm": return (n.arm ?? "").toLowerCase();
+        case "forms": return n.forms ? n.forms.filter((f) => f.status === "complete").length : n.formsComplete ?? 0;
+        case "queries": return n.openQueries ?? 0;
+        default: return 0;
+      }
+    };
+    const dir = sort.dir === "desc" ? -1 : 1;
+    items = items.slice().sort((a, b) => {
+      const av = val(a), bv = val(b);
+      if (av < bv) return -1 * dir;
+      if (av > bv) return 1 * dir;
+      return 0;
+    });
+  }
 
   const listLevelName = parentNode ? levels[parentNode.level + 1] || levels[subjectIdx] : levels[0];
   const childLevel = parentNode ? parentNode.level + 1 : 0;
@@ -523,22 +551,22 @@ export default function DataEntryPage() {
             <table className="de-table">
               <thead>
                 <tr>
-                  <th>{listLevelName} ID</th>
+                  <SortTh label={`${listLevelName} ID`} sortKey="id" sort={sort} onSort={toggleSort} />
                   {childLevel < subjectIdx ? (
                     <>
-                      <th>{listLevelName} name</th>
-                      <th>{levels[childLevel + 1] ? `${levels[childLevel + 1]}s` : "Animals"}</th>
-                      <th>Subjects</th>
-                      <th>Status</th>
-                      <th>Forms</th>
-                      <th>Queries</th>
+                      <SortTh label={`${listLevelName} name`} sortKey="name" sort={sort} onSort={toggleSort} />
+                      <SortTh label={levels[childLevel + 1] ? `${levels[childLevel + 1]}s` : "Animals"} sortKey="children" sort={sort} onSort={toggleSort} />
+                      <SortTh label="Subjects" sortKey="subjects" sort={sort} onSort={toggleSort} />
+                      <SortTh label="Status" sortKey="status" sort={sort} onSort={toggleSort} />
+                      <SortTh label="Forms" sortKey="forms" sort={sort} onSort={toggleSort} />
+                      <SortTh label="Queries" sortKey="queries" sort={sort} onSort={toggleSort} />
                     </>
                   ) : (
                     <>
-                      <th>Status</th>
-                      {type === "livestock" && <th>Group / Arm</th>}
-                      <th>Forms</th>
-                      <th>Queries</th>
+                      <SortTh label="Status" sortKey="status" sort={sort} onSort={toggleSort} />
+                      {type === "livestock" && <SortTh label="Group / Arm" sortKey="arm" sort={sort} onSort={toggleSort} />}
+                      <SortTh label="Forms" sortKey="forms" sort={sort} onSort={toggleSort} />
+                      <SortTh label="Queries" sortKey="queries" sort={sort} onSort={toggleSort} />
                     </>
                   )}
                   <th></th>

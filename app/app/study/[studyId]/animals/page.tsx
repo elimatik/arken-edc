@@ -7,6 +7,8 @@ import { useStudySession } from "@/lib/session-store/SessionStore";
 import { housingTerms, animalsLabel } from "@/lib/terminology";
 import { canQuery } from "@/lib/permissions";
 import { studyHasBatch } from "@/lib/batch-entry";
+import { useTableSort } from "@/lib/useTableSort";
+import { SortTh } from "@/components/common/SortTh";
 import "./animals.css";
 
 // ─── Status → shared badge class (mirrors the Data Entry drill-down) ─────────
@@ -104,8 +106,7 @@ export default function AnimalsPage() {
   const [siteFilter, setSiteFilter] = useState<string>("");
   const [barnFilter, setBarnFilter] = useState("");
   const [penFilter, setPenFilter] = useState("");
-  const [sortCol, setSortCol] = useState("id");
-  const [sortDir, setSortDir] = useState<"asc" | "desc">("asc");
+  const { sort, toggle: toggleSort } = useTableSort(null); // null → default order (by ID)
   const [selected, setSelected] = useState<Set<string>>(new Set());
   const [colOpen, setColOpen] = useState(false);
   const [hiddenCols, setHiddenCols] = useState<Set<string>>(new Set());
@@ -304,7 +305,9 @@ export default function AnimalsPage() {
       return matchQ && matchStatus && matchArm && matchSite && matchBarn && matchPen;
     });
 
-    const dir = sortDir === "asc" ? 1 : -1;
+    // No active column sort → default order (by ID / code, ascending).
+    const dir = sort?.dir === "desc" ? -1 : 1;
+    const sortCol = sort?.col ?? "id";
     return out.sort((a, b) => {
       let av: string | number;
       let bv: string | number;
@@ -324,7 +327,7 @@ export default function AnimalsPage() {
       if (av > bv) return 1 * dir;
       return 0;
     });
-  }, [rows, search, statusFilter, armFilter, siteFilter, barnFilter, penFilter, sortCol, sortDir]);
+  }, [rows, search, statusFilter, armFilter, siteFilter, barnFilter, penFilter, sort]);
 
   // ─── Stats / summary (live) ────────────────────────────────────────────────
   const stats = useMemo(() => {
@@ -345,15 +348,6 @@ export default function AnimalsPage() {
   }, [filtered]);
 
   // ─── Handlers ──────────────────────────────────────────────────────────────
-  function toggleSort(col: ColumnDef) {
-    if (!col.sortable) return;
-    if (sortCol === col.key) {
-      setSortDir((d) => (d === "asc" ? "desc" : "asc"));
-    } else {
-      setSortCol(col.key);
-      setSortDir("asc");
-    }
-  }
   function openSubject(r: AnimalRow) {
     router.push(`/study/${studyId}/data-entry/${r.subjectId}`);
   }
@@ -618,23 +612,9 @@ export default function AnimalsPage() {
                   onChange={(e) => toggleAll(e.target.checked)}
                 />
               </th>
-              {visibleColumns.map((c) => {
-                const active = sortCol === c.key;
-                return (
-                  <th
-                    key={c.key}
-                    className={`${c.sortable ? "sortable" : ""}${active ? " sort-active" : ""}`}
-                    onClick={() => toggleSort(c)}
-                  >
-                    {c.label}
-                    {c.sortable && (
-                      <i
-                        className={`ti ${active ? (sortDir === "asc" ? "ti-arrow-up" : "ti-arrow-down") : "ti-arrows-sort"} sort-icon`}
-                      ></i>
-                    )}
-                  </th>
-                );
-              })}
+              {visibleColumns.map((c) => (
+                <SortTh key={c.key} label={c.label} sortKey={c.sortable ? c.key : undefined} sort={sort} onSort={toggleSort} />
+              ))}
               <th></th>
             </tr>
           </thead>

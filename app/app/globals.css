@@ -59,3 +59,14 @@ body{
   -webkit-font-smoothing:antialiased;
   min-height:100vh;
 }
+
+/* ── Standard sortable table headers (used across every list table) ──
+   Icon sits to the right of the label; hidden until hover on inactive
+   sortable columns; blue when the column is the active sort. Pair with
+   useTableSort (asc → desc → clear) + the <SortTh> component. */
+th.col-sortable{cursor:pointer;user-select:none}
+th.col-sortable:hover{color:var(--color-text-primary)}
+.col-sort-icon{margin-left:4px;font-size:12px;color:transparent;transition:color var(--duration-fast);vertical-align:middle}
+th.col-sortable:hover .col-sort-icon{color:var(--color-text-placeholder)}
+th.col-sort-active{color:var(--color-text-primary)}
+th.col-sort-active .col-sort-icon{color:var(--blue-600)}

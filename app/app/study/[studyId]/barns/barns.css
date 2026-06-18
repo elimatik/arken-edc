@@ -17,6 +17,7 @@
 .brn-table tbody tr.clickable { cursor: pointer; transition: background var(--duration-fast); }
 .brn-table tbody tr.clickable:hover { background: var(--color-hover-bg); }
 .brn-table .mono { font-family: var(--font-mono); }
+.brn-table .brn-pen-id { white-space: nowrap; }
 .brn-flag { color: var(--amber-700); font-weight: var(--weight-medium); white-space: nowrap; }
 .brn-empty { color: var(--color-text-tertiary); font-size: var(--text-sm); padding: var(--space-3) 0; }
 
