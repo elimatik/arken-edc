@@ -62,6 +62,21 @@ function assigneeFor(status: ItemStatus): { role: string; verb: string } | null 
   return null; // resolved — no one
 }
 
+// ─── Column sort (same pattern as the Animals list) ─────────────────────────
+type ColSort = { key: string; dir: "asc" | "desc" } | null;
+const STATUS_RANK: Record<string, number> = { open: 0, responded: 1, resolved: 2, editcheck: 0 };
+const assignKey = (i: QueryItem): string => assigneeFor(i.status)?.role ?? "~"; // resolved sorts last
+function colCompare(a: QueryItem, b: QueryItem, key: string): number {
+  switch (key) {
+    case "days": return a.daysOpen - b.daysOpen;
+    case "status": return (STATUS_RANK[a.status] ?? 0) - (STATUS_RANK[b.status] ?? 0);
+    case "site": return a.siteName.localeCompare(b.siteName);
+    case "assignee": return assignKey(a).localeCompare(assignKey(b));
+    case "subject":
+    default: return a.subjectCode.localeCompare(b.subjectCode);
+  }
+}
+
 const daysSince = (iso: string | null | undefined, nowMs: number): number => {
   if (!iso) return 0;
   const t = Date.parse(iso);
@@ -178,7 +193,8 @@ export default function QueriesPage() {
   const [formF, setFormF] = useState("");
   const [siteF, setSiteF] = useState("");
   const [assignF, setAssignF] = useState("all"); // all | mine
-  const [sortF, setSortF] = useState("oldest"); // oldest | newest | subject
+  const [sortF, setSortF] = useState("oldest"); // oldest | newest | subject (toolbar default)
+  const [colSort, setColSort] = useState<ColSort>(null); // clickable-header sort; overrides sortF
   const [panelId, setPanelId] = useState<string | null>(null);
   const [reply, setReply] = useState("");
   const [manageOpen, setManageOpen] = useState(false);
@@ -228,6 +244,11 @@ export default function QueriesPage() {
       return true;
     })
     .sort((a, b) => {
+      // A clickable-header sort overrides the toolbar Sort dropdown when active.
+      if (colSort) {
+        const r = colCompare(a, b, colSort.key);
+        return colSort.dir === "asc" ? r : -r;
+      }
       if (sortF === "subject") return a.subjectCode.localeCompare(b.subjectCode);
       const at = a.openedISO ? Date.parse(a.openedISO) : 0;
       const bt = b.openedISO ? Date.parse(b.openedISO) : 0;
@@ -270,6 +291,12 @@ export default function QueriesPage() {
   function openPanel(i: QueryItem) { setPanelId(i.id); setReply(""); setManageOpen(false); }
   function closePanel() { setPanelId(null); setReply(""); setManageOpen(false); }
 
+  // Click a sortable header: asc → desc → clear (back to the default oldest-first).
+  function toggleSort(key: string) {
+    setColSort((c) => (!c || c.key !== key ? { key, dir: "asc" } : c.dir === "asc" ? { key, dir: "desc" } : null));
+  }
+  function switchTab(t: TabKey) { setTab(t); setPanelId(null); setColSort(null); }
+
   const daysCritQuery = (i: QueryItem) => (i.status === "open" && i.daysOpen > 7) || (i.status === "responded" && i.daysOpen > 3);
 
   function actionsFor(i: QueryItem) {
@@ -304,6 +331,17 @@ export default function QueriesPage() {
       <span className="qy-field-form" title={i.formPath}>{i.formPath}</span>
     </span>
   );
+  // A table header — sortable (clickable, with the arrow icon) when `sortKey` is given.
+  const th = (label: string, width: number, sortKey?: string) => {
+    if (!sortKey) return <th style={{ width }}>{label}</th>;
+    const active = colSort?.key === sortKey;
+    const icon = active ? (colSort!.dir === "asc" ? "ti-arrow-up" : "ti-arrow-down") : "ti-arrows-sort";
+    return (
+      <th style={{ width }} className={`qy-sortable${active ? " sort-active" : ""}`} onClick={() => toggleSort(sortKey)}>
+        {label}<i className={`ti ${icon} qy-sort-icon`} aria-hidden="true"></i>
+      </th>
+    );
+  };
 
   return (
     <div className="qy-screen">
@@ -318,11 +356,11 @@ export default function QueriesPage() {
 
       {/* Tabs — Queries (Q-) vs Edit Checks (EC-) */}
       <div className="qy-tabs">
-        <button className={`qy-tab${tab === "queries" ? " active" : ""}`} type="button" onClick={() => { setTab("queries"); setPanelId(null); }}>
+        <button className={`qy-tab${tab === "queries" ? " active" : ""}`} type="button" onClick={() => switchTab("queries")}>
           Queries <span className="qy-tab-count tc-q">{queryItems.length}</span>
         </button>
         {!hideEC && (
-          <button className={`qy-tab${tab === "editchecks" ? " active" : ""}`} type="button" onClick={() => { setTab("editchecks"); setPanelId(null); }}>
+          <button className={`qy-tab${tab === "editchecks" ? " active" : ""}`} type="button" onClick={() => switchTab("editchecks")}>
             Edit Checks <span className="qy-tab-count tc-ec">{ecItems.length}</span>
           </button>
         )}
@@ -347,7 +385,8 @@ export default function QueriesPage() {
             <option value="all">All queries</option><option value="mine">Needs my action</option>
           </select>
         )}
-        <select className="qy-select" value={sortF} onChange={(e) => setSortF(e.target.value)}>
+        <select className="qy-select" value={colSort ? "" : sortF} onChange={(e) => { setSortF(e.target.value); setColSort(null); }}>
+          {colSort && <option value="">Custom (column)</option>}
           <option value="oldest">Oldest first</option><option value="newest">Newest first</option><option value="subject">By subject</option>
         </select>
         <span className="qy-count">{filtered.length} {tab === "queries" ? (filtered.length === 1 ? "query" : "queries") : (filtered.length === 1 ? "edit check" : "edit checks")}</span>
@@ -365,16 +404,16 @@ export default function QueriesPage() {
           <table className="qy-table">
             <thead>
               <tr>
-                <th style={{ width: 92 }}>Query ID</th>
-                <th style={{ width: 130 }}>Subject</th>
-                <th style={{ width: 120 }}>Site</th>
-                <th style={{ width: 220 }}>Field</th>
-                <th style={{ width: 120 }}>Value</th>
-                <th style={{ width: 300 }}>Query text</th>
-                <th style={{ width: 116 }}>Status</th>
-                <th style={{ width: 84 }}>Days open</th>
-                <th style={{ width: 150 }}>Assigned to</th>
-                <th style={{ width: 150 }}>Actions</th>
+                {th("Query ID", 92)}
+                {th("Subject", 130, "subject")}
+                {th("Site", 120, "site")}
+                {th("Field", 220)}
+                {th("Value", 120)}
+                {th("Query text", 300)}
+                {th("Status", 116, "status")}
+                {th("Days open", 84, "days")}
+                {th("Assigned to", 150, "assignee")}
+                {th("Actions", 150)}
               </tr>
             </thead>
             <tbody>
@@ -400,14 +439,14 @@ export default function QueriesPage() {
           <table className="qy-table">
             <thead>
               <tr>
-                <th style={{ width: 92 }}>Edit check ID</th>
-                <th style={{ width: 130 }}>Subject</th>
-                <th style={{ width: 120 }}>Site</th>
-                <th style={{ width: 220 }}>Field</th>
-                <th style={{ width: 120 }}>Value</th>
-                <th style={{ width: 150 }}>Normal range</th>
-                <th style={{ width: 120 }}>Status</th>
-                <th style={{ width: 84 }}>Days open</th>
+                {th("Edit check ID", 92)}
+                {th("Subject", 130, "subject")}
+                {th("Site", 120, "site")}
+                {th("Field", 220)}
+                {th("Value", 120)}
+                {th("Normal range", 150)}
+                {th("Status", 120)}
+                {th("Days open", 84, "days")}
               </tr>
             </thead>
             <tbody>
