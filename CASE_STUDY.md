@@ -146,7 +146,7 @@ A second problem sits alongside it. A real veterinary protocol isn't a flat list
 
 **Validation as a resolved lookup.** `species_ranges` carries rows across multiple species (cattle, canine, equine, feline, swine, **chicken**). A vital field stores only its `vital` key; a non-vital numeric field can still carry a static `{ min, max }` (a body-condition score of 1–9). When a value lands outside the resolved range the Subject Record **auto-raises an inline edit-check query** (the Case Study 1 pattern) — and when the value comes back in range, the query **auto-resolves**. Type `40.6` into a cattle temperature and a query appears; correct it and the query closes itself. The two case studies compose: validation produces the query, the query architecture displays it. The mechanism isn't limited to mammalian vitals: the broiler study declares an `ammonia_level` vital, so a poultry house reading of 32 ppm against the 0–25 ppm range raises the very same edit check — a new "vital" is one more row in the table, not a line of code. The lookup even resolves **by age class**: bovine heart rate splits into `heart_rate_calf` (≤6 mo, 100–140 bpm) and `heart_rate_adult` (48–84 bpm), so the *same* 120 bpm reading is normal for a calf and flagged for an adult — the range is keyed on the animal's `age_months`, not hard-coded into a screen.
 
-**Groups as collapsible sections.** The form sidebar reads the `parent_form_id` tree and renders each group as a collapsible header carrying a **rolled-up status icon** and an open-query badge; sub-forms indent beneath it, and groups can **nest to any depth** (the engine recurses on `parent_form_id`). PH-2401 lays its weekly visits out as six top-level *Week* groups, each holding that week's Body Weight and Flock Health forms, followed by a standalone read-only auto-generated **Production Summary** (a per-week table plus an overall FCR / ADG / EPEF rollup). Within a form a further level of structure — **named field sections** (Pen Identification, Vital Signs, Withdrawal …) — breaks a long form into labelled clusters. The protocol's shape is now visible at a glance — and the same engine drives all three studies, **each with its own tree** (the broiler trial runs pen-level forms across 5 groups, from Pen Setup through Production Monitoring to Closeout, with each weekly visit (D7–D42) as its own form — *plus* a house-scoped Daily Environmental Log on the Barn Record; the bovine trial 15 animal-level forms across 6 groups, from Enrollment & Randomization through Safety & Pathology to Closeout; the canine study runs Screening → Randomization → four follow-ups → End of Study with up to seven sub-forms a visit), totalling **134 forms / 995 species-specific fields**. The canine study (**CA-0801 — DermAlliv™**) is the proof at scale: a 53-form, **multi-site** (three sites), randomized double-blind protocol — including a read-only **ePRO** owner-diary form whose data flows from an owner portal — rendered by the *same* engine, no special cases.
+**Groups as collapsible sections.** The form sidebar reads the `parent_form_id` tree and renders each group as a collapsible header carrying a **rolled-up status icon** and an open-query badge; sub-forms indent beneath it, and groups can **nest to any depth** (the engine recurses on `parent_form_id`). PH-2401 lays its weekly visits out as six top-level *Week* groups, each holding that week's Body Weight and Flock Health forms, followed by a standalone read-only auto-generated **Production Summary** (a per-week table plus an overall FCR / ADG / EPEF rollup). Within a form a further level of structure — **named field sections** (Pen Identification, Vital Signs, Withdrawal …) — breaks a long form into labelled clusters. The protocol's shape is now visible at a glance — and the same engine drives all three studies, **each with its own tree** (the broiler trial runs pen-level forms across 5 groups, from Pen Setup through Production Monitoring to Closeout, with each weekly visit (D7–D42) as its own form — *plus* a house-scoped Daily Environmental Log on the Barn Record; the bovine trial runs its animal-level forms across **8 groups** — Enrollment & Randomization, one group per visit day (Day 0/3/7/14/28, each Vital Signs + Clinical Response), Safety & Events, and Closeout; the canine study runs Screening → Randomization → four follow-ups → End of Study with up to seven sub-forms a visit), totalling **137 forms / 989 species-specific fields**. The canine study (**CA-0801 — DermAlliv™**) is the proof at scale: a 53-form, **multi-site** (three sites), randomized double-blind protocol — including a read-only **ePRO** owner-diary form whose data flows from an owner portal — rendered by the *same* engine, no special cases.
 
 ### Why it matters
 
@@ -168,7 +168,45 @@ Workflow honours role and judgement, too. Queries move through the hands that ow
 
 ---
 
-## Case Study 4 — Randomization & the Inventory Bridge
+## Case Study 4 — Batch Entry for Group-Level Veterinary Data
+
+### The problem
+
+Human-subject EDCs are built around one premise: a record is a person, and you sit with that person and fill in their form, one at a time. Veterinary trials break that premise at the chute. A feedlot BRD study enrolls cattle in pens; on Day 3 a single CRC works a pen of 12–30 head through a squeeze chute and records the *same* vital-signs form for every animal in sequence. Force that through a one-subject-at-a-time eCRF — navigate to the animal, open the form, save, back out, repeat — and you have designed for the wrong unit of work: thirty navigations, thirty form-opens, thirty save clicks for what is operationally a single pass down the alley. It isn't merely slow; clicking through individual subject records can't keep pace with the physical line.
+
+### What was built
+
+A **batch-entry grid** that matches the pass, not the patient: **rows are animals, columns are the form's fields**. A shared **visit date** sits above the grid and auto-fills every animal in the pass. **Edit checks fire per cell** the moment a value lands out of range — amber cell, `EC-` flag, age-class-aware (the calf and the steer in the same pen get different heart-rate bands) — but never block the next entry, because at the chute you record first and reconcile after. Every cell **mirrors straight to that animal's own form instance** (the very record the Subject Record reads), so batch data, its edit checks, and any **per-cell change reason (Δ)** all appear on the individual record — the grid and the one-animal form are two views of one instance, no copy and no sync. **Queries and SDV stay on the individual record**, where each is an act of judgment that must attach to a named person.
+
+### The design decisions
+
+- **No checkboxes — every visible animal is in.** A pen is captured as a whole; selecting a subset would model the wrong unit. The filters decide who's on screen; everyone on screen is in the pass.
+- **Edit-check flags are non-clickable in batch.** The orange `EC-` is a read-only signal; its tooltip points you to "review this value on the individual subject record." The instant an anomaly needs a human decision, that decision happens on the record, not the spreadsheet.
+- **One change reason can cover the whole pass — but each cell can carry its own.** Editing an already-saved value raises the same dashed-red Δ and change-reason panel as the individual record (old → new, reason, history, full audit trail); a bottom summary bar additionally offers a single reason across every pending change, for when one correction note applies to the entire pass.
+- **Withdrawn animals are excluded** from both the grid and the "due today" counts — they're off the line.
+- **Completed forms are removed from the picker.** The form picker reads each animal's enrollment date and the protocol's visit windows to surface "Vital Signs — Day 3 · 5 animals due today," and drops any form every non-withdrawn animal has already finished — so you only ever see work that's actually open.
+
+### Why it matters
+
+Batch entry is the clearest single answer to "why does veterinary need its own EDC?" It isn't a re-skin of a human system — it's a different unit of work modeled honestly: the pen. Built on the *exact same* form definitions, validation, instances, and change-reason machinery as the one-animal record (a batch-saved form is indistinguishable downstream from one entered animal-by-animal, deltas and edit checks included), it adds a workflow no human-subject EDC has a reason to build — without forking the data model to get it.
+
+> **Interview talking point.** *"I designed batch entry to match the physical workflow of a feedlot — the CRC moves from animal to animal at the chute, not from screen to screen. The grid compresses what would be 12 individual form submissions into one continuous data-entry session, while maintaining the full audit trail and change-reason requirements of a regulated trial."*
+
+---
+
+## Case Study 5 (next) — Multi-level Data Architecture
+
+### The problem
+
+Animal research doesn't happen at one level. A broiler trial collects **house-level environmental** readings (temperature, ammonia, litter condition) on a schedule that has nothing to do with any individual bird; **pen-level clinical** data on the animals in that house; and **site-level regulatory** records (the SIV checklist, IEC approvals, the delegation log) that govern the whole facility. A human EDC has exactly one level — the patient — and flattens everything else into free-text notes. Model it flat and you lose the thing that makes the data trustworthy: *which* level a fact belongs to, and therefore who is accountable for it.
+
+### Where it's going
+
+The form layer already distinguishes scope — `forms.scope` is `subject` | `barn` | `site`, so a house's Daily Environmental Log lives on the Barn Record, a site's monitoring visits live on the Site Record, and neither ever bleeds into the pen sidebar. The next case study makes that structure the headline: **a data model that mirrors the physical hierarchy of animal research** — barn-level environmental forms separate from pen-level clinical forms, site-level regulatory forms separate from subject-level clinical data, each with its own records, its own owners, and its own audit trail. The scaffolding is already live (scope-keyed forms, two-tab Site and House records, the Site → Barn → Pen → Animal drill-down); the case study is to draw the whole architecture together as the thesis it has quietly become — Arken as **the first veterinary EDC to model the physical hierarchy of animal research as a first-class structure**, rather than bolting animals onto a patient-shaped schema.
+
+---
+
+## Case Study 6 — Randomization & the Inventory Bridge
 
 ### The problem
 
@@ -196,29 +234,7 @@ Putting randomization on its own form — with the supply link as a first-class 
 
 ---
 
-## Case Study 5 — Batch Entry: capturing a pen, not a patient
-
-### The problem
-
-Human-subject EDCs are built around one premise: a record is a person, and you sit with that person and fill their form. Veterinary trials break that premise. A feedlot BRD study enrolls cattle in pens; on Day 3 a single technician walks a pen of forty head and records the same vital-signs form for every animal, one after another, at the chute. Force that workflow through a one-subject-at-a-time eCRF and you've designed for the wrong unit of work — forty navigations, forty form-opens, forty save clicks, for what is operationally a single pass down the alley.
-
-### The insight
-
-The form is the same; only the animal changes. So the right surface isn't a record — it's a **grid**: the form's fields as columns, the pen's animals as rows. And the system already knows *which* form is due — every animal carries an enrollment date, and the protocol defines visit windows (Day 3 ±1, Day 7 ±2, …), so on any given day the EDC can compute exactly which visit form is due for how many animals and offer it before the user goes looking.
-
-### The solution
-
-A `batch_eligible` flag on the form definition marks the recurring visit forms (BR-2502's Vital Signs and Clinical Response, all five visit days). Where any such form exists, a **Batch entry** button appears — on the Animals list and at the animal level of the drill-down — and *only* there (PH-2401 and CA-0801 have no batch-eligible forms, so they never show it). It opens a two-step flow: a **form picker** that reads each animal's enrollment date, applies the visit windows, and surfaces "Vital Signs — Day 3 · 5 animals due today" cards above the remaining forms (no form listed twice) — clicking a card opens its grid; then a **full-screen grid** with **no checkboxes** — every visible animal is in, because a pen is captured as a whole — one row per animal, one column per field, inline editing at design-system cell height, native selects, a compact left-aligned Yes/No toggle, a sticky animal-ID column. Some fields are recorded once for the whole pass, not per head — the **visit date** is the obvious one — so it's lifted out of the grid into a single shared field above the rows that auto-fills every animal that doesn't already carry a date. The same validation engine runs **per cell**: an out-of-range temperature flags the cell amber and drops an `EC-` indicator and chip in the row's status, age-class-aware (the calf and the steer in the same pen get different heart-rate ranges) — but it never blocks the technician mid-pass, because the field reality is that you record first and reconcile after.
-
-Two decisions make it a *real* EDC surface rather than a spreadsheet. First, **mirroring**: every cell writes straight to *that animal's own form instance* — the very record the Subject Record reads — so a temperature typed in the grid shows up, with its edit check, on the individual Vital Signs form. There is no second copy and no sync; the batch grid and the one-animal form are two views of one instance. That identity is what lets a *correction* in the grid carry full weight: change a value that was already on file and the same dashed-red **Δ** appears on the cell and opens the same change-reason panel as the individual record — old → new, a reason, the full history — landing a change-reason delta in the same audit trail. Second, the **boundary** — what the grid deliberately *doesn't* carry is as considered as what it does. Batch is the data-entry surface: record values fast, and reason about a change when you make one. Everything that is an act of *judgment by a named person* — raising and resolving queries, source-data verification, a data manager approving a change, the Submit → Finalize → Lock signature lifecycle — never appears in batch and stays on the individual Subject Record, one animal at a time, where accountability attaches to a name. The grid keeps only the orange edit-check flag as a **read-only** validation signal — it isn't even clickable in batch; its tooltip simply points you to "review this value on the individual subject record," because the moment a query or a sign-off is warranted, that work happens on the record, not the spreadsheet. (A bottom summary bar still offers a one-reason shortcut across every pending change, for when a whole pass needs the same correction note — but the per-cell Δ is the real interaction.)
-
-### Why it matters
-
-Batch entry is the clearest single answer to "why does veterinary need its own EDC?" It isn't a re-skin of a human system — it's a different unit of work modeled honestly: the pen. Built on the exact same form definitions, validation, instances, and change-reason machinery as the one-animal record (a batch-saved form is indistinguishable downstream from one entered animal-by-animal, deltas and edit checks included), it adds a workflow no human-subject EDC has a reason to build — without forking the data model to get it.
-
----
-
-> **Case Study 6 is coming** — **conditional demographics** (breed lists, age auto-calculation from date of birth, and production-purpose tags that appear and validate based on the animal). The form layer it builds on is now live.
+> **Case Study 7 is coming** — **conditional demographics** (breed lists, age auto-calculation from date of birth, and production-purpose tags that appear and validate based on the animal). The form layer it builds on is now live.
 
 ---
 
