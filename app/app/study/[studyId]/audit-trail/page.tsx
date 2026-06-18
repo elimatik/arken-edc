@@ -355,7 +355,7 @@ export default function AuditTrailPage() {
 
   const th = (label: string, key: string, width?: number) => <SortTh label={label} sortKey={key} sort={sort} onSort={toggle} style={width ? { width } : undefined} />;
   const userCell = (u: AuditUser) => (
-    <span className="au-user"><span className={`au-avatar${u.auto ? " auto" : ""}`}>{u.initials}</span><span className="au-uname">{u.name}</span><span className="au-role">{u.role}</span></span>
+    <span className="au-user"><span className="au-uname">{u.name}</span><span className="au-role">{u.role}</span></span>
   );
 
   return (
