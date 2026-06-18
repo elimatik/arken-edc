@@ -72,6 +72,7 @@ interface AuditEvent {
   scope: AuditScope; // which level the action occurred at (drives the Subject column)
   subjectId: string | null;
   subjectCode: string; // subject ID, or the site / barn name when not subject-scoped
+  siteId: string | null; // resolved site (subject's site, the site itself, or the barn's site)
   siteName: string;
   formId: string | null;
   formName: string;
@@ -149,7 +150,7 @@ function buildAuditEvents(dataset: Dataset, studyId: string, baseNow: number): A
     const subjectCode = subj?.subject_code ?? (inst.site_id ? siteById.get(inst.site_id)?.name : inst.barn_id ? barnById.get(inst.barn_id)?.name : null) ?? "—";
     const parent = form.parent_form_id ? formById.get(form.parent_form_id) : null;
     const formPath = parent ? `${parent.name} — ${form.name}` : form.name;
-    return { scope, subjectId: subj?.id ?? null, subjectCode, siteName, formId: form.id, formName: form.name, formPath };
+    return { scope, subjectId: subj?.id ?? null, subjectCode, siteId, siteName, formId: form.id, formName: form.name, formPath };
   };
   const fieldOfValue = (fvId: string | null) => {
     if (!fvId) return null;
@@ -267,7 +268,7 @@ function buildAuditEvents(dataset: Dataset, studyId: string, baseNow: number): A
     if (!subj || subj.study_id !== studyId) continue;
     const siteName = subj.site_id ? siteById.get(subj.site_id)?.name ?? "—" : "—";
     push({ ts: u.created_at, type: "unblinding", user: mkUser(u.author_name, u.author_role), scope: "subject",
-      subjectId: subj.id, subjectCode: subj.subject_code, siteName, formId: null, formName: "Subject record", formPath: "Subject record",
+      subjectId: subj.id, subjectCode: subj.subject_code, siteId: subj.site_id ?? null, siteName, formId: null, formName: "Subject record", formPath: "Subject record",
       fieldId: null, fieldLabel: "", fieldCode: "", oldValue: "Blinded", newValue: u.arm,
       details: `Emergency unblinding — treatment arm revealed: ${u.arm}`, reason: u.reason });
   }
@@ -276,7 +277,7 @@ function buildAuditEvents(dataset: Dataset, studyId: string, baseNow: number): A
   for (const subj of dataset.subjects) {
     if (subj.study_id !== studyId) continue;
     const siteName = subj.site_id ? siteById.get(subj.site_id)?.name ?? "—" : "—";
-    const ctx = { scope: "subject" as AuditScope, subjectId: subj.id, subjectCode: subj.subject_code, siteName, formId: null, formName: "Subject record", formPath: "Subject record" };
+    const ctx = { scope: "subject" as AuditScope, subjectId: subj.id, subjectCode: subj.subject_code, siteId: subj.site_id ?? null, siteName, formId: null, formName: "Subject record", formPath: "Subject record" };
     push({ ts: synthTs(`enr${subj.id}`, baseNow), type: "subject_enrolled", user: CAST.CRC, ...ctx, fieldId: null, fieldLabel: "", fieldCode: "",
       oldValue: null, newValue: null, details: "Subject enrolled — screening complete, all criteria met", statusBefore: "—", statusAfter: "Screened" });
     if (subj.status === "withdrawn") {
@@ -288,7 +289,7 @@ function buildAuditEvents(dataset: Dataset, studyId: string, baseNow: number): A
   // 8 — Login events (synthetic; surfaced to Admin only — see visibleTo).
   for (const role of ["CRC", "CRA", "DM", "PI"] as const) {
     const u = CAST[role];
-    push({ ts: synthTs(`login${role}`, baseNow, 7), type: "login", user: u, scope: "subject", subjectId: null, subjectCode: "—", siteName: "—",
+    push({ ts: synthTs(`login${role}`, baseNow, 7), type: "login", user: u, scope: "subject", subjectId: null, subjectCode: "—", siteId: null, siteName: "—",
       formId: null, formName: "—", formPath: "—", fieldId: null, fieldLabel: "", fieldCode: "",
       oldValue: null, newValue: null, details: `${u.name} authenticated to the study` });
   }
@@ -305,7 +306,10 @@ function buildAuditEvents(dataset: Dataset, studyId: string, baseNow: number): A
 // roleEvents), not the whole row. CRA/DM/Admin see everything else.
 function visibleTo(e: AuditEvent, role: string): boolean {
   if (e.type === "login") return role === "Admin";
-  if (role === "PI") return e.subjectId != null; // all types, scoped to subjects
+  // PI is responsible for ALL activity at their site — subject-, site-, AND
+  // barn/house-level events (the demo has no PI→site assignment, so PI sees all
+  // location-level entries, same as DM for site/barn scope). No action-type limit.
+  if (role === "PI") return e.scope === "subject" || e.scope === "site" || e.scope === "barn";
   return true;
 }
 
@@ -371,7 +375,7 @@ export default function AuditTrailPage() {
   const [search, setSearch] = useState("");
   const [catF, setCatF] = useState("all");
   const [userF, setUserF] = useState("all");
-  const [subjF, setSubjF] = useState("all");
+  const [siteF, setSiteF] = useState("all"); // by site id; subject search covers subject IDs
   const [formF, setFormF] = useState("all");
   const [dateFrom, setDateFrom] = useState(() => dateKey(new Date(baseNow - 60 * 86400000).toISOString()));
   const [dateTo, setDateTo] = useState(() => dateKey(new Date(baseNow).toISOString()));
@@ -382,17 +386,17 @@ export default function AuditTrailPage() {
 
   // Filter option lists (scoped to what this role can see).
   const userNames = useMemo(() => Array.from(new Set(roleEvents.map((e) => e.user.name))).sort(), [roleEvents]);
-  const subjectCodes = useMemo(() => Array.from(new Set(roleEvents.map((e) => e.subjectCode).filter((s) => s !== "—"))).sort(), [roleEvents]);
+  const siteOptions = useMemo(() => dataset.sites.filter((s) => s.study_id === studyId).slice().sort((a, b) => a.name.localeCompare(b.name)), [dataset.sites, studyId]);
   const formNames = useMemo(() => Array.from(new Set(roleEvents.map((e) => e.formName).filter((f) => f !== "—"))).sort(), [roleEvents]);
 
-  const resetFilters = () => { setSearch(""); setCatF("all"); setUserF("all"); setSubjF("all"); setFormF("all"); };
+  const resetFilters = () => { setSearch(""); setCatF("all"); setUserF("all"); setSiteF("all"); setFormF("all"); };
 
   const filtered = useMemo(() => {
     const q = search.toLowerCase().trim();
     const out = roleEvents.filter((e) => {
       if (catF !== "all" && TYPE_META[e.type].cat !== catF) return false;
       if (userF !== "all" && e.user.name !== userF) return false;
-      if (subjF !== "all" && e.subjectCode !== subjF) return false;
+      if (siteF !== "all" && e.siteId !== siteF) return false;
       if (formF !== "all" && e.formName !== formF) return false;
       const dk = dateKey(e.ts);
       if (dateFrom && dk < dateFrom) return false;
@@ -407,7 +411,7 @@ export default function AuditTrailPage() {
       if (sort) { const r = cmp(a, b, sort.col); return sort.dir === "asc" ? r : -r; }
       return a.ts < b.ts ? 1 : a.ts > b.ts ? -1 : 0; // default newest first
     });
-  }, [roleEvents, search, catF, userF, subjF, formF, dateFrom, dateTo, sort]);
+  }, [roleEvents, search, catF, userF, siteF, formF, dateFrom, dateTo, sort]);
 
   // Fall back to roleEvents (role-filtered + arm-masked), never allEvents, so the
   // detail panel can never surface a hidden/unmasked value.
@@ -481,8 +485,8 @@ export default function AuditTrailPage() {
         <select className="au-select" value={userF} onChange={(e) => setUserF(e.target.value)} aria-label="User">
           <option value="all">All users</option>{userNames.map((n) => <option key={n} value={n}>{n}</option>)}
         </select>
-        <select className="au-select" value={subjF} onChange={(e) => setSubjF(e.target.value)} aria-label="Subject">
-          <option value="all">All subjects</option>{subjectCodes.map((n) => <option key={n} value={n}>{n}</option>)}
+        <select className="au-select" value={siteF} onChange={(e) => setSiteF(e.target.value)} aria-label="Site">
+          <option value="all">All sites</option>{siteOptions.map((s) => <option key={s.id} value={s.id}>{s.name}</option>)}
         </select>
         <select className="au-select" value={formF} onChange={(e) => setFormF(e.target.value)} aria-label="Form">
           <option value="all">All forms</option>{formNames.map((n) => <option key={n} value={n}>{n}</option>)}
