@@ -294,12 +294,11 @@ function buildAuditEvents(dataset: Dataset, studyId: string, baseNow: number): A
 }
 
 // Role-scoped visibility: PI sees only subject-level events; login events are
-// Admin-only; Emergency Unblinding rows are DM/Admin-only (non-privileged roles
-// must not learn an unblinding occurred); CRA/DM/Admin see everything else.
+// Admin-only. Emergency Unblinding rows ARE visible to every audit-trail role
+// (oversight transparency) — the sensitive details are masked instead (see
+// roleEvents), not the whole row. CRA/DM/Admin see everything else.
 function visibleTo(e: AuditEvent, role: string): boolean {
-  const privileged = role === "DM" || role === "Admin";
   if (e.type === "login") return role === "Admin";
-  if (e.type === "unblinding") return privileged;
   if (role === "PI") return e.subjectId != null;
   return true;
 }
@@ -343,16 +342,24 @@ export default function AuditTrailPage() {
   const allEvents = useMemo(() => buildAuditEvents(dataset, studyId, baseNow), [dataset, studyId, baseNow]);
   const roleEvents = useMemo(() => {
     const visible = allEvents.filter((e) => visibleTo(e, activeRole));
-    // Mask the treatment arm anywhere it could leak (old/new value, details) for a
-    // non-privileged viewer of a double-blind study.
-    if (!isDoubleBlind || isPrivileged || armValues.length === 0) return visible;
-    const mask = (t: string | null): string | null => {
+    // Non-privileged viewer of a double-blind study: an Emergency Unblinding row
+    // STAYS VISIBLE (oversight transparency — who/when), but its sensitive payload
+    // is blinded; every other event has the treatment arm masked anywhere it leaks.
+    if (!isDoubleBlind || isPrivileged) return visible;
+    const maskArm = (t: string | null): string | null => {
       if (!t) return t;
       let out = t;
       for (const a of armValues) out = out.split(a).join("[Blinded]");
       return out;
     };
-    return visible.map((e) => ({ ...e, oldValue: mask(e.oldValue), newValue: mask(e.newValue), details: mask(e.details) ?? e.details }));
+    return visible.map((e) => {
+      if (e.type === "unblinding") {
+        return { ...e, oldValue: "[Blinded]", newValue: "[Blinded]",
+          details: "Treatment arm revealed — details restricted to DM/Admin",
+          reason: e.reason ? "[Restricted]" : e.reason };
+      }
+      return { ...e, oldValue: maskArm(e.oldValue), newValue: maskArm(e.newValue), details: maskArm(e.details) ?? e.details };
+    });
   }, [allEvents, activeRole, isDoubleBlind, isPrivileged, armValues]);
 
   const [search, setSearch] = useState("");
@@ -451,7 +458,7 @@ export default function AuditTrailPage() {
       <div className="au-toolbar">
         <div className="au-search"><i className="ti ti-search"></i><input type="search" placeholder="Search subject, user, field, action…" value={search} onChange={(e) => setSearch(e.target.value)} /></div>
         <select className="au-select" value={catF} onChange={(e) => setCatF(e.target.value)} aria-label="Action type">
-          {CAT_OPTIONS.filter((o) => o.value !== "unblinding" || isPrivileged).map((o) => <option key={o.value} value={o.value}>{o.label}</option>)}
+          {CAT_OPTIONS.map((o) => <option key={o.value} value={o.value}>{o.label}</option>)}
         </select>
         <select className="au-select" value={userF} onChange={(e) => setUserF(e.target.value)} aria-label="User">
           <option value="all">All users</option>{userNames.map((n) => <option key={n} value={n}>{n}</option>)}
