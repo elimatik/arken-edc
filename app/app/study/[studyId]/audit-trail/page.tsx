@@ -65,6 +65,43 @@ const CAT_OPTIONS: { value: string; label: string }[] = [
   { value: "login", label: "Login" },
 ];
 
+// ─── Event source — where the event originated (v1 derivation, no key bump) ──
+type SourceKey = "manual" | "site" | "barn" | "batch" | "system";
+const SOURCE_META: Record<SourceKey, { label: string; cls: string }> = {
+  manual: { label: "Manual", cls: "src-manual" },
+  site: { label: "Site form", cls: "src-site" },
+  barn: { label: "House form", cls: "src-barn" },
+  batch: { label: "Batch", cls: "src-batch" },
+  system: { label: "System", cls: "src-system" },
+};
+const SOURCE_OPTIONS: { value: string; label: string }[] = [
+  { value: "all", label: "All sources" },
+  { value: "manual", label: "Manual" },
+  { value: "site", label: "Site form" },
+  { value: "barn", label: "House form" },
+  { value: "batch", label: "Batch" },
+  { value: "system", label: "System" },
+];
+
+// Derive an event's source from its existing shape (v1): System for synthetic
+// login / auto-raised edit checks / calculated-or-readonlyAuto field values; Site
+// or House form when it came from a real scope='site' / scope='barn' instance;
+// Manual for everything else (subject-scoped direct entry — Batch is folded in
+// here until field values carry a via:'batch' provenance flag, which needs a bump).
+function deriveSource(e: AuditEvent, fieldById: Map<string, Dataset["formFields"][number]>): SourceKey {
+  if (e.type === "login") return "system";
+  if (e.type === "edit_check") return "system"; // auto-raised (onViolation auto)
+  if (e.type === "data_entry" && e.fieldId) {
+    const f = fieldById.get(e.fieldId);
+    if (f && (f.field_type === "calculated" || f.validation?.readonlyAuto)) return "system";
+  }
+  if (e.formId) {
+    if (e.scope === "site") return "site";
+    if (e.scope === "barn") return "barn";
+  }
+  return "manual";
+}
+
 interface AuditUser { name: string; role: string; initials: string; auto?: boolean }
 type AuditScope = "subject" | "site" | "barn";
 interface AuditEvent {
@@ -90,6 +127,7 @@ interface AuditEvent {
   queryCode?: string;
   statusBefore?: string;
   statusAfter?: string;
+  source: SourceKey; // where the event originated (derived in buildAuditEvents)
 }
 
 // Seeded cast — actions that the session store can't attribute to a real person
@@ -169,7 +207,8 @@ function buildAuditEvents(dataset: Dataset, studyId: string, baseNow: number): A
 
   const events: AuditEvent[] = [];
   let seq = 0;
-  const push = (e: Omit<AuditEvent, "id">) => events.push({ id: `ae-${seq++}`, ...e });
+  // `source` is derived in one pass after all events are built (see return).
+  const push = (e: Omit<AuditEvent, "id" | "source">) => events.push({ id: `ae-${seq++}`, source: "manual", ...e });
   const qCode = (id: string) => `Q-${id.slice(0, 4).toUpperCase()}`;
 
   // 1 — Data entry: one event per saved field value.
@@ -309,7 +348,8 @@ function buildAuditEvents(dataset: Dataset, studyId: string, baseNow: number): A
       oldValue: null, newValue: null, details: `${u.name} authenticated to the study` });
   }
 
-  return events;
+  // Tag every event's source in one pass (pure derivation from existing shape).
+  return events.map((e) => ({ ...e, source: deriveSource(e, fieldById) }));
 }
 
 // Role-scoped visibility. PI sees EVERY action type CRA sees (data entry, all
@@ -392,6 +432,7 @@ export default function AuditTrailPage() {
   const [userF, setUserF] = useState("all");
   const [siteF, setSiteF] = useState("all"); // by site id; subject search covers subject IDs
   const [formF, setFormF] = useState("all");
+  const [sourceF, setSourceF] = useState("all");
   const [dateFrom, setDateFrom] = useState(() => dateKey(new Date(baseNow - 60 * 86400000).toISOString()));
   const [dateTo, setDateTo] = useState(() => dateKey(new Date(baseNow).toISOString()));
   const { sort, toggle } = useTableSort(null); // null → default (newest first)
@@ -404,12 +445,13 @@ export default function AuditTrailPage() {
   const siteOptions = useMemo(() => dataset.sites.filter((s) => s.study_id === studyId).slice().sort((a, b) => a.name.localeCompare(b.name)), [dataset.sites, studyId]);
   const formNames = useMemo(() => Array.from(new Set(roleEvents.map((e) => e.formName).filter((f) => f !== "—"))).sort(), [roleEvents]);
 
-  const resetFilters = () => { setSearch(""); setCatF("all"); setUserF("all"); setSiteF("all"); setFormF("all"); };
+  const resetFilters = () => { setSearch(""); setCatF("all"); setSourceF("all"); setUserF("all"); setSiteF("all"); setFormF("all"); };
 
   const filtered = useMemo(() => {
     const q = search.toLowerCase().trim();
     const out = roleEvents.filter((e) => {
       if (catF !== "all" && TYPE_META[e.type].cat !== catF) return false;
+      if (sourceF !== "all" && e.source !== sourceF) return false;
       if (userF !== "all" && e.user.name !== userF) return false;
       if (siteF !== "all" && e.siteId !== siteF) return false;
       if (formF !== "all" && e.formName !== formF) return false;
@@ -426,7 +468,7 @@ export default function AuditTrailPage() {
       if (sort) { const r = cmp(a, b, sort.col); return sort.dir === "asc" ? r : -r; }
       return a.ts < b.ts ? 1 : a.ts > b.ts ? -1 : 0; // default newest first
     });
-  }, [roleEvents, search, catF, userF, siteF, formF, dateFrom, dateTo, sort]);
+  }, [roleEvents, search, catF, sourceF, userF, siteF, formF, dateFrom, dateTo, sort]);
 
   // Fall back to roleEvents (role-filtered + arm-masked), never allEvents, so the
   // detail panel can never surface a hidden/unmasked value.
@@ -498,6 +540,9 @@ export default function AuditTrailPage() {
         <select className="au-select" value={catF} onChange={(e) => setCatF(e.target.value)} aria-label="Action type">
           {CAT_OPTIONS.map((o) => <option key={o.value} value={o.value}>{o.label}</option>)}
         </select>
+        <select className="au-select" value={sourceF} onChange={(e) => setSourceF(e.target.value)} aria-label="Source">
+          {SOURCE_OPTIONS.map((o) => <option key={o.value} value={o.value}>{o.label}</option>)}
+        </select>
         <select className="au-select" value={userF} onChange={(e) => setUserF(e.target.value)} aria-label="User">
           <option value="all">All users</option>{userNames.map((n) => <option key={n} value={n}>{n}</option>)}
         </select>
@@ -548,7 +593,7 @@ export default function AuditTrailPage() {
                     <td>{e.fieldLabel ? <span className="au-field"><span className="au-field-label" title={e.fieldLabel}>{e.fieldLabel}</span>{e.fieldCode && <span className="au-field-code">{e.fieldCode}</span>}</span> : <span className="au-dash">—</span>}</td>
                     <td>{e.oldValue != null ? <span className="au-old" title={e.oldValue}>{e.oldValue}</span> : <span className="au-dash">—</span>}</td>
                     <td>{e.newValue != null ? <span className="au-new" title={e.newValue}>{e.newValue}</span> : <span className="au-dash">—</span>}</td>
-                    <td><span className="au-details" title={e.details}>{e.details}</span></td>
+                    <td><span className="au-details" title={e.details}>{e.details}</span><span className={`au-src-tag ${SOURCE_META[e.source].cls}`} title={`Source: ${SOURCE_META[e.source].label}`}>{SOURCE_META[e.source].label}</span></td>
                   </tr>
                 );
               })}
@@ -590,6 +635,7 @@ export default function AuditTrailPage() {
               <div className="au-detail-grid">
                 {row("Timestamp", fmtTs(panelEvent.ts), true)}
                 {row("Action", <span className={`au-type ${meta.cls}`}><i className={`ti ti-${meta.icon}`}></i> {meta.label}</span>)}
+                {row("Source", <span className={`au-src-tag ${SOURCE_META[panelEvent.source].cls}`}>{SOURCE_META[panelEvent.source].label}</span>)}
                 {row("User", <>{panelEvent.user.name} <span className="au-role" style={{ marginLeft: 4 }}>{panelEvent.user.role}</span></>)}
                 {row("Session", <span style={{ color: "var(--color-text-tertiary)" }}><i className="ti ti-device-desktop" style={{ fontSize: 12, marginRight: 4 }}></i>Timestamp: UTC · Electronic signature: session-authenticated</span>)}
                 {panelEvent.subjectCode !== "—" && panelEvent.scope === "subject" && row("Subject", <span style={{ fontFamily: "var(--font-mono)" }}>{panelEvent.subjectCode}</span>)}
