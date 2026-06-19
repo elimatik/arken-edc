@@ -1134,6 +1134,16 @@ const caAddDays = (iso, n) => { const d = new Date(`${iso}T00:00:00Z`); d.setUTC
 const nv = (x) => [String(x), typeof x === "number" ? x : parseFloat(x)];
 const sevForCadesi = (c) => (c >= 50 ? "Severe" : c >= 30 ? "Moderate" : c >= 15 ? "Mild" : "Resolved");
 const improvementFor = (c, base) => (c <= base * 0.45 ? "Much Improved" : c < base ? "Improved" : "No Change");
+// Recent randomization (baseline) dates for the ACTIVE CA-0801 dogs that lack one,
+// so the Visits screen shows a realistic spread of overdue / due / upcoming visits
+// (Day 14/28/56/84 relative to these). Cooper (101-01) keeps his older baseline as
+// a long-overdue example.
+const CA_ACTIVE_ENROLL = {
+  "CA-0801-101-02": "2026-06-12", "CA-0801-101-04": "2026-06-05",
+  "CA-0801-102-01": "2026-06-08", "CA-0801-102-02": "2026-05-22",
+  "CA-0801-102-04": "2026-05-25", "CA-0801-103-01": "2026-06-15",
+  "CA-0801-103-03": "2026-05-12",
+};
 const CA_COMPLETED = {
   // Active arm — strong response. Placebo — modest improvement (clinically realistic).
   "CA-0801-101-03": { screen: "2026-02-18", baseline: "2026-02-25", kit: "KIT-1051", weight: "31.2", cadesi: [58, 43, 31, 19, 14], pvas: [7.0, 5.3, 3.8, 2.6, 2.1] },
@@ -1217,6 +1227,11 @@ const caDemo = CA_DOGS.map((d, i) => {
       if (!present.has(key)) forms.push({ key, status: "finalized", values: gen.get(key) ?? {} });
     }
     forms = caResolveQueries(forms);
+  }
+  // Active dogs without a baseline get a recent randomization so their follow-up
+  // visits land as a realistic mix of overdue / due / upcoming on the Visits screen.
+  if (d.status === "active" && CA_ACTIVE_ENROLL[d.code] && !forms.some((f) => f.key === "randomization")) {
+    forms.push({ key: "randomization", status: "reviewed", values: { randomization_number: d.code.replace("CA-0801-", ""), treatment_arm: d.arm, randomization_date: CA_ACTIVE_ENROLL[d.code], drug_kit_assigned: `KIT-12${String(i).padStart(2, "0")}` } });
   }
   return { subject: d.code, forms };
 });
