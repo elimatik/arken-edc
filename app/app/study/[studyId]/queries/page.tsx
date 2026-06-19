@@ -194,8 +194,7 @@ export default function QueriesPage() {
   const [formF, setFormF] = useState("");
   const [siteF, setSiteF] = useState("");
   const [assignF, setAssignF] = useState("all"); // all | mine
-  const [sortF, setSortF] = useState("oldest"); // oldest | newest | subject (toolbar default)
-  const { sort: colSort, toggle: toggleSort, setSort: setColSort } = useTableSort(null); // header sort; overrides sortF
+  const { sort: colSort, toggle: toggleSort, setSort: setColSort } = useTableSort(null); // header sort (asc→desc→clear)
   const [panelId, setPanelId] = useState<string | null>(null);
   const [reply, setReply] = useState("");
   const [manageOpen, setManageOpen] = useState(false);
@@ -245,15 +244,14 @@ export default function QueriesPage() {
       return true;
     })
     .sort((a, b) => {
-      // A clickable-header sort overrides the toolbar Sort dropdown when active.
+      // Column-header sort when active (asc→desc→clear); otherwise newest-first.
       if (colSort) {
         const r = colCompare(a, b, colSort.col);
         return colSort.dir === "asc" ? r : -r;
       }
-      if (sortF === "subject") return a.subjectCode.localeCompare(b.subjectCode);
       const at = a.openedISO ? Date.parse(a.openedISO) : 0;
       const bt = b.openedISO ? Date.parse(b.openedISO) : 0;
-      return sortF === "newest" ? bt - at : at - bt; // oldest first by default
+      return bt - at; // newest first by default
     });
 
   // ─── Panel data ─────────────────────────────────────────────────────────────
@@ -375,10 +373,6 @@ export default function QueriesPage() {
             <option value="all">All queries</option><option value="mine">Needs my action</option>
           </select>
         )}
-        <select className="qy-select" value={colSort ? "" : sortF} onChange={(e) => { setSortF(e.target.value); setColSort(null); }}>
-          {colSort && <option value="">Custom (column)</option>}
-          <option value="oldest">Oldest first</option><option value="newest">Newest first</option><option value="subject">By subject</option>
-        </select>
         <span className="qy-count">{filtered.length} {tab === "queries" ? (filtered.length === 1 ? "query" : "queries") : (filtered.length === 1 ? "edit check" : "edit checks")}</span>
       </div>
 
