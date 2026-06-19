@@ -517,7 +517,7 @@ export function SubjectRecord({ studyId, subjectId, initialFormId, initialPanelF
   }
 
   // Withdrawal details for the banner — sourced from any field value the subject
-  // carries for these codes (Subject Status / End of Study forms).
+  // carries for these codes (Withdrawal Form / End of Study forms).
   function subjectValueByCode(code: string): string | undefined {
     const fieldIds = new Set(
       dataset.formFields.filter((f) => f.code === code).map((f) => f.id),

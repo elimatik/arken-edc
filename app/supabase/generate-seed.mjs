@@ -1016,10 +1016,11 @@ const CA_TREE = [
     sel("major_minor", "Major or minor", ["Major", "Minor"]),
     ta("corrective_action", "Corrective action"),
   ]),
-  alone("subject_status", "Subject Status", [
-    sel("current_status", "Current status", ["Screened", "Eligible", "Randomized", "Active", "Completed", "Withdrawn"]),
-    date("withdrawal_date", "Withdrawal date"),
-    sel("withdrawal_reason", "Withdrawal reason", ["Owner Request", "Adverse Event", "Protocol Violation", "Lost to Follow-Up", "Other"]),
+  // Withdrawal Form — the early-termination record (date + reason). Completion is
+  // handled separately on the End of Study form; this form only records a withdrawal.
+  alone("withdrawal", "Withdrawal Form", [
+    date("withdrawal_date", "Withdrawal date", true),
+    sel("withdrawal_reason", "Withdrawal reason", ["Consent withdrawn", "Lost to follow-up", "Adverse event", "Death", "Investigator decision", "Protocol deviation", "Other"], true),
     ta("comments", "Comments"),
   ]),
   alone("conmed", "ConMed", [
@@ -1150,7 +1151,7 @@ const CA_EXTRA = {
     { key: "drug_dispensation", status: "reviewed", values: { drug_kit_number: "KIT-1056", quantity_dispensed: ["84", 84], dispensation_date: "2026-03-17" } },
     { key: "fu1_pe", status: "reviewed", values: { visit_date: "2026-03-31", body_weight: ["13.0", 13.0], temperature: ["38.6", 38.6], heart_rate: ["90", 90], respiratory_rate: ["18", 18], general_health: "Normal", findings: "Mild improvement in erythema; owner reports reduced scratching." } },
     { key: "fu1_derm", status: "reviewed", values: { cadesi04_score: ["46", 46], pvas_score: ["6.1", 6.1], disease_severity: "Moderate", ear_assessment: "Normal" } },
-    { key: "subject_status", status: "reviewed", values: { current_status: "Withdrawn", withdrawal_date: "2026-04-18", withdrawal_reason: "Owner Request", comments: "Owner relocated out of the catchment area and is unable to attend the remaining visits." } },
+    { key: "withdrawal", status: "reviewed", values: { withdrawal_date: "2026-04-18", withdrawal_reason: "Lost to follow-up", comments: "Owner relocated out of the catchment area and is unable to attend the remaining visits." } },
   ],
 };
 

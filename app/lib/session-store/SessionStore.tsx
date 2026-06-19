@@ -10,7 +10,7 @@ import type { Role } from "@/lib/permissions";
 // visit it hydrates from Supabase; thereafter ALL reads/writes are in-session —
 // nothing is written back to Supabase.
 // Bump the version when the dataset shape changes (forces a fresh hydrate).
-const DATA_KEY = "arken_session_store_v29"; // v29: CADESI-04 canonical 3 subtotals (erythema/lichenification/alopecia-excoriation, each 0–60) + EOS subtotal demo; v28: CADESI breakdown, DART recommended-action + overall-eligibility calc fields, F4 test-article auto-populate, studyLocks
+const DATA_KEY = "arken_session_store_v30"; // v30: CA standalone status form renamed → "Withdrawal Form" (date + reason only; full early-exit reason list); v29: CADESI-04 canonical 3 subtotals + EOS subtotal demo; v28: CADESI breakdown, DART recommended-action + overall-eligibility calc fields, F4 test-article auto-populate, studyLocks
 const ROLE_KEY = "arken_active_role_v1";
 
 interface StudySessionValue {
