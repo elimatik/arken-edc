@@ -1109,11 +1109,88 @@ const CA_EXTRA = {
       queries: [
         { field: "pruritus_5plus", title: "Pruritus score at screen failure", raise: "Subject failed on the baseline pruritus criterion (owner PVAS <5). Confirm the screening pruritus score was taken from the validated owner assessment, not a clinic estimate." } ] },
   ],
-  // Molly — withdrawn: Subject Status carries the withdrawal date + reason (drives the banner).
+  // Molly — withdrawn (Owner Request, 2026-04-18). Forms BEFORE the withdrawal date
+  // (Screening, Baseline/Randomization, Follow-Up 1 Day 14) carry real values; the
+  // remaining visits are simply not started (no instance) — never empty-but-finalized.
   "CA-0801-102-03": [
+    { key: "screen_pe", status: "reviewed", values: { visit_date: "2026-03-10", temperature: ["38.7", 38.7], heart_rate: ["92", 92], respiratory_rate: ["20", 20], body_weight: ["13.1", 13.1], body_condition_score: ["5", 5], general_health: "Normal", significant_findings: "Generalized pruritus with ventral and pedal erythema; otherwise unremarkable." } },
+    { key: "screen_derm", status: "reviewed", values: { pruritus_severity: "Severe", lesion_severity: "Moderate", infection_assessment: "Mild", ear_assessment: "Normal", cadesi04_score: ["54", 54] } },
+    { key: "screen_consent", status: "reviewed", values: { consent_signed: "Yes", consent_version: "v2.1", consent_date: "2026-03-10", witness_name: "K. Reyes, RVT" } },
+    { key: "screen_eligibility", status: "reviewed", values: { age_1yr_plus: "Yes", cad_diagnosis: "Yes", chronic_itching_6mo: "Yes", pruritus_5plus: "Yes", owner_daily_assessments: "Yes", severe_systemic_illness: "No", recent_immunotherapy: "No", active_mange: "No", pregnant_breeding: "No", another_study_30d: "No", eligibility_status: "Eligible", investigator_approval: "Yes" } },
+    { key: "randomization", status: "reviewed", values: { randomization_number: "102-003", treatment_arm: "DermAlliv™ Active", randomization_date: "2026-03-17", drug_kit_assigned: "KIT-1056" } },
+    { key: "baseline_clinical", status: "reviewed", values: { cadesi04_score: ["54", 54], pvas_score: ["7.4", 7.4], disease_severity: "Severe", iga: "4" } },
+    { key: "drug_dispensation", status: "reviewed", values: { drug_kit_number: "KIT-1056", quantity_dispensed: ["84", 84], dispensation_date: "2026-03-17" } },
+    { key: "fu1_pe", status: "reviewed", values: { visit_date: "2026-03-31", body_weight: ["13.0", 13.0], temperature: ["38.6", 38.6], heart_rate: ["90", 90], respiratory_rate: ["18", 18], general_health: "Normal", findings: "Mild improvement in erythema; owner reports reduced scratching." } },
+    { key: "fu1_derm", status: "reviewed", values: { cadesi04_score: ["46", 46], pvas_score: ["6.1", 6.1], disease_severity: "Moderate", ear_assessment: "Normal" } },
     { key: "subject_status", status: "reviewed", values: { current_status: "Withdrawn", withdrawal_date: "2026-04-18", withdrawal_reason: "Owner Request", comments: "Owner relocated out of the catchment area and is unable to attend the remaining visits." } },
   ],
 };
+
+// ── Completed-subject realistic data (CA-0801) ──────────────────────────────
+// A completed dog must carry real, internally-consistent values on EVERY visit
+// form (a finalized form can never be empty). Per-dog: enrolment/baseline dates,
+// kit, and the CADESI-04 / PVAS trajectory across Baseline → Day 14/28/56/84.
+const caAddDays = (iso, n) => { const d = new Date(`${iso}T00:00:00Z`); d.setUTCDate(d.getUTCDate() + n); return d.toISOString().slice(0, 10); };
+const nv = (x) => [String(x), typeof x === "number" ? x : parseFloat(x)];
+const sevForCadesi = (c) => (c >= 50 ? "Severe" : c >= 30 ? "Moderate" : c >= 15 ? "Mild" : "Resolved");
+const improvementFor = (c, base) => (c <= base * 0.45 ? "Much Improved" : c < base ? "Improved" : "No Change");
+const CA_COMPLETED = {
+  // Active arm — strong response. Placebo — modest improvement (clinically realistic).
+  "CA-0801-101-03": { screen: "2026-02-18", baseline: "2026-02-25", kit: "KIT-1051", weight: "31.2", cadesi: [58, 43, 31, 19, 14], pvas: [7.0, 5.3, 3.8, 2.6, 2.1] },
+  "CA-0801-103-02": { screen: "2026-02-05", baseline: "2026-02-12", kit: "KIT-1062", weight: "33.0", cadesi: [68, 50, 36, 22, 13], pvas: [8.0, 6.1, 4.4, 2.9, 1.8] },
+  "CA-0801-103-04": { screen: "2026-01-30", baseline: "2026-02-06", kit: "KIT-1064", weight: "32.4", cadesi: [62, 58, 53, 49, 45], pvas: [7.5, 7.1, 6.6, 6.1, 5.6] },
+};
+function caCompletedForms(code, arm) {
+  const cfg = CA_COMPLETED[code];
+  const m = new Map();
+  if (!cfg) return m;
+  const { screen, baseline, kit, weight, cadesi: c, pvas: p } = cfg;
+  const parts = code.split("-");
+  const randNo = `${parts[2]}-0${parts[3]}`;
+  const vd = [0, 14, 28, 56, 84].map((dd) => caAddDays(baseline, dd));
+  const base = c[0];
+  m.set("screen_pe", { visit_date: screen, temperature: nv(38.6), heart_rate: nv(88), respiratory_rate: nv(18), body_weight: nv(weight), body_condition_score: nv(5), general_health: "Normal", significant_findings: "Erythema, excoriation, and pruritus consistent with canine atopic dermatitis; no systemic abnormalities." });
+  m.set("screen_derm", { pruritus_severity: "Severe", lesion_severity: "Severe", infection_assessment: "Mild", ear_assessment: "Otitis Externa", cadesi04_score: nv(c[0]) });
+  m.set("screen_consent", { consent_signed: "Yes", consent_version: "v2.1", consent_date: screen, witness_name: "L. Park, RVT" });
+  m.set("screen_eligibility", { age_1yr_plus: "Yes", cad_diagnosis: "Yes", chronic_itching_6mo: "Yes", pruritus_5plus: "Yes", owner_daily_assessments: "Yes", severe_systemic_illness: "No", recent_immunotherapy: "No", active_mange: "No", pregnant_breeding: "No", another_study_30d: "No", eligibility_status: "Eligible", investigator_approval: "Yes" });
+  m.set("screen_medhistory", { dermatology_history: "Chronic pruritus since ~12 months of age with seasonal flares.", previous_treatments: "Intermittent corticosteroids and medicated shampoos.", concurrent_diseases: "None significant.", surgical_history: "Spay/neuter only." });
+  m.set("screen_labs", { cbc: "Normal", chemistry_panel: "Normal", urinalysis: "Normal", lab_notes: "All values within normal limits.", investigator_review: "Yes" });
+  m.set("randomization", { randomization_number: randNo, treatment_arm: arm, randomization_date: baseline, drug_kit_assigned: kit });
+  m.set("baseline_clinical", { cadesi04_score: nv(c[0]), pvas_score: nv(p[0]), disease_severity: "Severe", iga: "4" });
+  m.set("drug_dispensation", { drug_kit_number: kit, quantity_dispensed: nv(84), dispensation_date: baseline });
+  m.set("owner_training", { diary_training: "Yes", med_admin_training: "Yes", compliance_instructions: "Yes" });
+  m.set("baseline_qol", { sleep_quality: "Severely Disrupted", activity_level: "Moderately Reduced", comfort: "Severely Uncomfortable", owner_burden: "Severe", overall_qol_score: nv(35) });
+  for (const n of [1, 2, 3]) {
+    m.set(`fu${n}_pe`, { visit_date: vd[n], body_weight: nv(weight), temperature: nv(38.5), heart_rate: nv(86), respiratory_rate: nv(18), general_health: "Normal", findings: c[n] < c[0] ? "Skin condition improving; no new lesions." : "Skin condition stable; no new lesions." });
+    m.set(`fu${n}_derm`, { cadesi04_score: nv(c[n]), pvas_score: nv(p[n]), disease_severity: sevForCadesi(c[n]), ear_assessment: c[n] < 30 ? "Normal" : "Otitis Externa" });
+    m.set(`fu${n}_drug`, { drug_kit_number: kit, units_returned: nv(6), next_kit_number: `${kit}-${n + 1}`, quantity_dispensed: nv(84) });
+    m.set(`fu${n}_conmed`, { new_conmed: "No", conmed_changes: "None." });
+    m.set(`fu${n}_ae`, { any_ae: "No", ae_description: "None reported." });
+    m.set(`fu${n}_compliance`, { epro_completion_pct: nv(96 - n), missed_doses: nv(n), missed_doses_reason: n > 0 ? "Occasional missed evening dose." : "" });
+    m.set(`fu${n}_questionnaire`, { sleep_disturbance: c[n] < 30 ? "Mild" : "Moderate", activity_level: c[n] < 30 ? "Normal" : "Mildly Reduced", perceived_improvement: improvementFor(c[n], base), overall_satisfaction: c[n] < base * 0.6 ? "Very Satisfied" : "Satisfied" });
+  }
+  m.set("eos_pe", { visit_date: vd[4], body_weight: nv(weight), temperature: nv(38.6), heart_rate: nv(84), respiratory_rate: nv(18), general_health: "Normal", findings: c[4] < base * 0.5 ? "Marked improvement in skin condition." : "Modest improvement in skin condition." });
+  m.set("eos_cadesi", { cadesi04_score: nv(c[4]) });
+  m.set("eos_pvas", { pvas_score: nv(p[4]) });
+  m.set("eos_qol", c[4] < 20
+    ? { sleep_quality: "Normal", activity_level: "Normal", comfort: "Comfortable", owner_burden: "None", overall_qol_score: nv(88) }
+    : { sleep_quality: "Mildly Disrupted", activity_level: "Mildly Reduced", comfort: "Mildly Uncomfortable", owner_burden: "Mild", overall_qol_score: nv(62) });
+  m.set("eos_drug_return", { drug_kit_returned: "Yes", units_returned: nv(4), reason_not_returned: "N/A" });
+  m.set("eos_ae", { outstanding_aes: "No", ae_status: "No outstanding adverse events." });
+  m.set("eos_completion", { completion_status: "Completed", investigator_final: `Subject completed all study visits. CADESI-04 ${c[0]} → ${c[4]} and owner PVAS ${p[0]} → ${p[4]} by Day 84. No drug-related adverse events.` });
+  return m;
+}
+// GCP: a completed subject cannot carry open queries — resolve every query at
+// study completion (give an open/raised query a response + a resolution message).
+function caResolveQueries(forms) {
+  const fix = (qy) => (qy.resolution ? qy : { ...qy, response: qy.response ?? "Value re-checked against source — confirmed correct.", resolution: "Resolved at study completion — value confirmed correct by investigator." });
+  return forms.map((f) => {
+    const out = { ...f };
+    if (f.query) out.query = fix(f.query);
+    if (f.queries) out.queries = f.queries.map(fix);
+    return out;
+  });
+}
 
 // Scheduled-visit leaf forms (Screening · Baseline/Randomization · Follow-Ups ·
 // End of Study) — completed subjects have ALL of these finalized.
@@ -1128,14 +1205,18 @@ const caDemo = CA_DOGS.map((d, i) => {
     { key: "owner_info", status: dStatus, values: { owner_id: `O${i + 1}`, owner_first_name: d.owner.first, owner_last_name: d.owner.last, owner_phone: d.owner.phone, owner_email: d.owner.email, owner_address: d.owner.address, preferred_contact: "Email" } },
     ...(CA_EXTRA[d.code] ?? []),
   ];
-  // Completed subjects: every scheduled-visit form is finalized — upgrade the
-  // ones that already carry data, and add the rest as finalized instances.
+  // Completed subjects: every scheduled-visit form is finalized AND carries real
+  // values (never empty). Upgrade the forms that already carry data, then fill each
+  // missing visit form from caCompletedForms(). Finally resolve all queries — a
+  // completed subject can't have open queries (GCP).
   if (d.status === "completed") {
+    const gen = caCompletedForms(d.code, d.arm);
     const present = new Set(forms.map((f) => f.key));
     forms = forms.map((f) => (caVisitLeafKeys.includes(f.key) ? { ...f, status: "finalized" } : f));
     for (const key of caVisitLeafKeys) {
-      if (!present.has(key)) forms.push({ key, status: "finalized", values: {} });
+      if (!present.has(key)) forms.push({ key, status: "finalized", values: gen.get(key) ?? {} });
     }
+    forms = caResolveQueries(forms);
   }
   return { subject: d.code, forms };
 });
