@@ -9,6 +9,7 @@ import { DEMO_USER_ID } from "@/lib/constants";
 import { useNdaName } from "@/lib/use-nda-name";
 import { evaluateField, rangeLabel } from "@/lib/forms/validation";
 import { isStudyLocked } from "@/lib/study-lock";
+import { LOCK_TOOLTIP } from "@/lib/use-study-locked";
 import type { Dataset, FormFieldRow } from "@/lib/session-store/types";
 import "./subject-record.css";
 
@@ -581,6 +582,7 @@ export function SubjectRecord({ studyId, subjectId, initialFormId, initialPanelF
     setEntryInstanceId(id);
   }
   function confirmDeleteEntry() {
+    if (readOnly) return; // frozen under study lock / closed subject
     const instId = deleteEntryId;
     if (!instId) return;
     update((d) => {
@@ -1485,14 +1487,14 @@ export function SubjectRecord({ studyId, subjectId, initialFormId, initialPanelF
                 {manageOpen && <div className="manage-backdrop" onClick={() => setManageOpen(false)} />}
                 <div className={`manage-menu${manageOpen ? " open" : ""}`} role="menu">
                   <button className="manage-item" type="button" onClick={() => setManageOpen(false)}><i className="ti ti-link"></i> Copy link</button>
-                  <button className="manage-item" type="button" onClick={() => setManageOpen(false)}><i className="ti ti-calendar-plus"></i> Add unscheduled visit</button>
+                  <button className="manage-item" type="button" disabled={studyLocked} title={studyLocked ? LOCK_TOOLTIP : undefined} onClick={() => setManageOpen(false)}><i className="ti ti-calendar-plus"></i> Add unscheduled visit</button>
                   <button className="manage-item" type="button" onClick={() => setManageOpen(false)}><i className="ti ti-printer"></i> Print subject summary</button>
                   <button className="manage-item" type="button" onClick={() => setManageOpen(false)}><i className="ti ti-download"></i> Export subject data</button>
                   <div className="manage-sep"></div>
-                  <button className="manage-item" type="button" onClick={() => setManageOpen(false)}><i className="ti ti-lock"></i> Lock record</button>
-                  <button className="manage-item" type="button" onClick={() => setManageOpen(false)}><i className="ti ti-signature"></i> Sign off record</button>
+                  <button className="manage-item" type="button" disabled={studyLocked} title={studyLocked ? LOCK_TOOLTIP : undefined} onClick={() => setManageOpen(false)}><i className="ti ti-lock"></i> Lock record</button>
+                  <button className="manage-item" type="button" disabled={studyLocked} title={studyLocked ? LOCK_TOOLTIP : undefined} onClick={() => setManageOpen(false)}><i className="ti ti-signature"></i> Sign off record</button>
                   <div className="manage-sep"></div>
-                  <button className="manage-item danger" type="button" onClick={() => setManageOpen(false)}><i className="ti ti-user-x"></i> Withdraw subject</button>
+                  <button className="manage-item danger" type="button" disabled={studyLocked} title={studyLocked ? LOCK_TOOLTIP : undefined} onClick={() => setManageOpen(false)}><i className="ti ti-user-x"></i> Withdraw subject</button>
                 </div>
               </div>
             </div>

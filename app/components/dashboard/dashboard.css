@@ -286,7 +286,7 @@
 .blinded-note i { font-size: 12px; }
 
 /* ── Database Lock — Admin card + modal ────────────────────────────────────── */
-.db-lock-card { display: flex; flex-direction: column; gap: var(--space-3); position: relative; }
+.db-lock-card { display: flex; flex-direction: column; gap: var(--space-3); position: relative; padding: var(--space-3) var(--space-4); }
 .db-lock-status { display: flex; align-items: center; gap: var(--space-2); flex-wrap: wrap; }
 .db-lock-pill { display: inline-flex; align-items: center; gap: 5px; padding: 3px var(--space-2); border-radius: var(--radius-full); font-size: var(--text-xs); font-weight: var(--weight-medium); border: 1px solid; }
 .db-lock-pill i { font-size: 13px; }

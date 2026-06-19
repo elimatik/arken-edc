@@ -4,6 +4,7 @@ import { useMemo, useState } from "react";
 import { useRouter, useParams } from "next/navigation";
 import { useShell } from "@/components/shell/ShellContext";
 import { useStudySession } from "@/lib/session-store/SessionStore";
+import { useStudyLocked, LOCK_TOOLTIP } from "@/lib/use-study-locked";
 import { useTableSort } from "@/lib/useTableSort";
 import { SortTh } from "@/components/common/SortTh";
 import { TIME_ZONES } from "./constants";
@@ -35,6 +36,7 @@ export default function SitesPage() {
   const studyId = String(params.studyId);
   const { study, activeRole } = useShell();
   const { dataset, ready, update } = useStudySession();
+  const locked = useStudyLocked(studyId);
 
   const isAdmin = activeRole === "Admin";
   const { sort, toggle } = useTableSort(null);
@@ -95,6 +97,7 @@ export default function SitesPage() {
   }, [rows, sort]);
 
   function createSite() {
+    if (locked) return;
     if (!fName.trim() || !fNumber.trim() || !fPiName.trim()) return;
     update((d) => {
       d.sites.push({
@@ -123,7 +126,7 @@ export default function SitesPage() {
           <div className="sites-sub">{study.code} · {rows.length} site{rows.length === 1 ? "" : "s"}</div>
         </div>
         {isAdmin && (
-          <button className="st-btn-primary" type="button" onClick={() => setAddOpen(true)}>
+          <button className="st-btn-primary" type="button" disabled={locked} title={locked ? LOCK_TOOLTIP : undefined} onClick={() => !locked && setAddOpen(true)}>
             <i className="ti ti-plus"></i> Add site
           </button>
         )}

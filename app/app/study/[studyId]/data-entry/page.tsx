@@ -4,6 +4,7 @@ import { Fragment, useEffect, useMemo, useState } from "react";
 import { useRouter, useParams, useSearchParams } from "next/navigation";
 import { useShell } from "@/components/shell/ShellContext";
 import { useStudySession } from "@/lib/session-store/SessionStore";
+import { useStudyLocked, LOCK_TOOLTIP } from "@/lib/use-study-locked";
 import { hierarchyLevels } from "@/lib/terminology";
 import { studyHasBatch } from "@/lib/batch-entry";
 import { useTableSort } from "@/lib/useTableSort";
@@ -71,6 +72,7 @@ export default function DataEntryPage() {
   const studyId = String(params.studyId);
   const { study, selectedSiteId, activeRole } = useShell();
   const { dataset, ready, update } = useStudySession();
+  const locked = useStudyLocked(studyId);
   const siteParam = useSearchParams().get("site"); // ?site=<id> pre-filters a site (e.g. from the Subject Record breadcrumb)
 
   const [nav, setNav] = useState<{ key: string; label: string }[]>([]);
@@ -371,6 +373,7 @@ export default function DataEntryPage() {
       : ["CRC", "DM", "Admin"].includes(activeRole); // Add Barn / Pen / Stable / Stall
 
   function onAddClick() {
+    if (locked) return;
     if (addLevel === "subject") {
       // New empty subject — created in session, opens its Subject Record (like "Add Study").
       const id = crypto.randomUUID();
@@ -415,7 +418,7 @@ export default function DataEntryPage() {
   // Admin-only Sites section (/sites). This site-level add path only renders for
   // Admin, who manages structure there — clinical roles can't add sites here.
   function createSite() {
-    if (!fName.trim() || !fNumber.trim()) return;
+    if (locked || !fName.trim() || !fNumber.trim()) return;
     update((d) => {
       d.sites.push({
         id: crypto.randomUUID(), study_id: studyId, code: fNumber.trim(), name: fName.trim(),
@@ -426,7 +429,7 @@ export default function DataEntryPage() {
   }
 
   function createContainer() {
-    if (!fName.trim() || !parentNode) return;
+    if (locked || !fName.trim() || !parentNode) return;
     update((d) => {
       if (childLevel === 1) {
         const code = `B${d.barns.filter((b) => b.site_id === parentNode.id).length + 1}`;
@@ -501,12 +504,12 @@ export default function DataEntryPage() {
               </button>
             )}
             {showBatch && (
-              <button className="btn-secondary" type="button" onClick={() => router.push(`/study/${studyId}/batch-entry?from=data-entry${parentNode ? `&loc=${parentNode.id}` : ""}`)}>
+              <button className="btn-secondary" type="button" disabled={locked} title={locked ? LOCK_TOOLTIP : undefined} onClick={() => !locked && router.push(`/study/${studyId}/batch-entry?from=data-entry${parentNode ? `&loc=${parentNode.id}` : ""}`)}>
                 <i className="ti ti-table"></i> Batch entry
               </button>
             )}
             {canAdd && (
-              <button className="btn-primary" type="button" onClick={onAddClick}>
+              <button className="btn-primary" type="button" disabled={locked} title={locked ? LOCK_TOOLTIP : undefined} onClick={onAddClick}>
                 <i className="ti ti-plus"></i> Add {listLevelName.toLowerCase()}
               </button>
             )}

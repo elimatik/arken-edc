@@ -4,6 +4,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { useRouter, useParams } from "next/navigation";
 import { useShell } from "@/components/shell/ShellContext";
 import { useStudySession } from "@/lib/session-store/SessionStore";
+import { useStudyLocked, LOCK_TOOLTIP } from "@/lib/use-study-locked";
 import { housingTerms, animalsLabel } from "@/lib/terminology";
 import { canQuery } from "@/lib/permissions";
 import { studyHasBatch } from "@/lib/batch-entry";
@@ -88,6 +89,7 @@ export default function AnimalsPage() {
   const studyId = String(params.studyId);
   const { study, selectedSiteId, activeRole } = useShell();
   const { dataset, ready } = useStudySession();
+  const locked = useStudyLocked(studyId);
 
   const studyRow = ready ? dataset.studies.find((s) => s.id === studyId) : undefined;
   const studyType = studyRow?.type ?? "livestock_group";
@@ -423,11 +425,11 @@ export default function AnimalsPage() {
               <i className="ti ti-table-export"></i> SEND export
             </button>
             {hasBatch && (
-              <button className="btn-secondary" type="button" onClick={() => router.push(`/study/${studyId}/batch-entry?from=animals`)}>
+              <button className="btn-secondary" type="button" disabled={locked} title={locked ? LOCK_TOOLTIP : undefined} onClick={() => !locked && router.push(`/study/${studyId}/batch-entry?from=animals`)}>
                 <i className="ti ti-table"></i> Batch entry
               </button>
             )}
-            <button className="btn-primary" type="button">
+            <button className="btn-primary" type="button" disabled={locked} title={locked ? LOCK_TOOLTIP : undefined}>
               <i className="ti ti-plus"></i> Add {subjSingular}
             </button>
           </div>

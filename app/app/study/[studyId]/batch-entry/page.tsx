@@ -3,6 +3,7 @@
 import { useMemo, useState } from "react";
 import { useParams, useSearchParams, useRouter } from "next/navigation";
 import { useStudySession } from "@/lib/session-store/SessionStore";
+import { useStudyLocked } from "@/lib/use-study-locked";
 import { BatchPicker } from "@/components/batch-entry/BatchPicker";
 import { BatchEntryGrid } from "@/components/batch-entry/BatchEntryGrid";
 
@@ -14,6 +15,7 @@ export default function BatchEntryPage() {
   const loc = sp.get("loc") ?? undefined; // optional location pre-filter (site / barn / pen id)
   const from = sp.get("from") ?? "animals";
   const { dataset, ready } = useStudySession();
+  const locked = useStudyLocked(studyId);
 
   const [formId, setFormId] = useState<string | null>(null);
 
@@ -32,6 +34,19 @@ export default function BatchEntryPage() {
 
   if (!ready) {
     return <div className="be-screen"><div className="grid-empty"><i className="ti ti-loader-2"></i> Loading…</div></div>;
+  }
+  // Database lock freezes batch entry entirely — block both the picker (opening) and
+  // the grid (saving). Mirroring data entry being read-only study-wide.
+  if (locked) {
+    return (
+      <div className="be-screen">
+        <div className="grid-empty">
+          <i className="ti ti-lock"></i>
+          <div>Database is locked — batch entry is unavailable pending statistical analysis.</div>
+          <button className="btn-secondary" type="button" onClick={exitOrigin} style={{ marginTop: "var(--space-3)" }}>Back</button>
+        </div>
+      </div>
+    );
   }
   if (!formId) {
     return <BatchPicker studyId={studyId} subjectIds={subjectIds} onPick={setFormId} onExitOrigin={exitOrigin} />;
