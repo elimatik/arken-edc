@@ -59,6 +59,8 @@ const HIST_META: Record<HistStatus, { label: string; cls: string }> = {
   early: { label: "Early", cls: "vc-early" },
   outside: { label: "Outside window", cls: "vc-outside" },
 };
+// Status sort order (asc = most concerning first): Outside → On time → Early.
+const HIST_RANK: Record<HistStatus, number> = { outside: 0, on_time: 1, early: 2 };
 const varianceLabel = (v: number | null) => (v == null ? "—" : v === 0 ? "On time" : v > 0 ? `+${v} days` : `${v} days`);
 
 export default function VisitsPage() {
@@ -80,8 +82,7 @@ export default function VisitsPage() {
   const [search, setSearch] = useState("");
   const [statusF, setStatusF] = useState("all");
   const [siteF, setSiteF] = useState("all");
-  const [sortF, setSortF] = useState("urgency"); // upcoming: urgency|subject|target · history: newest|subject|target
-  const { sort, toggle } = useTableSort(null);
+  const { sort, toggle, setSort } = useTableSort(null); // sorting is via column headers only
 
   const siteOptions = useMemo(() => dataset.sites.filter((s) => s.study_id === studyId).slice().sort((a, b) => a.name.localeCompare(b.name)), [dataset.sites, studyId]);
 
@@ -116,15 +117,14 @@ export default function VisitsPage() {
         if (sort.col === "subject") r = a.subjectCode.localeCompare(b.subjectCode);
         else if (sort.col === "target") r = a.targetDate.localeCompare(b.targetDate);
         else if (sort.col === "days") r = upStatusOf(a, today).days - upStatusOf(b, today).days;
+        else if (sort.col === "status") r = UP_META[upStatusOf(a, today).key].rank - UP_META[upStatusOf(b, today).key].rank; // asc = most urgent first
         return sort.dir === "asc" ? r : -r;
       }
-      if (sortF === "subject") return a.subjectCode.localeCompare(b.subjectCode) || a.day - b.day;
-      if (sortF === "target") return a.targetDate.localeCompare(b.targetDate);
-      // urgency: rank, then soonest target
+      // Default order: by urgency (rank), then soonest target.
       const ra = UP_META[upStatusOf(a, today).key].rank, rb = UP_META[upStatusOf(b, today).key].rank;
       return ra - rb || a.targetDate.localeCompare(b.targetDate);
     });
-  }, [upcomingAll, search, statusF, siteF, sortF, sort, today]);
+  }, [upcomingAll, search, statusF, siteF, sort, today]);
 
   // ─── Tab 2 filter + sort ────────────────────────────────────────────────────
   const history = useMemo(() => {
@@ -144,16 +144,17 @@ export default function VisitsPage() {
         else if (sort.col === "target") r = a.targetDate.localeCompare(b.targetDate);
         else if (sort.col === "completed") r = (a.recordedDate ?? "").localeCompare(b.recordedDate ?? "");
         else if (sort.col === "variance") r = (histStatusOf(a).variance ?? 0) - (histStatusOf(b).variance ?? 0);
+        else if (sort.col === "status") r = HIST_RANK[histStatusOf(a).key] - HIST_RANK[histStatusOf(b).key]; // asc = most concerning first
         return sort.dir === "asc" ? r : -r;
       }
-      if (sortF === "subject") return a.subjectCode.localeCompare(b.subjectCode) || a.day - b.day;
-      if (sortF === "target") return a.targetDate.localeCompare(b.targetDate);
-      return (b.recordedDate ?? "").localeCompare(a.recordedDate ?? ""); // newest first
+      return (b.recordedDate ?? "").localeCompare(a.recordedDate ?? ""); // default: newest first
     });
-  }, [historyAll, search, statusF, siteF, sortF, sort]);
+  }, [historyAll, search, statusF, siteF, sort]);
 
-  function gotoRecord(r: VisitRow) { router.push(`/study/${studyId}/data-entry/${r.subjectId}`); }
-  function switchTab(t: TabKey) { setTab(t); setStatusF("all"); setSortF(t === "upcoming" ? "urgency" : "newest"); }
+  // Deep-link to the subject record AND open this visit's form in the sidebar
+  // (`?form=` is read by the Subject Record's initialFormId).
+  function gotoRecord(r: VisitRow) { router.push(`/study/${studyId}/data-entry/${r.subjectId}?form=${r.formId}`); }
+  function switchTab(t: TabKey) { setTab(t); setStatusF("all"); setSort(null); }
 
   if (!ready) return <div className="vs-screen"><div className="vs-empty"><i className="ti ti-loader-2"></i> Loading…</div></div>;
 
@@ -167,12 +168,12 @@ export default function VisitsPage() {
         <h1 className="vs-title">Visits</h1>
       </div>
 
-      {/* Stat strip */}
+      {/* Stat strip — plain numbers, colored by severity (no chip backgrounds). */}
       <div className="vs-stat-strip">
-        <div className="vs-stat"><div className="vs-stat-val"><span className="vs-chip vc-overdue">{stats.overdue}</span></div><div className="vs-stat-lbl">Overdue</div></div>
-        <div className="vs-stat"><div className="vs-stat-val"><span className="vs-chip vc-week">{stats.dueWeek}</span></div><div className="vs-stat-lbl">Due this week</div></div>
-        <div className="vs-stat"><div className="vs-stat-val"><span className="vs-chip vc-ontime">{stats.onTime}</span></div><div className="vs-stat-lbl">Completed on time</div></div>
-        <div className="vs-stat"><div className="vs-stat-val"><span className="vs-chip vc-outside">{stats.outside}</span></div><div className="vs-stat-lbl">Outside window</div></div>
+        <div className="vs-stat"><div className="vs-stat-val red">{stats.overdue}</div><div className="vs-stat-lbl">Overdue</div></div>
+        <div className="vs-stat"><div className="vs-stat-val amber">{stats.dueWeek}</div><div className="vs-stat-lbl">Due this week</div></div>
+        <div className="vs-stat"><div className="vs-stat-val green">{stats.onTime}</div><div className="vs-stat-lbl">Completed on time</div></div>
+        <div className="vs-stat"><div className="vs-stat-val amber">{stats.outside}</div><div className="vs-stat-lbl">Outside window</div></div>
         <div className="vs-stat"><div className="vs-stat-val">{stats.total.toLocaleString()}</div><div className="vs-stat-lbl">Total scheduled</div></div>
       </div>
 
@@ -211,17 +212,6 @@ export default function VisitsPage() {
             <select className="vs-select" value={siteF} onChange={(e) => setSiteF(e.target.value)} aria-label="Site">
               <option value="all">All sites</option>{siteOptions.map((s) => <option key={s.id} value={s.id}>{s.name}</option>)}
             </select>
-            <select className="vs-select" value={sortF} onChange={(e) => setSortF(e.target.value)} aria-label="Sort">
-              {tab === "upcoming" ? (
-                <>
-                  <option value="urgency">By urgency</option><option value="subject">By subject</option><option value="target">By target date</option>
-                </>
-              ) : (
-                <>
-                  <option value="newest">Newest first</option><option value="subject">By subject</option><option value="target">By target date</option>
-                </>
-              )}
-            </select>
             <span className="vs-count">{(tab === "upcoming" ? upcoming : history).length} {tab === "upcoming" ? "visits" : "completed"}</span>
           </div>
 
@@ -238,7 +228,7 @@ export default function VisitsPage() {
                 <table className="vs-table">
                   <thead><tr>
                     {th("Subject", "subject", 130)}<th style={{ width: 120 }}>Site</th><th>Visit</th>
-                    {th("Target date", "target", 120)}<th style={{ width: 80 }}>Window</th><th style={{ width: 130 }}>Status</th>
+                    {th("Target date", "target", 120)}<th style={{ width: 80 }}>Window</th>{th("Status", "status", 130)}
                     {th("Days", "days", 80)}<th style={{ width: 90 }}>Action</th>
                   </tr></thead>
                   <tbody>
@@ -270,7 +260,7 @@ export default function VisitsPage() {
               <table className="vs-table">
                 <thead><tr>
                   {th("Subject", "subject", 130)}<th style={{ width: 120 }}>Site</th><th>Visit</th>
-                  {th("Target date", "target", 120)}{th("Completed", "completed", 120)}{th("Variance", "variance", 110)}<th style={{ width: 140 }}>Status</th>
+                  {th("Target date", "target", 120)}{th("Completed", "completed", 120)}{th("Variance", "variance", 110)}{th("Status", "status", 140)}
                 </tr></thead>
                 <tbody>
                   {history.map((r) => {
