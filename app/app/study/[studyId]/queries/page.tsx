@@ -201,6 +201,9 @@ export default function QueriesPage() {
   const [closeModalOpen, setCloseModalOpen] = useState(false);
   const [closeReason, setCloseReason] = useState("");
   const [toast, setToast] = useState<string | null>(null);
+  const [infoOpen, setInfoOpen] = useState(false); // Q- vs EC- explainer popover
+  function toggleInfo() { setInfoOpen((o) => !o); }
+  function closeInfo() { setInfoOpen(false); }
   useEffect(() => { if (!toast) return; const t = setTimeout(() => setToast(null), 2800); return () => clearTimeout(t); }, [toast]);
 
   // Sponsor never has an Edit Checks tab — keep them on Queries.
@@ -337,7 +340,38 @@ export default function QueriesPage() {
       <div className="qy-header">
         <div className="qy-bc">Queries</div>
         <div className="qy-title-row">
-          <h1 className="qy-title">Queries</h1>
+          <div className="qy-title-left">
+            <h1 className="qy-title">Queries</h1>
+            <div className="qy-info-wrap">
+              <button
+                className="qy-info-btn"
+                type="button"
+                onClick={toggleInfo}
+                aria-label="What do the Q- and EC- prefixes mean?"
+                aria-expanded={infoOpen}
+                title="What's the difference between a query (Q-) and an edit check (EC-)?"
+              >
+                <i className="ti ti-info-circle"></i>
+              </button>
+              {infoOpen && <div className="qy-info-backdrop" onClick={closeInfo} />}
+              <div className={`qy-info-pop${infoOpen ? " open" : ""}`} role="dialog" aria-label="Query and edit-check definitions">
+                <div className="qy-info-item">
+                  <span className="qy-info-tag tc-q">Q-</span>
+                  <div className="qy-info-text">
+                    <div className="qy-info-name">Manual Query</div>
+                    <p className="qy-info-desc">Raised by a monitor (CRA) or data manager (DM) when data needs clarification or correction. Flow: Raised → Responded (CRC) → Resolved.</p>
+                  </div>
+                </div>
+                <div className="qy-info-item">
+                  <span className="qy-info-tag tc-ec">EC-</span>
+                  <div className="qy-info-text">
+                    <div className="qy-info-name">Edit Check</div>
+                    <p className="qy-info-desc">Raised automatically when a value fails a validation rule (out of range, missing required, inconsistent). Resolved by correcting the value, or by adding an explanation that converts it to a query.</p>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
           <button className="btn-secondary" type="button"><i className="ti ti-download"></i> Export</button>
         </div>
       </div>
