@@ -117,6 +117,21 @@ const feedAdditiveVerification = () => [
   showIf({ code: "verifier_name", label: "Verifier name", type: "calculated", validation: { readonlyAuto: true } }, "additive_verified", "Yes"),
   showIf({ code: "verification_timestamp", label: "Verification timestamp", type: "calculated", validation: { readonlyAuto: true } }, "additive_verified", "Yes"),
 ];
+// PH-2401 GLP analytical confirmation that the medicated feed actually CONTAINS the
+// phytogenic additive at the target concentration (distinct from the second-observer
+// ADMINISTRATION check above — this is a lab assay of the ration). T02 (phytogenic)
+// pens only; the detail fields chain off the parent Yes via showIf, so a T01 pen —
+// which never sees the parent — keeps them all hidden automatically. No engine change.
+const FEED_ANALYSIS_PERFORMED_HINT = "Has the medicated feed been lab-analyzed to confirm phytogenic additive concentration?";
+const FEED_ANALYSIS_WINDOW_HINT = "Test-article concentration in feed confirmed analytically per GLP. Acceptance window: target ± 15% (protocol-defined).";
+const feedAnalysis = () => [
+  showIf(withHint({ code: "feed_analysis_performed", label: "Feed analysis performed", type: "radio", options: ["Yes", "No"], req: true }, FEED_ANALYSIS_PERFORMED_HINT), "treatment_arm", "T02 Phytogenic"),
+  showIf(txt("feed_analysis_lab", "Analytical laboratory"), "feed_analysis_performed", "Yes"),
+  showIf(date("feed_analysis_date", "Analysis date"), "feed_analysis_performed", "Yes"),
+  showIf(num("feed_additive_target_conc", "Target additive concentration", "mg/kg"), "feed_analysis_performed", "Yes"),
+  showIf(withHint(num("feed_additive_measured_conc", "Measured additive concentration", "mg/kg"), FEED_ANALYSIS_WINDOW_HINT), "feed_analysis_performed", "Yes"),
+  showIf(file("feed_analysis_coa", "Certificate of Analysis (CoA)"), "feed_analysis_performed", "Yes"),
+];
 
 // Tag a list of fields with a named in-form section (rendered as a divider in
 // the Subject Record). Merges into any existing validation so vitals/criteria
@@ -301,6 +316,7 @@ const PH_TREE = [
         ta("notes", "Notes"),
       ]),
       ...sec("Feed Additive Administration", feedAdditiveVerification()),
+      ...sec("Feed Analysis Confirmation", feedAnalysis()),
     ]),
   ]),
   grp("Placement / Day 0", [
@@ -1512,7 +1528,9 @@ const STUDIES = [
         { key: "feed_setup", status: "reviewed", values: {
           feed_supplier: "AgriFeed Co.", feed_lot_number: "FL-7782", feed_form: "Crumble", feed_phase: "Starter D0-10",
           feed_delivery_date: "2026-04-20", initial_feed_inventory: ["50", 50], feed_quality_check: "Yes",
-          mycotoxin_result: "Pass", crude_protein: ["22", 22], metabolizable_energy: ["3000", 3000] } },
+          mycotoxin_result: "Pass", crude_protein: ["22", 22], metabolizable_energy: ["3000", 3000],
+          feed_analysis_performed: "Yes", feed_analysis_lab: "Eurofins Nutrition Analysis", feed_analysis_date: "2026-04-20",
+          feed_additive_target_conc: ["150", 150], feed_additive_measured_conc: ["148", 148], feed_analysis_coa: "CoA-PHY-LOT-3320.pdf" } },
         { key: "baseline_d0", status: "reviewed", values: {
           weighing_date: "2026-04-21", birds_alive: ["30", 30], total_pen_weight: ["1.25", 1.25], bw_sd: ["5", 5],
           beginning_feed_inventory: ["50", 50], water_meter_reading: ["0", 0], flock_behavior: "Normal", weighed_by: "Elisa Tron" } },
@@ -1556,6 +1574,13 @@ const STUDIES = [
           hatch_date: "2026-04-20", placement_date: "2026-04-21",
           treatment_arm: "T02 Phytogenic", randomization_block: ["2", 2], litter_type: "Wood shavings",
           litter_depth: ["7", 7], litter_scoring_system: "Ekstrand 1-5", feeder_type: "Tube", drinker_type: "Nipple" } },
+        // Out-of-window feed analysis (measured 122 vs target 150 → −19%) — demo data
+        // for the future ±15% soft edit check (cross-field primitive not yet present).
+        { key: "feed_setup", status: "in_work", values: {
+          feed_supplier: "AgriFeed Co.", feed_lot_number: "FL-7790", feed_form: "Crumble", feed_phase: "Starter D0-10",
+          feed_delivery_date: "2026-04-20", initial_feed_inventory: ["50", 50],
+          feed_analysis_performed: "Yes", feed_analysis_lab: "Eurofins Nutrition Analysis", feed_analysis_date: "2026-04-21",
+          feed_additive_target_conc: ["150", 150], feed_additive_measured_conc: ["122", 122], feed_analysis_coa: "CoA-PHY-LOT-3330.pdf" } },
       ] },
     ],
   },
