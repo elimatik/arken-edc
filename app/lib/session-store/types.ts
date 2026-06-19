@@ -214,6 +214,11 @@ export interface FieldValidation {
   section?: string; // explicit in-form section heading this field belongs to
   hint?: string; // persistent help text shown under the field (e.g. score-scale legend)
   message?: string; // custom edit-check message (overrides the generic out-of-range text)
+  // Field-level conditional display: show this field only when the referenced
+  // field's value equals `equals` (same form first, else any value on the subject).
+  // `equals` omitted → shown whenever the referenced field has any value.
+  showIf?: { code: string; equals?: string };
+  readonlyAuto?: boolean; // computed/auto read-only value (e.g. Protocol version) — AUTO badge
 }
 
 export interface FormFieldRow {

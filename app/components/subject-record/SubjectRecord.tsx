@@ -169,6 +169,7 @@ export function SubjectRecord({ studyId, subjectId, initialFormId, initialPanelF
   const [overrideReason, setOverrideReason] = useState("");
   const [unblindOpen, setUnblindOpen] = useState(false); // emergency-unblinding modal (DM/Admin, double-blind only)
   const [unblindReason, setUnblindReason] = useState("");
+  const [timelineOpen, setTimelineOpen] = useState(false); // collapsible subject timeline (above the form sidebar)
   const [manageOpenQuery, setManageOpenQuery] = useState(false); // DM query Manage dropdown
   const [closeModalOpen, setCloseModalOpen] = useState(false); // "Close without response" modal
   const [closeReason, setCloseReason] = useState("");
@@ -408,6 +409,17 @@ export function SubjectRecord({ studyId, subjectId, initialFormId, initialPanelF
 
   const fvFor = (fieldId: string) =>
     instance ? dataset.fieldValues.find((v) => v.form_instance_id === instance.id && v.form_field_id === fieldId) : undefined;
+  // Field-level conditional display (validation.showIf): the field shows only when
+  // the referenced field's value matches — read from this form first (same-instance
+  // dependency, e.g. "verified = Yes"), else any value the subject carries (cross-
+  // form, e.g. the pen's treatment_arm). Hidden fields don't render and don't gate.
+  function isFieldVisible(field: FormFieldRow): boolean {
+    const cond = field.validation?.showIf;
+    if (!cond) return true;
+    const sameField = fields.find((f) => f.code === cond.code);
+    const v = sameField ? (fvFor(sameField.id)?.value ?? "") : (valByCode(cond.code) ?? "");
+    return cond.equals != null ? v === cond.equals : v !== "";
+  }
   // Any *query* on the field (manual or converted-from-edit-check): open/responded
   // preferred, else the latest resolved (so a resolved query keeps a green flag).
   const fieldQueryFor = (fvId: string | undefined) => {
@@ -633,6 +645,15 @@ export function SubjectRecord({ studyId, subjectId, initialFormId, initialPanelF
     return v != null && v !== "" && !Number.isNaN(n) ? n : undefined;
   }
   function calcValue(field: FormFieldRow): string {
+    // Protocol version in effect — fixed per study, traceable on every visit form.
+    if (field.code === "protocol_version") {
+      const code = studyRow?.code;
+      return code === "PH-2401" ? "v1.0" : code === "BR-2502" ? "v1.0" : code === "CA-0801" ? "v2.1 — DERM-2026-104" : "—";
+    }
+    // GCP feed-additive counter-signature — auto-populated once the verify flag is
+    // Yes (the showIf already hides these unless verified): who verified + when.
+    if (field.code === "verifier_name") return ndaName;
+    if (field.code === "verification_timestamp") return todayISO();
     if (field.code.includes("age")) {
       const dobField = fields.find((f) => f.code === "dob" || f.code === "date_of_birth");
       const dob = dobField ? fvFor(dobField.id)?.value : undefined;
@@ -1046,7 +1067,7 @@ export function SubjectRecord({ studyId, subjectId, initialFormId, initialPanelF
   const instHasData = (instId: string) => fields.some((f) => entryVal(instId, f.id).trim() !== "");
   const instOpenEC = (instId: string) => fields.some((f) => { const id = instFvId(instId, f.id); return !!id && !!dataset.editChecks.find((e) => e.field_value_id === id && e.status === "open"); });
   const instPendingDelta = (instId: string) => fields.some((f) => { const id = instFvId(instId, f.id); return !!id && dataset.deltaRecords.some((r) => r.field_value_id === id && r.status === "pending"); });
-  const instEmptyRequired = (instId: string) => fields.some((f) => f.is_required && entryVal(instId, f.id).trim() === "");
+  const instEmptyRequired = (instId: string) => fields.some((f) => f.is_required && isFieldVisible(f) && entryVal(instId, f.id).trim() === "");
 
   const formHasData = isRepeatingForm
     ? repeatingEntries.some((i) => instHasData(i.id))
@@ -1059,7 +1080,7 @@ export function SubjectRecord({ studyId, subjectId, initialFormId, initialPanelF
     : fields.some((f) => deltaStateFor(f.id, fvFor(f.id)?.id) === "pending");
   const hasEmptyRequired = isRepeatingForm
     ? repeatingEntries.some((i) => instEmptyRequired(i.id))
-    : fields.some((f) => f.is_required && (fvFor(f.id)?.value ?? "") === "");
+    : fields.some((f) => f.is_required && isFieldVisible(f) && (fvFor(f.id)?.value ?? "") === "");
   // ─── Withdrawal-period food-safety HARD block (BR-2502) ─────────────────────
   // An animal still inside its drug withdrawal period must NOT be marked Shipped
   // (cleared for slaughter). Hard block — the CRC cannot override; only a DM can,
@@ -1232,10 +1253,55 @@ export function SubjectRecord({ studyId, subjectId, initialFormId, initialPanelF
     );
   }
 
+  // ─── Subject timeline (collapsible, above the form sidebar) ─────────────────
+  const TL_DATE_CODES = ["visit_date", "screening_date", "consent_date", "randomization_date", "observation_date", "weighing_date", "dispensation_date", "completion_date", "date"];
+  const formDateValue = (formId: string): string | undefined => {
+    const inst = dataset.formInstances.find((i) => i.subject_id === subjectId && i.form_id === formId);
+    if (!inst) return undefined;
+    for (const code of TL_DATE_CODES) {
+      const field = dataset.formFields.find((f) => f.form_id === formId && f.code === code);
+      if (!field) continue;
+      const v = dataset.fieldValues.find((x) => x.form_instance_id === inst.id && x.form_field_id === field.id)?.value;
+      if (v) return v;
+    }
+    return undefined;
+  };
+  const timelineForms = orderedLeaves
+    .map((l) => ({ ...l, date: formDateValue(l.id), isRand: /randomization/i.test(l.name) }))
+    .filter((l) => !!l.date)
+    .sort((a, b) => (a.date! < b.date! ? -1 : a.date! > b.date! ? 1 : 0));
+  const enrolledDate = timelineForms[0]?.date ?? valByCode("randomization_date") ?? valByCode("screening_date");
+  const subjInstIds = new Set(dataset.formInstances.filter((i) => i.subject_id === subjectId).map((i) => i.id));
+  const subjOpenQueries = dataset.queries.filter((q) => subjInstIds.has(q.form_instance_id) && q.status !== "resolved").length;
+  const aeFormIds = new Set(dataset.forms.filter((f) => f.study_id === studyId && /adverse event/i.test(f.name)).map((f) => f.id));
+  const aeCount = dataset.formInstances.filter((i) => i.subject_id === subjectId && aeFormIds.has(i.form_id) && dataset.fieldValues.some((v) => v.form_instance_id === i.id && v.value)).length;
+  const goToForm = (id: string) => { setSelectedFormId(id); setTimelineOpen(false); };
+
   return (
     <div className="sr-screen">
-      {/* Form sidebar */}
+      {/* Form sidebar (timeline panel collapses in above the form tree) */}
       <nav className="form-sidebar" aria-label="Forms">
+        {timelineOpen && (
+          <div className="subject-timeline">
+            <div className="tl-title"><i className="ti ti-timeline"></i> Timeline</div>
+            <ul className="tl-list">
+              {enrolledDate && <li className="tl-item"><span className="tl-dot enrolled"></span><div className="tl-body"><span className="tl-label">Enrolled</span><span className="tl-date">{enrolledDate}</span></div></li>}
+              {timelineForms.map((f) => (
+                <li className="tl-item clickable" key={f.id} onClick={() => goToForm(f.id)} title="Go to form">
+                  <StatusGlyph icon={f.icon} />
+                  <div className="tl-body">
+                    <span className="tl-label">{f.name}</span>
+                    <span className="tl-date">{f.date}{f.isRand && displayArm ? ` · ${displayArm}` : ""}{f.queryCount > 0 ? ` · ${f.queryCount} quer${f.queryCount === 1 ? "y" : "ies"}` : ""}</span>
+                  </div>
+                </li>
+              ))}
+              {aeCount > 0 && <li className="tl-item"><span className="tl-dot ae"></span><div className="tl-body"><span className="tl-label">Adverse events</span><span className="tl-date">{aeCount} recorded</span></div></li>}
+              {subjOpenQueries > 0 && <li className="tl-item"><span className="tl-dot query"></span><div className="tl-body"><span className="tl-label">Open queries</span><span className="tl-date">{subjOpenQueries}</span></div></li>}
+              {withdrawalDate && <li className="tl-item"><span className="tl-dot withdrawn"></span><div className="tl-body"><span className="tl-label">Withdrawn</span><span className="tl-date">{withdrawalDate}{withdrawalReason ? ` · ${withdrawalReason}` : ""}</span></div></li>}
+              {completionDate && <li className="tl-item"><span className="tl-dot completed"></span><div className="tl-body"><span className="tl-label">Completed</span><span className="tl-date">{completionDate}</span></div></li>}
+            </ul>
+          </div>
+        )}
         <div className="sidebar-label">Forms</div>
         {sidebarTree.map(renderNode)}
       </nav>
@@ -1326,6 +1392,9 @@ export function SubjectRecord({ studyId, subjectId, initialFormId, initialPanelF
               )}
             </div>
             <div className="subject-actions">
+              <button className={`btn-secondary${timelineOpen ? " active" : ""}`} type="button" onClick={() => setTimelineOpen((o) => !o)} title="Subject timeline" aria-pressed={timelineOpen}>
+                <i className="ti ti-timeline" style={{ fontSize: "13px" }}></i> Timeline
+              </button>
               {canUnblind && (
                 <button className="btn-unblind" type="button" onClick={() => { setUnblindReason(""); setUnblindOpen(true); }} title="Emergency unblinding — reveal the treatment arm (DM / Admin)">
                   <i className="ti ti-eye-exclamation" style={{ fontSize: "13px" }}></i> Emergency Unblinding
@@ -1674,6 +1743,7 @@ export function SubjectRecord({ studyId, subjectId, initialFormId, initialPanelF
           ) : (
           <div className="field-grid-2">
             {fields.map((field, fIdx) => {
+              if (!isFieldVisible(field)) return null; // conditional field (validation.showIf) not met
               const section = sectionForIdx(fIdx);
               const showSection = !!section && section !== sectionForIdx(fIdx - 1);
               const fv = fvFor(field.id);

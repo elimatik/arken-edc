@@ -67,6 +67,23 @@ const cadesi = (code, label, req = false) =>
 const cadesiWorksheet = () => withHint(file("cadesi04_worksheet", "CADESI-04 worksheet"), "Upload completed scoring worksheet");
 const pvas = (code, label, req = false) => withHint(rng(code, label, 0.0, 10.0, null, req), PVAS_HINT);
 
+// ── Field-level conditional display + read-only auto fields ──
+// Show a field only when another field's value equals `equals` (same form first,
+// else any value the subject carries for that code).
+const showIf = (f, code, equals) => ({ ...f, validation: { ...(f.validation || {}), showIf: { code, equals } } });
+// Read-only "Protocol version" — auto-populated per study (resolved in calcValue),
+// rendered as a calculated / AUTO field. First field on visit / monitoring forms.
+const protocolVersion = () => ({ code: "protocol_version", label: "Protocol version", type: "calculated", validation: { readonlyAuto: true } });
+// PH-2401 GCP counter-signature for investigational-product (feed additive)
+// administration. The verify boolean is required for T02 (phytogenic) pens only;
+// the verifier name + timestamp auto-populate once verified (T02 arm = "T02 Phytogenic").
+const FEED_VERIFY_HINT = "GCP requires independent verification of investigational product administration. A second person must confirm the additive was added to the ration.";
+const feedAdditiveVerification = () => [
+  showIf(withHint({ code: "additive_verified", label: "Feed additive verified by second observer", type: "radio", options: ["Yes", "No"], req: true }, FEED_VERIFY_HINT), "treatment_arm", "T02 Phytogenic"),
+  showIf({ code: "verifier_name", label: "Verifier name", type: "calculated", validation: { readonlyAuto: true } }, "additive_verified", "Yes"),
+  showIf({ code: "verification_timestamp", label: "Verification timestamp", type: "calculated", validation: { readonlyAuto: true } }, "additive_verified", "Yes"),
+];
+
 // Tag a list of fields with a named in-form section (rendered as a divider in
 // the Subject Record). Merges into any existing validation so vitals/criteria
 // keep their rules. Concatenate several sec() calls to lay out a form's sections.
@@ -96,6 +113,7 @@ const RAND_METHOD = ["Computer-generated", "Envelope", "IVRS"];
 
 // ── PH-2401 weekly visit field sets (shared by all 6 week sub-groups) ──────────
 const PH_BW_FIELDS = [
+  protocolVersion(),
   ...sec("Visit Information", [
     date("weighing_date", "Weighing date", true),
     calc("visit_within_window", "Visit within window"),
@@ -118,6 +136,7 @@ const PH_BW_FIELDS = [
     calc("feed_consumed", "Feed consumed this period", "kg"),
     calc("ending_feed_inventory", "Ending feed inventory", "kg"),
   ]),
+  ...sec("Feed Additive Administration", feedAdditiveVerification()),
   ...sec("Water Consumption", [
     num("water_meter_reading", "Water meter reading", "L"),
     calc("water_consumed", "Water consumed this period", "L"),
@@ -129,6 +148,7 @@ const PH_BW_FIELDS = [
   ]),
 ];
 const PH_FH_FIELDS = [
+  protocolVersion(),
   ...sec("Flock Health", [
     date("observation_date", "Observation date", true),
     sel("flock_uniformity", "Flock uniformity", ["Good", "Fair", "Poor"]),
@@ -228,6 +248,7 @@ const PH_TREE = [
         yn("assignment_confirmed", "Assignment confirmed", true),
         ta("notes", "Notes"),
       ]),
+      ...sec("Treatment Verification", feedAdditiveVerification()),
     ]),
     leaf("feed_setup", "Feed & Ration Setup", [
       ...sec("Feed Identification", [
@@ -245,6 +266,7 @@ const PH_TREE = [
         num("metabolizable_energy", "Metabolizable energy", "kcal/kg"),
         ta("notes", "Notes"),
       ]),
+      ...sec("Feed Additive Administration", feedAdditiveVerification()),
     ]),
   ]),
   grp("Placement / Day 0", [
@@ -546,6 +568,7 @@ const SITE_FORMS = [
 // Shared field sets for the recurring visit forms (Vital Signs + Clinical
 // Response). Marked batch_eligible so they appear in the Batch Entry grid.
 const BR_VITAL_FIELDS = [
+  protocolVersion(),
   ...sec("Visit Information", [
     date("visit_date", "Visit date", true),
     calc("visit_within_window", "Visit within window"),
@@ -565,6 +588,7 @@ const BR_VITAL_FIELDS = [
   ]),
 ];
 const BR_RESPONSE_FIELDS = [
+  protocolVersion(),
   date("visit_date", "Visit date", true),
   dartSel("clinical_illness_score", "Clinical Illness Score"),
   sel("response_vs_baseline", "Response vs baseline", ["Improved", "No change", "Worsened"]),
@@ -575,6 +599,7 @@ const BR_RESPONSE_FIELDS = [
 ];
 // Day 0 has no baseline yet → no "Response vs baseline"; a simpler assessment set.
 const BR_RESPONSE_FIELDS_D0 = [
+  protocolVersion(),
   date("visit_date", "Visit date", true),
   dartSel("clinical_illness_score", "Clinical Illness Score"),
   sel("attitude", "Attitude / Demeanor", ["Bright", "Quiet", "Depressed", "Recumbent"]),
@@ -755,6 +780,7 @@ const BR_TREE = [
 // ═══════════════════════════════════════════════════════════════════════════
 // Reusable CA-0801 field sets (Follow-Up visits are identical; EOS reuses PE+QOL).
 const caFollowupPE = () => [
+  protocolVersion(),
   date("visit_date", "Visit date", true),
   num("body_weight", "Weight", "kg"),
   vital("temperature", "Temperature", "temperature", "°C"),
