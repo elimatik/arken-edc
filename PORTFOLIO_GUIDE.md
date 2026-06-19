@@ -107,7 +107,7 @@ The full rationale and the 10 system rules live in the style guide and in `DECIS
 The running app is a **session-based demo**: Supabase holds the canonical seed, the browser holds the working copy.
 
 - On **first visit**, the app hydrates the full dataset (the 3 studies + their hierarchy, forms, queries…) **once** from Supabase via `app/lib/session-store/hydrate.ts` — which **pages every table in 1000-row chunks** so the ~1,500-row `field_values` table isn't silently truncated at Supabase's default row cap (truncation had been orphaning queries/edit checks that referenced the dropped values).
-- The dataset lives in **`sessionStorage`** (key **`arken_session_store_v32`** — bumped on any dataset-shape change) behind a React context — every screen reads it through **`useStudySession()`**, never calling Supabase directly.
+- The dataset lives in **`sessionStorage`** (key **`arken_session_store_v33`** — bumped on any dataset-shape change) behind a React context — every screen reads it through **`useStudySession()`**, never calling Supabase directly.
 - **All visitor edits stay in the session** (`update()` mutates the in-memory dataset and persists to `sessionStorage`); **nothing is written back to Supabase**.
 - The session **resets on tab close** (native `sessionStorage` behaviour) — a fresh visitor always gets the clean seed.
 - **One deliberate exception:** the access-agreement acceptance is written **directly to Supabase** (`nda_agreements`) — it's audit data that must outlive the tab, so it does not go through the session store.

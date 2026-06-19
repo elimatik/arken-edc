@@ -41,6 +41,7 @@ export interface SiteRow {
   regulatory_authority?: string | null;
   import_export_required?: string | null; // "Yes" | "No"
   permit_number?: string | null;
+  enrollment_target?: number | null; // per-site enrolment cap (over-enrolment = a protocol deviation)
 }
 
 export interface BarnRow {

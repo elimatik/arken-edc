@@ -193,3 +193,9 @@
 .st-modal-input { height: 36px; padding: 0 var(--space-3); font-size: var(--text-sm); font-family: var(--font-sans); border: 1px solid var(--color-border); border-radius: var(--radius-md); background: var(--color-surface); color: var(--color-text-primary); outline: none; }
 .st-modal-input:focus { border-color: var(--color-focus-ring); }
 .st-modal-actions { display: flex; justify-content: flex-end; gap: var(--space-2); margin-top: var(--space-2); }
+
+/* Enrolment-cap chip (shared with the Data-Entry site row). */
+.cap-chip { display: inline-flex; align-items: center; margin-left: var(--space-2); padding: 1px var(--space-2); border-radius: var(--radius-full); border: 1px solid; font-size: var(--text-xs); font-weight: var(--weight-medium); white-space: nowrap; vertical-align: middle; }
+.cap-chip.cap-under { background: var(--green-50); border-color: var(--green-200); color: var(--green-600); }
+.cap-chip.cap-near { background: var(--amber-50); border-color: var(--amber-200); color: var(--amber-700); }
+.cap-chip.cap-over { background: var(--red-50); border-color: var(--red-200); color: var(--red-600); }

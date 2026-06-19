@@ -80,9 +80,20 @@ export async function hydrateFromSupabase(): Promise<Dataset> {
     return true;
   });
 
+  // Session-only per-feedlot enrolment targets for BR-2502 (not a DB column —
+  // seeded here, same as the other Overview-config fields). Over the cap is a
+  // protocol deviation. Counts: TX/KS under cap, NE at cap, CO over cap (demo).
+  const BR_SITE_TARGETS: Record<string, number> = { TX: 5, KS: 4, NE: 3, CO: 2 };
+  const brStudyId = (studies.data ?? []).find((s) => s.code === "BR-2502")?.id;
+  const sitesWithTargets = ((sites.data ?? []) as Dataset["sites"]).map((s) =>
+    s.study_id === brStudyId && BR_SITE_TARGETS[s.code] != null
+      ? { ...s, enrollment_target: BR_SITE_TARGETS[s.code] }
+      : s,
+  );
+
   return {
     studies: (studies.data ?? []) as Dataset["studies"],
-    sites: (sites.data ?? []) as Dataset["sites"],
+    sites: sitesWithTargets,
     barns: (barns.data ?? []) as Dataset["barns"],
     pens: (pens.data ?? []) as Dataset["pens"],
     subjects: (subjects.data ?? []) as Dataset["subjects"],

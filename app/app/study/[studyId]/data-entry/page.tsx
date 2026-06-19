@@ -5,6 +5,7 @@ import { useRouter, useParams, useSearchParams } from "next/navigation";
 import { useShell } from "@/components/shell/ShellContext";
 import { useStudySession } from "@/lib/session-store/SessionStore";
 import { useStudyLocked, LOCK_TOOLTIP } from "@/lib/use-study-locked";
+import { siteEnrolledCount, capLevel, capChipClass, capWarns, ENROLL_TOOLTIP } from "@/lib/enrollment";
 import { hierarchyLevels } from "@/lib/terminology";
 import { studyHasBatch } from "@/lib/batch-entry";
 import { useTableSort } from "@/lib/useTableSort";
@@ -81,6 +82,9 @@ export default function DataEntryPage() {
   const { sort, toggle: toggleSort } = useTableSort(null); // null → default (hierarchy) order
   // Add-record modal: "site" (Admin) or "container" (barn/pen/stable/stall, CRC/DM/Admin).
   const [addOpen, setAddOpen] = useState<"site" | "container" | null>(null);
+  // Enrol-time cap warning (acknowledgment-gated): set when adding an animal to a
+  // feedlot already at/over its enrolment target. Confirming proceeds as a deviation.
+  const [enrollWarn, setEnrollWarn] = useState<{ site_id: string | null; barn_id: string | null; pen_id: string | null; newPenId: string; siteName: string; enrolled: number; target: number } | null>(null);
   const [fName, setFName] = useState("");
   const [fNumber, setFNumber] = useState("");
   const [fPi, setFPi] = useState("");
@@ -372,13 +376,27 @@ export default function DataEntryPage() {
       ? ["CRC", "CRA", "Admin"].includes(activeRole) // Add Animal / Subject
       : ["CRC", "DM", "Admin"].includes(activeRole); // Add Barn / Pen / Stable / Stall
 
+  // New empty subject — created in session, opens its Subject Record (like "Add Study").
+  function doCreateSubject(site_id: string | null, barn_id: string | null, pen_id: string | null, newPenId: string) {
+    const id = crypto.randomUUID();
+    const studySubjects = dataset.subjects.filter((s) => s.study_id === studyId);
+    const code = `${study.code}-${String(studySubjects.length + 1).padStart(3, "0")}`;
+    update((d) => {
+      if (isGroup && barn_id) {
+        const penCode = `P${String(d.pens.filter((p) => p.barn_id === barn_id).length + 1).padStart(2, "0")}`;
+        d.pens.push({ id: newPenId, barn_id, code: penCode, name: `Pen ${penCode.slice(1)}` });
+      }
+      d.subjects.push({
+        id, study_id: studyId, site_id, barn_id, pen_id, owner_id: null,
+        subject_code: code, species: studyRow?.species ?? null, status: "screening", randomization_arm: null,
+      });
+    });
+    router.push(`/study/${studyId}/data-entry/${id}`);
+  }
+
   function onAddClick() {
     if (locked) return;
     if (addLevel === "subject") {
-      // New empty subject — created in session, opens its Subject Record (like "Add Study").
-      const id = crypto.randomUUID();
-      const studySubjects = dataset.subjects.filter((s) => s.study_id === studyId);
-      const code = `${study.code}-${String(studySubjects.length + 1).padStart(3, "0")}`;
       let site_id: string | null = null;
       let barn_id: string | null = null;
       let pen_id: string | null = null;
@@ -397,17 +415,17 @@ export default function DataEntryPage() {
         barn_id = pen?.barn_id ?? null;
         site_id = dataset.barns.find((b) => b.id === barn_id)?.site_id ?? null;
       }
-      update((d) => {
-        if (isGroup && barn_id) {
-          const penCode = `P${String(d.pens.filter((p) => p.barn_id === barn_id).length + 1).padStart(2, "0")}`;
-          d.pens.push({ id: newPenId, barn_id, code: penCode, name: `Pen ${penCode.slice(1)}` });
+      // Enrolment cap — at/over the feedlot target requires an acknowledged protocol
+      // deviation (non-blocking but an explicit Proceed click).
+      const site = dataset.sites.find((s) => s.id === site_id);
+      if (site?.enrollment_target) {
+        const enrolled = siteEnrolledCount(dataset, site.id);
+        if (capWarns(capLevel(enrolled, site.enrollment_target))) {
+          setEnrollWarn({ site_id, barn_id, pen_id, newPenId, siteName: site.name, enrolled, target: site.enrollment_target });
+          return;
         }
-        d.subjects.push({
-          id, study_id: studyId, site_id, barn_id, pen_id, owner_id: null,
-          subject_code: code, species: studyRow?.species ?? null, status: "screening", randomization_arm: null,
-        });
-      });
-      router.push(`/study/${studyId}/data-entry/${id}`);
+      }
+      doCreateSubject(site_id, barn_id, pen_id, newPenId);
       return;
     }
     setFName(""); setFNumber(""); setFPi(""); setFLocation("");
@@ -603,6 +621,13 @@ export default function DataEntryPage() {
                           <>
                             <td>
                               <span className="cell-link">{n.label}</span>
+                              {n.level === 0 && (() => {
+                                const site = dataset.sites.find((s) => s.id === n.id);
+                                if (!site?.enrollment_target) return null;
+                                const enrolled = siteEnrolledCount(dataset, n.id);
+                                const lvl = capLevel(enrolled, site.enrollment_target);
+                                return <span className={`cap-chip ${capChipClass(lvl)}`} title={ENROLL_TOOLTIP}>Enrolled {enrolled} / {site.enrollment_target}</span>;
+                              })()}
                             </td>
                             <td>
                               <span className="mono">{n.childCount ?? 0}</span>
@@ -685,6 +710,31 @@ export default function DataEntryPage() {
             </span>
           </div>
         </>
+
+      {/* Enrolment-cap warning — acknowledgment-gated; over the cap renders red. */}
+      {enrollWarn && (
+        <div className="de-modal-overlay" onClick={() => setEnrollWarn(null)}>
+          <div className="de-modal" onClick={(e) => e.stopPropagation()} role="dialog" aria-modal="true" aria-label="Enrolment target reached">
+            <div className={`de-cap-warn ${enrollWarn.enrolled > enrollWarn.target ? "over" : "at"}`}>
+              <i className="ti ti-alert-triangle"></i>
+              <div>
+                <strong>Feedlot {enrollWarn.siteName} has reached its enrollment target ({enrollWarn.enrolled}/{enrollWarn.target}).</strong>
+                <div className="de-cap-warn-sub">Enrolling more requires a protocol deviation — confirm with the study coordinator.</div>
+              </div>
+            </div>
+            <div className="de-modal-actions">
+              <button className="btn-secondary" type="button" onClick={() => setEnrollWarn(null)}>Cancel</button>
+              <button
+                className="btn-primary danger"
+                type="button"
+                onClick={() => { const w = enrollWarn; setEnrollWarn(null); doCreateSubject(w.site_id, w.barn_id, w.pen_id, w.newPenId); }}
+              >
+                Enroll anyway (deviation)
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Add Site modal (Admin) */}
       {addOpen === "site" && (

@@ -16,6 +16,7 @@ import { useRouter, useParams, useSearchParams } from "next/navigation";
 import { useShell } from "@/components/shell/ShellContext";
 import { useStudySession } from "@/lib/session-store/SessionStore";
 import { ScopedFormFlow, ScopedRepeatingTable } from "@/components/scoped-forms/ScopedForms";
+import { siteEnrolledCount, capLevel, capChipClass, ENROLL_TOOLTIP } from "@/lib/enrollment";
 import { TIME_ZONES } from "../constants";
 import "../sites.css";
 
@@ -138,7 +139,19 @@ export default function SiteRecordPage() {
       {/* Enrollment metrics stat strip — Overview tab only */}
       {tab === "overview" && (
       <div className="sr-stat-strip">
-        <div className="sr-stat"><div className="sr-stat-val">{metrics.enrolled} <span className="sr-stat-of">/ {metrics.target}</span></div><div className="sr-stat-lbl">Enrolled</div></div>
+        {site?.enrollment_target ? (() => {
+          const capEnrolled = siteEnrolledCount(dataset, siteId);
+          const lvl = capLevel(capEnrolled, site.enrollment_target);
+          const lblTxt = lvl === "over" ? "Over cap" : lvl === "at" ? "At cap" : lvl === "near" ? "Near cap" : "Under cap";
+          return (
+            <div className="sr-stat" title={ENROLL_TOOLTIP}>
+              <div className="sr-stat-val">{capEnrolled} <span className="sr-stat-of">/ {site.enrollment_target}</span></div>
+              <div className="sr-stat-lbl">Enrolled <span className={`cap-chip ${capChipClass(lvl)}`}>{lblTxt}</span></div>
+            </div>
+          );
+        })() : (
+          <div className="sr-stat"><div className="sr-stat-val">{metrics.enrolled} <span className="sr-stat-of">/ {metrics.target}</span></div><div className="sr-stat-lbl">Enrolled</div></div>
+        )}
         <div className="sr-stat"><div className="sr-stat-val">{metrics.active}</div><div className="sr-stat-lbl">Active</div></div>
         <div className="sr-stat"><div className="sr-stat-val">{metrics.completed}</div><div className="sr-stat-lbl">Completed</div></div>
         <div className="sr-stat"><div className="sr-stat-val">{metrics.withdrawn}</div><div className="sr-stat-lbl">Withdrawn</div></div>
