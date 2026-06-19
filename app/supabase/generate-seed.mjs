@@ -92,7 +92,14 @@ const dartAction = (dartCode) =>
 // banner. Logic lives in SubjectRecord (any exclusion=Yes / inclusion=No → fail).
 const eligibilityStatus = () =>
   ({ code: "overall_eligibility", label: "Overall eligibility status", type: "calculated", validation: { readonlyAuto: true, overallEligibility: true } });
-const pvas = (code, label, req = false) => withHint(rng(code, label, 0.0, 10.0, null, req), PVAS_HINT);
+// PVAS is owner-reported, so each PVAS field is coupled with an "Owner diary date"
+// (the date the owner recorded the score in their diary — it may predate the visit).
+// Required wherever the PVAS itself is required (baseline + EOS).
+const PVAS_DIARY_HINT = "Date the owner recorded this score in their diary; PVAS is owner-reported and may predate the visit (transcribed by the investigator from the diary card).";
+const pvas = (code, label, req = false) => [
+  withHint(rng(code, label, 0.0, 10.0, null, req), PVAS_HINT),
+  withHint(date("pvas_diary_date", "Owner diary date", req), PVAS_DIARY_HINT),
+];
 
 // ── Field-level conditional display + read-only auto fields ──
 // Show a field only when another field's value equals `equals` (same form first,
@@ -831,7 +838,7 @@ const caFollowup = (n, day) =>
     leaf(`fu${n}_pe`, "Physical Examination", caFollowupPE()),
     leaf(`fu${n}_derm`, "Dermatology Assessment", [
       ...cadesiBlock(),
-      pvas("pvas_score", "PVAS score (owner-reported)"),
+      ...pvas("pvas_score", "PVAS score (owner-reported)"),
       sel("disease_severity", "Overall disease severity", ["Mild", "Moderate", "Severe", "Resolved"]),
       sel("ear_assessment", "Ear assessment", ["Normal", "Otitis Externa", "Otitis Media"]),
     ]),
@@ -950,7 +957,7 @@ const CA_TREE = [
     ]),
     leaf("baseline_clinical", "Baseline Clinical Assessment", [
       ...cadesiBlock(true),
-      pvas("pvas_score", "PVAS score (owner-reported)", true),
+      ...pvas("pvas_score", "PVAS score (owner-reported)", true),
       sel("disease_severity", "Overall disease severity", ["Mild", "Moderate", "Severe"]),
       sel("iga", "Investigator global assessment", ["1", "2", "3", "4", "5"]),
     ]),
@@ -972,7 +979,7 @@ const CA_TREE = [
   grp("End of Study — Day 84", [
     leaf("eos_pe", "Final Physical Examination", caFollowupPE()),
     leaf("eos_cadesi", "Final CADESI Assessment", cadesiBlock(true)),
-    leaf("eos_pvas", "Final PVAS Assessment", [pvas("pvas_score", "PVAS score", true)]),
+    leaf("eos_pvas", "Final PVAS Assessment", [...pvas("pvas_score", "PVAS score", true)]),
     leaf("eos_qol", "Final Quality of Life Survey", caQol()),
     leaf("eos_drug_return", "Study Drug Return", [
       yn("drug_kit_returned", "Drug kit returned"),
@@ -1092,7 +1099,7 @@ const CA_EXTRA = {
     { key: "screen_eligibility", status: "reviewed", values: { age_1yr_plus: "Yes", cad_diagnosis: "Yes", chronic_itching_6mo: "Yes", pruritus_5plus: "Yes", owner_daily_assessments: "Yes", severe_systemic_illness: "No", recent_immunotherapy: "No", active_mange: "No", pregnant_breeding: "No", another_study_30d: "No", eligibility_status: "Eligible", investigator_approval: "Yes" } },
     { key: "screen_labs", status: "reviewed", values: { cbc: "Normal", chemistry_panel: "Normal", urinalysis: "Normal", investigator_review: "Yes" } },
     { key: "randomization", status: "reviewed", values: { randomization_number: "101-001", treatment_arm: "DermAlliv™ Active", randomization_date: "2026-03-09", drug_kit_assigned: "KIT-1042" } },
-    { key: "baseline_clinical", status: "in_work", values: { cadesi04_score: ["58", 58], pvas_score: ["7.2", 7.2], disease_severity: "Severe", iga: "4" },
+    { key: "baseline_clinical", status: "in_work", values: { cadesi04_score: ["58", 58], pvas_score: ["7.2", 7.2], pvas_diary_date: "2026-03-07", disease_severity: "Severe", iga: "4" },
       query: { field: "pvas_score", title: "Baseline PVAS vs owner diary",
         raise: "Baseline owner PVAS of 7.2 is higher than the average of the pre-baseline diary entries (≈5.8). Please confirm the score was transcribed from the correct diary week." },
       queries: [
@@ -1147,10 +1154,10 @@ const CA_EXTRA = {
     { key: "screen_consent", status: "reviewed", values: { consent_signed: "Yes", consent_version: "v2.1", consent_date: "2026-03-10", witness_name: "K. Reyes, RVT" } },
     { key: "screen_eligibility", status: "reviewed", values: { age_1yr_plus: "Yes", cad_diagnosis: "Yes", chronic_itching_6mo: "Yes", pruritus_5plus: "Yes", owner_daily_assessments: "Yes", severe_systemic_illness: "No", recent_immunotherapy: "No", active_mange: "No", pregnant_breeding: "No", another_study_30d: "No", eligibility_status: "Eligible", investigator_approval: "Yes" } },
     { key: "randomization", status: "reviewed", values: { randomization_number: "102-003", treatment_arm: "DermAlliv™ Active", randomization_date: "2026-03-17", drug_kit_assigned: "KIT-1056" } },
-    { key: "baseline_clinical", status: "reviewed", values: { cadesi04_score: ["54", 54], pvas_score: ["7.4", 7.4], disease_severity: "Severe", iga: "4" } },
+    { key: "baseline_clinical", status: "reviewed", values: { cadesi04_score: ["54", 54], pvas_score: ["7.4", 7.4], pvas_diary_date: "2026-03-16", disease_severity: "Severe", iga: "4" } },
     { key: "drug_dispensation", status: "reviewed", values: { drug_kit_number: "KIT-1056", quantity_dispensed: ["84", 84], dispensation_date: "2026-03-17" } },
     { key: "fu1_pe", status: "reviewed", values: { visit_date: "2026-03-31", body_weight: ["13.0", 13.0], temperature: ["38.6", 38.6], heart_rate: ["90", 90], respiratory_rate: ["18", 18], general_health: "Normal", findings: "Mild improvement in erythema; owner reports reduced scratching." } },
-    { key: "fu1_derm", status: "reviewed", values: { cadesi04_score: ["46", 46], pvas_score: ["6.1", 6.1], disease_severity: "Moderate", ear_assessment: "Normal" } },
+    { key: "fu1_derm", status: "reviewed", values: { cadesi04_score: ["46", 46], pvas_score: ["6.1", 6.1], pvas_diary_date: "2026-03-29", disease_severity: "Moderate", ear_assessment: "Normal" } },
     { key: "withdrawal", status: "reviewed", values: { withdrawal_date: "2026-04-18", withdrawal_reason: "Lost to follow-up", comments: "Owner relocated out of the catchment area and is unable to attend the remaining visits." } },
   ],
 };
@@ -1160,6 +1167,10 @@ const CA_EXTRA = {
 // form (a finalized form can never be empty). Per-dog: enrolment/baseline dates,
 // kit, and the CADESI-04 / PVAS trajectory across Baseline → Day 14/28/56/84.
 const caAddDays = (iso, n) => { const d = new Date(`${iso}T00:00:00Z`); d.setUTCDate(d.getUTCDate() + n); return d.toISOString().slice(0, 10); };
+// Owner diary date = visit date − a deterministic 0–3 day offset (the owner records
+// the score in their diary shortly before the visit; Math.random is unavailable).
+const diaryBack = (seedStr) => { let h = 0; for (let i = 0; i < seedStr.length; i++) h = (h * 31 + seedStr.charCodeAt(i)) >>> 0; return h % 4; };
+const diaryDate = (visitISO, seedStr) => caAddDays(visitISO, -diaryBack(seedStr));
 const nv = (x) => [String(x), typeof x === "number" ? x : parseFloat(x)];
 const sevForCadesi = (c) => (c >= 50 ? "Severe" : c >= 30 ? "Moderate" : c >= 15 ? "Mild" : "Resolved");
 const improvementFor = (c, base) => (c <= base * 0.45 ? "Much Improved" : c < base ? "Improved" : "No Change");
@@ -1195,13 +1206,13 @@ function caCompletedForms(code, arm) {
   m.set("screen_medhistory", { dermatology_history: "Chronic pruritus since ~12 months of age with seasonal flares.", previous_treatments: "Intermittent corticosteroids and medicated shampoos.", concurrent_diseases: "None significant.", surgical_history: "Spay/neuter only." });
   m.set("screen_labs", { cbc: "Normal", chemistry_panel: "Normal", urinalysis: "Normal", lab_notes: "All values within normal limits.", investigator_review: "Yes" });
   m.set("randomization", { randomization_number: randNo, treatment_arm: arm, randomization_date: baseline, drug_kit_assigned: kit });
-  m.set("baseline_clinical", { cadesi04_score: nv(c[0]), pvas_score: nv(p[0]), disease_severity: "Severe", iga: "4" });
+  m.set("baseline_clinical", { cadesi04_score: nv(c[0]), pvas_score: nv(p[0]), pvas_diary_date: diaryDate(baseline, `${code}-base`), disease_severity: "Severe", iga: "4" });
   m.set("drug_dispensation", { drug_kit_number: kit, quantity_dispensed: nv(84), dispensation_date: baseline });
   m.set("owner_training", { diary_training: "Yes", med_admin_training: "Yes", compliance_instructions: "Yes" });
   m.set("baseline_qol", { sleep_quality: "Severely Disrupted", activity_level: "Moderately Reduced", comfort: "Severely Uncomfortable", owner_burden: "Severe", overall_qol_score: nv(35) });
   for (const n of [1, 2, 3]) {
     m.set(`fu${n}_pe`, { visit_date: vd[n], body_weight: nv(weight), temperature: nv(38.5), heart_rate: nv(86), respiratory_rate: nv(18), general_health: "Normal", findings: c[n] < c[0] ? "Skin condition improving; no new lesions." : "Skin condition stable; no new lesions." });
-    m.set(`fu${n}_derm`, { cadesi04_score: nv(c[n]), pvas_score: nv(p[n]), disease_severity: sevForCadesi(c[n]), ear_assessment: c[n] < 30 ? "Normal" : "Otitis Externa" });
+    m.set(`fu${n}_derm`, { cadesi04_score: nv(c[n]), pvas_score: nv(p[n]), pvas_diary_date: diaryDate(vd[n], `${code}-fu${n}`), disease_severity: sevForCadesi(c[n]), ear_assessment: c[n] < 30 ? "Normal" : "Otitis Externa" });
     m.set(`fu${n}_drug`, { drug_kit_number: kit, units_returned: nv(6), next_kit_number: `${kit}-${n + 1}`, quantity_dispensed: nv(84) });
     m.set(`fu${n}_conmed`, { new_conmed: "No", conmed_changes: "None." });
     m.set(`fu${n}_ae`, { any_ae: "No", ae_description: "None reported." });
@@ -1213,7 +1224,7 @@ function caCompletedForms(code, arm) {
   // subtotals (summing to the total) to exercise the auto-sum breakdown on a real record.
   const eosE = Math.round(c[4] * 0.4), eosL = Math.round(c[4] * 0.35), eosAE = c[4] - eosE - eosL;
   m.set("eos_cadesi", { cadesi04_score: nv(c[4]), cadesi_erythema: nv(eosE), cadesi_lichenification: nv(eosL), cadesi_alopecia_excoriation: nv(eosAE) });
-  m.set("eos_pvas", { pvas_score: nv(p[4]) });
+  m.set("eos_pvas", { pvas_score: nv(p[4]), pvas_diary_date: diaryDate(vd[4], `${code}-eos`) });
   m.set("eos_qol", c[4] < 20
     ? { sleep_quality: "Normal", activity_level: "Normal", comfort: "Comfortable", owner_burden: "None", overall_qol_score: nv(88) }
     : { sleep_quality: "Mildly Disrupted", activity_level: "Mildly Reduced", comfort: "Mildly Uncomfortable", owner_burden: "Mild", overall_qol_score: nv(62) });
