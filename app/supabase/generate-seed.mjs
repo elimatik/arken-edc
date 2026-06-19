@@ -65,19 +65,21 @@ const dartSel = (code, label) => withHint(sel(code, label, ["0", "1", "2", "3"])
 const cadesi = (code, label, req = false) =>
   ({ code, label, type: "number", req, validation: { min: 0, max: 120, onViolation: "query", hint: CADESI_HINT, message: CADESI_MSG } });
 const cadesiWorksheet = () => withHint(file("cadesi04_worksheet", "CADESI-04 worksheet"), "Upload completed scoring worksheet");
-// CADESI-04 total + collapsible lesion-type breakdown. The total is the primary
-// field (enter directly OR expand the breakdown to score by lesion type); the four
-// subtotals (flagged cadesiSub) render in a collapsible panel and, when entered,
-// auto-sum into the total. Valid 0–180; >120 stays a soft (query) edit check.
-const CADESI_TOTAL_HINT = "Enter total directly OR expand breakdown to score by lesion type (0–180).";
-const cadesiSub = (code, label, max) =>
-  ({ code, label, type: "integer", req: false, validation: { min: 0, max, onViolation: "query", cadesiSub: true, hint: `Lesion subtotal (0–${max})` } });
+// CADESI-04 total + collapsible lesion-type breakdown. Canonical CADESI-04 (Olivry
+// et al., ICADA 2014) scores THREE lesion types — erythema, lichenification, and
+// alopecia/excoriation (combined) — at 0–3 across 20 body sites, so each lesion type
+// maxes at 0–60 (20 × 3) and the three sum to 180. The total is the primary field
+// (enter directly OR expand to score by lesion type); each subtotal renders its 0–60
+// range inline and carries a soft (query) edit check at 60. The >120 total guard stays.
+const CADESI_TOTAL_HINT = "Enter total directly (0–180) OR expand to score by lesion type (each 0–60).";
+const CADESI_SUB_MSG = "Subtotal exceeds the maximum for this lesion type (0–60) — verify.";
+const cadesiSub = (code, label) =>
+  ({ code, label: `${label} (0–60)`, type: "integer", req: false, validation: { min: 0, max: 60, onViolation: "query", cadesiSub: true, message: CADESI_SUB_MSG, hint: `Score 0–3 across 20 body sites (0–60)` } });
 const cadesiBlock = (req = false) => [
   { code: "cadesi04_score", label: "CADESI-04 score", type: "number", req, validation: { min: 0, max: 120, onViolation: "query", hint: CADESI_TOTAL_HINT, message: CADESI_MSG, cadesiTotal: true } },
-  cadesiSub("cadesi_erythema", "Erythema subtotal", 60),
-  cadesiSub("cadesi_lichenification", "Lichenification subtotal", 40),
-  cadesiSub("cadesi_excoriation", "Excoriation subtotal", 40),
-  cadesiSub("cadesi_alopecia", "Alopecia subtotal", 40),
+  cadesiSub("cadesi_erythema", "Erythema"),
+  cadesiSub("cadesi_lichenification", "Lichenification"),
+  cadesiSub("cadesi_alopecia_excoriation", "Alopecia / Excoriation"),
   cadesiWorksheet(),
 ];
 // "Recommended action" derived from a DART clinical-illness score on the same form
@@ -1206,7 +1208,10 @@ function caCompletedForms(code, arm) {
     m.set(`fu${n}_questionnaire`, { sleep_disturbance: c[n] < 30 ? "Mild" : "Moderate", activity_level: c[n] < 30 ? "Normal" : "Mildly Reduced", perceived_improvement: improvementFor(c[n], base), overall_satisfaction: c[n] < base * 0.6 ? "Very Satisfied" : "Satisfied" });
   }
   m.set("eos_pe", { visit_date: vd[4], body_weight: nv(weight), temperature: nv(38.6), heart_rate: nv(84), respiratory_rate: nv(18), general_health: "Normal", findings: c[4] < base * 0.5 ? "Marked improvement in skin condition." : "Modest improvement in skin condition." });
-  m.set("eos_cadesi", { cadesi04_score: nv(c[4]) });
+  // Final CADESI is scored by lesion type on completed dogs — populate the three
+  // subtotals (summing to the total) to exercise the auto-sum breakdown on a real record.
+  const eosE = Math.round(c[4] * 0.4), eosL = Math.round(c[4] * 0.35), eosAE = c[4] - eosE - eosL;
+  m.set("eos_cadesi", { cadesi04_score: nv(c[4]), cadesi_erythema: nv(eosE), cadesi_lichenification: nv(eosL), cadesi_alopecia_excoriation: nv(eosAE) });
   m.set("eos_pvas", { pvas_score: nv(p[4]) });
   m.set("eos_qol", c[4] < 20
     ? { sleep_quality: "Normal", activity_level: "Normal", comfort: "Comfortable", owner_burden: "None", overall_qol_score: nv(88) }

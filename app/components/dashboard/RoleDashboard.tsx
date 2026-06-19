@@ -870,12 +870,35 @@ function StudyLockAdminCard() {
   const [mode, setMode] = useState<null | "lock" | "unlock">(null);
   const [reason, setReason] = useState("");
   const [authorizedBy, setAuthorizedBy] = useState(name);
+  const [override, setOverride] = useState(false);
+
+  // Lock-readiness — GCP gates a database lock on data cleanliness ("you don't lock
+  // dirty data"). Derived live from the store: open queries must be 0 and every started
+  // form finalized; SDV shown for context. When not clean the lock is blocked unless an
+  // Admin explicitly overrides (and documents why in the reason field).
+  const readiness = useMemo(() => {
+    const formIds = new Set(dataset.forms.filter((f) => f.study_id === study.id).map((f) => f.id));
+    const insts = dataset.formInstances.filter((i) => formIds.has(i.form_id));
+    const instIds = new Set(insts.map((i) => i.id));
+    const openQueries = dataset.queries.filter((q) => instIds.has(q.form_instance_id) && q.status !== "resolved").length;
+    const totalForms = insts.length;
+    const finalizedForms = insts.filter((i) => i.status === "finalized" || i.status === "locked").length;
+    const notFinalized = totalForms - finalizedForms;
+    const sdvTotal = insts.length;
+    const sdvDone = insts.filter((i) => i.sdv_complete).length;
+    const clean = openQueries === 0 && notFinalized === 0;
+    const outstanding: string[] = [];
+    if (openQueries > 0) outstanding.push(`${openQueries} open ${openQueries === 1 ? "query" : "queries"}`);
+    if (notFinalized > 0) outstanding.push(`${notFinalized} ${notFinalized === 1 ? "form" : "forms"} not finalized`);
+    return { openQueries, totalForms, finalizedForms, notFinalized, sdvTotal, sdvDone, clean, outstanding };
+  }, [dataset, study.id]);
 
   function open(next: "lock" | "unlock") {
-    setReason(""); setAuthorizedBy(name); setMode(next);
+    setReason(""); setAuthorizedBy(name); setOverride(false); setMode(next);
   }
   function confirm() {
     if (!reason.trim() || !authorizedBy.trim()) return;
+    if (mode === "lock" && !readiness.clean && !override) return;
     update((d) => {
       (d.studyLocks ??= []).push({
         id: newId(),
@@ -929,6 +952,34 @@ function StudyLockAdminCard() {
                 ? "This will lock ALL form instances across ALL subjects to read-only. This action is used prior to statistical analysis and cannot be undone in a production system."
                 : "This will restore data entry across the study. Unlocking after a database lock is permitted in this demonstration; in production it requires documented authorisation."}
             </div>
+            {mode === "lock" && (
+              <div className="db-lock-checklist">
+                <div className="db-lock-checklist-title">Lock readiness</div>
+                <div className={`db-lock-check ${readiness.openQueries === 0 ? "ok" : "bad"}`}>
+                  <i className={`ti ${readiness.openQueries === 0 ? "ti-circle-check" : "ti-alert-circle"}`}></i>
+                  Open queries: <strong>{readiness.openQueries}</strong>{readiness.openQueries === 0 ? "" : " (must be 0)"}
+                </div>
+                <div className={`db-lock-check ${readiness.notFinalized === 0 ? "ok" : "bad"}`}>
+                  <i className={`ti ${readiness.notFinalized === 0 ? "ti-circle-check" : "ti-alert-circle"}`}></i>
+                  Forms finalized: <strong>{readiness.finalizedForms} / {readiness.totalForms}</strong>
+                </div>
+                <div className="db-lock-check info">
+                  <i className="ti ti-shield-check"></i>
+                  SDV complete: <strong>{readiness.sdvDone} / {readiness.sdvTotal}</strong>
+                </div>
+                {!readiness.clean && (
+                  <>
+                    <div className="db-lock-blocked">
+                      <i className="ti ti-lock-exclamation"></i> Cannot lock — outstanding: {readiness.outstanding.join(", ")}.
+                    </div>
+                    <label className="db-lock-override">
+                      <input type="checkbox" checked={override} onChange={(e) => setOverride(e.target.checked)} />
+                      Override and lock despite outstanding items (document the reason below)
+                    </label>
+                  </>
+                )}
+              </div>
+            )}
             <label className="db-lock-field">
               <span>Reason <span className="req">*</span></span>
               <select value={reason} onChange={(e) => setReason(e.target.value)}>
@@ -945,7 +996,7 @@ function StudyLockAdminCard() {
               <button
                 className={`db-lock-confirm ${mode === "lock" ? "danger" : ""}`}
                 type="button"
-                disabled={!reason.trim() || !authorizedBy.trim()}
+                disabled={!reason.trim() || !authorizedBy.trim() || (mode === "lock" && !readiness.clean && !override)}
                 onClick={confirm}
               >
                 {mode === "lock" ? "Lock Database" : "Unlock Database"}

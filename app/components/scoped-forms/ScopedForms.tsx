@@ -24,6 +24,7 @@ import { useStudySession } from "@/lib/session-store/SessionStore";
 import { canSDV } from "@/lib/permissions";
 import { useNdaName } from "@/lib/use-nda-name";
 import { evaluateField, rangeLabel } from "@/lib/forms/validation";
+import { isStudyLocked } from "@/lib/study-lock";
 import { ScopedFieldGrid, isSdvEligible } from "./ScopedFieldGrid";
 import { StatusGlyph, SidebarSdv, iconForInstance, ICON_LABEL, STATUS_LABEL, type SidebarIcon } from "@/components/subject-record/status-icons";
 import type { Dataset, FormFieldRow, FormRow } from "@/lib/session-store/types";
@@ -160,11 +161,11 @@ function useScoped(studyId: string, scope: Scope, scopeId: string) {
 // ─── A single editable field (label + control + hint / edit-check / required) ──
 // Validation states only surface AFTER the user touches the field (focus→blur or
 // a change) or the parent forces it on a submit attempt — never pre-emptively.
-function ScopedField({ field, value, onChange, species, ranges, forceShow }: {
-  field: FormFieldRow; value: string; onChange: (v: string) => void; species: string; ranges: Dataset["speciesRanges"]; forceShow?: boolean;
+function ScopedField({ field, value, onChange, species, ranges, forceShow, readOnly }: {
+  field: FormFieldRow; value: string; onChange: (v: string) => void; species: string; ranges: Dataset["speciesRanges"]; forceShow?: boolean; readOnly?: boolean;
 }) {
   const [touched, setTouched] = useState(false);
-  const change = (v: string) => { setTouched(true); onChange(v); };
+  const change = (v: string) => { if (readOnly) return; setTouched(true); onChange(v); };
   const touch = () => setTouched(true);
   const ec = evaluateField(field, value, species, ranges); // value-based → never fires while empty
   const missing = field.is_required && value.trim() === "" && (touched || !!forceShow);
@@ -176,20 +177,20 @@ function ScopedField({ field, value, onChange, species, ranges, forceShow }: {
     <div className={`scf-field${wide ? " full" : ""}`}>
       <label className="scf-label">{field.label}{field.is_required && <span className="req"> *</span>}{field.unit ? ` (${field.unit})` : ""}</label>
       {field.field_type === "textarea" ? (
-        <textarea className={`scf-textarea${cls}`} value={value} onChange={(e) => change(e.target.value)} onBlur={touch} rows={2} />
+        <textarea className={`scf-textarea${cls}`} value={value} disabled={readOnly} onChange={(e) => change(e.target.value)} onBlur={touch} rows={2} />
       ) : field.field_type === "multiselect" ? (
         <div className="scf-checks">
           {opts.map((o) => { const set = parseMulti(value); const on = set.includes(o);
-            return <label className="scf-check" key={o}><input type="checkbox" checked={on} onChange={() => change(JSON.stringify(on ? set.filter((x) => x !== o) : [...set, o]))} /> {o}</label>; })}
+            return <label className="scf-check" key={o}><input type="checkbox" checked={on} disabled={readOnly} onChange={() => change(JSON.stringify(on ? set.filter((x) => x !== o) : [...set, o]))} /> {o}</label>; })}
         </div>
       ) : opts.length > 0 ? (
-        <select className={`scf-select${cls}`} value={value} onChange={(e) => change(e.target.value)} onBlur={touch}>
+        <select className={`scf-select${cls}`} value={value} disabled={readOnly} onChange={(e) => change(e.target.value)} onBlur={touch}>
           <option value="">—</option>{opts.map((o) => <option key={o} value={o}>{o}</option>)}
         </select>
       ) : field.field_type === "calculated" ? (
         <div className="scf-readonly">{value || "—"}</div>
       ) : (
-        <input className={`scf-input${field.field_type === "number" ? " mono" : ""}${cls}`} type={field.field_type === "date" ? "date" : field.field_type === "number" ? "number" : "text"} value={value} onChange={(e) => change(e.target.value)} onBlur={touch} />
+        <input className={`scf-input${field.field_type === "number" ? " mono" : ""}${cls}`} type={field.field_type === "date" ? "date" : field.field_type === "number" ? "number" : "text"} value={value} disabled={readOnly} onChange={(e) => change(e.target.value)} onBlur={touch} />
       )}
       {ec ? <div className="scf-alert"><i className="ti ti-alert-triangle"></i> {ec.message}</div>
         : missing ? <div className="scf-required"><i className="ti ti-asterisk" style={{ fontSize: 10 }}></i> Required</div>
@@ -201,6 +202,7 @@ function ScopedField({ field, value, onChange, species, ranges, forceShow }: {
 // ─── Repeating form: table + slide-in entry panel (Overview-tab cards) ────────
 export function ScopedRepeatingTable({ studyId, scope, scopeId, form }: { studyId: string; scope: Scope; scopeId: string; form: FormRow }) {
   const s = useScoped(studyId, scope, scopeId);
+  const studyLocked = isStudyLocked(s.dataset, studyId); // database lock → view-only
   const fields = s.fieldsFor(form.id);
   const instances = s.instancesFor(form.id);
   const cols = COLUMNS[form.name] ?? fields.slice(0, 4).map((f) => ({ code: f.code, label: f.label }));
@@ -221,7 +223,7 @@ export function ScopedRepeatingTable({ studyId, scope, scopeId, form }: { studyI
     <div>
       <div className="scf-toolbar">
         <span className="scf-count">{instances.length} {instances.length === 1 ? "entry" : "entries"}</span>
-        <button className="st-btn-secondary" type="button" onClick={() => setPanelInst(s.addInstance(form.id))}><i className="ti ti-plus"></i> {ADD_LABEL[form.name] ?? "Add entry"}</button>
+        {!studyLocked && <button className="st-btn-secondary" type="button" onClick={() => setPanelInst(s.addInstance(form.id))}><i className="ti ti-plus"></i> {ADD_LABEL[form.name] ?? "Add entry"}</button>}
       </div>
       {instances.length === 0 ? (
         <div className="scf-empty">No entries yet.</div>
@@ -233,8 +235,8 @@ export function ScopedRepeatingTable({ studyId, scope, scopeId, form }: { studyI
               <tr key={i.id} className="clickable" onClick={() => setPanelInst(i.id)}>
                 {cols.map((c, ci) => <td key={ci} className={c.code && fields.find((f) => f.code === c.code)?.field_type === "date" ? "mono" : ""}>{cell(i.id, c)}</td>)}
                 <td className="scf-row-actions" onClick={(e) => e.stopPropagation()}>
-                  <button className="scf-icon-btn" title="Edit" type="button" onClick={() => setPanelInst(i.id)}><i className="ti ti-pencil"></i></button>
-                  <button className="scf-icon-btn" title="Delete" type="button" onClick={() => s.deleteInstance(i.id)}><i className="ti ti-trash"></i></button>
+                  <button className="scf-icon-btn" title={studyLocked ? "View" : "Edit"} type="button" onClick={() => setPanelInst(i.id)}><i className={`ti ${studyLocked ? "ti-eye" : "ti-pencil"}`}></i></button>
+                  {!studyLocked && <button className="scf-icon-btn" title="Delete" type="button" onClick={() => s.deleteInstance(i.id)}><i className="ti ti-trash"></i></button>}
                 </td>
               </tr>
             ))}
@@ -247,11 +249,11 @@ export function ScopedRepeatingTable({ studyId, scope, scopeId, form }: { studyI
           <div className="scf-panel">
             <div className="scf-panel-head"><div className="scf-panel-title">{form.name}</div><button className="scf-panel-close" type="button" onClick={() => setPanelInst(null)}><i className="ti ti-x"></i></button></div>
             <div className="scf-panel-body">
-              {fields.map((f) => <ScopedField key={f.id} field={f} value={s.valueOf(inst.id, f.id)} onChange={(v) => s.setValue(inst.id, f, v)} species={s.species} ranges={s.ranges} />)}
+              {fields.map((f) => <ScopedField key={f.id} field={f} value={s.valueOf(inst.id, f.id)} onChange={(v) => s.setValue(inst.id, f, v)} species={s.species} ranges={s.ranges} readOnly={studyLocked} />)}
             </div>
             <div className="scf-panel-foot">
-              {requiredMissing && <span className="scf-panel-note">Complete required fields to save</span>}
-              <button className="st-btn-primary" type="button" disabled={requiredMissing} onClick={() => setPanelInst(null)}>Save</button>
+              {studyLocked ? <span className="scf-panel-note">Database is locked — read-only</span> : requiredMissing && <span className="scf-panel-note">Complete required fields to save</span>}
+              <button className="st-btn-primary" type="button" disabled={requiredMissing} onClick={() => setPanelInst(null)}>{studyLocked ? "Close" : "Save"}</button>
             </div>
           </div>
         </>
@@ -296,6 +298,10 @@ function ScopedFormView({ studyId, scope, scopeId, form, modeQueries, modeSdv, s
     ? (instances.length ? instances.reduce<string>((acc, i) => (STATUS_RANK[i.status] < STATUS_RANK[acc] ? i.status : acc), "locked") : "empty")
     : (instances.find((i) => i.id === singleId)?.status ?? "empty");
   const locked = formStatus === "locked";
+  // A study-wide Database Lock freezes site-/barn-scoped forms too — no data entry,
+  // Submit/Finalize/Lock, new entries, or SDV while the database is locked.
+  const studyLocked = isStudyLocked(dataset, studyId);
+  const readOnly = locked || studyLocked;
   const flow = STATUS_FLOW[formStatus];
   const canAdvance = !!flow && flow.roles.includes(activeRole);
 
@@ -310,8 +316,8 @@ function ScopedFormView({ studyId, scope, scopeId, form, modeQueries, modeSdv, s
   const hasOpenEditCheck = targetInstances.some((i) => instOpenEC(i.id));
   const hasPendingDelta = targetInstances.some((i) => instPendingDelta(i.id));
   const hasEmptyRequired = targetInstances.some((i) => instEmptyRequired(i.id));
-  const submitBlocked = hasOpenEditCheck || hasPendingDelta || hasEmptyRequired;
-  const submitBlockReason = hasEmptyRequired ? "Complete all required fields first" : hasOpenEditCheck ? "Resolve all edit checks first" : hasPendingDelta ? "Provide all change reasons first" : undefined;
+  const submitBlocked = hasOpenEditCheck || hasPendingDelta || hasEmptyRequired || studyLocked;
+  const submitBlockReason = studyLocked ? "Database is locked" : hasEmptyRequired ? "Complete all required fields first" : hasOpenEditCheck ? "Resolve all edit checks first" : hasPendingDelta ? "Provide all change reasons first" : undefined;
 
   const openEcCount = (instId: string) => dataset.editChecks.filter((e) => e.form_instance_id === instId && e.status === "open").length;
   const allSdvComplete = targetInstances.length > 0 && targetInstances.every((i) => i.sdv_complete);
@@ -334,7 +340,7 @@ function ScopedFormView({ studyId, scope, scopeId, form, modeQueries, modeSdv, s
     return !!q;
   }
   function verifyAll() {
-    if (!canSdv || locked) return;
+    if (!canSdv || readOnly) return;
     update((d: Dataset) => {
       for (const t of targetInstances) {
         for (const f of fields.filter(isSdvEligible)) {
@@ -347,7 +353,7 @@ function ScopedFormView({ studyId, scope, scopeId, form, modeQueries, modeSdv, s
       }
     });
   }
-  function markSdvComplete() { if (!canSdv || locked) return; update((d: Dataset) => { for (const t of targetInstances) { const inst = d.formInstances.find((i) => i.id === t.id); if (inst) inst.sdv_complete = true; } }); }
+  function markSdvComplete() { if (!canSdv || readOnly) return; update((d: Dataset) => { for (const t of targetInstances) { const inst = d.formInstances.find((i) => i.id === t.id); if (inst) inst.sdv_complete = true; } }); }
 
   const statusLabel = (st: string) => (st === "in_work" ? "In-Work" : st === "in_review" ? "In-Review" : STATUS_CAP(st));
 
@@ -395,7 +401,7 @@ function ScopedFormView({ studyId, scope, scopeId, form, modeQueries, modeSdv, s
         {topNote && <div className="scf-banner note"><i className="ti ti-info-circle"></i> {topNote}</div>}
         <div className="scf-toolbar">
           <span className="scf-count">{instances.length} {instances.length === 1 ? "entry" : "entries"}</span>
-          {!locked && <button className="st-btn-secondary" type="button" onClick={() => setEntryInst(s.addInstance(form.id))}><i className="ti ti-plus"></i> {ADD_LABEL[form.name] ?? "New entry"}</button>}
+          {!readOnly && <button className="st-btn-secondary" type="button" onClick={() => setEntryInst(s.addInstance(form.id))}><i className="ti ti-plus"></i> {ADD_LABEL[form.name] ?? "New entry"}</button>}
         </div>
         {instances.length === 0 ? (
           <div className="scf-empty">No entries yet.</div>
@@ -423,7 +429,7 @@ function ScopedFormView({ studyId, scope, scopeId, form, modeQueries, modeSdv, s
             <div className="scf-panel">
               <div className="scf-panel-head"><div className="scf-panel-title">{form.name} — entry</div><button className="scf-panel-close" type="button" onClick={() => setEntryInst(null)}><i className="ti ti-x"></i></button></div>
               <div className="scf-panel-body">
-                <ScopedFieldGrid key={entryInst} studyId={studyId} scope={scope} scopeId={scopeId} form={form} instanceId={entryInst} modeQueries={modeQueries} modeSdv={modeSdv} readOnly={locked} panel />
+                <ScopedFieldGrid key={entryInst} studyId={studyId} scope={scope} scopeId={scopeId} form={form} instanceId={entryInst} modeQueries={modeQueries} modeSdv={modeSdv} readOnly={readOnly} panel />
               </div>
               <div className="scf-panel-foot"><button className="st-btn-primary" type="button" onClick={() => setEntryInst(null)}>Done</button></div>
             </div>
@@ -435,7 +441,7 @@ function ScopedFormView({ studyId, scope, scopeId, form, modeQueries, modeSdv, s
     body = (
       <>
         {topNote && <div className="scf-banner note"><i className="ti ti-info-circle"></i> {topNote}</div>}
-        <ScopedFieldGrid key={singleId!} studyId={studyId} scope={scope} scopeId={scopeId} form={form} instanceId={singleId!} modeQueries={modeQueries} modeSdv={modeSdv} readOnly={locked} />
+        <ScopedFieldGrid key={singleId!} studyId={studyId} scope={scope} scopeId={scopeId} form={form} instanceId={singleId!} modeQueries={modeQueries} modeSdv={modeSdv} readOnly={readOnly} />
       </>
     );
   }

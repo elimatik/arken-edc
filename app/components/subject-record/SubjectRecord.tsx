@@ -1847,15 +1847,32 @@ export function SubjectRecord({ studyId, subjectId, initialFormId, initialPanelF
                   </div>
                 );
               }
-              // Overall eligibility verdict — green (eligible) / red (screen failure) banner.
+              // Overall eligibility verdict — three-state, computed live from the I/E
+              // criteria: Incomplete (any unanswered) → Eligible (all answered + all pass)
+              // → Ineligible (all answered, ≥1 fails). "Eligible" can never show on an
+              // unfinished form, and "Ineligible" never masquerades for "not finished".
               if (field.code === "overall_eligibility") {
-                const verdict = calcValue(field);
-                if (verdict === "—") return null; // criteria still pending
-                const pass = verdict === "Eligible";
+                const critF = fields.filter((x) => x.validation?.exclusion_criterion);
+                if (!critF.length) return null;
+                const pending = critF.filter((cf) => (fvFor(cf.id)?.value ?? "") === "");
+                const failing = critF.filter((cf) => (fvFor(cf.id)?.value ?? "") === (cf.validation?.exclusion_if ?? "No"));
+                const state = pending.length ? "incomplete" : failing.length ? "ineligible" : "eligible";
+                const failNames = failing.map((f) => f.label).join(", ");
                 return (
-                  <div key={field.id} className={`elig-banner ${pass ? "pass" : "fail"}`} role="status">
-                    <i className={`ti ${pass ? "ti-circle-check" : "ti-circle-x"}`} aria-hidden="true"></i>
-                    <span>{pass ? "✓ Subject is eligible — proceed to randomization" : `✗ ${verdict} does not meet criteria`}</span>
+                  <div key={field.id} className={`elig-banner ${state}`} role="status">
+                    <i className={`ti ${state === "eligible" ? "ti-circle-check" : state === "ineligible" ? "ti-circle-x" : "ti-clock"}`} aria-hidden="true"></i>
+                    <div className="elig-banner-body">
+                      <span>
+                        {state === "incomplete"
+                          ? `Eligibility pending — ${pending.length} ${pending.length === 1 ? "criterion" : "criteria"} not yet answered`
+                          : state === "eligible"
+                          ? "✓ Subject is eligible — proceed to randomization"
+                          : `✗ Screen Failure — ${failNames} ${failing.length === 1 ? "does" : "do"} not meet criteria`}
+                      </span>
+                      {state === "incomplete" && (
+                        <span className="elig-pending-list">Pending: {pending.map((p) => p.label).join(" · ")}</span>
+                      )}
+                    </div>
                   </div>
                 );
               }
@@ -1868,6 +1885,14 @@ export function SubjectRecord({ studyId, subjectId, initialFormId, initialPanelF
                 const totalFv = fvFor(field.id);
                 const anySub = subs.some((s) => (fvFor(s.id)?.value ?? "").trim() !== "");
                 const sum = subs.reduce((acc, s) => { const raw = fvFor(s.id)?.value ?? ""; const n = Number(raw); return acc + (raw.trim() !== "" && !Number.isNaN(n) ? n : 0); }, 0);
+                // Severity band from the effective total (validated ICADA benchmarks).
+                const effTotal = anySub ? sum : Number(totalFv?.value);
+                const hasTotal = anySub || (totalFv?.value ?? "").trim() !== "";
+                const band = !hasTotal || Number.isNaN(effTotal) ? null
+                  : effTotal < 10 ? { label: "Normal / remission", cls: "green" }
+                  : effTotal < 35 ? { label: "Mild", cls: "green" }
+                  : effTotal < 60 ? { label: "Moderate", cls: "amber" }
+                  : { label: "Severe", cls: "red" };
                 return (
                   <Fragment key={field.id}>
                     {showCsec && <div className="form-section-title">{csec}</div>}
@@ -1879,6 +1904,7 @@ export function SubjectRecord({ studyId, subjectId, initialFormId, initialPanelF
                         ) : (
                           renderControl(field, totalFv?.value ?? "", false, !!editCheckFor(totalFv?.id))
                         )}
+                        {band && <span className={`cadesi-band ${band.cls}`}>{band.label}</span>}
                         <button type="button" className="cadesi-toggle" onClick={() => setCadesiOpen((o) => !o)} aria-expanded={cadesiOpen}>
                           {cadesiOpen ? "Hide breakdown ▴" : "Show breakdown ▾"}
                         </button>
@@ -1899,6 +1925,9 @@ export function SubjectRecord({ studyId, subjectId, initialFormId, initialPanelF
                                   disabled={readOnly}
                                   onChange={(e) => commitCadesiSub(s, field, subs, e.target.value)}
                                 />
+                                {subEc && (
+                                  <span className="cadesi-sub-ec"><i className="ti ti-alert-circle"></i> {subEc.message || "Subtotal exceeds the maximum for this lesion type (0–60) — verify."}</span>
+                                )}
                               </div>
                             );
                           })}

@@ -26,7 +26,7 @@ type AuditType =
   | "query_raised" | "query_responded" | "query_resolved"
   | "sdv" | "form_submitted" | "form_locked"
   | "randomization" | "consent" | "protocol_deviation"
-  | "subject_enrolled" | "subject_withdrawn" | "unblinding" | "database_lock" | "login";
+  | "subject_enrolled" | "subject_withdrawn" | "unblinding" | "database_lock" | "database_unlock" | "login";
 type FilterCat = "data_entry" | "query" | "sdv" | "status_change" | "form_lock" | "randomization" | "consent" | "deviation" | "unblinding" | "database_lock" | "login";
 
 const TYPE_META: Record<AuditType, { label: string; cls: string; icon: string; cat: FilterCat }> = {
@@ -46,6 +46,7 @@ const TYPE_META: Record<AuditType, { label: string; cls: string; icon: string; c
   subject_withdrawn: { label: "Subject Withdrawn",  cls: "at-withdraw",  icon: "user-minus",      cat: "status_change" },
   unblinding:        { label: "Emergency Unblinding",cls: "at-unblind",  icon: "eye-exclamation", cat: "unblinding" },
   database_lock:     { label: "Database Lock",       cls: "at-dblock",    icon: "lock",            cat: "database_lock" },
+  database_unlock:   { label: "Database Unlock",     cls: "at-dunlock",   icon: "lock-open",       cat: "database_lock" },
   login:             { label: "Login",              cls: "at-login",     icon: "login",           cat: "login" },
 };
 
@@ -278,7 +279,7 @@ function buildAuditEvents(dataset: Dataset, studyId: string, baseNow: number): A
   // 6c — Database Lock / Unlock (session-only log; full-study read-only lock).
   for (const l of dataset.studyLocks ?? []) {
     if (l.study_id !== studyId) continue;
-    push({ ts: l.created_at, type: "database_lock", user: mkUser(l.authorized_by, l.author_role), scope: "site",
+    push({ ts: l.created_at, type: l.locked ? "database_lock" : "database_unlock", user: mkUser(l.authorized_by, l.author_role), scope: "site",
       subjectId: null, subjectCode: "All subjects", siteId: null, siteName: "All sites", formId: null, formName: "Study database", formPath: "Study database",
       fieldId: null, fieldLabel: "", fieldCode: "", oldValue: l.locked ? "Open" : "Locked", newValue: l.locked ? "Locked" : "Open",
       details: l.locked
