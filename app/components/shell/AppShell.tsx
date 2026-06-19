@@ -70,6 +70,7 @@ export function AppShell({ study, sites, children }: AppShellProps) {
             onSelectSite={setSelectedSiteId}
             activeRole={activeRole}
             onChangeRole={changeRole}
+            hideSiteFilter={sub === "audit-trail" || sub === "queries"}
           />
           <main className="page-content">{children}</main>
         </div>

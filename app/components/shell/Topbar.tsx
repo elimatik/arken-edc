@@ -15,6 +15,7 @@ interface TopbarProps {
   onSelectSite: (siteId: string | null) => void;
   activeRole: Role;
   onChangeRole: (role: Role) => void;
+  hideSiteFilter?: boolean; // screens with their own in-toolbar site filter (Audit Trail, Queries)
 }
 
 export function Topbar({
@@ -24,6 +25,7 @@ export function Topbar({
   onSelectSite,
   activeRole,
   onChangeRole,
+  hideSiteFilter = false,
 }: TopbarProps) {
   const router = useRouter();
   const { dataset } = useStudySession();
@@ -134,6 +136,9 @@ export function Topbar({
         </div>
       </div>
 
+      {/* Hidden on screens that carry their own in-toolbar site filter
+          (Audit Trail, Queries) — the topbar pill would be redundant there. */}
+      {!hideSiteFilter && (
       <div className="tb-site-wrap">
         <button
           className="tb-site-btn"
@@ -163,6 +168,7 @@ export function Topbar({
           ))}
         </div>
       </div>
+      )}
 
       {/* Right: utilities + role switcher + avatar */}
       <div className="tb-right">

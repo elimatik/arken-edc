@@ -419,8 +419,9 @@ export default function AuditTrailPage() {
 
   function gotoRecord(e: AuditEvent) {
     if (!e.subjectId) return;
-    const q = e.formId && e.fieldId ? `?form=${e.formId}&field=${e.fieldId}` : e.formId ? `?form=${e.formId}` : "";
-    router.push(`/study/${studyId}/data-entry/${e.subjectId}${q}`);
+    // Navigate to the subject record in its default state only — no deep-linked
+    // form/field, no auto-opened query panel. The user can find the field themselves.
+    router.push(`/study/${studyId}/data-entry/${e.subjectId}`);
   }
 
   if (!ready) return <div className="au-screen"><div className="au-empty"><i className="ti ti-loader-2"></i> Loading…</div></div>;
