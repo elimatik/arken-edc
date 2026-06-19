@@ -5,6 +5,13 @@ import { useNdaName } from "@/lib/use-nda-name";
 import { useShell } from "@/components/shell/ShellContext";
 import { useStudySession } from "@/lib/session-store/SessionStore";
 import { isStudyLocked, latestStudyLock, LOCK_REASONS } from "@/lib/study-lock";
+import { capChipClass } from "@/lib/enrollment";
+import {
+  subjectCounts, openQueryCount, respondedQueryCount, formProgress, sdvProgress, openEditCheckCount,
+  pendingDeltaCount, visitCompliance, upcomingVisits, formProgressBySite, sdvProgressBySite, queryWorklist,
+  brMorbidity, brMortality, brRetreatment, brMeanDart, brEnrollmentBySite, editChecksBySite,
+  type SiteEnrollment, type SiteFormProgress, type RatePct,
+} from "@/lib/dashboard-data";
 import type { Dataset, FieldValueRow } from "@/lib/session-store/types";
 import type { Role } from "@/lib/permissions";
 import {
@@ -290,9 +297,9 @@ export function RoleDashboard({ role, studyName, studyCode, today }: Props) {
 
   const agg = useMemo(() => computeAggregates(dataset, study.id), [dataset, study.id]);
 
-  // CA-0801 (DermAlliv™) has bespoke CRC/PI/DM dashboards wired to live store
-  // aggregates; other studies and roles use the generic renderers.
-  const caRender = studyCode === "CA-0801" ? CA_RENDERERS[role] : undefined;
+  // CA-0801 and BR-2502 have bespoke role dashboards wired to live store
+  // aggregates; other studies/roles fall back to the generic renderers.
+  const caRender = studyCode === "CA-0801" ? CA_RENDERERS[role] : studyCode === "BR-2502" ? BR_RENDERERS[role] : undefined;
   return (
     <div className="dashboard">
       <nav className="dashboard-bc" aria-label="Breadcrumb">
@@ -522,6 +529,264 @@ function renderCaDM(agg: StudyAggregates, dataset: Dataset, studyId: string) {
     </>
   );
 }
+
+// ════════════════════════════════════════════════════════════════════════════
+// BR-2502 — live-wired CRC / CRA / DM dashboards (same widgets + layout as CA).
+// ════════════════════════════════════════════════════════════════════════════
+const SEV = (pct: number | null, warnAt = 10, badAt = 25) =>
+  pct == null ? undefined : pct >= badAt ? "var(--red-600)" : pct >= warnAt ? "var(--amber-700)" : "var(--green-600)";
+const pctTxt = (p: number | null) => (p == null ? "—" : `${Math.round(p)}%`);
+
+// Generic visit-window card (On time / Outside / Overdue + proportion bar) — the
+// CaVisitWindowsCard generalised for any study's visit schedule.
+function VisitWindowsCard({ vc, note }: { vc: { onTime: number; outside: number; overdue: number }; note: string }) {
+  const total = vc.onTime + vc.outside + vc.overdue;
+  const pct = (n: number) => (total > 0 ? (n / total) * 100 : 0);
+  return (
+    <Card title="Visit Windows" icon="ti-calendar-check">
+      <div className="vw-wrap">
+        <div className="vw-counts">
+          <span><span className="vw-dot" style={{ background: VW_COLORS.onTime.dot }}></span>On time <span className="mono">{vc.onTime}</span></span>
+          <span> · </span>
+          <span><span className="vw-dot" style={{ background: VW_COLORS.outside.dot }}></span>Outside <span className="mono">{vc.outside}</span></span>
+          <span> · </span>
+          <span><span className="vw-dot" style={{ background: VW_COLORS.overdue.dot }}></span>Overdue <span className="mono">{vc.overdue}</span></span>
+        </div>
+        <div className="vw-track">
+          <div className="vw-seg" style={{ width: `${pct(vc.onTime)}%`, background: VW_COLORS.onTime.fill }}></div>
+          <div className="vw-seg" style={{ width: `${pct(vc.outside)}%`, background: VW_COLORS.outside.fill }}></div>
+          <div className="vw-seg" style={{ width: `${pct(vc.overdue)}%`, background: VW_COLORS.overdue.fill }}></div>
+        </div>
+        <div className="card-note" style={{ padding: 0 }}>{note}</div>
+      </div>
+    </Card>
+  );
+}
+
+function EnrollmentBySiteCard({ rows, title = "Enrollment by feedlot" }: { rows: SiteEnrollment[]; title?: string }) {
+  return (
+    <Card title={title} icon="ti-building-warehouse">
+      <table className="dash-table">
+        <thead><tr><th>Feedlot</th><th>Enrolled / Target</th><th>Status</th></tr></thead>
+        <tbody>
+          {rows.map((r) => (
+            <tr key={r.siteId}>
+              <td>{r.label}</td>
+              <td className="mono">{r.enrolled} / {r.target ?? "—"}</td>
+              <td>{r.target == null ? <span className="dash-hint">—</span> : <span className={`cap-chip ${capChipClass(r.capLevel)}`}>{r.capLevel === "over" ? "Over cap" : r.capLevel === "at" ? "At cap" : r.capLevel === "near" ? "Near cap" : "Under cap"}</span>}</td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
+    </Card>
+  );
+}
+
+// Per-site completion bars (form completion / SDV) — least-complete first optional.
+function SiteProgressCard({ rows, title, icon, suffix }: { rows: SiteFormProgress[]; title: string; icon: string; suffix?: string }) {
+  return (
+    <Card title={title} icon={icon}>
+      <div className="agg-list">
+        {rows.map((r) => (
+          <div key={r.siteId} style={{ marginBottom: "var(--space-3)" }}>
+            <div className="arm-hdr"><span className="arm-label">{r.code} · {r.name}</span><span className="arm-count mono">{r.completed} / {r.total}{suffix ? ` ${suffix}` : ""}</span></div>
+            <MiniBar pct={r.pct} />
+          </div>
+        ))}
+      </div>
+    </Card>
+  );
+}
+
+function UpcomingVisitsCard({ dataset, studyId }: { dataset: Dataset; studyId: string }) {
+  const rows = upcomingVisits(dataset, studyId, 5);
+  return (
+    <Card title="Upcoming visits" icon="ti-calendar-clock" action="View all →">
+      {rows.length === 0 ? (
+        <div className="dq-empty">No visits due this week.</div>
+      ) : (
+        <table className="dash-table">
+          <thead><tr><th>Animal</th><th>Feedlot</th><th>Visit</th><th>Status</th></tr></thead>
+          <tbody>
+            {rows.map((v) => (
+              <tr key={v.id}>
+                <td className="mono">{v.subjectCode}</td>
+                <td>{v.siteName}</td>
+                <td>{v.visitName}</td>
+                <td><span className={`vstat ${v.urgency === 0 ? "vstat-over" : v.urgency === 1 ? "vstat-today" : "vstat-week"}`}>{v.statusLabel}</span></td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      )}
+    </Card>
+  );
+}
+
+function OpenQueriesCountCard({ dataset, studyId }: { dataset: Dataset; studyId: string }) {
+  const open = openQueryCount(dataset, studyId);
+  const responded = respondedQueryCount(dataset, studyId);
+  const raised = Math.max(0, open - responded);
+  return (
+    <Card title="Open queries" icon="ti-message-report" action="Queries screen →">
+      <div className="agg-list">
+        <div className="agg-row"><span className="agg-lbl">Raised — awaiting response</span><span className="agg-val" style={{ color: raised ? "var(--amber-700)" : undefined }}>{raised}</span></div>
+        <div className="agg-row"><span className="agg-lbl">Responded — awaiting resolution</span><span className="agg-val" style={{ color: responded ? "var(--blue-600)" : undefined }}>{responded}</span></div>
+        <div className="agg-row"><span className="agg-lbl">Total open</span><span className="agg-val">{open}</span></div>
+      </div>
+    </Card>
+  );
+}
+
+function QueryWorklistCard({ dataset, studyId }: { dataset: Dataset; studyId: string }) {
+  const rows = queryWorklist(dataset, studyId, 5);
+  return (
+    <Card title="Query worklist" icon="ti-message-report" action="Queries screen →">
+      {rows.length === 0 ? (
+        <div className="dq-empty">No open queries.</div>
+      ) : (
+        <div className="dq-list">
+          {rows.map((q) => (
+            <div className="dq-row" key={q.id}>
+              <span className="dq-id mono">{q.subjectCode}</span>
+              <span className="dq-code mono">{q.code}</span>
+              <span className="dq-field">Open query</span>
+              <span className="dq-age mono" style={{ color: q.daysOpen > 7 ? "var(--red-600)" : undefined }}>{q.daysOpen}d</span>
+            </div>
+          ))}
+        </div>
+      )}
+    </Card>
+  );
+}
+
+// ══ BR-2502 · CRC ══════════════════════════════════════════════════════════
+function renderBrCRC(_agg: StudyAggregates, dataset: Dataset, studyId: string) {
+  const sc = subjectCounts(dataset, studyId);
+  const fp = formProgress(dataset, studyId);
+  const vc = visitCompliance(dataset, studyId);
+  const enrolled = sc.active + sc.completed + sc.withdrawn;
+  return (
+    <>
+      <div className="stat-row" style={{ gridTemplateColumns: "repeat(4,1fr)" }}>
+        <Chip val={String(enrolled)} label="Animals enrolled" accent="blue" />
+        <Chip val={String(openQueryCount(dataset, studyId))} label="Open queries" accent={openQueryCount(dataset, studyId) ? "alert" : ""} />
+        <Chip val={`${fp.completed} / ${fp.total}`} label="Forms completed" />
+        <Chip val={`${vc.overdue} · ${vc.dueThisWeek}`} label="Overdue · Due this week" accent={vc.overdue ? "alert" : vc.dueThisWeek ? "warn" : ""} />
+      </div>
+      <div style={{ display: "grid", gridTemplateColumns: "repeat(2, 1fr)", gap: "var(--space-4)", marginTop: "var(--space-4)" }}>
+        <div className="dash-col">
+          <EnrollmentBySiteCard rows={brEnrollmentBySite(dataset)} />
+          <SiteProgressCard rows={formProgressBySite(dataset, studyId)} title="Data entry progress" icon="ti-forms" />
+        </div>
+        <div className="dash-col">
+          <UpcomingVisitsCard dataset={dataset} studyId={studyId} />
+          <OpenQueriesCountCard dataset={dataset} studyId={studyId} />
+        </div>
+      </div>
+    </>
+  );
+}
+
+// ══ BR-2502 · CRA ══════════════════════════════════════════════════════════
+function renderBrCRA(_agg: StudyAggregates, dataset: Dataset, studyId: string) {
+  const sdv = sdvProgress(dataset, studyId);
+  const toResolve = openQueryCount(dataset, studyId);
+  const ec = openEditCheckCount(dataset, studyId);
+  const nSites = dataset.sites.filter((s) => s.study_id === studyId).length;
+  const sdvPct = sdv.total ? Math.round((sdv.verified / sdv.total) * 100) : 0;
+  return (
+    <>
+      <div className="stat-row" style={{ gridTemplateColumns: "repeat(4,1fr)" }}>
+        <Chip val={`${sdv.verified} / ${sdv.total}`} label={`Fields SDV-verified (${sdvPct}%)`} accent="blue" />
+        <Chip val={String(toResolve)} label="Queries to resolve" accent={toResolve ? "alert" : ""} />
+        <Chip val={String(ec)} label="Open edit checks" accent={ec ? "alert" : ""} />
+        <Chip val={String(nSites)} label="Active feedlots" accent="good" />
+      </div>
+      <div style={{ display: "grid", gridTemplateColumns: "repeat(2, 1fr)", gap: "var(--space-4)", marginTop: "var(--space-4)" }}>
+        <div className="dash-col">
+          <SiteProgressCard rows={sdvProgressBySite(dataset, studyId)} title="SDV progress by feedlot" icon="ti-shield-check" suffix="fields" />
+          <EnrollmentBySiteCard rows={brEnrollmentBySite(dataset)} title="Enrollment status" />
+        </div>
+        <div className="dash-col">
+          <QueryWorklistCard dataset={dataset} studyId={studyId} />
+          <VisitWindowsCard vc={visitCompliance(dataset, studyId)} note="BR-2502 Day 0 / 3 / 7 / 14 / 28 visits vs ±0 / 1 / 2 / 3 / 4-day windows." />
+        </div>
+      </div>
+    </>
+  );
+}
+
+// ══ BR-2502 · DM ═══════════════════════════════════════════════════════════
+function BrdOutcomesCard({ dataset }: { dataset: Dataset }) {
+  const morb = brMorbidity(dataset), retx = brRetreatment(dataset), mort = brMortality(dataset);
+  const dart = brMeanDart(dataset);
+  const Stat = ({ label, r, warnAt, badAt }: { label: string; r: RatePct; warnAt?: number; badAt?: number }) => (
+    <div className="brd-stat">
+      <div className="brd-stat-val" style={{ color: SEV(r.pct, warnAt, badAt) }}>{pctTxt(r.pct)}</div>
+      <div className="brd-stat-lbl">{label}</div>
+      <div className="brd-stat-sub mono">{r.num}/{r.denom}</div>
+    </div>
+  );
+  return (
+    <Card title="BRD outcomes (study)" icon="ti-virus">
+      <div className="brd-stat-row">
+        <Stat label="Morbidity" r={morb} warnAt={50} badAt={80} />
+        <Stat label="Re-treatment" r={retx} warnAt={15} badAt={30} />
+        <Stat label="BRD mortality" r={mort} warnAt={5} badAt={10} />
+        <div className="brd-stat">
+          <div className="brd-stat-val">{dart == null ? "—" : dart.toFixed(1)}</div>
+          <div className="brd-stat-lbl">Mean peak DART</div>
+          <div className="brd-stat-sub mono">0–3 scale</div>
+        </div>
+      </div>
+      <div className="card-note" style={{ padding: 0 }}>Study-level rollup of the per-pen Pen BRD Summary. Morbidity = treated ÷ enrolled · Re-treatment = re-treated ÷ treated · Mortality = BRD deaths ÷ enrolled.</div>
+    </Card>
+  );
+}
+
+function renderBrDM(_agg: StudyAggregates, dataset: Dataset, studyId: string) {
+  const ec = openEditCheckCount(dataset, studyId);
+  const pendingDelta = pendingDeltaCount(dataset, studyId);
+  const open = openQueryCount(dataset, studyId), responded = respondedQueryCount(dataset, studyId);
+  const clean = open === 0 && ec === 0 && pendingDelta === 0;
+  const ecBySite = editChecksBySite(dataset);
+  return (
+    <>
+      <div className="stat-row" style={{ gridTemplateColumns: "repeat(4,1fr)" }}>
+        <Chip val={String(ec)} label="Open edit checks" accent={ec ? "alert" : ""} />
+        <Chip val={String(pendingDelta)} label="Pending Δ approvals" accent={pendingDelta ? "warn" : ""} />
+        <Chip val={`${open} · ${responded}`} label="Queries open · responded" accent={open ? "alert" : ""} />
+        <Chip val={clean ? "Clean" : "Issues"} label="Lock readiness" accent={clean ? "good" : "warn"} />
+      </div>
+      <div style={{ display: "grid", gridTemplateColumns: "repeat(2, 1fr)", gap: "var(--space-4)", marginTop: "var(--space-4)" }}>
+        <div className="dash-col">
+          <BrdOutcomesCard dataset={dataset} />
+          <Card title="Edit checks by feedlot" icon="ti-alert-circle">
+            <table className="dash-table">
+              <thead><tr><th>Feedlot</th><th>Open ECs</th></tr></thead>
+              <tbody>
+                {ecBySite.map((s) => (
+                  <tr key={s.siteId}><td>{s.code} · {s.name}</td><td className="mono" style={{ color: s.count ? "var(--orange-700)" : undefined }}>{s.count || "—"}</td></tr>
+                ))}
+              </tbody>
+            </table>
+          </Card>
+        </div>
+        <div className="dash-col">
+          <VisitWindowsCard vc={visitCompliance(dataset, studyId)} note="BR-2502 Day 0 / 3 / 7 / 14 / 28 visits vs ±0 / 1 / 2 / 3 / 4-day windows." />
+          <QueryWorklistCard dataset={dataset} studyId={studyId} />
+        </div>
+      </div>
+    </>
+  );
+}
+
+const BR_RENDERERS: Partial<Record<Role, CaRenderer>> = {
+  CRC: renderBrCRC,
+  CRA: renderBrCRA,
+  DM: renderBrDM,
+};
 
 // ══ CRC ═══════════════════════════════════════════════════════════════════
 function renderCRC() {
