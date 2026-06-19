@@ -91,6 +91,13 @@ export async function hydrateFromSupabase(): Promise<Dataset> {
       : s,
   );
 
+  // Read-only auto-derived rollup forms — flag them on the form row (so renderers
+  // check `form.is_summary`, not the form name).
+  const SUMMARY_FORM_NAMES = new Set(["Production Summary", "Pen BRD Summary"]);
+  const formsWithFlags = ((forms.data ?? []) as Dataset["forms"]).map((f) =>
+    SUMMARY_FORM_NAMES.has(f.name) ? { ...f, is_summary: true } : f,
+  );
+
   return {
     studies: (studies.data ?? []) as Dataset["studies"],
     sites: sitesWithTargets,
@@ -98,7 +105,7 @@ export async function hydrateFromSupabase(): Promise<Dataset> {
     pens: (pens.data ?? []) as Dataset["pens"],
     subjects: (subjects.data ?? []) as Dataset["subjects"],
     owners: (owners.data ?? []) as Dataset["owners"],
-    forms: (forms.data ?? []) as Dataset["forms"],
+    forms: formsWithFlags,
     formFields: formFields as Dataset["formFields"],
     formInstances: formInstances as Dataset["formInstances"],
     fieldValues: fieldValues as Dataset["fieldValues"],

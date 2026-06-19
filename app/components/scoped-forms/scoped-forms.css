@@ -66,3 +66,16 @@
 .scf-panel-body { flex: 1; overflow-y: auto; padding: var(--space-5); display: flex; flex-direction: column; gap: var(--space-4); }
 .scf-panel-foot { padding: var(--space-4) var(--space-5); border-top: 1px solid var(--color-border); display: flex; justify-content: flex-end; gap: var(--space-2); align-items: center; }
 .scf-panel-note { font-size: var(--text-xs); color: var(--color-text-tertiary); margin-right: auto; }
+
+/* ── Pen BRD Summary (read-only auto-derived rollup) ───────────────────────── */
+.brd-table { width: 100%; }
+.brd-table th, .brd-table td { white-space: nowrap; }
+.brd-pen { font-weight: var(--weight-medium); }
+.brd-arms { font-size: var(--text-xs); color: var(--color-text-secondary); }
+.brd-frac { font-size: var(--text-xs); color: var(--color-text-tertiary); }
+.brd-good { color: var(--green-600); }
+.brd-warn { color: var(--amber-700); }
+.brd-bad { color: var(--red-600); }
+.brd-footer-row td { border-top: 2px solid var(--color-border); background: var(--color-page-bg); font-weight: var(--weight-medium); }
+.brd-footnote { margin-top: var(--space-3); font-size: var(--text-xs); line-height: 1.6; color: var(--color-text-tertiary); }
+.brd-footnote strong { color: var(--color-text-secondary); font-weight: var(--weight-medium); }

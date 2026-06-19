@@ -26,6 +26,7 @@ import { useNdaName } from "@/lib/use-nda-name";
 import { evaluateField, rangeLabel } from "@/lib/forms/validation";
 import { isStudyLocked } from "@/lib/study-lock";
 import { ScopedFieldGrid, isSdvEligible } from "./ScopedFieldGrid";
+import { PenBrdSummaryView } from "./PenBrdSummaryView";
 import { StatusGlyph, SidebarSdv, iconForInstance, ICON_LABEL, STATUS_LABEL, type SidebarIcon } from "@/components/subject-record/status-icons";
 import type { Dataset, FormFieldRow, FormRow } from "@/lib/session-store/types";
 import "@/components/subject-record/subject-record.css";
@@ -356,6 +357,12 @@ function ScopedFormView({ studyId, scope, scopeId, form, modeQueries, modeSdv, s
   function markSdvComplete() { if (!canSdv || readOnly) return; update((d: Dataset) => { for (const t of targetInstances) { const inst = d.formInstances.find((i) => i.id === t.id); if (inst) inst.sdv_complete = true; } }); }
 
   const statusLabel = (st: string) => (st === "in_work" ? "In-Work" : st === "in_review" ? "In-Review" : STATUS_CAP(st));
+
+  // Read-only auto-derived rollup (Pen BRD Summary) — no toolbar / SDV / queries /
+  // submit. Flagged on the form row (form.is_summary), not name-matched.
+  if (form.is_summary) {
+    return <PenBrdSummaryView form={form} dataset={dataset} barnId={scopeId} />;
+  }
 
   // ─── Sticky header (title + Remarks + status CTA) ─────────────────────────
   const header = (

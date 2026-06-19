@@ -550,7 +550,7 @@ export function SubjectRecord({ studyId, subjectId, initialFormId, initialPanelF
   // ─── Repeating (log) forms — ConMed / Adverse Event / Protocol Deviation ────
   // Production Summary — a read-only, auto-generated rollup (no fields to edit, no
   // SDV / queries / submit). Its values aggregate across the weekly visit forms.
-  const isSummaryForm = selectedForm?.name === "Production Summary";
+  const isSummaryForm = !!selectedForm?.is_summary;
   const repeatingCols = REPEATING_COLUMNS[selectedForm?.name ?? ""] ?? [];
   const repeatingAddLabel = REPEATING_ADD_LABEL[selectedForm?.name ?? ""] ?? `Add ${selectedForm?.name}`;
   const fieldByCode = (code: string) => fields.find((f) => f.code === code);

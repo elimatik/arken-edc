@@ -108,6 +108,7 @@ export interface FormRow {
   sequence: number;
   scope?: string; // 'subject' (default, pen/animal record) | 'barn' (house record)
   batch_eligible?: boolean; // fillable for many animals at once in Batch Entry
+  is_summary?: boolean; // read-only, auto-derived rollup (Production Summary, Pen BRD Summary)
 }
 
 export interface FormInstanceRow {

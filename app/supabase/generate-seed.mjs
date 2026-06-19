@@ -828,6 +828,12 @@ const BR_TREE = [
   ]),
 ];
 
+// Barn-scoped, read-only, auto-derived BRD-outcome rollup (one row per pen + a
+// barn footer). No editable fields — rendered as a summary on the Barn Record.
+// The read-only behaviour is carried by the `is_summary` flag (set in hydrate by
+// form name), not name-matching in the renderer.
+const BR_PEN_BRD_SUMMARY = leaf("pen_brd_summary", "Pen BRD Summary", []);
+
 // ═══════════════════════════════════════════════════════════════════════════
 // STUDY 3 — CA-0801  Canine Atopic Dermatitis Diet Trial (canine, companion)
 // ═══════════════════════════════════════════════════════════════════════════
@@ -1592,6 +1598,7 @@ const STUDIES = [
     description: "Randomized, masked, 3-arm — 270 feedlot cattle across 4 sites; rolling enrollment; individual-animal capture. Heart-rate validation is age-class–specific (calf ≤6 mo 100–140 bpm vs adult 48–84 bpm) · Protocol BR-2502",
     tree: BR_TREE,
     siteForms: SITE_FORMS,
+    barnForms: [BR_PEN_BRD_SUMMARY],
     sites: [
       { code: "TX", name: "Feedlot TX", location: "Hereford, TX", pi: "Dr. C. Ramirez, DVM" },
       { code: "KS", name: "Feedlot KS", location: "Garden City, KS", pi: "Dr. L. Schmidt, DVM" },

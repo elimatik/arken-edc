@@ -10,7 +10,7 @@ import type { Role } from "@/lib/permissions";
 // visit it hydrates from Supabase; thereafter ALL reads/writes are in-session —
 // nothing is written back to Supabase.
 // Bump the version when the dataset shape changes (forces a fresh hydrate).
-const DATA_KEY = "arken_session_store_v33"; // v33: BR-2502 per-feedlot enrollment_target (session-only SiteRow field, seeded in hydrate) + enrolment-cap chip/warning; v32: PH-2401 F3 "Feed Analysis Confirmation" section; v31: PVAS "Owner diary date" on CA-0801; v30: CA status form renamed → "Withdrawal Form"; v29: CADESI-04 canonical 3 subtotals; v28: CADESI breakdown, DART/eligibility calc fields, F4 test-article auto-populate, studyLocks
+const DATA_KEY = "arken_session_store_v34"; // v34: BR-2502 barn-scoped read-only "Pen BRD Summary" form (auto-derived per-pen rollup) + forms.is_summary flag; v33: BR-2502 per-feedlot enrollment_target + enrolment-cap chip/warning; v32: PH-2401 F3 "Feed Analysis Confirmation" section; v31: PVAS "Owner diary date" on CA-0801; v30: CA status form renamed → "Withdrawal Form"; v29: CADESI-04 canonical 3 subtotals; v28: CADESI breakdown, DART/eligibility calc fields, F4 test-article auto-populate, studyLocks
 const ROLE_KEY = "arken_active_role_v1";
 
 interface StudySessionValue {
