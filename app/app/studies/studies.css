@@ -98,3 +98,6 @@
 .modal-btn-primary{height:36px;padding:0 var(--space-4);font-size:var(--text-sm);font-weight:var(--weight-medium);font-family:var(--font-sans);color:#fff;background:var(--color-cta-bg);border:1px solid var(--color-cta-bg);border-radius:var(--radius-md);cursor:pointer}
 .modal-btn-primary:hover{background:var(--color-cta-hover)}
 .modal-btn-primary:disabled{opacity:0.5;cursor:not-allowed}
+
+/* Database-lock badge on a study row (shown beside the status badge). */
+.status-badge.sb-locked { display: inline-flex; align-items: center; gap: 4px; margin-left: 6px; background: var(--amber-50); color: var(--amber-700); border: 1px solid var(--amber-200); }

@@ -285,7 +285,11 @@ export default function LoginPage() {
               <div className="nda-brand-name">Arken EDC</div>
             </div>
 
-            <h2 className="nda-title" id="nda-title">Before you continue</h2>
+            <h2 className="nda-title" id="nda-title">Confidentiality Agreement &amp; Demo Access</h2>
+            <p className="nda-subtitle">
+              This is a portfolio demonstration of Arken EDC. In production, access is managed via
+              institutional credentials and role assignment by the study administrator.
+            </p>
 
             <p className="nda-body">
               This project contains original work created by Elisa Tron, including UX design,

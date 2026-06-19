@@ -26,8 +26,8 @@ type AuditType =
   | "query_raised" | "query_responded" | "query_resolved"
   | "sdv" | "form_submitted" | "form_locked"
   | "randomization" | "consent" | "protocol_deviation"
-  | "subject_enrolled" | "subject_withdrawn" | "unblinding" | "login";
-type FilterCat = "data_entry" | "query" | "sdv" | "status_change" | "form_lock" | "randomization" | "consent" | "deviation" | "unblinding" | "login";
+  | "subject_enrolled" | "subject_withdrawn" | "unblinding" | "database_lock" | "login";
+type FilterCat = "data_entry" | "query" | "sdv" | "status_change" | "form_lock" | "randomization" | "consent" | "deviation" | "unblinding" | "database_lock" | "login";
 
 const TYPE_META: Record<AuditType, { label: string; cls: string; icon: string; cat: FilterCat }> = {
   data_entry:        { label: "Data Entry",         cls: "at-entry",     icon: "pencil",          cat: "data_entry" },
@@ -45,6 +45,7 @@ const TYPE_META: Record<AuditType, { label: string; cls: string; icon: string; c
   subject_enrolled:  { label: "Subject Enrolled",   cls: "at-enroll",    icon: "user-plus",       cat: "status_change" },
   subject_withdrawn: { label: "Subject Withdrawn",  cls: "at-withdraw",  icon: "user-minus",      cat: "status_change" },
   unblinding:        { label: "Emergency Unblinding",cls: "at-unblind",  icon: "eye-exclamation", cat: "unblinding" },
+  database_lock:     { label: "Database Lock",       cls: "at-dblock",    icon: "lock",            cat: "database_lock" },
   login:             { label: "Login",              cls: "at-login",     icon: "login",           cat: "login" },
 };
 
@@ -59,6 +60,7 @@ const CAT_OPTIONS: { value: string; label: string }[] = [
   { value: "consent", label: "Consent" },
   { value: "deviation", label: "Protocol deviation" },
   { value: "unblinding", label: "Emergency unblinding" },
+  { value: "database_lock", label: "Database lock" },
   { value: "login", label: "Login" },
 ];
 
@@ -271,6 +273,18 @@ function buildAuditEvents(dataset: Dataset, studyId: string, baseNow: number): A
       subjectId: subj.id, subjectCode: subj.subject_code, siteId: subj.site_id ?? null, siteName, formId: null, formName: "Subject record", formPath: "Subject record",
       fieldId: null, fieldLabel: "", fieldCode: "", oldValue: "Blinded", newValue: u.arm,
       details: `Emergency unblinding — treatment arm revealed: ${u.arm}`, reason: u.reason });
+  }
+
+  // 6c — Database Lock / Unlock (session-only log; full-study read-only lock).
+  for (const l of dataset.studyLocks ?? []) {
+    if (l.study_id !== studyId) continue;
+    push({ ts: l.created_at, type: "database_lock", user: mkUser(l.authorized_by, l.author_role), scope: "site",
+      subjectId: null, subjectCode: "All subjects", siteId: null, siteName: "All sites", formId: null, formName: "Study database", formPath: "Study database",
+      fieldId: null, fieldLabel: "", fieldCode: "", oldValue: l.locked ? "Open" : "Locked", newValue: l.locked ? "Locked" : "Open",
+      details: l.locked
+        ? `Full study database locked by ${l.authorized_by} — reason: ${l.reason}`
+        : `Study database unlocked by ${l.authorized_by} — reason: ${l.reason}`,
+      reason: l.reason });
   }
 
   // 7 — Subject enrolment + withdrawal.

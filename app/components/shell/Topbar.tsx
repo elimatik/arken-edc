@@ -181,18 +181,22 @@ export function Topbar({
         </button>
 
         {/* Role switcher — visible to all roles, switches instantly */}
-        <select
-          className="tb-role-select"
-          value={activeRole}
-          onChange={(e) => onChangeRole(e.target.value as Role)}
-          aria-label={`Current role: ${activeRole} — switch role`}
-        >
-          {ROLES.map((role) => (
-            <option key={role} value={role}>
-              {role}
-            </option>
-          ))}
-        </select>
+        <div className="tb-role-wrap">
+          <select
+            className="tb-role-select"
+            value={activeRole}
+            onChange={(e) => onChangeRole(e.target.value as Role)}
+            aria-label={`Current role: ${activeRole} — switch role`}
+            title="Role switching is enabled for portfolio demonstration. In production, each user has a fixed role assigned by the study administrator."
+          >
+            {ROLES.map((role) => (
+              <option key={role} value={role}>
+                {role}
+              </option>
+            ))}
+          </select>
+          <span className="tb-role-demo">(Demo)</span>
+        </div>
 
         <div
           className="tb-avatar"

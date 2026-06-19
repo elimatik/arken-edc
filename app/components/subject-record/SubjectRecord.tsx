@@ -8,6 +8,7 @@ import { canQuery, canSDV } from "@/lib/permissions";
 import { DEMO_USER_ID } from "@/lib/constants";
 import { useNdaName } from "@/lib/use-nda-name";
 import { evaluateField, rangeLabel } from "@/lib/forms/validation";
+import { isStudyLocked } from "@/lib/study-lock";
 import type { Dataset, FormFieldRow } from "@/lib/session-store/types";
 import "./subject-record.css";
 
@@ -143,6 +144,7 @@ export function SubjectRecord({ studyId, subjectId, initialFormId, initialPanelF
   // null = not yet initialised → default to "all groups collapsed except the active one".
   const [collapsedGroups, setCollapsedGroups] = useState<Set<string> | null>(null);
   const [remarksOpen, setRemarksOpen] = useState(false);
+  const [cadesiOpen, setCadesiOpen] = useState(false); // CADESI-04 lesion-subtotal breakdown (collapsed by default)
   const [modeQueries, setModeQueries] = useState(false); // remarks default OFF
   const [modeSdv, setModeSdv] = useState(false);
   const [editingFieldId, setEditingFieldId] = useState<string | null>(null); // field currently being typed (no Δ until blur)
@@ -487,7 +489,10 @@ export function SubjectRecord({ studyId, subjectId, initialFormId, initialPanelF
   // persistent banner explains the state. Existing queries can still be managed
   // (the query panel isn't gated by read-only) so a DM can resolve open items.
   const subjectClosed = subject.status === "completed" || subject.status === "withdrawn";
-  const readOnly = locked || isEproForm || subjectClosed; // fields are non-editable when true
+  // Database Lock — a full-study lock taken prior to statistical analysis makes
+  // every form across every subject read-only until an Admin unlocks it.
+  const studyLocked = isStudyLocked(dataset, studyId);
+  const readOnly = locked || isEproForm || subjectClosed || studyLocked; // fields are non-editable when true
 
   // ─── Emergency unblinding (double-blind studies only — CA-0801) ─────────────
   // The unblinding record persists in the session (for the audit trail), but the
@@ -654,6 +659,30 @@ export function SubjectRecord({ studyId, subjectId, initialFormId, initialPanelF
     // Yes (the showIf already hides these unless verified): who verified + when.
     if (field.code === "verifier_name") return ndaName;
     if (field.code === "verification_timestamp") return todayISO();
+    // Recommended action derived from a same-form DART clinical illness score.
+    if (field.code === "dart_recommended_action") {
+      const srcCode = field.validation?.dartSource;
+      const src = srcCode ? fields.find((x) => x.code === srcCode) : undefined;
+      const v = src ? (fvFor(src.id)?.value ?? "") : "";
+      const map: Record<string, string> = {
+        "0": "No action required — continue routine monitoring",
+        "1": "Mild signs — increase observation frequency",
+        "2": "Enrollment criterion met — proceed to randomization and treatment",
+        "3": "Severe — immediate treatment required, notify PI",
+      };
+      return map[v] ?? "—";
+    }
+    // Overall eligibility verdict over this form's I/E criteria. Any failing
+    // criterion (exclusion=Yes / inclusion=No) → Screen Failure; pending until all
+    // criteria are answered (so it never reads "Eligible" prematurely).
+    if (field.code === "overall_eligibility") {
+      const critF = fields.filter((x) => x.validation?.exclusion_criterion);
+      if (!critF.length) return "—";
+      const failed = critF.find((cf) => (fvFor(cf.id)?.value ?? "") === (cf.validation?.exclusion_if ?? "No"));
+      if (failed) return `Screen Failure — ${failed.label}`;
+      const allAnswered = critF.every((cf) => (fvFor(cf.id)?.value ?? "") !== "");
+      return allAnswered ? "Eligible" : "—";
+    }
     if (field.code.includes("age")) {
       const dobField = fields.find((f) => f.code === "dob" || f.code === "date_of_birth");
       const dob = dobField ? fvFor(dobField.id)?.value : undefined;
@@ -1100,8 +1129,13 @@ export function SubjectRecord({ studyId, subjectId, initialFormId, initialPanelF
     ? `Cannot mark as Shipped — withdrawal period ends on ${withdrawalEnd}. This animal is not cleared for slaughter.`
     : null;
 
-  const submitBlocked = hasOpenEditCheck || hasPendingDelta || hasEmptyRequired || shipHardBlock;
-  const submitBlockReason = shipHardBlock ? "Withdrawal period active — cannot ship for slaughter" : hasEmptyRequired ? "Complete all required fields first" : hasOpenEditCheck ? "Resolve all edit checks first" : hasPendingDelta ? "Provide all change reasons first" : undefined;
+  // Treatment Administration (BR-2502 F4) cannot be submitted until the animal is
+  // randomized — the test article is auto-populated from the assigned arm.
+  const isTreatmentForm = fields.some((f) => f.validation?.autoFromArm);
+  const treatmentArmMissing = isTreatmentForm && !valByCode("assigned_arm");
+
+  const submitBlocked = hasOpenEditCheck || hasPendingDelta || hasEmptyRequired || shipHardBlock || treatmentArmMissing;
+  const submitBlockReason = treatmentArmMissing ? "Complete randomization before treatment" : shipHardBlock ? "Withdrawal period active — cannot ship for slaughter" : hasEmptyRequired ? "Complete all required fields first" : hasOpenEditCheck ? "Resolve all edit checks first" : hasPendingDelta ? "Provide all change reasons first" : undefined;
 
   // Δ change-reason panel — all records for the field, chronological. Each pending
   // record is reasoned on its own; the top context shows the most recent transition.
@@ -1114,6 +1148,21 @@ export function SubjectRecord({ studyId, subjectId, initialFormId, initialPanelF
   const deltaOld = deltaLatest?.old_value ?? "";
   const deltaNew = deltaLatest?.new_value ?? (deltaFv?.value ?? "");
   const deltaCurState = deltaField ? deltaStateFor(deltaField.id, deltaFv?.id) : null;
+
+  // CADESI-04 breakdown — write one lesion subtotal, then recompute the total as the
+  // sum of all subtotals (using the new value for the edited one). When every subtotal
+  // is cleared the total is left blank again, restoring manual entry.
+  function commitCadesiSub(subField: FormFieldRow, totalField: FormFieldRow, subs: FormFieldRow[], value: string) {
+    if (readOnly) return;
+    setFieldValue(subField, value, true);
+    const rawOf = (s: FormFieldRow) => (s.id === subField.id ? value : (fvFor(s.id)?.value ?? ""));
+    const anyHasVal = subs.some((s) => rawOf(s).trim() !== "");
+    const sum = subs.reduce((acc, s) => {
+      const n = Number(rawOf(s));
+      return acc + (rawOf(s).trim() !== "" && !Number.isNaN(n) ? n : 0);
+    }, 0);
+    setFieldValue(totalField, anyHasVal ? String(sum) : "", true);
+  }
 
   function renderControl(field: FormFieldRow, value: string, queried: boolean, editcheck = false) {
     // Discrete controls write directly and settle on change → record the transition
@@ -1140,6 +1189,23 @@ export function SubjectRecord({ studyId, subjectId, initialFormId, initialPanelF
             <option key={o} value={o}>{o}</option>
           ))}
         </select>
+      );
+    }
+    // Test article (BR-2502 F4) — auto-populated from the subject's randomization
+    // assigned_arm and locked read-only (prevents dispensing errors). If no
+    // randomization form exists yet, prompt to complete it first (submit is blocked).
+    if (field.validation?.autoFromArm) {
+      const arm = valByCode("assigned_arm");
+      return arm ? (
+        <div className="field-calc auto-field">
+          <span>{arm}</span>
+          <span className="field-calc-tag">AUTO</span>
+        </div>
+      ) : (
+        <div className="field-calc auto-field missing">
+          <span>Complete randomization first</span>
+          <span className="field-calc-tag warn">AUTO</span>
+        </div>
       );
     }
     // calculated — read-only computed value
@@ -1513,6 +1579,12 @@ export function SubjectRecord({ studyId, subjectId, initialFormId, initialPanelF
 
         {/* Form body — real fields from form_fields */}
         <div className="form-body">
+          {studyLocked && (
+            <div className="ie-banner db-locked" role="status">
+              <i className="ti ti-lock"></i>
+              Database is locked — all forms are read-only pending statistical analysis. An administrator must unlock the study to resume data entry.
+            </div>
+          )}
           {subject.status === "withdrawn" && (
             <div className="ie-banner withdrawn" role="status">
               <i className="ti ti-user-x"></i>
@@ -1756,6 +1828,87 @@ export function SubjectRecord({ studyId, subjectId, initialFormId, initialPanelF
           <div className="field-grid-2">
             {fields.map((field, fIdx) => {
               if (!isFieldVisible(field)) return null; // conditional field (validation.showIf) not met
+              // CADESI-04 lesion subtotals render inside the breakdown panel below the total.
+              if (field.validation?.cadesiSub) return null;
+              // DART "Recommended action" — coloured info banner (blue 0–1, amber 2, red 3).
+              if (field.code === "dart_recommended_action") {
+                const txt = calcValue(field);
+                if (txt === "—") return null; // no score entered yet
+                const src = field.validation?.dartSource ? fields.find((x) => x.code === field.validation?.dartSource) : undefined;
+                const score = src ? (fvFor(src.id)?.value ?? "") : "";
+                const tone = score === "3" ? "red" : score === "2" ? "amber" : "blue";
+                return (
+                  <div key={field.id} className={`dart-action ${tone}`} role="status">
+                    <i className="ti ti-stethoscope" aria-hidden="true"></i>
+                    <div className="dart-action-body">
+                      <span className="dart-action-label">Recommended action</span>
+                      <span className="dart-action-text">{txt}</span>
+                    </div>
+                  </div>
+                );
+              }
+              // Overall eligibility verdict — green (eligible) / red (screen failure) banner.
+              if (field.code === "overall_eligibility") {
+                const verdict = calcValue(field);
+                if (verdict === "—") return null; // criteria still pending
+                const pass = verdict === "Eligible";
+                return (
+                  <div key={field.id} className={`elig-banner ${pass ? "pass" : "fail"}`} role="status">
+                    <i className={`ti ${pass ? "ti-circle-check" : "ti-circle-x"}`} aria-hidden="true"></i>
+                    <span>{pass ? "✓ Subject is eligible — proceed to randomization" : `✗ ${verdict} does not meet criteria`}</span>
+                  </div>
+                );
+              }
+              // CADESI-04 total with a collapsible lesion-type breakdown (item 1). When any
+              // subtotal is entered the total is the auto-sum; otherwise it stays a manual entry.
+              if (field.validation?.cadesiTotal) {
+                const csec = sectionForIdx(fIdx);
+                const showCsec = !!csec && csec !== sectionForIdx(fIdx - 1);
+                const subs = fields.filter((x) => x.validation?.cadesiSub);
+                const totalFv = fvFor(field.id);
+                const anySub = subs.some((s) => (fvFor(s.id)?.value ?? "").trim() !== "");
+                const sum = subs.reduce((acc, s) => { const raw = fvFor(s.id)?.value ?? ""; const n = Number(raw); return acc + (raw.trim() !== "" && !Number.isNaN(n) ? n : 0); }, 0);
+                return (
+                  <Fragment key={field.id}>
+                    {showCsec && <div className="form-section-title">{csec}</div>}
+                    <div className={`field cadesi-field${readOnly ? " state-locked" : ""}`}>
+                      <label className="field-label">{field.label}{field.is_required && <span className="field-req"> *</span>}</label>
+                      <div className="field-row">
+                        {anySub ? (
+                          <div className="field-calc"><span>{sum}</span><span className="field-calc-tag">sum</span></div>
+                        ) : (
+                          renderControl(field, totalFv?.value ?? "", false, !!editCheckFor(totalFv?.id))
+                        )}
+                        <button type="button" className="cadesi-toggle" onClick={() => setCadesiOpen((o) => !o)} aria-expanded={cadesiOpen}>
+                          {cadesiOpen ? "Hide breakdown ▴" : "Show breakdown ▾"}
+                        </button>
+                      </div>
+                      <span className="field-hint">{field.validation?.hint}</span>
+                      {cadesiOpen && (
+                        <div className="cadesi-breakdown">
+                          {subs.map((s) => {
+                            const sv = fvFor(s.id)?.value ?? "";
+                            const subEc = editCheckFor(fvFor(s.id)?.id);
+                            return (
+                              <div className="cadesi-sub" key={s.id}>
+                                <label className="cadesi-sub-label">{s.label}</label>
+                                <input
+                                  className={`field-input${subEc ? " editcheck" : ""}`}
+                                  inputMode="decimal"
+                                  value={sv}
+                                  disabled={readOnly}
+                                  onChange={(e) => commitCadesiSub(s, field, subs, e.target.value)}
+                                />
+                              </div>
+                            );
+                          })}
+                          <div className="cadesi-sum-row"><span>Total (auto)</span><strong>{sum}</strong></div>
+                        </div>
+                      )}
+                    </div>
+                  </Fragment>
+                );
+              }
               const section = sectionForIdx(fIdx);
               const showSection = !!section && section !== sectionForIdx(fIdx - 1);
               const fv = fvFor(field.id);

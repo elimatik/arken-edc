@@ -1,9 +1,10 @@
 "use client";
 
-import { useMemo } from "react";
+import { useMemo, useState } from "react";
 import { useNdaName } from "@/lib/use-nda-name";
 import { useShell } from "@/components/shell/ShellContext";
 import { useStudySession } from "@/lib/session-store/SessionStore";
+import { isStudyLocked, latestStudyLock, LOCK_REASONS } from "@/lib/study-lock";
 import type { Dataset, FieldValueRow } from "@/lib/session-store/types";
 import type { Role } from "@/lib/permissions";
 import {
@@ -856,6 +857,107 @@ function renderSponsor() {
 }
 
 // ══ ADMIN ═════════════════════════════════════════════════════════════════
+// ─── Database Lock — Admin workflow (lock/unlock the whole study database) ─────
+const newId = () => crypto.randomUUID();
+
+function StudyLockAdminCard() {
+  const { study } = useShell();
+  const { dataset, update, activeRole } = useStudySession();
+  const name = useNdaName();
+  const locked = isStudyLocked(dataset, study.id);
+  const last = latestStudyLock(dataset, study.id);
+
+  const [mode, setMode] = useState<null | "lock" | "unlock">(null);
+  const [reason, setReason] = useState("");
+  const [authorizedBy, setAuthorizedBy] = useState(name);
+
+  function open(next: "lock" | "unlock") {
+    setReason(""); setAuthorizedBy(name); setMode(next);
+  }
+  function confirm() {
+    if (!reason.trim() || !authorizedBy.trim()) return;
+    update((d) => {
+      (d.studyLocks ??= []).push({
+        id: newId(),
+        study_id: study.id,
+        locked: mode === "lock",
+        reason: reason.trim(),
+        authorized_by: authorizedBy.trim(),
+        author_role: activeRole,
+        created_at: new Date().toISOString(),
+      });
+    });
+    setMode(null);
+  }
+
+  return (
+    <Card title="Database lock" icon="ti-lock">
+      <div className="db-lock-card">
+        <div className="db-lock-status">
+          <span className={`db-lock-pill ${locked ? "locked" : "open"}`}>
+            <i className={`ti ${locked ? "ti-lock" : "ti-lock-open"}`}></i>
+            {locked ? "Locked" : "Open for data entry"}
+          </span>
+          {locked && last && (
+            <span className="db-lock-meta">{last.reason} · {last.authorized_by}</span>
+          )}
+        </div>
+        <p className="db-lock-desc">
+          Locks <strong>all</strong> form instances across <strong>all</strong> subjects to read-only — used prior to statistical analysis. In a production system this cannot be undone.
+        </p>
+        {locked ? (
+          <button className="db-lock-btn unlock" type="button" onClick={() => open("unlock")}>
+            <i className="ti ti-lock-open"></i> Unlock database
+          </button>
+        ) : (
+          <button className="db-lock-btn warn" type="button" onClick={() => open("lock")}>
+            <i className="ti ti-lock"></i> Lock study data
+          </button>
+        )}
+      </div>
+
+      {mode && (
+        <>
+          <div className="db-lock-backdrop" onClick={() => setMode(null)} />
+          <div className="db-lock-modal" role="dialog" aria-modal="true" aria-label="Database lock">
+            <div className="db-lock-modal-head">
+              <i className={`ti ${mode === "lock" ? "ti-lock" : "ti-lock-open"}`}></i>
+              <span>{mode === "lock" ? "Database Lock" : "Unlock Database"}</span>
+            </div>
+            <div className={`db-lock-warn ${mode === "lock" ? "danger" : ""}`}>
+              {mode === "lock"
+                ? "This will lock ALL form instances across ALL subjects to read-only. This action is used prior to statistical analysis and cannot be undone in a production system."
+                : "This will restore data entry across the study. Unlocking after a database lock is permitted in this demonstration; in production it requires documented authorisation."}
+            </div>
+            <label className="db-lock-field">
+              <span>Reason <span className="req">*</span></span>
+              <select value={reason} onChange={(e) => setReason(e.target.value)}>
+                <option value="">Select a reason…</option>
+                {LOCK_REASONS.map((r) => <option key={r} value={r}>{r}</option>)}
+              </select>
+            </label>
+            <label className="db-lock-field">
+              <span>Authorized by <span className="req">*</span></span>
+              <input value={authorizedBy} onChange={(e) => setAuthorizedBy(e.target.value)} />
+            </label>
+            <div className="db-lock-modal-foot">
+              <button className="db-lock-cancel" type="button" onClick={() => setMode(null)}>Cancel</button>
+              <button
+                className={`db-lock-confirm ${mode === "lock" ? "danger" : ""}`}
+                type="button"
+                disabled={!reason.trim() || !authorizedBy.trim()}
+                onClick={confirm}
+              >
+                {mode === "lock" ? "Lock Database" : "Unlock Database"}
+              </button>
+            </div>
+          </div>
+        </>
+      )}
+    </Card>
+  );
+}
+
 function renderAdmin() {
   return (
     <>
@@ -899,6 +1001,7 @@ function renderAdmin() {
           </Card>
         </div>
         <div className="dash-col">
+          <StudyLockAdminCard />
           <Card title="Study configuration status" icon="ti-settings" action="Settings →">
             <div>
               <CfgRow label="Study settings" sub="Hierarchy, type, subject level" status="ok" />

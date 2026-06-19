@@ -200,6 +200,19 @@ export interface UnblindingRow {
   created_at: string;
 }
 
+// Session-only Database Lock log. A full-study lock taken prior to statistical
+// analysis renders ALL forms read-only. Each toggle (lock / unlock) pushes a
+// record; the latest record's `locked` flag is the study's current state.
+export interface StudyLockRow {
+  id: string;
+  study_id: string;
+  locked: boolean; // true = lock taken, false = unlocked
+  reason: string;
+  authorized_by: string;
+  author_role: string;
+  created_at: string;
+}
+
 // Field validation declared on a form field. `vital` resolves a species-specific
 // range from species_ranges; `min`/`max` are species-independent static bounds.
 export interface FieldValidation {
@@ -219,6 +232,11 @@ export interface FieldValidation {
   // `equals` omitted → shown whenever the referenced field has any value.
   showIf?: { code: string; equals?: string };
   readonlyAuto?: boolean; // computed/auto read-only value (e.g. Protocol version) — AUTO badge
+  cadesiTotal?: boolean; // CADESI-04 total — carries a collapsible lesion-type breakdown
+  cadesiSub?: boolean; // a CADESI-04 lesion subtotal (erythema/lichenification/…)
+  dartSource?: string; // "Recommended action" calc field — code of the DART score it derives from
+  overallEligibility?: boolean; // calc field that summarises this form's I/E criteria into a verdict
+  autoFromArm?: boolean; // value auto-populated from the subject's randomization assigned_arm (read-only)
 }
 
 export interface FormFieldRow {
@@ -260,6 +278,7 @@ export interface Dataset {
   sdvRecords: SdvRecordRow[];
   deltaRecords: DeltaRecordRow[];
   unblindings: UnblindingRow[]; // session-only emergency-unblinding log
+  studyLocks: StudyLockRow[]; // session-only database-lock log
   memberships: MembershipRow[];
   speciesRanges: SpeciesRangeRow[];
 }
@@ -281,6 +300,7 @@ export const EMPTY_DATASET: Dataset = {
   sdvRecords: [],
   deltaRecords: [],
   unblindings: [],
+  studyLocks: [],
   memberships: [],
   speciesRanges: [],
 };

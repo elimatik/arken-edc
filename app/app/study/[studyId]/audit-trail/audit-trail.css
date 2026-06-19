@@ -90,6 +90,7 @@
 .at-consent{ background: var(--green-50);  border-color: var(--green-200);  color: var(--green-600); }
 .at-deviation { background: var(--red-50); border-color: var(--red-200);    color: var(--red-600); }
 .at-unblind { background: var(--red-50);   border-color: var(--red-200);    color: var(--red-600); }
+.at-dblock { background: var(--amber-50);  border-color: var(--amber-200);  color: var(--amber-700); }
 .at-login  { background: var(--slate-50);  border-color: var(--slate-200);  color: var(--slate-600); }
 
 /* Slide-in panel compliance footer. */

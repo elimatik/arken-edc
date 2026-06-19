@@ -6,6 +6,7 @@ import { Sidenav } from "./Sidenav";
 import { Topbar } from "./Topbar";
 import { ShellProvider, type ShellSite, type ShellStudy } from "./ShellContext";
 import { useStudySession } from "@/lib/session-store/SessionStore";
+import { isStudyLocked } from "@/lib/study-lock";
 import { navItemsForRole, NAV_ROUTES, type Role } from "@/lib/permissions";
 import { actionableQueryCount } from "@/lib/queries-data";
 import "./shell.css";
@@ -72,6 +73,12 @@ export function AppShell({ study, sites, children }: AppShellProps) {
             onChangeRole={changeRole}
             hideSiteFilter={sub === "audit-trail" || sub === "queries" || sub === "visits"}
           />
+          {isStudyLocked(dataset, study.id) && (
+            <div className="db-lock-bar" role="status">
+              <i className="ti ti-lock" aria-hidden="true"></i>
+              Database is locked — all forms are read-only pending statistical analysis.
+            </div>
+          )}
           <main className="page-content">{children}</main>
         </div>
       </div>

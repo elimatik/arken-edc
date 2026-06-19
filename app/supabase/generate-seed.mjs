@@ -65,6 +65,31 @@ const dartSel = (code, label) => withHint(sel(code, label, ["0", "1", "2", "3"])
 const cadesi = (code, label, req = false) =>
   ({ code, label, type: "number", req, validation: { min: 0, max: 120, onViolation: "query", hint: CADESI_HINT, message: CADESI_MSG } });
 const cadesiWorksheet = () => withHint(file("cadesi04_worksheet", "CADESI-04 worksheet"), "Upload completed scoring worksheet");
+// CADESI-04 total + collapsible lesion-type breakdown. The total is the primary
+// field (enter directly OR expand the breakdown to score by lesion type); the four
+// subtotals (flagged cadesiSub) render in a collapsible panel and, when entered,
+// auto-sum into the total. Valid 0–180; >120 stays a soft (query) edit check.
+const CADESI_TOTAL_HINT = "Enter total directly OR expand breakdown to score by lesion type (0–180).";
+const cadesiSub = (code, label, max) =>
+  ({ code, label, type: "integer", req: false, validation: { min: 0, max, onViolation: "query", cadesiSub: true, hint: `Lesion subtotal (0–${max})` } });
+const cadesiBlock = (req = false) => [
+  { code: "cadesi04_score", label: "CADESI-04 score", type: "number", req, validation: { min: 0, max: 120, onViolation: "query", hint: CADESI_TOTAL_HINT, message: CADESI_MSG, cadesiTotal: true } },
+  cadesiSub("cadesi_erythema", "Erythema subtotal", 60),
+  cadesiSub("cadesi_lichenification", "Lichenification subtotal", 40),
+  cadesiSub("cadesi_excoriation", "Excoriation subtotal", 40),
+  cadesiSub("cadesi_alopecia", "Alopecia subtotal", 40),
+  cadesiWorksheet(),
+];
+// "Recommended action" derived from a DART clinical-illness score on the same form
+// (item 3). A calculated read-only field; SubjectRecord renders it as a coloured
+// info banner (blue 0–1, amber 2, red 3). dartSource = the DART field's code.
+const dartAction = (dartCode) =>
+  ({ code: "dart_recommended_action", label: "Recommended action", type: "calculated", validation: { readonlyAuto: true, dartSource: dartCode } });
+// "Overall eligibility status" — a calculated verdict over a form's I/E criteria
+// (item 4). Last field on an Eligibility / Screening form; rendered as a green/red
+// banner. Logic lives in SubjectRecord (any exclusion=Yes / inclusion=No → fail).
+const eligibilityStatus = () =>
+  ({ code: "overall_eligibility", label: "Overall eligibility status", type: "calculated", validation: { readonlyAuto: true, overallEligibility: true } });
 const pvas = (code, label, req = false) => withHint(rng(code, label, 0.0, 10.0, null, req), PVAS_HINT);
 
 // ── Field-level conditional display + read-only auto fields ──
@@ -580,6 +605,7 @@ const BR_VITAL_FIELDS = [
   ]),
   ...sec("Clinical Assessment", [
     dartSel("clinical_illness_score", "Clinical Illness Score (DART)"),
+    dartAction("clinical_illness_score"),
     sel("attitude", "Attitude / Demeanor", ["Bright", "Quiet", "Depressed", "Recumbent"]),
     sel("hydration", "Hydration status", ["Normal", "Mild dehydration", "Moderate dehydration", "Severe dehydration"]),
     sel("bcs", "Body condition score", ["1", "2", "3", "4", "5", "6", "7", "8", "9"]),
@@ -620,6 +646,7 @@ const BR_TREE = [
     leaf("screening", "Screening / BRD Case Definition", [
       date("screening_date", "Screening date", true),
       dartSel("dart_score", "Clinical illness score (DART)"),
+      dartAction("dart_score"),
       rng("screening_temp", "Rectal temperature", 35, 43, "°C"),
       calc("meets_temp_criterion", "Meets temperature criterion (≥ 40.0)"),
       msel("visual_brd_signs", "Visual BRD signs", ["Nasal discharge", "Cough", "Lethargy", "Drooped ears", "Other"]),
@@ -629,6 +656,7 @@ const BR_TREE = [
       msel("exclusion_criteria", "Exclusion criteria", ["Pregnant", "Chronic illness", "Concurrent illness", "Prior treatment", "Other"]),
       crit("eligible", "Eligible"),
       sel("randomized_arm", "Randomized arm", ["T01", "T02", "T03"]),
+      eligibilityStatus(),
     ]),
     leaf("demographics", "Animal Demographics", [
       txt("animal_id", "Animal ID / ear tag", true),
@@ -651,7 +679,7 @@ const BR_TREE = [
     leaf("treatment", "Treatment Administration", [
       ...sec("Drug Information", [
         num("body_weight_dosing", "Body weight at dosing", "kg", true),
-        sel("test_article", "Test article", ["T01", "T02", "T03"]),
+        { code: "test_article", label: "Test article", type: "select", options: ["T01", "T02", "T03"], validation: { autoFromArm: true, hint: "Auto-populated from randomization assignment — cannot be modified." } },
         num("dose_mg_kg", "Dose", "mg/kg"),
         calc("total_dose", "Total dose", "mg"),
         num("volume_ml", "Volume", "mL"),
@@ -800,8 +828,7 @@ const caFollowup = (n, day) =>
   grp(`Follow-Up ${n} — Day ${day}`, [
     leaf(`fu${n}_pe`, "Physical Examination", caFollowupPE()),
     leaf(`fu${n}_derm`, "Dermatology Assessment", [
-      cadesi("cadesi04_score", "CADESI-04 score"),
-      cadesiWorksheet(),
+      ...cadesiBlock(),
       pvas("pvas_score", "PVAS score (owner-reported)"),
       sel("disease_severity", "Overall disease severity", ["Mild", "Moderate", "Severe", "Resolved"]),
       sel("ear_assessment", "Ear assessment", ["Normal", "Otitis Externa", "Otitis Media"]),
@@ -875,8 +902,7 @@ const CA_TREE = [
       sel("lesion_severity", "Skin lesion severity", ["Mild", "Moderate", "Severe"]),
       sel("infection_assessment", "Infection assessment", ["None", "Mild", "Moderate", "Severe"]),
       sel("ear_assessment", "Ear assessment", ["Normal", "Otitis Externa", "Otitis Media"]),
-      cadesi("cadesi04_score", "CADESI-04 score"),
-      cadesiWorksheet(),
+      ...cadesiBlock(),
     ]),
     leaf("screen_consent", "Owner Consent", [
       yn("consent_signed", "Consent signed", true),
@@ -897,6 +923,7 @@ const CA_TREE = [
       excl("another_study_30d", "In another study within 30 days"),
       sel("eligibility_status", "Eligibility status", ["Eligible", "Screen Failure"]),
       yn("investigator_approval", "Investigator approval"),
+      eligibilityStatus(),
     ]),
     leaf("screen_medhistory", "Medical History", [
       ta("dermatology_history", "Dermatology history"),
@@ -920,8 +947,7 @@ const CA_TREE = [
       txt("drug_kit_assigned", "Drug kit assigned"),
     ]),
     leaf("baseline_clinical", "Baseline Clinical Assessment", [
-      cadesi("cadesi04_score", "CADESI-04 score", true),
-      cadesiWorksheet(),
+      ...cadesiBlock(true),
       pvas("pvas_score", "PVAS score (owner-reported)", true),
       sel("disease_severity", "Overall disease severity", ["Mild", "Moderate", "Severe"]),
       sel("iga", "Investigator global assessment", ["1", "2", "3", "4", "5"]),
@@ -943,7 +969,7 @@ const CA_TREE = [
   caFollowup(3, 56),
   grp("End of Study — Day 84", [
     leaf("eos_pe", "Final Physical Examination", caFollowupPE()),
-    leaf("eos_cadesi", "Final CADESI Assessment", [cadesi("cadesi04_score", "CADESI-04 score", true), cadesiWorksheet()]),
+    leaf("eos_cadesi", "Final CADESI Assessment", cadesiBlock(true)),
     leaf("eos_pvas", "Final PVAS Assessment", [pvas("pvas_score", "PVAS score", true)]),
     leaf("eos_qol", "Final Quality of Life Survey", caQol()),
     leaf("eos_drug_return", "Study Drug Return", [

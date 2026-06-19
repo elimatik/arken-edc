@@ -4,6 +4,7 @@ import { useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import { useStudySession } from "@/lib/session-store/SessionStore";
 import { getPinnedStudies, togglePinnedStudy } from "@/lib/pinned-study";
+import { isStudyLocked } from "@/lib/study-lock";
 import { useNdaName, useNdaInitials } from "@/lib/use-nda-name";
 import { useTableSort } from "@/lib/useTableSort";
 import { SortTh } from "@/components/common/SortTh";
@@ -20,6 +21,7 @@ type Study = {
   iconCls: string;
   status: string;
   statusLabel: string;
+  locked: boolean;
   role: string;
   roleCls: string;
   enrolled: number;
@@ -94,6 +96,7 @@ export default function StudiesPage() {
           iconCls: species,
           status: s.status,
           statusLabel: STATUS_LABEL[s.status] ?? s.status,
+          locked: isStudyLocked(dataset, s.id),
           // Default landing role is CRC for every study.
           role: "CRC",
           roleCls: "rc-crc",
@@ -311,6 +314,11 @@ export default function StudiesPage() {
                         <td>{s.species}</td>
                         <td>
                           <span className={`status-badge ${statusCls}`}>{s.statusLabel}</span>
+                          {s.locked && (
+                            <span className="status-badge sb-locked" title="Database locked — read-only pending statistical analysis">
+                              <i className="ti ti-lock" style={{ fontSize: "11px" }}></i> Locked
+                            </span>
+                          )}
                         </td>
                         <td>
                           <span className={`study-role-chip ${s.roleCls}`}>
