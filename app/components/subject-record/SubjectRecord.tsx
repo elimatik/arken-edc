@@ -1255,8 +1255,9 @@ export function SubjectRecord({ studyId, subjectId, initialFormId, initialPanelF
 
   // ─── Subject timeline (collapsible, above the form sidebar) ─────────────────
   const TL_DATE_CODES = ["visit_date", "screening_date", "consent_date", "randomization_date", "observation_date", "weighing_date", "dispensation_date", "completion_date", "date"];
+  const instanceForForm = (formId: string) => dataset.formInstances.find((i) => i.subject_id === subjectId && i.form_id === formId);
   const formDateValue = (formId: string): string | undefined => {
-    const inst = dataset.formInstances.find((i) => i.subject_id === subjectId && i.form_id === formId);
+    const inst = instanceForForm(formId);
     if (!inst) return undefined;
     for (const code of TL_DATE_CODES) {
       const field = dataset.formFields.find((f) => f.form_id === formId && f.code === code);
@@ -1266,11 +1267,17 @@ export function SubjectRecord({ studyId, subjectId, initialFormId, initialPanelF
     }
     return undefined;
   };
+  // Milestone forms = leaf forms that CAN carry a date (visit/screening/randomization/
+  // EOS/…). Shown in protocol (sidebar) order whether or not they've been started, so
+  // the timeline is never empty and reads as the full visit schedule, not just the
+  // completed bits.
+  const isMilestoneForm = (formId: string) => dataset.formFields.some((f) => f.form_id === formId && TL_DATE_CODES.includes(f.code));
   const timelineForms = orderedLeaves
-    .map((l) => ({ ...l, date: formDateValue(l.id), isRand: /randomization/i.test(l.name) }))
-    .filter((l) => !!l.date)
-    .sort((a, b) => (a.date! < b.date! ? -1 : a.date! > b.date! ? 1 : 0));
-  const enrolledDate = timelineForms[0]?.date ?? valByCode("randomization_date") ?? valByCode("screening_date");
+    .filter((l) => isMilestoneForm(l.id))
+    .map((l) => ({ id: l.id, name: l.name, icon: l.icon, queryCount: l.queryCount, date: formDateValue(l.id), started: !!instanceForForm(l.id), isRand: /randomization/i.test(l.name) }));
+  // Enrolment is ALWAYS shown — fall back through any available date, else "—".
+  const enrolledDate = timelineForms.find((l) => l.date)?.date
+    ?? valByCode("enrollment_date") ?? valByCode("screening_date") ?? valByCode("randomization_date") ?? valByCode("placement_date");
   const subjInstIds = new Set(dataset.formInstances.filter((i) => i.subject_id === subjectId).map((i) => i.id));
   const subjOpenQueries = dataset.queries.filter((q) => subjInstIds.has(q.form_instance_id) && q.status !== "resolved").length;
   const aeFormIds = new Set(dataset.forms.filter((f) => f.study_id === studyId && /adverse event/i.test(f.name)).map((f) => f.id));
@@ -1285,13 +1292,18 @@ export function SubjectRecord({ studyId, subjectId, initialFormId, initialPanelF
           <div className="subject-timeline">
             <div className="tl-title"><i className="ti ti-timeline"></i> Timeline</div>
             <ul className="tl-list">
-              {enrolledDate && <li className="tl-item"><span className="tl-dot enrolled"></span><div className="tl-body"><span className="tl-label">Enrolled</span><span className="tl-date">{enrolledDate}</span></div></li>}
+              {/* Enrolled — always shown (date or "—"), even for a brand-new subject. */}
+              <li className="tl-item"><span className="tl-dot enrolled"></span><div className="tl-body"><span className="tl-label">Enrolled</span><span className="tl-date">{enrolledDate ?? "—"}</span></div></li>
               {timelineForms.map((f) => (
-                <li className="tl-item clickable" key={f.id} onClick={() => goToForm(f.id)} title="Go to form">
-                  <StatusGlyph icon={f.icon} />
+                <li className="tl-item clickable" key={f.id} onClick={() => goToForm(f.id)} title={f.started ? "Go to form" : "Not started — open to begin"}>
+                  {f.started ? <StatusGlyph icon={f.icon} /> : <span className="tl-dot none" aria-label="Not started"></span>}
                   <div className="tl-body">
-                    <span className="tl-label">{f.name}</span>
-                    <span className="tl-date">{f.date}{f.isRand && displayArm ? ` · ${displayArm}` : ""}{f.queryCount > 0 ? ` · ${f.queryCount} quer${f.queryCount === 1 ? "y" : "ies"}` : ""}</span>
+                    <span className={`tl-label${f.started ? "" : " muted"}`}>{f.name}</span>
+                    <span className="tl-date">
+                      {f.started
+                        ? `${f.date ?? "—"}${f.isRand && displayArm ? ` · ${displayArm}` : ""}${f.queryCount > 0 ? ` · ${f.queryCount} quer${f.queryCount === 1 ? "y" : "ies"}` : ""}`
+                        : "Not started"}
+                    </span>
                   </div>
                 </li>
               ))}
