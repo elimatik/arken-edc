@@ -241,7 +241,7 @@ function caVisitCompliance(dataset: Dataset, studyId: string): VisitCompliance {
 
 // 4-colour visit-urgency palette (Tailwind 400). Legend dot = bar fill (same token).
 const VW_COLORS = {
-  onTime: "var(--green-400)",
+  onTime: "var(--green-500)",
   dueWeek: "var(--amber-400)",
   outside: "var(--blue-400)",
   overdue: "var(--red-400)",
@@ -351,7 +351,7 @@ const CA_RENDERERS: Partial<Record<Role, CaRenderer>> = {
 
 const ENROLL_COLORS = {
   active: "var(--blue-400)",
-  completed: "var(--green-400)",
+  completed: "var(--green-500)",
   withdrawn: "var(--red-400)",
   screenFail: "var(--amber-400)",
 };
@@ -910,9 +910,9 @@ function renderCRC() {
         <div className="dash-col">
           <Card title="Site enrollment" icon="ti-users">
             <EnrollBar cur={30} tgt={40} pct={75} legs={[
-              { c: "var(--blue-600)", t: "Group A — 16 subjects" },
-              { c: "var(--purple-600)", t: "Group B — 14 subjects" },
-              { c: "var(--color-border)", t: "10 slots remaining" },
+              { c: "var(--blue-400)", t: "Group A — 16 subjects" },
+              { c: "var(--amber-400)", t: "Group B — 14 subjects" },
+              { c: "var(--slate-200)", t: "10 slots remaining" },
             ]} />
           </Card>
           <Card title="Upcoming visits" icon="ti-calendar-event" action="View all →">
@@ -1020,9 +1020,9 @@ function renderPI() {
         <div className="dash-col">
           <Card title="Study enrollment" icon="ti-users">
             <EnrollBar cur={89} tgt={120} pct={74} legs={[
-              { c: "var(--blue-600)", t: "Group A — 46 subjects" },
-              { c: "var(--purple-600)", t: "Group B — 43 subjects" },
-              { c: "var(--color-border)", t: "31 slots remaining" },
+              { c: "var(--blue-400)", t: "Group A — 46 subjects" },
+              { c: "var(--amber-400)", t: "Group B — 43 subjects" },
+              { c: "var(--slate-200)", t: "31 slots remaining" },
             ]} />
             <table className="dash-table" style={{ marginTop: 0 }}>
               <thead><tr><th>Site</th><th>Enrolled</th><th>Target</th><th>Progress</th></tr></thead>
