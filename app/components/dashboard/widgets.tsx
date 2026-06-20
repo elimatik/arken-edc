@@ -90,8 +90,10 @@ export function EnrollBar({
   return (
     <div className="enroll-wrap">
       <div className="enroll-nums">
-        <span className="enroll-big">{cur}</span>
-        <span className="enroll-tgt">/ {tgt} target</span>
+        <span className="enroll-num-group">
+          <span className="enroll-big">{cur}</span>
+          <span className="enroll-tgt">/ {tgt}</span>
+        </span>
         <span className="enroll-pct">{pct}%</span>
       </div>
       <div className="enroll-track">

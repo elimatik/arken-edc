@@ -343,16 +343,31 @@ const ROLE_RENDERERS: Record<Role, () => JSX.Element> = {
 type CaRenderer = (agg: StudyAggregates, dataset: Dataset, studyId: string) => JSX.Element;
 const CA_RENDERERS: Partial<Record<Role, CaRenderer>> = {
   CRC: renderCaCRC,
+  CRA: renderCaCRA,
   PI: renderCaPI,
   DM: renderCaDM,
+  Sponsor: renderCaSponsor,
 };
 
 const ENROLL_COLORS = {
-  active: "var(--blue-600)",
-  completed: "var(--green-500)",
+  active: "var(--blue-400)",
+  completed: "var(--green-400)",
   withdrawn: "var(--red-400)",
-  screenFail: "var(--slate-400)",
+  screenFail: "var(--amber-400)",
 };
+// Categorical arm colors (distinct hues, no purple): blue · amber · red.
+const ARM_COLORS = ["var(--blue-400)", "var(--amber-400)", "var(--red-400)"];
+
+// Legend for the milestone-timeline dot colors — no color without a label.
+function MilestoneLegend() {
+  return (
+    <div className="ms-legend">
+      <span><span className="ms-dot done"></span>Completed</span>
+      <span><span className="ms-dot active"></span>In progress</span>
+      <span><span className="ms-dot future"></span>Upcoming</span>
+    </div>
+  );
+}
 
 // The four aggregate groups shared across the CA-0801 CRC/PI/DM dashboards:
 // Enrollment · Compliance · Safety · Data quality. All numbers from the store.
@@ -494,7 +509,7 @@ function renderCaPI(agg: StudyAggregates) {
               {agg.arms.map((a, i) => (
                 <div key={a.label}>
                   <div className="arm-hdr"><span className="arm-label">{a.label}</span><span className="arm-count">{a.count} subjects</span></div>
-                  <div className="arm-track"><div className={i === 0 ? "arm-fill-a" : "arm-fill-b"} style={{ width: `${Math.round((a.count / armTotal) * 100)}%` }}></div></div>
+                  <div className="arm-track"><div className="arm-fill" style={{ width: `${Math.round((a.count / armTotal) * 100)}%`, background: ARM_COLORS[i % ARM_COLORS.length] }}></div></div>
                 </div>
               ))}
               <div style={{ fontSize: "var(--text-xs)", color: "var(--color-text-tertiary)", marginTop: "var(--space-2)" }}>
@@ -537,6 +552,79 @@ function renderCaDM(agg: StudyAggregates, dataset: Dataset, studyId: string) {
               </tbody>
             </table>
           </Card>
+        </div>
+      </div>
+    </>
+  );
+}
+
+// ══ CA-0801 · CRA ══════════════════════════════════════════════════════════
+// Monitoring view — all site labels come from the store (real CA sites), never a
+// hardcoded city list. Reuses the generic SDV / query / visit-window helpers.
+function renderCaCRA(agg: StudyAggregates, dataset: Dataset, studyId: string) {
+  const sdv = sdvProgress(dataset, studyId);
+  const toResolve = openQueryCount(dataset, studyId);
+  const ec = openEditCheckCount(dataset, studyId);
+  const sdvPct = sdv.total ? Math.round((sdv.verified / sdv.total) * 100) : 0;
+  return (
+    <>
+      <div className="stat-row" style={{ gridTemplateColumns: "repeat(4,1fr)" }}>
+        <Chip val={`${sdv.verified} / ${sdv.total}`} label={`Fields SDV-verified (${sdvPct}%)`} accent="blue" />
+        <Chip val={String(toResolve)} label="Queries to resolve" accent={toResolve ? "alert" : ""} />
+        <Chip val={String(ec)} label="Open edit checks" accent={ec ? "alert" : ""} />
+        <Chip val={String(agg.sites.length)} label="Active sites" accent="good" />
+      </div>
+      <div style={{ display: "grid", gridTemplateColumns: "repeat(2, 1fr)", gap: "var(--space-4)", marginTop: "var(--space-4)" }}>
+        <div className="dash-col">
+          <SiteProgressCard rows={sdvProgressBySite(dataset, studyId)} title="SDV progress by site" icon="ti-shield-check" suffix="fields" />
+          <Card title="Site status" icon="ti-building-hospital">
+            <table className="dash-table">
+              <thead><tr><th>Site</th><th>Enrolled</th></tr></thead>
+              <tbody>
+                {agg.sites.map((s) => (
+                  <tr key={s.code}><td>{s.code} · {s.name}</td><td className="mono">{s.enrolled}</td></tr>
+                ))}
+              </tbody>
+            </table>
+          </Card>
+        </div>
+        <div className="dash-col">
+          <QueryWorklistCard dataset={dataset} studyId={studyId} />
+          <CaVisitWindowsCard dataset={dataset} studyId={studyId} />
+        </div>
+      </div>
+    </>
+  );
+}
+
+// ══ CA-0801 · Sponsor (live, blinded aggregate — real sites, no city placeholders) ══
+function renderCaSponsor(agg: StudyAggregates, dataset: Dataset, studyId: string) {
+  const enrolledPct = agg.target ? Math.round((agg.randomized / agg.target) * 100) : 0;
+  return (
+    <>
+      <div className="stat-row" style={{ gridTemplateColumns: "repeat(5,1fr)" }}>
+        <Chip val={String(agg.randomized)} label="Subjects enrolled" accent="blue" />
+        <Chip val={`${enrolledPct}%`} label="Enrollment progress" accent="good" />
+        <Chip val={String(agg.sites.length)} label="Sites active" accent="good" />
+        <Chip val={String(agg.saes)} label="Active SAEs" accent={agg.saes ? "crit" : "good"} />
+        <Chip val={String(agg.withdrawn)} label="Withdrawals" accent={agg.withdrawn ? "warn" : ""} />
+      </div>
+      <CaAggregates agg={agg} />
+      <div style={{ display: "grid", gridTemplateColumns: "repeat(2, 1fr)", gap: "var(--space-4)", marginTop: "var(--space-4)" }}>
+        <div className="dash-col">
+          <Card title="Site enrollment" icon="ti-building-hospital">
+            <table className="dash-table">
+              <thead><tr><th>Site</th><th>Enrolled</th></tr></thead>
+              <tbody>
+                {agg.sites.map((s) => (
+                  <tr key={s.code}><td>{s.code} · {s.name}</td><td className="mono">{s.enrolled}</td></tr>
+                ))}
+              </tbody>
+            </table>
+          </Card>
+        </div>
+        <div className="dash-col">
+          <CaVisitWindowsCard dataset={dataset} studyId={studyId} />
         </div>
       </div>
     </>
@@ -669,7 +757,7 @@ function renderBrCRC(_agg: StudyAggregates, dataset: Dataset, studyId: string) {
         <Chip val={String(enrolled)} label="Animals enrolled" accent="blue" />
         <Chip val={String(openQueryCount(dataset, studyId))} label="Open queries" accent={openQueryCount(dataset, studyId) ? "alert" : ""} />
         <Chip val={`${fp.completed} / ${fp.total}`} label="Forms completed" />
-        <Chip val={`${vc.overdue} · ${vc.dueThisWeek}`} label="Overdue · Due this week" accent={vc.overdue ? "alert" : vc.dueThisWeek ? "warn" : ""} />
+        <Chip val={`${vc.overdue} · ${vc.dueThisWeek}`} label="visits overdue · due this week" accent={vc.overdue ? "alert" : vc.dueThisWeek ? "warn" : ""} />
       </div>
       <div style={{ display: "grid", gridTemplateColumns: "repeat(2, 1fr)", gap: "var(--space-4)", marginTop: "var(--space-4)" }}>
         <div className="dash-col">
@@ -987,6 +1075,7 @@ function renderPI() {
               <MilestoneRow label="Last subject last visit" sub="LSLV target" date="Dec 2026" state="future" />
               <MilestoneRow label="Database lock" sub="All queries resolved" date="Feb 2027" state="future" />
             </div>
+            <MilestoneLegend />
           </Card>
         </div>
       </div>
@@ -1091,6 +1180,7 @@ function renderSponsor() {
               <MilestoneRow label="Full enrollment target" sub="All 120 subjects enrolled" date="Dec 2026" state="future" />
               <MilestoneRow label="Database lock" sub="All queries resolved" date="Feb 2027" state="future" />
             </div>
+            <MilestoneLegend />
           </Card>
         </div>
         <div className="dash-col">

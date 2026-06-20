@@ -51,8 +51,9 @@
 /* ─── Enrollment bar ── */
 .enroll-wrap { padding: var(--space-4); }
 .enroll-nums { display: flex; justify-content: space-between; align-items: baseline; margin-bottom: var(--space-2); }
+.enroll-num-group { display: flex; align-items: baseline; gap: var(--space-1); }
 .enroll-big { font-size: 28px; font-weight: var(--weight-medium); font-family: var(--font-mono); }
-.enroll-tgt { font-size: var(--text-sm); color: var(--color-text-tertiary); font-family: var(--font-mono); }
+.enroll-tgt { font-size: var(--text-base); color: var(--color-text-secondary); font-weight: var(--weight-regular); font-family: var(--font-mono); }
 .enroll-pct { font-size: var(--text-lg); font-weight: var(--weight-medium); font-family: var(--font-mono); color: var(--color-text-secondary); }
 .enroll-track { width: 100%; height: 6px; background: var(--color-border); border-radius: var(--radius-full); overflow: hidden; margin-bottom: var(--space-3); }
 .enroll-fill { height: 100%; border-radius: var(--radius-full); background: var(--blue-600); transition: width 0.4s; }
@@ -184,8 +185,9 @@
 .arm-label { font-size: var(--text-sm); font-weight: var(--weight-medium); }
 .arm-count { font-size: var(--text-sm); font-family: var(--font-mono); color: var(--color-text-secondary); }
 .arm-track { width: 100%; height: 7px; background: var(--color-border); border-radius: var(--radius-full); overflow: hidden; }
-.arm-fill-a { height: 100%; border-radius: var(--radius-full); background: var(--blue-600); }
-.arm-fill-b { height: 100%; border-radius: var(--radius-full); background: var(--purple-600); }
+.arm-fill { height: 100%; border-radius: var(--radius-full); }
+.arm-fill-a { height: 100%; border-radius: var(--radius-full); background: var(--blue-400); }
+.arm-fill-b { height: 100%; border-radius: var(--radius-full); background: var(--amber-400); }
 
 /* ─── SDV rows ── */
 .sdv-row { display: flex; align-items: center; gap: var(--space-3); padding: var(--space-2) var(--space-4); border-bottom: 1px solid var(--color-border-subtle); }
@@ -223,6 +225,10 @@
 .ms-dot.done { background: var(--green-600); }
 .ms-dot.active { background: var(--blue-600); }
 .ms-dot.future { background: var(--color-border); border: 2px solid var(--color-text-placeholder); }
+/* Milestone status legend — no dot color without a label. */
+.ms-legend { display: flex; gap: var(--space-3); flex-wrap: wrap; padding: var(--space-3) var(--space-4) var(--space-1); font-size: var(--text-xs); color: var(--color-text-tertiary); }
+.ms-legend > span { display: inline-flex; align-items: center; gap: 5px; }
+.ms-legend .ms-dot { width: 8px; height: 8px; }
 .ms-body { flex: 1; min-width: 0; }
 .ms-label { font-size: var(--text-sm); font-weight: var(--weight-medium); }
 .ms-sub { font-size: var(--text-xs); color: var(--color-text-tertiary); margin-top: 1px; }
@@ -337,9 +343,11 @@
 .cap-chip.cap-over { background: var(--red-50); border-color: var(--red-200); color: var(--red-600); }
 
 .vstat { display: inline-flex; align-items: center; padding: 1px var(--space-2); border-radius: var(--radius-full); border: 1px solid; font-size: var(--text-xs); font-weight: var(--weight-medium); white-space: nowrap; }
-.vstat-over { background: var(--red-400); border-color: var(--red-400); color: var(--red-800); }
-.vstat-today { background: var(--amber-400); border-color: var(--amber-400); color: var(--amber-800); }
-.vstat-week { background: var(--amber-400); border-color: var(--amber-400); color: var(--amber-800); }
+/* Doubled-class specificity so the new urgency tokens always win over any legacy rule. */
+.vstat.vstat-over { background: var(--red-400); border-color: var(--red-400); color: var(--red-800); }
+.vstat.vstat-today { background: var(--amber-400); border-color: var(--amber-400); color: var(--amber-800); }
+.vstat.vstat-week { background: var(--amber-400); border-color: var(--amber-400); color: var(--amber-800); }
+.vstat.vstat-outside { background: var(--blue-400); border-color: var(--blue-400); color: var(--blue-800); }
 
 .brd-stat-row { display: grid; grid-template-columns: repeat(4, 1fr); gap: var(--space-3); margin-bottom: var(--space-3); padding-left: var(--space-4); padding-right: var(--space-4); padding-top: var(--space-3); }
 /* Full-width per-feedlot progress bar (SDV / data entry) — % sits under the bar. */
