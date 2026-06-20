@@ -1,6 +1,7 @@
 "use client";
 
 import type { ReactNode } from "react";
+import Link from "next/link";
 
 // ─── Stat chip ───────────────────────────────────────────────────────────────
 type Accent = "warn" | "alert" | "crit" | "good" | "blue" | "";
@@ -35,11 +36,13 @@ export function Card({
   title,
   icon,
   action,
+  actionHref,
   children,
 }: {
   title: string;
   icon: string;
   action?: string;
+  actionHref?: string; // when set, the action renders as a Next link to an existing page
   children: ReactNode;
 }) {
   return (
@@ -49,7 +52,9 @@ export function Card({
           <i className={`ti ${icon}`}></i>
           {title}
         </div>
-        {action && <button className="card-link" type="button">{action}</button>}
+        {action && (actionHref
+          ? <Link className="card-link" href={actionHref}>{action}</Link>
+          : <button className="card-link" type="button">{action}</button>)}
       </div>
       {children}
     </div>

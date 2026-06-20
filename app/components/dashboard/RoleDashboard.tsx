@@ -1,6 +1,7 @@
 "use client";
 
 import { useMemo, useState } from "react";
+import Link from "next/link";
 import { useNdaName } from "@/lib/use-nda-name";
 import { useShell } from "@/components/shell/ShellContext";
 import { useStudySession } from "@/lib/session-store/SessionStore";
@@ -239,9 +240,11 @@ function caVisitCompliance(dataset: Dataset, studyId: string): VisitCompliance {
 }
 
 const VW_COLORS = {
-  onTime: { fill: "var(--green-600)", dot: "var(--green-200)" },
-  outside: { fill: "var(--amber-700)", dot: "var(--amber-200)" },
-  overdue: { fill: "var(--red-600)", dot: "var(--red-200)" },
+  // Distinct weights so the proportion bar reads at a glance: a medium green vs a
+  // clearly-lighter red, with a medium amber for the (usually hidden) outside band.
+  onTime: { fill: "var(--green-500)", dot: "var(--green-200)" },
+  outside: { fill: "var(--amber-600)", dot: "var(--amber-200)" },
+  overdue: { fill: "var(--red-400)", dot: "var(--red-200)" },
 };
 
 function CaVisitWindowsCard({ dataset, studyId }: { dataset: Dataset; studyId: string }) {
@@ -393,9 +396,9 @@ function CaAggregates({ agg }: { agg: StudyAggregates }) {
 }
 
 // Compact, dense open-queries list (item 4) — subject · ref · field · status · age.
-function CaQueryCard({ agg }: { agg: StudyAggregates }) {
+function CaQueryCard({ agg, studyId }: { agg: StudyAggregates; studyId: string }) {
   return (
-    <Card title="Open queries" icon="ti-message-report" action="View all →">
+    <Card title="Open queries" icon="ti-message-report" action="View all →" actionHref={`/study/${studyId}/queries`}>
       {agg.queryList.length === 0 ? (
         <div className="dq-empty">No open queries.</div>
       ) : (
@@ -429,7 +432,7 @@ function renderCaCRC(agg: StudyAggregates, dataset: Dataset, studyId: string) {
       <CaAggregates agg={agg} />
       <div style={{ display: "grid", gridTemplateColumns: "repeat(2, 1fr)", gap: "var(--space-4)", marginTop: "var(--space-4)" }}>
         <div className="dash-col">
-          <CaQueryCard agg={agg} />
+          <CaQueryCard agg={agg} studyId={studyId} />
         </div>
         <div className="dash-col">
           <CaVisitWindowsCard dataset={dataset} studyId={studyId} />
@@ -510,7 +513,7 @@ function renderCaDM(agg: StudyAggregates, dataset: Dataset, studyId: string) {
       <CaAggregates agg={agg} />
       <div style={{ display: "grid", gridTemplateColumns: "repeat(2, 1fr)", gap: "var(--space-4)", marginTop: "var(--space-4)" }}>
         <div className="dash-col">
-          <CaQueryCard agg={agg} />
+          <CaQueryCard agg={agg} studyId={studyId} />
         </div>
         <div className="dash-col">
           <CaVisitWindowsCard dataset={dataset} studyId={studyId} />
@@ -586,11 +589,15 @@ function EnrollmentBySiteCard({ rows, title = "Enrollment by feedlot" }: { rows:
 function SiteProgressCard({ rows, title, icon, suffix }: { rows: SiteFormProgress[]; title: string; icon: string; suffix?: string }) {
   return (
     <Card title={title} icon={icon}>
-      <div className="agg-list">
+      <div style={{ paddingTop: "var(--space-3)" }}>
         {rows.map((r) => (
-          <div key={r.siteId} style={{ marginBottom: "var(--space-3)" }}>
-            <div className="arm-hdr"><span className="arm-label">{r.code} · {r.name}</span><span className="arm-count mono">{r.completed} / {r.total}{suffix ? ` ${suffix}` : ""}</span></div>
-            <MiniBar pct={r.pct} />
+          <div className="dash-bar" key={r.siteId}>
+            <div className="dash-bar-hdr">
+              <span className="dash-bar-name">{r.code} · {r.name}</span>
+              <span className="dash-bar-count">{r.completed} / {r.total}{suffix ? ` ${suffix}` : ""}</span>
+            </div>
+            <div className="dash-bar-track"><div className={`dash-bar-fill${r.pct < 60 ? " low" : ""}`} style={{ width: `${r.pct}%` }}></div></div>
+            <div className="dash-bar-pct">{r.pct}%</div>
           </div>
         ))}
       </div>
@@ -601,7 +608,7 @@ function SiteProgressCard({ rows, title, icon, suffix }: { rows: SiteFormProgres
 function UpcomingVisitsCard({ dataset, studyId }: { dataset: Dataset; studyId: string }) {
   const rows = upcomingVisits(dataset, studyId, 5);
   return (
-    <Card title="Upcoming visits" icon="ti-calendar-clock" action="View all →">
+    <Card title="Upcoming visits" icon="ti-calendar-clock" action="View all →" actionHref={`/study/${studyId}/visits`}>
       {rows.length === 0 ? (
         <div className="dq-empty">No visits due this week.</div>
       ) : (
@@ -628,7 +635,7 @@ function OpenQueriesCountCard({ dataset, studyId }: { dataset: Dataset; studyId:
   const responded = respondedQueryCount(dataset, studyId);
   const raised = Math.max(0, open - responded);
   return (
-    <Card title="Open queries" icon="ti-message-report" action="Queries screen →">
+    <Card title="Open queries" icon="ti-message-report" action="Queries screen →" actionHref={`/study/${studyId}/queries`}>
       <div className="agg-list">
         <div className="agg-row"><span className="agg-lbl">Raised — awaiting response</span><span className="agg-val" style={{ color: raised ? "var(--amber-700)" : undefined }}>{raised}</span></div>
         <div className="agg-row"><span className="agg-lbl">Responded — awaiting resolution</span><span className="agg-val" style={{ color: responded ? "var(--blue-600)" : undefined }}>{responded}</span></div>
@@ -641,7 +648,7 @@ function OpenQueriesCountCard({ dataset, studyId }: { dataset: Dataset; studyId:
 function QueryWorklistCard({ dataset, studyId }: { dataset: Dataset; studyId: string }) {
   const rows = queryWorklist(dataset, studyId, 5);
   return (
-    <Card title="Query worklist" icon="ti-message-report" action="Queries screen →">
+    <Card title="Query worklist" icon="ti-message-report" action="Queries screen →" actionHref={`/study/${studyId}/queries`}>
       {rows.length === 0 ? (
         <div className="dq-empty">No open queries.</div>
       ) : (
@@ -740,7 +747,7 @@ function BrdOutcomesCard({ dataset }: { dataset: Dataset }) {
           <div className="brd-stat-sub mono">0–3 scale</div>
         </div>
       </div>
-      <div className="card-note" style={{ padding: 0 }}>Study-level rollup of the per-pen Pen BRD Summary. Morbidity = treated ÷ enrolled · Re-treatment = re-treated ÷ treated · Mortality = BRD deaths ÷ enrolled.</div>
+      <div className="card-note">Study-level rollup of the per-pen Pen BRD Summary. Morbidity = treated ÷ enrolled · Re-treatment = re-treated ÷ treated · Mortality = BRD deaths ÷ enrolled.</div>
     </Card>
   );
 }
@@ -1274,6 +1281,49 @@ function StudyLockAdminCard() {
   );
 }
 
+// Admin left-column content (fills the column + gives the two most action-needed
+// views): live per-study status overview + the pending-user activations summary.
+function AdminStudyStatusCard() {
+  const { dataset } = useStudySession();
+  const studies = dataset.studies.slice().sort((a, b) => a.code.localeCompare(b.code));
+  return (
+    <Card title="Study status" icon="ti-clipboard-data">
+      <table className="dash-table">
+        <thead><tr><th>Study</th><th>Database</th><th>Enrolled</th><th>Open Q</th></tr></thead>
+        <tbody>
+          {studies.map((s) => {
+            const sc = subjectCounts(dataset, s.id);
+            const enrolled = sc.active + sc.completed + sc.withdrawn;
+            const oq = openQueryCount(dataset, s.id);
+            const locked = isStudyLocked(dataset, s.id);
+            return (
+              <tr key={s.id}>
+                <td><Link className="card-link" href={`/study/${s.id}`} style={{ textDecoration: "none", fontWeight: "var(--weight-medium)" }}>{s.code}</Link></td>
+                <td><span className={`cap-chip ${locked ? "cap-over" : "cap-under"}`}>{locked ? "Locked" : "Open"}</span></td>
+                <td className="mono">{enrolled}</td>
+                <td className="mono" style={{ color: oq ? "var(--amber-700)" : undefined }}>{oq || "—"}</td>
+              </tr>
+            );
+          })}
+        </tbody>
+      </table>
+    </Card>
+  );
+}
+
+function AdminAuditHealthCard() {
+  const { study } = useShell();
+  return (
+    <Card title="Audit trail health" icon="ti-clipboard-list" action="View full log →" actionHref={`/study/${study.id}/audit-trail`}>
+      <div className="safety-list">
+        <SafetyItem tone="s-good" icon="ti-circle-check" title="21 CFR Part 11 compliance" sub="All entries timestamped · user-attributed" count="✓" />
+        <SafetyItem icon="ti-file-text" title="Audit entries this week" sub="Across all users and sites" count="248" />
+        <SafetyItem tone="s-good" icon="ti-lock" title="Locked records" sub="No modifications after lock" count="4" />
+      </div>
+    </Card>
+  );
+}
+
 function renderAdmin() {
   return (
     <>
@@ -1287,6 +1337,7 @@ function renderAdmin() {
       </div>
       <div className="dash-grid dash-2col">
         <div className="dash-col">
+          <AdminStudyStatusCard />
           <Card title="Active users" icon="ti-users" action="Manage users →">
             <div>
               <UserRow initials="ET" name="Elisa Tron" role="CRC" roleCls="rc-crc" site="Austin · Barn A" lastLogin="Today 08:42" />
@@ -1329,13 +1380,7 @@ function renderAdmin() {
               <CfgRow label="Email notifications" sub="Not configured" status="pending" />
             </div>
           </Card>
-          <Card title="Audit trail health" icon="ti-clipboard-list" action="View full log →">
-            <div className="safety-list">
-              <SafetyItem tone="s-good" icon="ti-circle-check" title="21 CFR Part 11 compliance" sub="All entries timestamped · user-attributed" count="✓" />
-              <SafetyItem icon="ti-file-text" title="Audit entries this week" sub="Across all users and sites" count="248" />
-              <SafetyItem tone="s-good" icon="ti-lock" title="Locked records" sub="No modifications after lock" count="4" />
-            </div>
-          </Card>
+          <AdminAuditHealthCard />
           <Card title="Recent admin activity" icon="ti-activity">
             <div>
               <ActivityRow icon="ti-user-plus" ts="Today 07:55 · System">User Carla Voss activated — Sponsor role</ActivityRow>
