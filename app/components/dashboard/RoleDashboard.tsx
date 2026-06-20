@@ -113,7 +113,7 @@ function computeAggregates(dataset: Dataset, studyId: string): StudyAggregates {
   const sites = dataset.sites
     .filter((s) => s.study_id === studyId)
     .sort((a, b) => a.code.localeCompare(b.code))
-    .map((site) => ({ name: site.name, code: site.code, enrolled: subs.filter((s) => s.site_id === site.id && !!s.randomization_arm).length }));
+    .map((site) => ({ name: site.name, code: site.code, enrolled: subs.filter((s) => s.site_id === site.id).length }));
 
   const armMap = new Map<string, number>();
   subs.forEach((s) => { if (s.randomization_arm) armMap.set(s.randomization_arm, (armMap.get(s.randomization_arm) ?? 0) + 1); });
