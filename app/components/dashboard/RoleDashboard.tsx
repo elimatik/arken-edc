@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { Fragment, useMemo, useState } from "react";
 import Link from "next/link";
 import { useNdaName } from "@/lib/use-nda-name";
 import { useShell } from "@/components/shell/ShellContext";
@@ -239,39 +239,49 @@ function caVisitCompliance(dataset: Dataset, studyId: string): VisitCompliance {
   return { onTime, outside, overdue };
 }
 
+// 4-colour visit-urgency palette (Tailwind 400). Legend dot = bar fill (same token).
 const VW_COLORS = {
-  // Distinct weights so the proportion bar reads at a glance: a medium green vs a
-  // clearly-lighter red, with a medium amber for the (usually hidden) outside band.
-  onTime: { fill: "var(--green-500)", dot: "var(--green-200)" },
-  outside: { fill: "var(--amber-600)", dot: "var(--amber-200)" },
-  overdue: { fill: "var(--red-400)", dot: "var(--red-200)" },
+  onTime: "var(--green-400)",
+  dueWeek: "var(--amber-400)",
+  outside: "var(--blue-400)",
+  overdue: "var(--red-400)",
 };
 
-function CaVisitWindowsCard({ dataset, studyId }: { dataset: Dataset; studyId: string }) {
-  const { onTime, outside, overdue } = caVisitCompliance(dataset, studyId);
-  const total = onTime + outside + overdue;
+// Shared Visit-Windows proportion bar: [On time][Due this week][Outside][Overdue],
+// most-urgent last; 0-count segments are omitted from the bar.
+function VisitWindowsBar({ vc, note }: { vc: { onTime: number; dueThisWeek: number; outside: number; overdue: number }; note: string }) {
+  const segs = [
+    { key: "onTime", label: "On time", n: vc.onTime, c: VW_COLORS.onTime },
+    { key: "dueWeek", label: "Due this week", n: vc.dueThisWeek, c: VW_COLORS.dueWeek },
+    { key: "outside", label: "Outside", n: vc.outside, c: VW_COLORS.outside },
+    { key: "overdue", label: "Overdue", n: vc.overdue, c: VW_COLORS.overdue },
+  ];
+  const total = segs.reduce((s, x) => s + x.n, 0);
   const pct = (n: number) => (total > 0 ? (n / total) * 100 : 0);
   return (
     <Card title="Visit Windows" icon="ti-calendar-check">
       <div className="vw-wrap">
         <div className="vw-counts">
-          <span><span className="vw-dot" style={{ background: VW_COLORS.onTime.dot }}></span>On time <span className="mono">{onTime}</span></span>
-          <span> · </span>
-          <span><span className="vw-dot" style={{ background: VW_COLORS.outside.dot }}></span>Outside <span className="mono">{outside}</span></span>
-          <span> · </span>
-          <span><span className="vw-dot" style={{ background: VW_COLORS.overdue.dot }}></span>Overdue <span className="mono">{overdue}</span></span>
+          {segs.map((s, i) => (
+            <Fragment key={s.key}>
+              {i > 0 && <span> · </span>}
+              <span><span className="vw-dot" style={{ background: s.c }}></span>{s.label} <span className="mono">{s.n}</span></span>
+            </Fragment>
+          ))}
         </div>
         <div className="vw-track">
-          <div className="vw-seg" style={{ width: `${pct(onTime)}%`, background: VW_COLORS.onTime.fill }} title={`On time: ${onTime}`}></div>
-          <div className="vw-seg" style={{ width: `${pct(outside)}%`, background: VW_COLORS.outside.fill }} title={`Outside window: ${outside}`}></div>
-          <div className="vw-seg" style={{ width: `${pct(overdue)}%`, background: VW_COLORS.overdue.fill }} title={`Overdue: ${overdue}`}></div>
+          {segs.filter((s) => s.n > 0).map((s) => (
+            <div key={s.key} className="vw-seg" style={{ width: `${pct(s.n)}%`, background: s.c }} title={`${s.label}: ${s.n}`}></div>
+          ))}
         </div>
-        <div className="card-note" style={{ padding: 0 }}>
-          Scheduled Day 14 / 28 / 56 / 84 visits vs. ±2 / 3 / 5 / 5-day windows.
-        </div>
+        <div className="card-note" style={{ padding: 0 }}>{note}</div>
       </div>
     </Card>
   );
+}
+
+function CaVisitWindowsCard({ dataset, studyId }: { dataset: Dataset; studyId: string }) {
+  return <VisitWindowsBar vc={visitCompliance(dataset, studyId)} note="Scheduled Day 14 / 28 / 56 / 84 visits vs. ±2 / 3 / 5 / 5-day windows." />;
 }
 
 const ROLE_LABEL: Record<Role, string> = {
@@ -542,28 +552,8 @@ const pctTxt = (p: number | null) => (p == null ? "—" : `${Math.round(p)}%`);
 
 // Generic visit-window card (On time / Outside / Overdue + proportion bar) — the
 // CaVisitWindowsCard generalised for any study's visit schedule.
-function VisitWindowsCard({ vc, note }: { vc: { onTime: number; outside: number; overdue: number }; note: string }) {
-  const total = vc.onTime + vc.outside + vc.overdue;
-  const pct = (n: number) => (total > 0 ? (n / total) * 100 : 0);
-  return (
-    <Card title="Visit Windows" icon="ti-calendar-check">
-      <div className="vw-wrap">
-        <div className="vw-counts">
-          <span><span className="vw-dot" style={{ background: VW_COLORS.onTime.dot }}></span>On time <span className="mono">{vc.onTime}</span></span>
-          <span> · </span>
-          <span><span className="vw-dot" style={{ background: VW_COLORS.outside.dot }}></span>Outside <span className="mono">{vc.outside}</span></span>
-          <span> · </span>
-          <span><span className="vw-dot" style={{ background: VW_COLORS.overdue.dot }}></span>Overdue <span className="mono">{vc.overdue}</span></span>
-        </div>
-        <div className="vw-track">
-          <div className="vw-seg" style={{ width: `${pct(vc.onTime)}%`, background: VW_COLORS.onTime.fill }}></div>
-          <div className="vw-seg" style={{ width: `${pct(vc.outside)}%`, background: VW_COLORS.outside.fill }}></div>
-          <div className="vw-seg" style={{ width: `${pct(vc.overdue)}%`, background: VW_COLORS.overdue.fill }}></div>
-        </div>
-        <div className="card-note" style={{ padding: 0 }}>{note}</div>
-      </div>
-    </Card>
-  );
+function VisitWindowsCard({ vc, note }: { vc: { onTime: number; dueThisWeek: number; outside: number; overdue: number }; note: string }) {
+  return <VisitWindowsBar vc={vc} note={note} />;
 }
 
 function EnrollmentBySiteCard({ rows, title = "Enrollment by feedlot" }: { rows: SiteEnrollment[]; title?: string }) {
