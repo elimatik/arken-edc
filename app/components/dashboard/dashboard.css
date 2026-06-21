@@ -16,22 +16,28 @@
 
 /* ─── Stat chips ── */
 .stat-row { display: grid; gap: var(--space-3); margin-bottom: var(--space-4); }
-.stat-chip { background: var(--color-surface); border: 1px solid var(--color-border); border-radius: var(--radius-lg); padding: var(--space-3) var(--space-4); }
-.stat-chip-val { font-size: var(--text-xl); font-weight: var(--weight-medium); font-family: var(--font-mono); line-height: 1.2; }
-.stat-chip-val.warn { color: var(--amber-700); }
-.stat-chip-val.alert { color: var(--orange-700); }
-.stat-chip-val.crit { color: var(--red-600); }
-.stat-chip-val.good { color: var(--green-600); }
-.stat-chip-lbl { font-size: var(--text-xs); color: var(--color-text-tertiary); margin-top: 2px; }
+/* Stat tiles share the reports "Key metrics" card style: white surface, 1px
+   border, a 3px accent left-border, and a large value tinted to the same accent
+   family. Neutral tiles (no accent) get a slate left-border. */
+.stat-chip { background: var(--color-surface); border: 1px solid var(--color-border); border-radius: var(--radius-lg); border-left: 3px solid var(--slate-300); padding: var(--space-4); }
+.stat-chip-val { font-size: var(--text-2xl); font-weight: 600; line-height: 1.1; color: var(--color-text-primary); }
+.stat-chip-lbl { font-size: var(--text-sm); color: var(--color-text-secondary); margin-top: 2px; }
 .stat-chip-trend { font-size: var(--text-xs); display: flex; align-items: center; gap: 3px; margin-top: 3px; }
 .trend-up { color: var(--green-600); }
 .trend-dn { color: var(--red-600); }
 .trend-neu { color: var(--color-text-tertiary); }
-.stat-chip.accent-warn { border-left: 3px solid var(--amber-700); }
-.stat-chip.accent-alert { border-left: 3px solid var(--orange-700); }
-.stat-chip.accent-crit { border-left: 3px solid var(--red-600); }
-.stat-chip.accent-good { border-left: 3px solid var(--green-600); }
-.stat-chip.accent-blue { border-left: 3px solid var(--blue-600); }
+/* Accent → left-border colour + matching value colour (value tinted via the
+   parent so the blue accent — which carries no value class — is covered too). */
+.stat-chip.accent-blue  { border-left-color: var(--blue-400); }
+.stat-chip.accent-good  { border-left-color: var(--green-500); }
+.stat-chip.accent-warn  { border-left-color: var(--amber-400); }
+.stat-chip.accent-crit  { border-left-color: var(--red-400); }
+.stat-chip.accent-alert { border-left-color: var(--red-400); }
+.stat-chip.accent-blue  .stat-chip-val { color: var(--blue-600); }
+.stat-chip.accent-good  .stat-chip-val { color: var(--green-600); }
+.stat-chip.accent-warn  .stat-chip-val { color: var(--amber-700); }
+.stat-chip.accent-crit  .stat-chip-val { color: var(--red-600); }
+.stat-chip.accent-alert .stat-chip-val { color: var(--red-600); }
 
 /* ─── Dashboard grid ── */
 .dash-grid { display: grid; gap: var(--space-4); align-items: start; }

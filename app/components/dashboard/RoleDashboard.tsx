@@ -658,8 +658,8 @@ function renderCaCRC(agg: StudyAggregates, dataset: Dataset, studyId: string) {
       <div className="stat-row" style={{ gridTemplateColumns: "repeat(5,1fr)" }}>
         <Chip val={String(agg.randomized)} label="Randomized" accent="blue" />
         <Chip val={String(agg.active)} label="Active subjects" />
-        <Chip val={String(agg.openQueries)} label="Open queries" accent={agg.openQueries ? "alert" : ""} />
-        <Chip val={String(agg.openEditChecks)} label="Open edit checks" accent={agg.openEditChecks ? "alert" : ""} />
+        <Chip val={String(agg.openQueries)} label="Open queries" accent={agg.openQueries ? "warn" : ""} />
+        <Chip val={String(agg.openEditChecks)} label="Open edit checks" accent={agg.openEditChecks ? "crit" : ""} />
         <Chip val={String(agg.target)} label="Enrollment target" />
       </div>
       <CaAggregates agg={agg} />
@@ -695,7 +695,7 @@ function renderCaPI(agg: StudyAggregates) {
         <Chip val={String(agg.active)} label="Active subjects" accent="good" />
         <Chip val={String(agg.saes)} label="Serious AEs" accent={agg.saes ? "crit" : "good"} />
         <Chip val={String(agg.screenFailures)} label="Screen failures" />
-        <Chip val={String(agg.openQueries)} label="Open queries" accent={agg.openQueries ? "alert" : ""} />
+        <Chip val={String(agg.openQueries)} label="Open queries" accent={agg.openQueries ? "warn" : ""} />
       </div>
       <CaAggregates agg={agg} />
       <div style={{ display: "grid", gridTemplateColumns: "repeat(2, 1fr)", gap: "var(--space-4)", marginTop: "var(--space-4)" }}>
@@ -738,8 +738,8 @@ function renderCaDM(agg: StudyAggregates, dataset: Dataset, studyId: string) {
       <div className="stat-row" style={{ gridTemplateColumns: "repeat(6,1fr)" }}>
         <Chip val={String(agg.randomized)} label="Randomized" />
         <Chip val={String(agg.reviewedForms)} label="Forms reviewed" accent="good" />
-        <Chip val={String(agg.openQueries)} label="Open queries" accent={agg.openQueries ? "alert" : ""} />
-        <Chip val={String(agg.openEditChecks)} label="Open edit checks" accent={agg.openEditChecks ? "alert" : ""} />
+        <Chip val={String(agg.openQueries)} label="Open queries" accent={agg.openQueries ? "warn" : ""} />
+        <Chip val={String(agg.openEditChecks)} label="Open edit checks" accent={agg.openEditChecks ? "crit" : ""} />
         <Chip val={String(agg.pendingSignatures)} label="Pending signatures" accent={agg.pendingSignatures ? "warn" : ""} />
         <Chip val={String(agg.readyToLock)} label="Ready to lock" accent="blue" />
       </div>
@@ -778,8 +778,8 @@ function renderCaCRA(agg: StudyAggregates, dataset: Dataset, studyId: string) {
     <>
       <div className="stat-row" style={{ gridTemplateColumns: "repeat(4,1fr)" }}>
         <Chip val={`${sdv.verified} / ${sdv.total}`} label={`Fields SDV-verified (${sdvPct}%)`} accent="blue" />
-        <Chip val={String(toResolve)} label="Queries to resolve" accent={toResolve ? "alert" : ""} />
-        <Chip val={String(ec)} label="Open edit checks" accent={ec ? "alert" : ""} />
+        <Chip val={String(toResolve)} label="Queries to resolve" accent={toResolve ? "warn" : ""} />
+        <Chip val={String(ec)} label="Open edit checks" accent={ec ? "crit" : ""} />
         <Chip val={String(agg.sites.length)} label="Active sites" accent="good" />
       </div>
       <div style={{ display: "grid", gridTemplateColumns: "repeat(2, 1fr)", gap: "var(--space-4)", marginTop: "var(--space-4)" }}>
@@ -964,9 +964,9 @@ function renderBrCRC(_agg: StudyAggregates, dataset: Dataset, studyId: string) {
     <>
       <div className="stat-row" style={{ gridTemplateColumns: "repeat(4,1fr)" }}>
         <Chip val={String(enrolled)} label="Animals enrolled" accent="blue" />
-        <Chip val={String(openQueryCount(dataset, studyId))} label="Open queries" accent={openQueryCount(dataset, studyId) ? "alert" : ""} />
+        <Chip val={String(openQueryCount(dataset, studyId))} label="Open queries" accent={openQueryCount(dataset, studyId) ? "warn" : ""} />
         <Chip val={`${fp.completed} / ${fp.total}`} label="Forms completed" />
-        <Chip val={`${vc.overdue} · ${vc.dueThisWeek}`} label="visits overdue · due this week" accent={vc.overdue ? "alert" : vc.dueThisWeek ? "warn" : ""} />
+        <Chip val={`${vc.overdue} · ${vc.dueThisWeek}`} label="visits overdue · due this week" accent={vc.overdue ? "crit" : vc.dueThisWeek ? "warn" : ""} />
       </div>
       <div style={{ display: "grid", gridTemplateColumns: "repeat(2, 1fr)", gap: "var(--space-4)", marginTop: "var(--space-4)" }}>
         <div className="dash-col">
@@ -993,8 +993,8 @@ function renderBrCRA(_agg: StudyAggregates, dataset: Dataset, studyId: string) {
     <>
       <div className="stat-row" style={{ gridTemplateColumns: "repeat(4,1fr)" }}>
         <Chip val={`${sdv.verified} / ${sdv.total}`} label={`Fields SDV-verified (${sdvPct}%)`} accent="blue" />
-        <Chip val={String(toResolve)} label="Queries to resolve" accent={toResolve ? "alert" : ""} />
-        <Chip val={String(ec)} label="Open edit checks" accent={ec ? "alert" : ""} />
+        <Chip val={String(toResolve)} label="Queries to resolve" accent={toResolve ? "warn" : ""} />
+        <Chip val={String(ec)} label="Open edit checks" accent={ec ? "crit" : ""} />
         <Chip val={String(nSites)} label="Active feedlots" accent="good" />
       </div>
       <div style={{ display: "grid", gridTemplateColumns: "repeat(2, 1fr)", gap: "var(--space-4)", marginTop: "var(--space-4)" }}>
@@ -1048,9 +1048,9 @@ function renderBrDM(_agg: StudyAggregates, dataset: Dataset, studyId: string) {
   return (
     <>
       <div className="stat-row" style={{ gridTemplateColumns: "repeat(4,1fr)" }}>
-        <Chip val={String(ec)} label="Open edit checks" accent={ec ? "alert" : ""} />
+        <Chip val={String(ec)} label="Open edit checks" accent={ec ? "crit" : ""} />
         <Chip val={String(pendingDelta)} label="Pending Δ approvals" accent={pendingDelta ? "warn" : ""} />
-        <Chip val={`${open} · ${responded}`} label="Queries open · responded" accent={open ? "alert" : ""} />
+        <Chip val={`${open} · ${responded}`} label="Queries open · responded" accent={open ? "warn" : ""} />
         <Chip val={clean ? "Clean" : "Issues"} label="Lock readiness" accent={clean ? "good" : "warn"} />
       </div>
       <div style={{ display: "grid", gridTemplateColumns: "repeat(2, 1fr)", gap: "var(--space-4)", marginTop: "var(--space-4)" }}>
@@ -1113,9 +1113,9 @@ function renderPhCRC(_agg: StudyAggregates, dataset: Dataset, studyId: string) {
     <>
       <div className="stat-row" style={{ gridTemplateColumns: "repeat(4,1fr)" }}>
         <Chip val={String(sc.total)} label="Pens enrolled" accent="blue" />
-        <Chip val={String(openQueryCount(dataset, studyId))} label="Open queries" accent={openQueryCount(dataset, studyId) ? "alert" : ""} />
+        <Chip val={String(openQueryCount(dataset, studyId))} label="Open queries" accent={openQueryCount(dataset, studyId) ? "warn" : ""} />
         <Chip val={`${fp.completed} / ${fp.total}`} label="Forms completed" />
-        <Chip val={`${vc.overdue} · ${vc.dueThisWeek}`} label="visits overdue · due this week" accent={vc.overdue ? "alert" : vc.dueThisWeek ? "warn" : ""} />
+        <Chip val={`${vc.overdue} · ${vc.dueThisWeek}`} label="visits overdue · due this week" accent={vc.overdue ? "crit" : vc.dueThisWeek ? "warn" : ""} />
       </div>
       <div style={{ display: "grid", gridTemplateColumns: "repeat(2, 1fr)", gap: "var(--space-4)", marginTop: "var(--space-4)" }}>
         <div className="dash-col">
@@ -1142,8 +1142,8 @@ function renderPhCRA(_agg: StudyAggregates, dataset: Dataset, studyId: string) {
     <>
       <div className="stat-row" style={{ gridTemplateColumns: "repeat(4,1fr)" }}>
         <Chip val={`${sdv.verified} / ${sdv.total}`} label={`Fields SDV-verified (${sdvPct}%)`} accent="blue" />
-        <Chip val={String(toResolve)} label="Queries to resolve" accent={toResolve ? "alert" : ""} />
-        <Chip val={String(ec)} label="Open edit checks" accent={ec ? "alert" : ""} />
+        <Chip val={String(toResolve)} label="Queries to resolve" accent={toResolve ? "warn" : ""} />
+        <Chip val={String(ec)} label="Open edit checks" accent={ec ? "crit" : ""} />
         <Chip val={`${fa.confirmed} / ${fa.total}`} label="T02 feed analysis confirmed" accent={fa.pending ? "warn" : "good"} />
       </div>
       <div style={{ display: "grid", gridTemplateColumns: "repeat(2, 1fr)", gap: "var(--space-4)", marginTop: "var(--space-4)" }}>
@@ -1169,9 +1169,9 @@ function renderPhDM(_agg: StudyAggregates, dataset: Dataset, studyId: string) {
   return (
     <>
       <div className="stat-row" style={{ gridTemplateColumns: "repeat(4,1fr)" }}>
-        <Chip val={String(ec)} label="Open edit checks" accent={ec ? "alert" : ""} />
+        <Chip val={String(ec)} label="Open edit checks" accent={ec ? "crit" : ""} />
         <Chip val={String(pendingDelta)} label="Pending Δ approvals" accent={pendingDelta ? "warn" : ""} />
-        <Chip val={`${open} · ${responded}`} label="Queries open · responded" accent={open ? "alert" : ""} />
+        <Chip val={`${open} · ${responded}`} label="Queries open · responded" accent={open ? "warn" : ""} />
         <Chip val={clean ? "Clean" : "Issues"} label="Lock readiness" accent={clean ? "good" : "warn"} />
       </div>
       <div style={{ display: "grid", gridTemplateColumns: "repeat(2, 1fr)", gap: "var(--space-4)", marginTop: "var(--space-4)" }}>
@@ -1228,7 +1228,7 @@ function renderCRC() {
         <Chip val="30" label="Subjects enrolled" accent="blue" trend={{ d: "up", t: "+2 this week" }} />
         <Chip val="40" label="Site target" />
         <Chip val="3" label="Queries assigned to me" accent="warn" />
-        <Chip val="2" label="Forms overdue" accent="alert" />
+        <Chip val="2" label="Forms overdue" accent="crit" />
         <Chip val="4" label="Visits this week" />
       </div>
       <div className="dash-grid dash-2col">
@@ -1300,7 +1300,7 @@ function renderCRA() {
       <div className="stat-row" style={{ gridTemplateColumns: "repeat(5,1fr)" }}>
         <Chip val="89" label="Subjects enrolled (all sites)" accent="blue" trend={{ d: "up", t: "+5 this week" }} />
         <Chip val="11" label="Total open queries" accent="warn" />
-        <Chip val="3" label="Overdue queries (> 7 days)" accent="alert" />
+        <Chip val="3" label="Overdue queries (> 7 days)" accent="crit" />
         <Chip val="62%" label="Avg SDV progress" />
         <Chip val="3" label="Monitoring visits scheduled" />
       </div>
