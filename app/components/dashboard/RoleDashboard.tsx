@@ -7,6 +7,7 @@ import { useShell } from "@/components/shell/ShellContext";
 import { useStudySession } from "@/lib/session-store/SessionStore";
 import { isStudyLocked, latestStudyLock, LOCK_REASONS } from "@/lib/study-lock";
 import { capChipClass } from "@/lib/enrollment";
+import { shouldHideArms } from "@/lib/study-config";
 import {
   subjectCounts, openQueryCount, respondedQueryCount, formProgress, sdvProgress, openEditCheckCount,
   pendingDeltaCount, visitCompliance, upcomingVisits, formProgressBySite, sdvProgressBySite, queryWorklist,
@@ -210,10 +211,33 @@ const VISIT_NOTE: Record<string, string> = {
 };
 
 // ─── Registry-only lightweight card components (live data) ───────────────────
+// Blinding-aware enrollment bar — two-segment (per arm) for open-label studies and
+// unblinded roles; a single blue Enrolled bar when arms are hidden. Same
+// shouldHideArms() helper the Reports use, so the rule lives in one place.
+function EnrollmentArmBar({ ctx }: { ctx: CardCtx }) {
+  const hide = shouldHideArms(ctx.dataset, ctx.studyId, ctx.role);
+  const arms = ctx.agg.arms;
+  const enrolled = arms.reduce((n, a) => n + a.count, 0) || ctx.agg.randomized;
+  if (enrolled === 0) return null;
+  const target = ctx.agg.target || enrolled;
+  const remaining = Math.max(0, target - enrolled);
+  const pct = target ? Math.round((enrolled / target) * 100) : 0;
+  const remLeg = remaining > 0 ? [{ c: "var(--slate-300)", t: `${remaining} remaining` }] : [];
+  const segs = hide
+    ? [{ c: "var(--blue-400)", pct: (enrolled / target) * 100 }]
+    : arms.map((a, i) => ({ c: ARM_COLORS[i % ARM_COLORS.length], pct: (a.count / target) * 100 }));
+  const legs = hide
+    ? [{ c: "var(--blue-400)", t: `Enrolled — ${enrolled}` }, ...remLeg]
+    : [...arms.map((a, i) => ({ c: ARM_COLORS[i % ARM_COLORS.length], t: `${a.label} — ${a.count}` })), ...remLeg];
+  return <EnrollBar cur={enrolled} tgt={target} pct={pct} segs={segs} legs={legs} />;
+}
+
 function SiteEnrollCard({ ctx }: { ctx: CardCtx }) {
-  if (ctx.studyCode === "BR-2502") return <EnrollmentBySiteCard rows={brEnrollmentBySite(ctx.dataset)} />;
+  const bar = <EnrollmentArmBar ctx={ctx} />;
+  if (ctx.studyCode === "BR-2502") return <EnrollmentBySiteCard rows={brEnrollmentBySite(ctx.dataset)} top={bar} />;
   return (
     <Card title="Study enrollment" icon="ti-users">
+      {bar}
       <table className="dash-table">
         <thead><tr><th>Site</th><th>Enrolled</th></tr></thead>
         <tbody>{ctx.agg.sites.map((s) => <tr key={s.code}><td>{s.code} · {s.name}</td><td className="mono">{s.enrolled}</td></tr>)}</tbody>
@@ -828,9 +852,10 @@ function VisitWindowsCard({ vc, note }: { vc: { onTime: number; dueThisWeek: num
   return <VisitWindowsBar vc={vc} note={note} />;
 }
 
-function EnrollmentBySiteCard({ rows, title = "Enrollment by feedlot" }: { rows: SiteEnrollment[]; title?: string }) {
+function EnrollmentBySiteCard({ rows, title = "Enrollment by feedlot", top }: { rows: SiteEnrollment[]; title?: string; top?: JSX.Element }) {
   return (
     <Card title={title} icon="ti-building-warehouse">
+      {top}
       <table className="dash-table">
         <thead><tr><th>Feedlot</th><th>Enrolled / Target</th><th>Status</th></tr></thead>
         <tbody>

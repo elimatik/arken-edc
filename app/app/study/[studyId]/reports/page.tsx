@@ -8,6 +8,7 @@ import { useRouter, useParams } from "next/navigation";
 import { useShell } from "@/components/shell/ShellContext";
 import { useStudySession } from "@/lib/session-store/SessionStore";
 import { reportsForRole, reportById, isAggregateRole, type ReportId } from "@/lib/reports-data";
+import { shouldHideArms } from "@/lib/study-config";
 import { ReportSidebar } from "@/components/reports/ReportSidebar";
 import { StudyStatusReport } from "@/components/reports/reports/StudyStatusReport";
 import { EnrollmentDispositionReport } from "@/components/reports/reports/EnrollmentDispositionReport";
@@ -22,6 +23,7 @@ import "./reports.css";
 export interface ReportProps {
   studyId: string;
   aggregate: boolean; // Sponsor — no subject-level data / IDs
+  hideArms: boolean; // blinded role on a blinded study — no arm names / splits
 }
 
 const RENDERERS: Record<ReportId, (p: ReportProps) => JSX.Element> = {
@@ -40,7 +42,7 @@ export default function ReportsPage() {
   const studyId = String(params.studyId);
   const router = useRouter();
   const { activeRole, study } = useShell();
-  const { ready } = useStudySession();
+  const { dataset, ready } = useStudySession();
 
   const available = useMemo(() => reportsForRole(activeRole), [activeRole]);
   const allowed = available.length > 0; // CRC has none → redirect
@@ -65,6 +67,7 @@ export default function ReportsPage() {
 
   const meta = reportById(activeId);
   const aggregate = isAggregateRole(activeRole);
+  const hideArms = shouldHideArms(dataset, studyId, activeRole);
   const Renderer = RENDERERS[activeId];
 
   return (
@@ -92,6 +95,9 @@ export default function ReportsPage() {
               {aggregate && (
                 <div className="rpt-disclaimer"><i className="ti ti-eye-off"></i> Aggregate sponsor view — individual subject data is omitted.</div>
               )}
+              {hideArms && !aggregate && (
+                <div className="rpt-disclaimer"><i className="ti ti-eye-off"></i> Blinded view — treatment-arm allocation is hidden for your role on this study.</div>
+              )}
             </div>
             <div className="rpt-header-actions">
               <button className="rpt-btn" type="button" onClick={() => window.print()}><i className="ti ti-printer"></i> Print / Export PDF</button>
@@ -99,7 +105,7 @@ export default function ReportsPage() {
           </div>
         )}
         <div className="rpt-body">
-          {Renderer && <Renderer studyId={studyId} aggregate={aggregate} />}
+          {Renderer && <Renderer studyId={studyId} aggregate={aggregate} hideArms={hideArms} />}
         </div>
       </div>
     </div>

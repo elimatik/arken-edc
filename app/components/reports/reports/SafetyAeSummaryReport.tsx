@@ -4,11 +4,11 @@ import { useMemo } from "react";
 import { useStudySession } from "@/lib/session-store/SessionStore";
 import type { ReportProps } from "@/app/study/[studyId]/reports/page";
 import { Section, StatGrid, StatTile, EmptyNote, fmtDate } from "@/components/reports/ReportKit";
-import { adverseEvents, safetySummary, aeBySite, dartDistribution, brWithdrawalBlocks } from "@/lib/reports-data";
+import { adverseEvents, safetySummary, aeBySite, aeByArm, dartDistribution, brWithdrawalBlocks } from "@/lib/reports-data";
 
 const SEV_CLS: Record<string, string> = { mild: "ms-done", moderate: "ms-active", severe: "ms-crit", "life-threatening": "ms-crit" };
 
-export function SafetyAeSummaryReport({ studyId, aggregate }: ReportProps) {
+export function SafetyAeSummaryReport({ studyId, aggregate, hideArms }: ReportProps) {
   const { dataset } = useStudySession();
 
   const d = useMemo(() => {
@@ -16,7 +16,7 @@ export function SafetyAeSummaryReport({ studyId, aggregate }: ReportProps) {
     const study = dataset.studies.find((s) => s.id === studyId);
     return {
       aes, summary: safetySummary(dataset, studyId, aes),
-      bySite: aeBySite(aes), isBr: study?.code === "BR-2502",
+      bySite: aeBySite(aes), byArm: aeByArm(dataset, studyId, aes), isBr: study?.code === "BR-2502",
       dart: dartDistribution(dataset, studyId), withdrawals: brWithdrawalBlocks(dataset, studyId),
     };
   }, [dataset, studyId]);
@@ -63,6 +63,26 @@ export function SafetyAeSummaryReport({ studyId, aggregate }: ReportProps) {
           </table>
         )}
       </Section>
+
+      {!hideArms && d.byArm.length > 0 && d.aes.length > 0 && (
+        <Section title="AE rate by arm" icon="scale">
+          <table className="rpt-table">
+            <thead><tr><th>Arm</th><th>Enrolled</th><th>Subjects with AE</th><th>AEs</th><th>SAEs</th><th>AE rate</th></tr></thead>
+            <tbody>
+              {d.byArm.map((a) => (
+                <tr key={a.arm}>
+                  <td>{a.arm}</td>
+                  <td className="mono">{a.enrolled}</td>
+                  <td className="mono">{a.subjects}</td>
+                  <td className="mono">{a.aeCount}</td>
+                  <td className={`mono${a.saeCount > 0 ? " cell-crit" : ""}`}>{a.saeCount}</td>
+                  <td className="mono">{a.rate == null ? "—" : `${(a.rate * 100).toFixed(0)}%`}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </Section>
+      )}
 
       {d.isBr && (
         <Section title="DART severity distribution" icon="activity-heartbeat">

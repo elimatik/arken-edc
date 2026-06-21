@@ -495,7 +495,7 @@ export function resolutionBySite(dataset: Dataset, studyId: string): SiteResolut
 }
 
 // ─── Safety / AE ─────────────────────────────────────────────────────────────
-export interface AeRow { subjectCode: string; siteName: string; description: string; onsetDate: string | null; severity: string; relatedness: string; status: string; outcome: string; serious: boolean }
+export interface AeRow { subjectCode: string; siteName: string; arm: string | null; description: string; onsetDate: string | null; severity: string; relatedness: string; status: string; outcome: string; serious: boolean }
 const SAE_YES = new Set(["yes", "true", "y", "1", "serious"]);
 export function adverseEvents(dataset: Dataset, studyId: string): AeRow[] {
   const aeForms = new Set(dataset.forms.filter((f) => f.study_id === studyId && (f.code === "adverse_event" || /_ae$/.test(f.code) || f.code === "injection_site")).map((f) => f.id));
@@ -514,6 +514,7 @@ export function adverseEvents(dataset: Dataset, studyId: string): AeRow[] {
     const saeRaw = (vals.get("sae_flag") ?? vals.get("serious_sae") ?? vals.get("seriousness") ?? "").toLowerCase();
     rows.push({
       subjectCode: subj.subject_code, siteName: subj.site_id ? siteById.get(subj.site_id)?.name ?? "—" : "—",
+      arm: subj.randomization_arm,
       description: desc, onsetDate: vals.get("ae_onset_date") ?? vals.get("ae_start_date") ?? null,
       severity: vals.get("severity") ?? "—", relatedness: vals.get("relatedness") ?? vals.get("relationship") ?? "—",
       status: vals.get("ongoing") === "Yes" ? "Ongoing" : (vals.get("outcome") ? "Closed" : "Open"),
@@ -565,6 +566,33 @@ export function brWithdrawalBlocks(dataset: Dataset, studyId: string): Withdrawa
     if (end && /^\d{4}-\d{2}-\d{2}/.test(end) && end >= today) rows.push({ subjectCode: s.subject_code, endDate: end, daysLeft: dayDiff(today, end) });
   }
   return rows.sort((a, b) => b.daysLeft - a.daysLeft);
+}
+
+// Per-arm AE breakdown (only rendered when arms are visible). Enrolled-per-arm
+// gives an AE rate denominator.
+export interface AeArmRow { arm: string; aeCount: number; saeCount: number; subjects: number; enrolled: number; rate: number | null }
+export function aeByArm(dataset: Dataset, studyId: string, aes: AeRow[]): AeArmRow[] {
+  const enrolledByArm = new Map<string, number>();
+  for (const s of dataset.subjects) {
+    if (s.study_id !== studyId || !ENROLLED.has(s.status) || !s.randomization_arm) continue;
+    enrolledByArm.set(s.randomization_arm, (enrolledByArm.get(s.randomization_arm) ?? 0) + 1);
+  }
+  const map = new Map<string, AeArmRow>();
+  const ensure = (arm: string): AeArmRow => {
+    let r = map.get(arm);
+    if (!r) { r = { arm, aeCount: 0, saeCount: 0, subjects: 0, enrolled: enrolledByArm.get(arm) ?? 0, rate: null }; map.set(arm, r); }
+    return r;
+  };
+  for (const arm of Array.from(enrolledByArm.keys())) ensure(arm);
+  const seen = new Map<string, Set<string>>();
+  for (const a of aes) {
+    if (!a.arm) continue;
+    const r = ensure(a.arm);
+    r.aeCount++; if (a.serious) r.saeCount++;
+    const set = seen.get(a.arm) ?? new Set<string>(); set.add(a.subjectCode); seen.set(a.arm, set);
+  }
+  for (const r of Array.from(map.values())) { r.subjects = seen.get(r.arm)?.size ?? 0; r.rate = r.enrolled ? r.aeCount / r.enrolled : null; }
+  return Array.from(map.values()).sort((a, b) => a.arm.localeCompare(b.arm));
 }
 
 // Aggregate AE counts by site (Sponsor view — no subject IDs).

@@ -16,14 +16,15 @@ const STATUS_CHIP: Record<string, string> = {
   active: "ms-active", completed: "ms-done", withdrawn: "ms-crit", screening: "ms-future", enrolled: "ms-active", randomized: "ms-active",
 };
 
-export function EnrollmentDispositionReport({ studyId, aggregate }: ReportProps) {
+export function EnrollmentDispositionReport({ studyId, aggregate, hideArms }: ReportProps) {
   const { dataset } = useStudySession();
   const { study } = useShell();
   const { sort, toggle } = useTableSort(null);
+  const showArm = !hideArms;
 
   const d = useMemo(() => {
     const ix = buildSubjectIndex(dataset, studyId);
-    const label = armLabeler(dataset, studyId, aggregate);
+    const label = armLabeler(dataset, studyId, false); // real arm names; gated at render by hideArms
     const disp = dispositions(dataset, studyId, ix);
     return {
       disp, label,
@@ -31,19 +32,20 @@ export function EnrollmentDispositionReport({ studyId, aggregate }: ReportProps)
       arms: armBalance(disp, label),
       sfReasons: screenFailureReasons(dataset, studyId, ix),
     };
-  }, [dataset, studyId, aggregate]);
+  }, [dataset, studyId]);
 
-  // Sponsor: collapse to site + count (no subject IDs, no per-subject rows).
+  // Sponsor: collapse to site (+ arm when visible) + count — no subject IDs.
   const sponsorRows = useMemo(() => {
     if (!aggregate) return [];
     const map = new Map<string, { site: string; arm: string; count: number }>();
     for (const x of d.disp) {
-      const key = `${x.siteCode}|${d.label(x.arm)}`;
-      const r = map.get(key) ?? { site: `${x.siteCode} · ${x.siteName}`, arm: d.label(x.arm), count: 0 };
+      const arm = showArm ? d.label(x.arm) : "";
+      const key = `${x.siteCode}|${arm}`;
+      const r = map.get(key) ?? { site: `${x.siteCode} · ${x.siteName}`, arm, count: 0 };
       r.count++; map.set(key, r);
     }
     return Array.from(map.values()).sort((a, b) => a.site.localeCompare(b.site) || a.arm.localeCompare(b.arm));
-  }, [aggregate, d]);
+  }, [aggregate, showArm, d]);
 
   const sortedDisp = useMemo(() => {
     const arr = d.disp.slice();
@@ -57,8 +59,14 @@ export function EnrollmentDispositionReport({ studyId, aggregate }: ReportProps)
     return f ? arr.sort((a, b) => f(a).localeCompare(f(b)) * dir) : arr;
   }, [d, sort]);
 
-  const csvHeaders = ["Subject", "Arm", "Site", "Status", "Enrollment date", "Exit date", "Exit reason"];
-  const csvRows = d.disp.map((x) => [aggregate ? "—" : x.subjectCode, d.label(x.arm), `${x.siteCode} · ${x.siteName}`, x.status, x.enrollDate, x.exitDate, x.exitReason]);
+  const csvHeaders = showArm
+    ? ["Subject", "Arm", "Site", "Status", "Enrollment date", "Exit date", "Exit reason"]
+    : ["Subject", "Site", "Status", "Enrollment date", "Exit date", "Exit reason"];
+  const csvRows = d.disp.map((x) => {
+    const base = [aggregate ? "—" : x.subjectCode];
+    if (showArm) base.push(d.label(x.arm));
+    return [...base, `${x.siteCode} · ${x.siteName}`, x.status, x.enrollDate, x.exitDate, x.exitReason];
+  });
 
   return (
     <>
@@ -77,16 +85,16 @@ export function EnrollmentDispositionReport({ studyId, aggregate }: ReportProps)
       <Section title="Subject disposition" icon="users" action={!aggregate && <ExportCsvButton studyCode={study.code} slug="enrollment_disposition" headers={csvHeaders} rows={csvRows} />}>
         {aggregate ? (
           <table className="rpt-table">
-            <thead><tr><th>Site</th><th>Arm</th><th>Subjects</th></tr></thead>
+            <thead><tr><th>Site</th>{showArm && <th>Arm</th>}<th>Subjects</th></tr></thead>
             <tbody>
-              {sponsorRows.map((r, i) => <tr key={i}><td>{r.site}</td><td>{r.arm}</td><td className="mono">{r.count}</td></tr>)}
+              {sponsorRows.map((r, i) => <tr key={i}><td>{r.site}</td>{showArm && <td>{r.arm}</td>}<td className="mono">{r.count}</td></tr>)}
             </tbody>
           </table>
         ) : (
           <table className="rpt-table">
             <thead><tr>
               <SortTh label="Subject" sortKey="subject" sort={sort} onSort={toggle} />
-              <SortTh label="Arm" sortKey="arm" sort={sort} onSort={toggle} />
+              {showArm && <SortTh label="Arm" sortKey="arm" sort={sort} onSort={toggle} />}
               <SortTh label="Site" sortKey="site" sort={sort} onSort={toggle} />
               <SortTh label="Status" sortKey="status" sort={sort} onSort={toggle} />
               <SortTh label="Enrollment" sortKey="enroll" sort={sort} onSort={toggle} />
@@ -97,7 +105,7 @@ export function EnrollmentDispositionReport({ studyId, aggregate }: ReportProps)
               {sortedDisp.map((x) => (
                 <tr key={x.subjectId}>
                   <td className="mono">{x.subjectCode}</td>
-                  <td>{d.label(x.arm)}</td>
+                  {showArm && <td>{d.label(x.arm)}</td>}
                   <td>{x.siteCode} · {x.siteName}</td>
                   <td><span className={`rpt-ms-chip ${STATUS_CHIP[x.status] ?? "ms-future"}`}>{x.status}</span></td>
                   <td className="mono">{fmtDate(x.enrollDate)}</td>
@@ -112,13 +120,13 @@ export function EnrollmentDispositionReport({ studyId, aggregate }: ReportProps)
 
       <Section title="Arm balance" icon="scale">
         <table className="rpt-table">
-          <thead><tr><th>Arm</th><th>Enrolled</th><th>Active</th><th>Completed</th><th>Withdrawn</th><th>Screen failures</th></tr></thead>
+          <thead><tr><th>{showArm ? "Arm" : "Cohort"}</th><th>Enrolled</th><th>Active</th><th>Completed</th><th>Withdrawn</th><th>Screen failures</th></tr></thead>
           <tbody>
-            {d.arms.map((a) => (
+            {showArm && d.arms.map((a) => (
               <tr key={a.arm}><td>{a.arm}</td><td className="mono">{a.enrolled}</td><td className="mono">{a.active}</td><td className="mono">{a.completed}</td><td className="mono">{a.withdrawn}</td><td className="mono">{a.screenFailures}</td></tr>
             ))}
             <tr className="rpt-table-foot">
-              <td>Total</td>
+              <td>{showArm ? "Total" : "All subjects"}</td>
               <td className="mono">{d.funnel.enrolled}</td>
               <td className="mono">{d.funnel.active}</td>
               <td className="mono">{d.funnel.completed}</td>
@@ -127,6 +135,7 @@ export function EnrollmentDispositionReport({ studyId, aggregate }: ReportProps)
             </tr>
           </tbody>
         </table>
+        {!showArm && <div className="rpt-bar-caption">Per-arm breakdown is hidden for your role on this blinded study.</div>}
       </Section>
 
       {d.sfReasons.length > 0 && (

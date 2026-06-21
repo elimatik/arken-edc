@@ -13,7 +13,7 @@ import { formProgress, openQueryCount, sdvProgress } from "@/lib/dashboard-data"
 const ARM_COLORS = ["var(--blue-400)", "var(--amber-400)", "var(--green-400)", "var(--purple-200)"];
 const STATUS_TONE: Record<string, string> = { active: "ss-active", locked: "ss-locked", closed: "ss-closed", completed: "ss-locked" };
 
-export function StudyStatusReport({ studyId, aggregate }: ReportProps) {
+export function StudyStatusReport({ studyId, hideArms }: ReportProps) {
   const { dataset } = useStudySession();
 
   const data = useMemo(() => {
@@ -21,8 +21,7 @@ export function StudyStatusReport({ studyId, aggregate }: ReportProps) {
     const study = dataset.studies.find((s) => s.id === studyId);
     const disp = dispositions(dataset, studyId);
     const funnel = dispositionFunnel(disp);
-    const label = armLabeler(dataset, studyId, aggregate);
-    const arms = enrollmentByArm(disp, label);
+    const arms = enrollmentByArm(disp, armLabeler(dataset, studyId, false)); // real names; hidden at render when blinded
     const fp = formProgress(dataset, studyId);
     const sdv = sdvProgress(dataset, studyId);
     const siteTargetSum = dataset.sites.filter((s) => s.study_id === studyId).reduce((n, s) => n + (s.enrollment_target ?? 0), 0);
@@ -35,10 +34,13 @@ export function StudyStatusReport({ studyId, aggregate }: ReportProps) {
       milestoneRows: milestones(header),
       team: studyTeam(dataset, studyId),
     };
-  }, [dataset, studyId, aggregate]);
+  }, [dataset, studyId]);
 
   const h = data.header;
   const enrolPct = data.target ? Math.round((data.funnel.enrolled / data.target) * 100) : 0;
+  const enrolled = data.funnel.enrolled;
+  const remaining = data.target ? Math.max(0, data.target - enrolled) : 0;
+  const enrollTotal = data.target ?? enrolled;
 
   return (
     <>
@@ -73,12 +75,28 @@ export function StudyStatusReport({ studyId, aggregate }: ReportProps) {
       </Section>
 
       <Section title="Enrollment progress" icon="users">
-        {data.arms.length > 0 ? (
+        {enrolled === 0 ? (
+          <EmptyNote>No randomized subjects yet.</EmptyNote>
+        ) : hideArms ? (
+          <>
+            <ProportionBar
+              total={enrollTotal}
+              segments={[
+                { label: "Enrolled", count: enrolled, color: "var(--blue-400)" },
+                ...(remaining > 0 ? [{ label: "Remaining", count: remaining, color: "var(--slate-300)" }] : []),
+              ]}
+            />
+            <div className="rpt-bar-caption">{enrolled} subjects enrolled across {data.arms.length} {data.arms.length === 1 ? "arm" : "arms"}</div>
+          </>
+        ) : (
           <ProportionBar
-            total={data.target ?? data.funnel.enrolled}
-            segments={data.arms.map((a, i) => ({ label: a.arm, count: a.count, color: ARM_COLORS[i % ARM_COLORS.length] }))}
+            total={enrollTotal}
+            segments={[
+              ...data.arms.map((a, i) => ({ label: a.arm, count: a.count, color: ARM_COLORS[i % ARM_COLORS.length] })),
+              ...(remaining > 0 ? [{ label: "Remaining", count: remaining, color: "var(--slate-300)" }] : []),
+            ]}
           />
-        ) : <EmptyNote>No randomized subjects yet.</EmptyNote>}
+        )}
       </Section>
 
       <Section title="Study timeline" icon="flag-2">

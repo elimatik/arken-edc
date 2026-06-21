@@ -53,7 +53,6 @@ export function ReportSidebar({
                 >
                   <i className={`ti ti-${r.icon}`}></i>
                   <span className="rpt-cat-item-name">{r.title}</span>
-                  {r.roles.length < 5 && <span className="rpt-cat-chip" title={`Restricted: ${r.roles.join(", ")}`}>•</span>}
                 </button>
               ))}
             </div>
