@@ -18,6 +18,7 @@ interface Props {
   subjectId: string;
   initialFormId?: string;
   initialPanelFieldId?: string; // deep-link from the Queries screen: open this field's query/EC panel
+  initialSdv?: boolean; // deep-link from the SDV worklist: open the form with SDV mode active
 }
 
 const SPECIES_ICON: Record<string, string> = {
@@ -135,7 +136,7 @@ function isSdvEligible(field: FormFieldRow): boolean {
   return !["file", "calculated", "textarea"].includes(field.field_type);
 }
 
-export function SubjectRecord({ studyId, subjectId, initialFormId, initialPanelFieldId }: Props) {
+export function SubjectRecord({ studyId, subjectId, initialFormId, initialPanelFieldId, initialSdv }: Props) {
   const router = useRouter();
   const ndaName = useNdaName(); // visitor name from the access agreement (acting user)
   const { activeRole } = useShell();
@@ -147,7 +148,7 @@ export function SubjectRecord({ studyId, subjectId, initialFormId, initialPanelF
   const [remarksOpen, setRemarksOpen] = useState(false);
   const [cadesiOpen, setCadesiOpen] = useState(false); // CADESI-04 lesion-subtotal breakdown (collapsed by default)
   const [modeQueries, setModeQueries] = useState(false); // remarks default OFF
-  const [modeSdv, setModeSdv] = useState(false);
+  const [modeSdv, setModeSdv] = useState(!!initialSdv); // SDV-worklist deep-link arrives with SDV mode on
   const [editingFieldId, setEditingFieldId] = useState<string | null>(null); // field currently being typed (no Δ until blur)
   const [panelField, setPanelField] = useState<FormFieldRow | null>(null); // query/edit-check panel target field
   const [panelKind, setPanelKind] = useState<"query" | "edit_check">("query");
@@ -199,12 +200,13 @@ export function SubjectRecord({ studyId, subjectId, initialFormId, initialPanelF
     setPanelField(f);
   }, [ready, initialPanelFieldId, dataset, subjectId]);
 
-  const canSdv = canSDV(activeRole);
-  // If the role changes to one without SDV permission, leave SDV mode so a non-CRA
-  // is never stuck in a mode they can't use (item 4).
+  const canSdv = canSDV(activeRole); // CRA — can interactively verify
+  const canViewSdv = activeRole === "CRA" || activeRole === "DM"; // DM gets a read-only SDV view
+  // If the role changes to one that can't even view SDV, leave SDV mode so they're
+  // never stuck in a mode they can't use.
   useEffect(() => {
-    if (!canSdv) setModeSdv(false);
-  }, [canSdv]);
+    if (!canViewSdv) setModeSdv(false);
+  }, [canViewSdv]);
   const canRespond = canQuery(activeRole, "respond");
   const canResolve = canQuery(activeRole, "resolve");
   const canRaise = canQuery(activeRole, "raise");
@@ -1502,9 +1504,10 @@ export function SubjectRecord({ studyId, subjectId, initialFormId, initialPanelF
 
           <div className={`sdv-progress-row${modeSdv ? " visible" : ""}`}>
             <i className="ti ti-shield-check-filled" style={{ fontSize: "14px", flexShrink: 0 }}></i>
-            <span>SDV mode active</span>
+            <span>SDV mode{!canSdv ? " (read-only)" : ""}{selectedForm?.name ? ` · ${selectedForm.name}` : ""}</span>
             <div className="sdv-progress-bar"><div className="sdv-progress-fill" style={{ width: `${sdvPct}%` }}></div></div>
             <span style={{ fontFamily: "var(--font-mono)", fontWeight: "var(--weight-medium)" }}>{verifiedCount}/{sdvCellTotal} verified</span>
+            {initialSdv && <span className="sdv-back-link" onClick={() => router.push(`/study/${studyId}/sdv`)}><i className="ti ti-arrow-left"></i> Back to SDV worklist</span>}
           </div>
 
           <div className="form-header">
@@ -1524,10 +1527,10 @@ export function SubjectRecord({ studyId, subjectId, initialFormId, initialPanelF
                   <button className={`remarks-item${modeQueries ? " active-mode" : ""}`} onClick={() => setModeQueries((m) => !m)} type="button">
                     <span>Queries</span>{modeQueries && <i className="ti ti-check" style={{ fontSize: "13px", color: "var(--blue-600)" }}></i>}
                   </button>
-                  {/* SDV mode is a CRA-only responsibility — hidden for every other role (item 4) */}
-                  {canSdv && (
+                  {/* SDV mode — CRA verifies; DM gets a read-only view (badges, no actions). */}
+                  {canViewSdv && (
                     <button className={`remarks-item${modeSdv ? " active-mode" : ""}`} onClick={() => setModeSdv((m) => !m)} type="button">
-                      <span>SDV mode</span>{modeSdv && <i className="ti ti-check" style={{ fontSize: "13px", color: "var(--blue-600)" }}></i>}
+                      <span>SDV mode{!canSdv ? " (read-only)" : ""}</span>{modeSdv && <i className="ti ti-check" style={{ fontSize: "13px", color: "var(--blue-600)" }}></i>}
                     </button>
                   )}
                 </div>
@@ -1950,8 +1953,8 @@ export function SubjectRecord({ studyId, subjectId, initialFormId, initialPanelF
               const sdvRec = sdvRecordFor(fv?.id);
               const verified = !!sdvRec;
               const dState = deltaStateFor(field.id, fv?.id);
-              const showInteractiveSdv = isSdvEligible(field) && !readOnly && modeSdv;
-              const showStaticSdv = isSdvEligible(field) && verified && !showInteractiveSdv;
+              const showInteractiveSdv = isSdvEligible(field) && !readOnly && modeSdv && canSdv; // CRA verifies; DM is read-only
+              const showStaticSdv = isSdvEligible(field) && verified && !showInteractiveSdv; // verified badge (incl. DM read-only view)
               const sdvBlock = sdvBlockReason(field, fv?.id); // null if clean
               const numeric = field.field_type === "number" || field.field_type === "integer";
               const hint = rangeLabel(field, species, dataset.speciesRanges, subjectAgeMonths) ?? (numeric && field.unit ? field.unit : null);

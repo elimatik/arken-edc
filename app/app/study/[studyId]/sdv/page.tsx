@@ -1,21 +1,17 @@
 "use client";
 
-// Source Data Verification — CRA verifies entered values against source documents
-// field-by-field; DM gets a read-only view (can still raise queries). Writes to the
-// session-only sdvRecords; the dashboard SDV bars + lock-readiness read it live.
+// Source Data Verification — worklist (the list). Clicking a row deep-links to the
+// Subject Record for that subject + form with SDV mode active (?sdv=true); the field-
+// by-field verification lives in the Subject Record, not a separate layout here.
+// CRA verifies; DM gets a read-only view. Other roles redirect to the dashboard.
 import { useEffect, useMemo, useState } from "react";
-import { useRouter, useParams, useSearchParams } from "next/navigation";
+import { useRouter, useParams } from "next/navigation";
 import { useShell } from "@/components/shell/ShellContext";
 import { useStudySession } from "@/lib/session-store/SessionStore";
-import { useNdaName } from "@/lib/use-nda-name";
 import { useTableSort } from "@/lib/useTableSort";
 import { SortTh } from "@/components/common/SortTh";
-import { buildSdvWorklist, getFormSdvFields, type SdvWorklistRow, type FormSdvStatus, type SdvFieldRow } from "@/lib/sdv-data";
-import type { Dataset } from "@/lib/session-store/types";
+import { buildSdvWorklist, type SdvWorklistRow, type FormSdvStatus } from "@/lib/sdv-data";
 import "./sdv.css";
-
-const newId = () => crypto.randomUUID();
-const todayISO = () => new Date().toISOString().slice(0, 10);
 
 const STATUS_META: Record<FormSdvStatus, { label: string; cls: string }> = {
   pending: { label: "Pending", cls: "ss-pending" },
@@ -23,33 +19,18 @@ const STATUS_META: Record<FormSdvStatus, { label: string; cls: string }> = {
   complete: { label: "Complete", cls: "ss-complete" },
   queried: { label: "Queried", cls: "ss-queried" },
 };
-const FIELD_META: Record<string, { label: string; cls: string }> = {
-  verified: { label: "Verified", cls: "fs-verified" },
-  queried: { label: "Queried", cls: "fs-queried" },
-  unverified: { label: "Unverified", cls: "fs-unverified" },
-  "not-req": { label: "Not required", cls: "fs-notreq" },
-};
 const STATUS_RANK: Record<FormSdvStatus, number> = { queried: 0, pending: 1, partial: 2, complete: 3 };
 
 export default function SdvPage() {
   const params = useParams();
   const studyId = String(params.studyId);
   const router = useRouter();
-  const sp = useSearchParams();
-  const formParam = sp.get("form");
   const { activeRole, study } = useShell();
-  const { dataset, ready, update } = useStudySession();
-  const ndaName = useNdaName();
+  const { dataset, ready } = useStudySession();
 
-  const canVerify = activeRole === "CRA"; // CRA verifies; DM is read-only (queries OK)
   const allowed = activeRole === "CRA" || activeRole === "DM";
+  useEffect(() => { if (ready && !allowed) router.replace(`/study/${studyId}`); }, [ready, allowed, router, studyId]);
 
-  // Role gate — CRC / PI / Sponsor / Admin redirect to the dashboard.
-  useEffect(() => {
-    if (ready && !allowed) router.replace(`/study/${studyId}`);
-  }, [ready, allowed, router, studyId]);
-
-  // ─── Worklist state ─────────────────────────────────────────────────────────
   const [tab, setTab] = useState<"all" | "pending" | "partial" | "complete">("all");
   const [search, setSearch] = useState("");
   const [siteF, setSiteF] = useState("all");
@@ -95,130 +76,19 @@ export default function SdvPage() {
     });
   }, [worklist, tab, search, siteF, visitF, sort]);
 
-  // Summary bar (live)
-  const summary = useMemo(() => {
-    const fieldsTotal = worklist.reduce((n, r) => n + r.totalRequiredFields, 0);
-    const fieldsVerified = worklist.reduce((n, r) => n + r.verifiedFields, 0);
-    const openQ = worklist.reduce((n, r) => n + r.openQueries, 0);
-    return { fieldsTotal, fieldsVerified, openQ };
-  }, [worklist]);
+  const summary = useMemo(() => ({
+    fieldsTotal: worklist.reduce((n, r) => n + r.totalRequiredFields, 0),
+    fieldsVerified: worklist.reduce((n, r) => n + r.verifiedFields, 0),
+    openQ: worklist.reduce((n, r) => n + r.openQueries, 0),
+  }), [worklist]);
 
-  // ─── Store writes ───────────────────────────────────────────────────────────
-  function setVerified(fvId: string, formInstanceId: string, on: boolean) {
-    update((d: Dataset) => {
-      const rec = d.sdvRecords.find((r) => r.field_value_id === fvId);
-      if (rec) { rec.status = on ? "verified" : "pending"; rec.verified_by_name = on ? ndaName : null; rec.verified_at = on ? todayISO() : null; }
-      else if (on) d.sdvRecords.push({ id: newId(), form_instance_id: formInstanceId, field_value_id: fvId, status: "verified", verified_by_name: ndaName, verified_at: todayISO() });
-    });
-  }
-  function verifyAllFields(rows: SdvFieldRow[], formInstanceId: string) {
-    update((d: Dataset) => {
-      for (const f of rows) {
-        if (f.sdvStatus !== "unverified") continue; // skip verified / queried / not-req
-        const rec = d.sdvRecords.find((r) => r.field_value_id === f.fieldValueId);
-        if (rec) { rec.status = "verified"; rec.verified_by_name = ndaName; rec.verified_at = todayISO(); }
-        else d.sdvRecords.push({ id: newId(), form_instance_id: formInstanceId, field_value_id: f.fieldValueId, status: "verified", verified_by_name: ndaName, verified_at: todayISO() });
-      }
-    });
-  }
-  function markComplete(rows: SdvFieldRow[], formInstanceId: string) {
-    verifyAllFields(rows, formInstanceId);
-    update((d: Dataset) => { const inst = d.formInstances.find((i) => i.id === formInstanceId); if (inst) inst.sdv_complete = true; });
+  function openForm(r: SdvWorklistRow) {
+    router.push(`/study/${studyId}/data-entry/${r.subjectId}?form=${r.formId}&sdv=true`);
   }
 
   if (!ready) return <div className="sdv-screen"><div className="sdv-loading"><i className="ti ti-loader-2"></i> Loading…</div></div>;
   if (!allowed) return <div className="sdv-screen"><div className="sdv-loading">Redirecting…</div></div>;
 
-  // ═══ View 2 — Form SDV view ═════════════════════════════════════════════════
-  if (formParam) {
-    const row = worklist.find((r) => r.formInstanceId === formParam);
-    const fields = getFormSdvFields(dataset, formParam);
-    const required = fields.filter((f) => f.sdvStatus !== "not-req");
-    const verified = required.filter((f) => f.sdvStatus === "verified").length;
-    const anyQueried = required.some((f) => f.sdvStatus === "queried");
-    const pct = required.length ? Math.round((verified / required.length) * 100) : 0;
-    // group by section, preserving field order
-    const sections: { name: string; rows: SdvFieldRow[] }[] = [];
-    for (const f of fields) {
-      let sec = sections.find((s) => s.name === f.section);
-      if (!sec) { sec = { name: f.section, rows: [] }; sections.push(sec); }
-      sec.rows.push(f);
-    }
-    const back = () => router.push(`/study/${studyId}/sdv`);
-    return (
-      <div className="sdv-screen">
-        <div className="sdv-form-header">
-          <button className="sdv-back" type="button" onClick={back}><i className="ti ti-arrow-left"></i> Back to SDV worklist</button>
-          <div className="sdv-fh-row">
-            <div>
-              <h1 className="sdv-fh-title">{row?.formName ?? "Form"}</h1>
-              <div className="sdv-fh-sub">
-                <span className="sdv-link mono" onClick={() => row && router.push(`/study/${studyId}/data-entry/${row.subjectId}`)}>{row?.subjectCode ?? "—"}</span>
-                {row?.visitLabel ? <> · {row.visitLabel}</> : null}{row?.siteLabel && row.siteLabel !== "—" ? <> · {row.siteLabel}</> : null}
-              </div>
-            </div>
-            {canVerify && (
-              <div className="sdv-fh-actions">
-                <button className="sdv-btn-secondary" type="button" onClick={() => verifyAllFields(fields, formParam)}>Verify all</button>
-                <button className="sdv-btn-primary" type="button" disabled={anyQueried} title={anyQueried ? "Resolve open queries before completing SDV" : undefined} onClick={() => markComplete(fields, formParam)}>
-                  <i className="ti ti-shield-check"></i> Mark SDV complete
-                </button>
-              </div>
-            )}
-          </div>
-          <div className="sdv-progress">
-            <span className="sdv-progress-lbl">SDV progress</span>
-            <div className="sdv-progress-track"><div className="sdv-progress-fill" style={{ width: `${pct}%` }}></div></div>
-            <span className="sdv-progress-count mono">{verified}/{required.length} fields verified</span>
-          </div>
-          <div className="sdv-legend">
-            <span><span className="sdv-dot fs-verified"></span>Verified</span>
-            <span><span className="sdv-dot fs-queried"></span>Queried</span>
-            <span><span className="sdv-dot fs-unverified"></span>Unverified</span>
-            <span><span className="sdv-dot fs-notreq"></span>Not required</span>
-          </div>
-        </div>
-
-        <div className="sdv-fields">
-          {sections.map((sec) => (
-            <div key={sec.name}>
-              <div className="sdv-section-title">{sec.name}</div>
-              {sec.rows.map((f) => (
-                <div key={f.fieldValueId} className={`sdv-field ${f.sdvStatus}`}>
-                  <div className="sdv-field-main">
-                    <span className="sdv-field-name">{f.fieldName}</span>
-                    <span className="sdv-field-code mono">{f.fieldCode}</span>
-                    <span className="sdv-field-value mono">{f.fieldValue}</span>
-                    {f.flagged && <i className="ti ti-alert-triangle sdv-flag" title="Open edit check"></i>}
-                    {f.sdvStatus === "verified" && f.enteredBy !== "—" && <span className="sdv-field-by">Verified by {f.enteredBy}</span>}
-                  </div>
-                  <span className={`sdv-field-badge ${FIELD_META[f.sdvStatus].cls}`}>{FIELD_META[f.sdvStatus].label}</span>
-                  <div className="sdv-field-actions">
-                    {f.sdvStatus === "not-req" ? (
-                      <span className="sdv-notreq-txt">Derived</span>
-                    ) : f.sdvStatus === "queried" ? (
-                      <button className="sdv-act queried" type="button" onClick={() => router.push(`/study/${studyId}/queries`)}><i className="ti ti-flag"></i> Queried — view thread</button>
-                    ) : f.sdvStatus === "verified" ? (
-                      canVerify
-                        ? <button className="sdv-act verified" type="button" onClick={() => { if (confirm("Un-verify this field?")) setVerified(f.fieldValueId, formParam, false); }}><i className="ti ti-shield-check-filled"></i> Verified</button>
-                        : <span className="sdv-notreq-txt">Verified</span>
-                    ) : (
-                      <>
-                        {canVerify && <button className="sdv-act verify" type="button" onClick={() => setVerified(f.fieldValueId, formParam, true)}><i className="ti ti-check"></i> Verify</button>}
-                        <button className="sdv-act query" type="button" onClick={() => row && router.push(`/study/${studyId}/data-entry/${row.subjectId}`)}><i className="ti ti-flag"></i> Query</button>
-                      </>
-                    )}
-                  </div>
-                </div>
-              ))}
-            </div>
-          ))}
-        </div>
-      </div>
-    );
-  }
-
-  // ═══ View 1 — Worklist ══════════════════════════════════════════════════════
   return (
     <div className="sdv-screen">
       <div className="sdv-header">
@@ -270,7 +140,7 @@ export default function SdvPage() {
               {filtered.map((r) => {
                 const pct = r.totalRequiredFields ? Math.round((r.verifiedFields / r.totalRequiredFields) * 100) : 0;
                 return (
-                  <tr key={r.formInstanceId} className="clickable" onClick={() => router.push(`/study/${studyId}/sdv?form=${r.formInstanceId}`)}>
+                  <tr key={r.formInstanceId} className="clickable" onClick={() => openForm(r)}>
                     <td><span className="sdv-subj mono" onClick={(e) => { e.stopPropagation(); router.push(`/study/${studyId}/data-entry/${r.subjectId}`); }}>{r.subjectCode}</span></td>
                     <td>{r.visitLabel}</td>
                     <td className="sdv-form">{r.formName}</td>
@@ -283,7 +153,9 @@ export default function SdvPage() {
                       </div>
                     </td>
                     <td className="mono sdv-upd">{r.lastUpdated || "—"}</td>
-                    <td>{r.openQueries > 0 ? <span className="sdv-q"><i className="ti ti-flag-filled"></i> {r.openQueries}</span> : <span className="muted">—</span>}</td>
+                    <td>{r.openQueries > 0
+                      ? <span style={{ color: "var(--red-600)", fontWeight: 500 }}>{r.openQueries}</span>
+                      : <span style={{ color: "var(--color-text-placeholder)" }}>—</span>}</td>
                     <td><i className="ti ti-chevron-right sdv-chev"></i></td>
                   </tr>
                 );

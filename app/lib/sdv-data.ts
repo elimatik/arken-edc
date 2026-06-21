@@ -16,6 +16,7 @@ export type FormSdvStatus = "pending" | "partial" | "complete" | "queried";
 
 export interface SdvWorklistRow {
   formInstanceId: string;
+  formId: string;
   subjectId: string;
   subjectCode: string;
   visitLabel: string;
@@ -106,6 +107,7 @@ export function buildSdvWorklist(dataset: Dataset, studyId: string): SdvWorklist
 
     rows.push({
       formInstanceId: inst.id,
+      formId: form.id,
       subjectId: subj.id,
       subjectCode: subj.subject_code,
       visitLabel: visitLabelFor(form.name, parent?.name),

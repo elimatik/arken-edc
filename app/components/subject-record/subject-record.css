@@ -102,6 +102,8 @@
 /* SDV progress bar (visible only in SDV mode) */
 .sdv-progress-row { display: none; align-items: center; gap: var(--space-3); padding: 6px var(--space-4); background: var(--blue-50); border: 1px solid var(--blue-200); border-radius: var(--radius-md); font-size: var(--text-xs); color: var(--blue-600); }
 .sdv-progress-row.visible { display: flex; }
+.sdv-back-link { margin-left: auto; display: inline-flex; align-items: center; gap: 4px; color: var(--blue-600); cursor: pointer; white-space: nowrap; font-weight: var(--weight-medium); }
+.sdv-back-link:hover { text-decoration: underline; text-underline-offset: 2px; }
 .sdv-progress-bar { flex: 1; height: 3px; background: var(--blue-200); border-radius: var(--radius-full); overflow: hidden; max-width: 160px; }
 .sdv-progress-fill { height: 100%; background: var(--blue-600); border-radius: var(--radius-full); transition: width 300ms; }
 

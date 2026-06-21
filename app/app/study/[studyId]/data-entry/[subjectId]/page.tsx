@@ -15,6 +15,7 @@ export default function SubjectRecordPage() {
       subjectId={String(params.subjectId)}
       initialFormId={sp.get("form") ?? undefined}
       initialPanelFieldId={sp.get("field") ?? undefined}
+      initialSdv={sp.get("sdv") === "true"}
     />
   );
 }
