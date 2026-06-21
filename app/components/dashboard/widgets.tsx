@@ -81,11 +81,15 @@ export function EnrollBar({
   tgt,
   pct,
   legs,
+  segs,
 }: {
   cur: number;
   tgt: number;
   pct: number;
   legs: { c: string; t: string }[];
+  // Optional proportional segments (e.g. arm A / arm B) — each width is a % of the
+  // bar; the unfilled remainder shows the track. Falls back to a single fill.
+  segs?: { c: string; pct: number }[];
 }) {
   return (
     <div className="enroll-wrap">
@@ -96,8 +100,10 @@ export function EnrollBar({
         </span>
         <span className="enroll-pct">{pct}%</span>
       </div>
-      <div className="enroll-track">
-        <div className="enroll-fill" style={{ width: `${pct}%` }}></div>
+      <div className={`enroll-track${segs && segs.length ? " stacked" : ""}`}>
+        {segs && segs.length
+          ? segs.map((s, i) => <div className="enroll-seg" key={i} style={{ width: `${s.pct}%`, background: s.c }}></div>)
+          : <div className="enroll-fill" style={{ width: `${pct}%` }}></div>}
       </div>
       <div className="enroll-legend">
         {legs.map((l, i) => (

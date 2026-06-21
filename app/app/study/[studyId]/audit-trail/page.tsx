@@ -593,7 +593,7 @@ export default function AuditTrailPage() {
                     <td>{e.fieldLabel ? <span className="au-field"><span className="au-field-label" title={e.fieldLabel}>{e.fieldLabel}</span>{e.fieldCode && <span className="au-field-code">{e.fieldCode}</span>}</span> : <span className="au-dash">—</span>}</td>
                     <td>{e.oldValue != null ? <span className="au-old" title={e.oldValue}>{e.oldValue}</span> : <span className="au-dash">—</span>}</td>
                     <td>{e.newValue != null ? <span className="au-new" title={e.newValue}>{e.newValue}</span> : <span className="au-dash">—</span>}</td>
-                    <td><span className="au-details" title={e.details}>{e.details}</span><span className={`au-src-tag ${SOURCE_META[e.source].cls}`} title={`Source: ${SOURCE_META[e.source].label}`}>{SOURCE_META[e.source].label}</span></td>
+                    <td><div className="au-details-cell"><span className="au-details" title={e.details}>{e.details}</span><span className={`au-src-tag ${SOURCE_META[e.source].cls}`} title={`Source: ${SOURCE_META[e.source].label}`}>{SOURCE_META[e.source].label}</span></div></td>
                   </tr>
                 );
               })}

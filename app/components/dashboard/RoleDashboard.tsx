@@ -1048,10 +1048,12 @@ function renderCRC() {
         </div>
         <div className="dash-col">
           <Card title="Site enrollment" icon="ti-users">
-            <EnrollBar cur={30} tgt={40} pct={75} legs={[
+            <EnrollBar cur={30} tgt={40} pct={75}
+              segs={[{ c: "var(--blue-400)", pct: (16 / 40) * 100 }, { c: "var(--amber-400)", pct: (14 / 40) * 100 }]}
+              legs={[
               { c: "var(--blue-400)", t: "Group A — 16 subjects" },
               { c: "var(--amber-400)", t: "Group B — 14 subjects" },
-              { c: "var(--slate-200)", t: "10 slots remaining" },
+              { c: "var(--slate-300)", t: "10 slots remaining" },
             ]} />
           </Card>
           <Card title="Upcoming visits" icon="ti-calendar-event" action="View all →">
@@ -1158,10 +1160,12 @@ function renderPI() {
       <div className="dash-grid dash-2col">
         <div className="dash-col">
           <Card title="Study enrollment" icon="ti-users">
-            <EnrollBar cur={89} tgt={120} pct={74} legs={[
+            <EnrollBar cur={89} tgt={120} pct={74}
+              segs={[{ c: "var(--blue-400)", pct: (46 / 120) * 100 }, { c: "var(--amber-400)", pct: (43 / 120) * 100 }]}
+              legs={[
               { c: "var(--blue-400)", t: "Group A — 46 subjects" },
               { c: "var(--amber-400)", t: "Group B — 43 subjects" },
-              { c: "var(--slate-200)", t: "31 slots remaining" },
+              { c: "var(--slate-300)", t: "31 slots remaining" },
             ]} />
             <table className="dash-table" style={{ marginTop: 0 }}>
               <thead><tr><th>Site</th><th>Enrolled</th><th>Target</th><th>Progress</th></tr></thead>
