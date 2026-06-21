@@ -1,6 +1,6 @@
 "use client";
 
-import { Fragment, useMemo, useState } from "react";
+import { Fragment, useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { useNdaName } from "@/lib/use-nda-name";
 import { useShell } from "@/components/shell/ShellContext";
@@ -294,6 +294,278 @@ const ROLE_LABEL: Record<Role, string> = {
   Admin: "Administrator",
 };
 
+// ════════════════════════════════════════════════════════════════════════════
+// Customize mode — card registry + drag-to-reorder + library drawer. Layout is
+// persisted to sessionStorage per study+role; resets on fresh hydration. Pure UI.
+// ════════════════════════════════════════════════════════════════════════════
+type CardCtx = { dataset: Dataset; studyId: string; studyCode: string; role: Role; agg: StudyAggregates };
+interface DashCardDef { id: string; name: string; desc: string; icon: string; cat: string; roles: Role[]; study?: string; render: (c: CardCtx) => JSX.Element }
+interface DashLayout { left: string[]; right: string[] }
+
+const VISIT_NOTE: Record<string, string> = {
+  "CA-0801": "Scheduled Day 14 / 28 / 56 / 84 visits vs. ±2 / 3 / 5 / 5-day windows.",
+  "BR-2502": "BR-2502 Day 0 / 3 / 7 / 14 / 28 visits vs ±0 / 1 / 2 / 3 / 4-day windows.",
+  "PH-2401": "PH-2401 weekly visits (Day 7–42) vs ±2-day windows.",
+};
+
+// ─── Registry-only lightweight card components (live data) ───────────────────
+function SiteEnrollCard({ ctx }: { ctx: CardCtx }) {
+  if (ctx.studyCode === "BR-2502") return <EnrollmentBySiteCard rows={brEnrollmentBySite(ctx.dataset)} />;
+  return (
+    <Card title="Study enrollment" icon="ti-users">
+      <table className="dash-table">
+        <thead><tr><th>Site</th><th>Enrolled</th></tr></thead>
+        <tbody>{ctx.agg.sites.map((s) => <tr key={s.code}><td>{s.code} · {s.name}</td><td className="mono">{s.enrolled}</td></tr>)}</tbody>
+      </table>
+    </Card>
+  );
+}
+function LockReadinessCard({ ctx }: { ctx: CardCtx }) {
+  const ec = openEditCheckCount(ctx.dataset, ctx.studyId), pd = pendingDeltaCount(ctx.dataset, ctx.studyId), oq = openQueryCount(ctx.dataset, ctx.studyId);
+  const clean = ec === 0 && pd === 0 && oq === 0;
+  return (
+    <Card title="Data lock readiness" icon="ti-lock">
+      <div className="agg-list">
+        <div className="agg-row"><span className="agg-lbl">Open queries</span><span className="agg-val" style={{ color: oq ? "var(--amber-700)" : undefined }}>{oq}</span></div>
+        <div className="agg-row"><span className="agg-lbl">Open edit checks</span><span className="agg-val" style={{ color: ec ? "var(--orange-700)" : undefined }}>{ec}</span></div>
+        <div className="agg-row"><span className="agg-lbl">Pending Δ approvals</span><span className="agg-val" style={{ color: pd ? "var(--amber-700)" : undefined }}>{pd}</span></div>
+        <div className="agg-row"><span className="agg-lbl">Status</span><span className="agg-val" style={{ color: clean ? "var(--green-600)" : "var(--amber-700)" }}>{clean ? "Clean" : "Issues"}</span></div>
+      </div>
+    </Card>
+  );
+}
+function KeyMilestonesCard() {
+  return (
+    <Card title="Key milestones" icon="ti-flag-2">
+      <div className="milestone-list">
+        <MilestoneRow label="Site initiation — all sites" sub="All sites activated" date="Sep 2025" state="done" />
+        <MilestoneRow label="50% enrollment milestone" sub="Reached" date="Mar 2026" state="done" />
+        <MilestoneRow label="Interim safety review" sub="Sponsor review scheduled" date="Aug 2026" state="active" />
+        <MilestoneRow label="Database lock" sub="All queries resolved" date="Feb 2027" state="future" />
+      </div>
+      <MilestoneLegend />
+    </Card>
+  );
+}
+function SiteComparisonCard({ ctx }: { ctx: CardCtx }) {
+  const fp = formProgressBySite(ctx.dataset, ctx.studyId);
+  return (
+    <Card title="Site comparison" icon="ti-table">
+      <table className="dash-table">
+        <thead><tr><th>Site</th><th>Enrolled</th><th>Forms</th></tr></thead>
+        <tbody>{ctx.agg.sites.map((s) => { const r = fp.find((x) => x.code === s.code); return <tr key={s.code}><td>{s.code} · {s.name}</td><td className="mono">{s.enrolled}</td><td className="mono">{r ? `${r.completed}/${r.total}` : "—"}</td></tr>; })}</tbody>
+      </table>
+    </Card>
+  );
+}
+
+// ─── Card registry ──────────────────────────────────────────────────────────
+const ALL: Role[] = ["CRC", "CRA", "DM", "PI", "Admin"];
+const CARD_REGISTRY: Record<string, DashCardDef> = {
+  enrollment:        { id: "enrollment", name: "Study enrollment", desc: "Enrolled subjects per site", icon: "ti-users", cat: "Clinical", roles: ALL, render: (c) => <SiteEnrollCard ctx={c} /> },
+  visit_windows:     { id: "visit_windows", name: "Visit Windows", desc: "On-time / overdue visit compliance", icon: "ti-calendar-check", cat: "Clinical", roles: ["CRC", "CRA", "PI", "DM"], render: (c) => <VisitWindowsCard vc={visitCompliance(c.dataset, c.studyId)} note={VISIT_NOTE[c.studyCode] ?? ""} /> },
+  upcoming_visits:   { id: "upcoming_visits", name: "Upcoming visits", desc: "Most urgent pending visits", icon: "ti-clock", cat: "Clinical", roles: ["CRC", "PI", "CRA"], render: (c) => <UpcomingVisitsCard dataset={c.dataset} studyId={c.studyId} /> },
+  brd_outcomes:      { id: "brd_outcomes", name: "BRD outcomes", desc: "Morbidity / re-treatment / mortality", icon: "ti-virus", cat: "Clinical", roles: ["CRC", "CRA", "DM", "PI"], study: "BR-2502", render: (c) => <BrdOutcomesCard dataset={c.dataset} /> },
+  flock_health:      { id: "flock_health", name: "Flock health", desc: "Birds / mortality / FCR / ADG", icon: "ti-feather", cat: "Clinical", roles: ["CRC", "CRA", "DM", "PI"], study: "PH-2401", render: (c) => <PhFlockHealthCard dataset={c.dataset} /> },
+  data_completeness: { id: "data_completeness", name: "Data entry progress", desc: "Form completion by site", icon: "ti-database", cat: "Data quality", roles: ["CRC", "CRA", "DM"], render: (c) => <SiteProgressCard rows={formProgressBySite(c.dataset, c.studyId)} title="Data entry progress" icon="ti-forms" /> },
+  sdv_progress:      { id: "sdv_progress", name: "SDV progress", desc: "Source-verified fields by site", icon: "ti-shield-check", cat: "Data quality", roles: ["CRA", "DM"], render: (c) => <SiteProgressCard rows={sdvProgressBySite(c.dataset, c.studyId)} title="SDV progress" icon="ti-shield-check" suffix="fields" /> },
+  open_queries:      { id: "open_queries", name: "Open queries", desc: "Query counts by status", icon: "ti-message-report", cat: "Data quality", roles: ["CRC", "CRA", "DM"], render: (c) => <OpenQueriesCountCard dataset={c.dataset} studyId={c.studyId} /> },
+  query_worklist:    { id: "query_worklist", name: "Query worklist", desc: "Oldest open queries", icon: "ti-list-check", cat: "Data quality", roles: ["CRA", "DM"], render: (c) => <QueryWorklistCard dataset={c.dataset} studyId={c.studyId} /> },
+  lock_readiness:    { id: "lock_readiness", name: "Data lock readiness", desc: "Queries / ECs / deltas outstanding", icon: "ti-lock", cat: "Data quality", roles: ["DM", "Admin"], render: (c) => <LockReadinessCard ctx={c} /> },
+  key_milestones:    { id: "key_milestones", name: "Key milestones", desc: "Study timeline", icon: "ti-flag", cat: "Oversight", roles: ["PI", "Admin", "CRC"], render: () => <KeyMilestonesCard /> },
+  site_comparison:   { id: "site_comparison", name: "Site comparison", desc: "Enrolled + forms per site", icon: "ti-table", cat: "Oversight", roles: ["CRA", "DM", "Admin"], render: (c) => <SiteComparisonCard ctx={c} /> },
+  study_status:      { id: "study_status", name: "Study status", desc: "Lock / enrolled / queries per study", icon: "ti-clipboard-data", cat: "Admin", roles: ["Admin"], render: () => <AdminStudyStatusCard /> },
+  study_lock:        { id: "study_lock", name: "Database lock", desc: "Lock / unlock the study database", icon: "ti-lock", cat: "Admin", roles: ["Admin"], render: () => <StudyLockAdminCard /> },
+  audit_health:      { id: "audit_health", name: "Audit trail health", desc: "21 CFR Part 11 status", icon: "ti-clipboard-list", cat: "Admin", roles: ["Admin"], render: () => <AdminAuditHealthCard /> },
+};
+
+function cardAvailable(def: DashCardDef, role: Role, studyCode: string): boolean {
+  return def.roles.includes(role) && (!def.study || def.study === studyCode);
+}
+
+// Default per-role layout — the reset target. Study-scoped cards are folded in
+// only for the matching study, mirroring the existing bespoke arrangements.
+function defaultLayout(role: Role, studyCode: string): DashLayout {
+  const studyClinical = studyCode === "BR-2502" ? "brd_outcomes" : studyCode === "PH-2401" ? "flock_health" : null;
+  const base: Record<string, DashLayout> = {
+    CRC: { left: [studyClinical ?? "enrollment", "data_completeness"], right: ["upcoming_visits", "open_queries", "visit_windows"] },
+    CRA: { left: ["sdv_progress", "enrollment", ...(studyClinical ? [studyClinical] : [])], right: ["query_worklist", "visit_windows"] },
+    PI:  { left: ["enrollment", "visit_windows", ...(studyClinical ? [studyClinical] : [])], right: ["upcoming_visits", "key_milestones"] },
+    DM:  { left: [...(studyClinical ? [studyClinical] : ["lock_readiness"]), "data_completeness"], right: ["query_worklist", "visit_windows"] },
+    Admin: { left: ["study_status", "study_lock"], right: ["audit_health", "lock_readiness"] },
+  };
+  const lay = base[role] ?? { left: ["enrollment"], right: [] };
+  // Keep only cards that are actually available for this role+study.
+  const filt = (ids: string[]) => ids.filter((id) => CARD_REGISTRY[id] && cardAvailable(CARD_REGISTRY[id], role, studyCode));
+  return { left: filt(lay.left), right: filt(lay.right) };
+}
+
+const layoutKey = (studyId: string, role: Role) => `arken_dash_layout_${studyId}_${role}`;
+
+function loadLayout(studyId: string, role: Role, studyCode: string): DashLayout {
+  if (typeof window !== "undefined") {
+    try {
+      const raw = sessionStorage.getItem(layoutKey(studyId, role));
+      if (raw) {
+        const p = JSON.parse(raw) as DashLayout;
+        if (Array.isArray(p.left) && Array.isArray(p.right)) return p;
+      }
+    } catch { /* fall through to default */ }
+  }
+  return defaultLayout(role, studyCode);
+}
+
+// ─── Customizable dashboard shell ───────────────────────────────────────────
+function CustomizableDashboard({ ctx, greeting }: { ctx: CardCtx; greeting: JSX.Element }) {
+  const { studyId, role, studyCode } = ctx;
+  // Deterministic default on first render (SSR-safe); the saved layout loads in the
+  // effect below after mount, so there's no hydration mismatch.
+  const [layout, setLayout] = useState<DashLayout>(() => defaultLayout(role, studyCode));
+  const [edit, setEdit] = useState(false);
+  const [drawerCol, setDrawerCol] = useState<null | "left" | "right">(null);
+  const [drag, setDrag] = useState<null | { id: string; col: "left" | "right" }>(null);
+  const [dropAt, setDropAt] = useState<null | { col: "left" | "right"; index: number }>(null);
+
+  // Reload layout + exit edit mode when the study or role changes (item 8).
+  useEffect(() => {
+    setLayout(loadLayout(studyId, role, studyCode));
+    setEdit(false); setDrawerCol(null); setDrag(null); setDropAt(null);
+  }, [studyId, role, studyCode]);
+
+  const canCustomize = role !== "Sponsor";
+
+  function persist(l: DashLayout) {
+    try { sessionStorage.setItem(layoutKey(studyId, role), JSON.stringify(l)); } catch { /* ignore */ }
+  }
+  function saveLayout() { persist(layout); setEdit(false); setDrawerCol(null); }
+  function resetLayout() { setLayout(defaultLayout(role, studyCode)); }
+  function removeCard(col: "left" | "right", id: string) {
+    setLayout((l) => ({ ...l, [col]: l[col].filter((x) => x !== id) }));
+  }
+  function addCard(col: "left" | "right", id: string) {
+    setLayout((l) => (l.left.includes(id) || l.right.includes(id) ? l : { ...l, [col]: [...l[col], id] }));
+  }
+  function onDrop(col: "left" | "right", index: number) {
+    if (!drag) return;
+    setLayout((l) => {
+      const fromCol = drag.col;
+      const without = { left: [...l.left], right: [...l.right] };
+      const fromIdx = without[fromCol].indexOf(drag.id);
+      if (fromIdx >= 0) without[fromCol].splice(fromIdx, 1);
+      let target = index;
+      if (fromCol === col && fromIdx < index) target -= 1; // account for removal shift
+      without[col].splice(Math.max(0, Math.min(target, without[col].length)), 0, drag.id);
+      return without;
+    });
+    setDrag(null); setDropAt(null);
+  }
+
+  const onDash = new Set([...layout.left, ...layout.right]);
+
+  function renderColumn(col: "left" | "right") {
+    return (
+      <div
+        className="dash-col"
+        onDragOver={edit ? (e) => { e.preventDefault(); if (layout[col].length === 0) setDropAt({ col, index: 0 }); } : undefined}
+        onDrop={edit ? (e) => { e.preventDefault(); if (layout[col].length === 0) onDrop(col, 0); } : undefined}
+      >
+        {layout[col].map((id, i) => {
+          const def = CARD_REGISTRY[id];
+          if (!def || !cardAvailable(def, role, studyCode)) return null;
+          return (
+            <Fragment key={id}>
+              {edit && dropAt && dropAt.col === col && dropAt.index === i && <div className="dash-drop-line" />}
+              <div
+                className="card-wrap"
+                draggable={edit}
+                onDragStart={edit ? () => setDrag({ id, col }) : undefined}
+                onDragOver={edit ? (e) => { e.preventDefault(); setDropAt({ col, index: i }); } : undefined}
+                onDrop={edit ? (e) => { e.preventDefault(); e.stopPropagation(); onDrop(col, i); } : undefined}
+                onDragEnd={edit ? () => { setDrag(null); setDropAt(null); } : undefined}
+              >
+                {edit && <button className="card-remove-btn" type="button" title="Remove card" onClick={() => removeCard(col, id)}><i className="ti ti-x"></i></button>}
+                {edit && <span className="card-drag-handle" title="Drag to reorder"><i className="ti ti-grip-vertical"></i></span>}
+                {def.render(ctx)}
+              </div>
+            </Fragment>
+          );
+        })}
+        {edit && dropAt && dropAt.col === col && dropAt.index >= layout[col].length && <div className="dash-drop-line" />}
+        {edit && (
+          <button className="dash-add-card" type="button" onClick={() => setDrawerCol(col)}>
+            <i className="ti ti-plus"></i> Add card
+          </button>
+        )}
+      </div>
+    );
+  }
+
+  // Library = role/study-eligible cards not already on the dashboard, grouped by cat.
+  const libraryByCat = useMemo(() => {
+    const groups: Record<string, DashCardDef[]> = {};
+    for (const def of Object.values(CARD_REGISTRY)) {
+      if (!cardAvailable(def, role, studyCode)) continue;
+      (groups[def.cat] ??= []).push(def);
+    }
+    return groups;
+  }, [role, studyCode]);
+
+  return (
+    <>
+      <div className="dash-header-row">
+        {greeting}
+        {canCustomize && (
+          <button className="btn-customize" type="button" onClick={() => setEdit((e) => !e)}>
+            <i className="ti ti-layout-dashboard"></i> Customize
+          </button>
+        )}
+      </div>
+
+      {edit && (
+        <div className="customize-banner">
+          <span><i className="ti ti-info-circle"></i> Drag cards to reorder · click × to remove · use Add card to add new ones</span>
+          <div className="cb-actions">
+            <button className="cb-btn-secondary" type="button" onClick={resetLayout}>Reset to default</button>
+            <button className="cb-btn-primary" type="button" onClick={saveLayout}>Save layout</button>
+          </div>
+        </div>
+      )}
+
+      <div className={`dash-grid dash-2col${edit ? " edit-mode" : ""}`}>
+        {renderColumn("left")}
+        {renderColumn("right")}
+      </div>
+
+      {drawerCol && (
+        <>
+          <div className="lib-overlay" onClick={() => setDrawerCol(null)} />
+          <div className="lib-drawer" role="dialog" aria-label="Card library">
+            <div className="lib-head"><span>Card library</span><button className="lib-close" type="button" onClick={() => setDrawerCol(null)}><i className="ti ti-x"></i></button></div>
+            <div className="lib-body">
+              {Object.entries(libraryByCat).map(([cat, defs]) => (
+                <div className="lib-cat" key={cat}>
+                  <div className="lib-cat-label">{cat}</div>
+                  {defs.map((def) => {
+                    const added = onDash.has(def.id);
+                    return (
+                      <div className={`lib-item${added ? " added" : ""}`} key={def.id}>
+                        <i className={`ti ${def.icon} lib-item-icon`}></i>
+                        <div className="lib-item-body"><div className="lib-item-name">{def.name}</div><div className="lib-item-desc">{def.desc}</div></div>
+                        <button className="lib-item-add" type="button" disabled={added} onClick={() => addCard(drawerCol, def.id)}>{added ? "✓ On dashboard" : "Add"}</button>
+                      </div>
+                    );
+                  })}
+                </div>
+              ))}
+            </div>
+            <div className="lib-foot"><button className="cb-btn-primary" type="button" onClick={() => setDrawerCol(null)}>Done</button></div>
+          </div>
+        </>
+      )}
+    </>
+  );
+}
+
 interface Props {
   role: Role;
   studyName: string;
@@ -311,22 +583,32 @@ export function RoleDashboard({ role, studyName, studyCode, today }: Props) {
 
   const agg = useMemo(() => computeAggregates(dataset, study.id), [dataset, study.id]);
 
-  // CA-0801 and BR-2502 have bespoke role dashboards wired to live store
-  // aggregates; other studies/roles fall back to the generic renderers.
-  const caRender = studyCode === "CA-0801" ? CA_RENDERERS[role] : studyCode === "BR-2502" ? BR_RENDERERS[role] : studyCode === "PH-2401" ? PH_RENDERERS[role] : undefined;
+  const greeting = (
+    <div className="greeting">
+      <div className="greeting-name">Good {partOfDay}, {firstName}</div>
+      <div className="greeting-sub">
+        {today ? <>{today} · </> : null}
+        <span>{studyName}</span> · {ROLE_LABEL[role]}
+      </div>
+    </div>
+  );
+
+  // Sponsor keeps the read-only bespoke aggregate view (no Customize). Every other
+  // role gets the customizable, registry-driven dashboard.
+  const sponsorRender = studyCode === "CA-0801" ? CA_RENDERERS.Sponsor : studyCode === "BR-2502" ? BR_RENDERERS.Sponsor : studyCode === "PH-2401" ? PH_RENDERERS.Sponsor : undefined;
+
   return (
     <div className="dashboard">
       <nav className="dashboard-bc" aria-label="Breadcrumb">
         <span className="dashboard-bc-cur">Dashboard</span>
       </nav>
-      <div className="greeting">
-        <div className="greeting-name">Good {partOfDay}, {firstName}</div>
-        <div className="greeting-sub">
-          {today ? <>{today} · </> : null}
-          <span>{studyName}</span> · {ROLE_LABEL[role]}
-        </div>
-      </div>
-      {caRender && ready ? caRender(agg, dataset, study.id) : ROLE_RENDERERS[role]()}
+      {!ready ? (
+        greeting
+      ) : role === "Sponsor" ? (
+        <>{greeting}{sponsorRender ? sponsorRender(agg, dataset, study.id) : ROLE_RENDERERS.Sponsor()}</>
+      ) : (
+        <CustomizableDashboard ctx={{ dataset, studyId: study.id, studyCode, role, agg }} greeting={greeting} />
+      )}
     </div>
   );
 }
