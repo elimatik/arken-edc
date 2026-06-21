@@ -137,6 +137,48 @@ export async function hydrateFromSupabase(): Promise<Dataset> {
   }
   const sdvWithSeed = [...(sdvRecords as Dataset["sdvRecords"]), ...seededSdv];
 
+  // ─── Seeded concomitant medications (session-only) ──────────────────────────
+  // No conmeds table in Supabase — this realistic demo set is injected here (same
+  // precedent as the seeded SDV records / BR site targets). Attached to real
+  // subjects per study by stable subject_code order so it's deterministic.
+  const subjectsOf = (code: string) => {
+    const sid = (studies.data ?? []).find((s) => s.code === code)?.id;
+    return (subjects.data ?? []).filter((s) => s.study_id === sid).slice().sort((a, b) => (a.subject_code < b.subject_code ? -1 : 1));
+  };
+  type ConMedSpec = Omit<Dataset["conMeds"][number], "id" | "study_id" | "subject_id">;
+  const conMeds: Dataset["conMeds"] = [];
+  const pushConMeds = (code: string, specs: ConMedSpec[], pickArmPrefix?: string) => {
+    let subs = subjectsOf(code);
+    if (pickArmPrefix) {
+      const armed = subs.filter((s) => (s.randomization_arm ?? "").startsWith(pickArmPrefix));
+      if (armed.length) subs = armed;
+    }
+    const studyId = (studies.data ?? []).find((s) => s.code === code)?.id ?? "";
+    specs.forEach((spec, i) => {
+      const subj = subs[i % Math.max(1, subs.length)];
+      if (!subj) return;
+      conMeds.push({ id: `conmed-${code}-${i}`, study_id: studyId, subject_id: subj.id, ...spec });
+    });
+  };
+  // CA-0801 — prior atopic-dermatitis therapies washed out before the study (ended).
+  pushConMeds("CA-0801", [
+    { medication: "Oclacitinib (Apoquel)", drug_class: "JAK inhibitor", dose: "0.5 mg/kg", route: "Oral", start_date: "2025-09-01", end_date: "2025-09-21", ongoing: false, indication: "Pruritus — prior therapy", concurrent_with: "Pre-study washout", interaction: false },
+    { medication: "Prednisolone", drug_class: "Corticosteroid", dose: "0.5 mg/kg", route: "Oral", start_date: "2025-09-08", end_date: "2025-09-15", ongoing: false, indication: "Flare control — prior therapy", concurrent_with: "Pre-study washout", interaction: false },
+    { medication: "Cyclosporine", drug_class: "Immunosuppressant", dose: "5 mg/kg", route: "Oral", start_date: "2025-08-12", end_date: "2025-09-02", ongoing: false, indication: "Atopic dermatitis — prior therapy", concurrent_with: "Pre-study washout", interaction: false },
+  ]);
+  // BR-2502 — concurrent antibiotics (confound the antimicrobial effect → flagged).
+  pushConMeds("BR-2502", [
+    { medication: "Tulathromycin (Draxxin)", drug_class: "Antibiotic — macrolide", dose: "2.5 mg/kg", route: "Injectable, SC", start_date: "2026-01-05", end_date: null, ongoing: true, indication: "BRD metaphylaxis", concurrent_with: "Pre-enrollment", interaction: true },
+    { medication: "Florfenicol (Nuflor)", drug_class: "Antibiotic — phenicol", dose: "40 mg/kg", route: "Injectable, SC", start_date: "2026-01-08", end_date: "2026-01-18", ongoing: false, indication: "Respiratory infection", concurrent_with: "Day 0", interaction: true },
+    { medication: "Tulathromycin (Draxxin)", drug_class: "Antibiotic — macrolide", dose: "2.5 mg/kg", route: "Injectable, SC", start_date: "2026-01-10", end_date: null, ongoing: true, indication: "BRD metaphylaxis", concurrent_with: "Pre-enrollment", interaction: true },
+    { medication: "Florfenicol (Nuflor)", drug_class: "Antibiotic — phenicol", dose: "40 mg/kg", route: "Injectable, SC", start_date: "2026-01-12", end_date: "2026-01-22", ongoing: false, indication: "Respiratory infection", concurrent_with: "Day 0", interaction: true },
+  ]);
+  // PH-2401 — basal-feed additives / coccidiostat in the T01 control pens (pen-level).
+  pushConMeds("PH-2401", [
+    { medication: "Salinomycin", drug_class: "Coccidiostat", dose: "60 g/tonne", route: "In-feed", start_date: "2026-03-01", end_date: null, ongoing: true, indication: "Coccidiosis prevention — basal feed", concurrent_with: "Day 0–42", interaction: false },
+    { medication: "Bacitracin methylene disalicylate", drug_class: "Feed additive", dose: "50 g/tonne", route: "In-feed", start_date: "2026-03-01", end_date: null, ongoing: true, indication: "Enteric health — basal feed", concurrent_with: "Day 0–42", interaction: false },
+  ], "T01");
+
   return {
     studies: (studies.data ?? []) as Dataset["studies"],
     sites: sitesWithTargets,
@@ -155,6 +197,7 @@ export async function hydrateFromSupabase(): Promise<Dataset> {
     deltaRecords: [], // session-only — not sourced from Supabase
     unblindings: [], // session-only — emergency-unblinding log
     studyLocks: [], // session-only — database-lock log
+    conMeds, // session-only — seeded concomitant medications
     memberships: (memberships.data ?? []) as Dataset["memberships"],
     speciesRanges: (speciesRanges.data ?? []) as Dataset["speciesRanges"],
   };

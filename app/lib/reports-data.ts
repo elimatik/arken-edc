@@ -18,6 +18,7 @@ export type ReportId =
   | "data-completeness"
   | "query-edit-check"
   | "safety-ae"
+  | "conmed-log"
   | "sdv-completion";
 
 export const REPORT_CATEGORIES = [
@@ -61,9 +62,12 @@ export const REPORT_CATALOG: ReportMeta[] = [
   { id: "query-edit-check", title: "Query & Edit Check Report", slug: "query_edit_check", category: "Data Quality & Integrity", icon: "message-report",
     description: "Query volume, age, and resolution rate — including the oldest unresolved queries.",
     roles: ["CRA", "DM", "Admin"], hasCsv: true },
-  { id: "safety-ae", title: "Safety & AE Summary", slug: "safety_ae", category: "Safety & Regulatory", icon: "heartbeat",
-    description: "Adverse-event accounting: AE/SAE counts, severity, relatedness, and outcomes.",
-    roles: ["DM", "PI", "Admin", "Sponsor"], hasCsv: false },
+  { id: "safety-ae", title: "AE / SAE Roster", slug: "ae_sae_roster", category: "Safety & Regulatory", icon: "heartbeat",
+    description: "Adverse-event roster: SAEs surfaced first, then the full AE table with ICH relatedness and SAE criteria.",
+    roles: ["CRA", "DM", "PI", "Admin", "Sponsor"], hasCsv: false },
+  { id: "conmed-log", title: "Concomitant Medications (ConMed) Log", slug: "conmed_log", category: "Safety & Regulatory", icon: "pill",
+    description: "All concurrent medications taken alongside the investigational product, with drug-interaction flags.",
+    roles: ["CRA", "DM", "PI", "Admin"], hasCsv: true },
   { id: "sdv-completion", title: "SDV Completion Report", slug: "sdv_completion", category: "Safety & Regulatory", icon: "shield-check",
     description: "Monitoring evidence — fields verified, per-site progress, and the unverified-fields action list.",
     roles: ["CRA", "DM", "Admin"], hasCsv: true },
@@ -495,9 +499,35 @@ export function resolutionBySite(dataset: Dataset, studyId: string): SiteResolut
 }
 
 // ─── Safety / AE ─────────────────────────────────────────────────────────────
-export interface AeRow { subjectCode: string; siteName: string; arm: string | null; description: string; onsetDate: string | null; severity: string; relatedness: string; status: string; outcome: string; serious: boolean }
+export interface AeRow { subjectCode: string; siteName: string; arm: string | null; description: string; onsetDate: string | null; severity: string; relatedness: string; status: string; outcome: string; serious: boolean; saeCriterion: string | null }
 const SAE_YES = new Set(["yes", "true", "y", "1", "serious"]);
-export function adverseEvents(dataset: Dataset, studyId: string): AeRow[] {
+
+// Normalise free-form causality to the standard ICH E6 categories.
+function normalizeRelatedness(raw: string | undefined): string {
+  const v = (raw ?? "").toLowerCase().trim();
+  if (!v) return "—";
+  if (/not related|unrelated|no relation/.test(v)) return "Not related";
+  if (/unlikely/.test(v)) return "Unlikely";
+  if (/possibl/.test(v)) return "Possibly";
+  if (/probabl/.test(v)) return "Probably";
+  if (/definit|^related$|certain/.test(v)) return "Definitely";
+  return raw ?? "—";
+}
+// Which seriousness criterion an SAE met (ICH SAE criteria).
+function saeCriterionOf(vals: Map<string, string>, serious: boolean): string | null {
+  if (!serious) return null;
+  const cat = (vals.get("sae_category") ?? "").toLowerCase();
+  if (/death|fatal/.test(cat)) return "Death";
+  if (/life/.test(cat)) return "Life-threatening";
+  if (/hospital/.test(cat)) return "Hospitalization";
+  if (/disab/.test(cat)) return "Disability";
+  if (/congenital|anomal/.test(cat)) return "Congenital anomaly";
+  if ((vals.get("sae_life_threatening") ?? "").toLowerCase() === "yes") return "Life-threatening";
+  if ((vals.get("hospitalization") ?? "").toLowerCase() === "yes") return "Hospitalization";
+  return "Other important medical event";
+}
+
+export function buildAeRoster(dataset: Dataset, studyId: string): AeRow[] {
   const aeForms = new Set(dataset.forms.filter((f) => f.study_id === studyId && (f.code === "adverse_event" || /_ae$/.test(f.code) || f.code === "injection_site")).map((f) => f.id));
   const subById = new Map(dataset.subjects.map((s) => [s.id, s]));
   const siteById = new Map(dataset.sites.map((s) => [s.id, s]));
@@ -512,13 +542,14 @@ export function adverseEvents(dataset: Dataset, studyId: string): AeRow[] {
     const desc = vals.get("ae_term") ?? vals.get("ae_description") ?? vals.get("event_description") ?? vals.get("event_term") ?? vals.get("description");
     if (!desc) continue; // an AE form with no event recorded isn't an AE
     const saeRaw = (vals.get("sae_flag") ?? vals.get("serious_sae") ?? vals.get("seriousness") ?? "").toLowerCase();
+    const serious = SAE_YES.has(saeRaw) || /life|death|hospital/.test((vals.get("sae_category") ?? "").toLowerCase());
     rows.push({
       subjectCode: subj.subject_code, siteName: subj.site_id ? siteById.get(subj.site_id)?.name ?? "—" : "—",
       arm: subj.randomization_arm,
       description: desc, onsetDate: vals.get("ae_onset_date") ?? vals.get("ae_start_date") ?? null,
-      severity: vals.get("severity") ?? "—", relatedness: vals.get("relatedness") ?? vals.get("relationship") ?? "—",
+      severity: vals.get("severity") ?? "—", relatedness: normalizeRelatedness(vals.get("relatedness") ?? vals.get("relationship")),
       status: vals.get("ongoing") === "Yes" ? "Ongoing" : (vals.get("outcome") ? "Closed" : "Open"),
-      outcome: vals.get("outcome") ?? "—", serious: SAE_YES.has(saeRaw) || /life|death|hospital/.test((vals.get("sae_category") ?? "").toLowerCase()),
+      outcome: vals.get("outcome") ?? "—", serious, saeCriterion: saeCriterionOf(vals, serious),
     });
   }
   return rows.sort((a, b) => (b.onsetDate ?? "").localeCompare(a.onsetDate ?? ""));
@@ -604,6 +635,66 @@ export function aeBySite(aes: AeRow[]): { siteName: string; aeCount: number; sae
     r.aeCount++; if (a.serious) r.saeCount++;
   }
   return Array.from(map.values()).sort((a, b) => a.siteName.localeCompare(b.siteName));
+}
+
+// ─── Concomitant medications (ConMed Log) ────────────────────────────────────
+export interface ConMedEntry {
+  id: string;
+  subjectCode: string;
+  siteCode: string;
+  siteName: string;
+  medication: string;
+  drugClass: string;
+  dose: string;
+  route: string;
+  startDate: string;
+  endDate: string | null;
+  ongoing: boolean;
+  indication: string;
+  concurrentWith: string;
+  interaction: boolean;
+}
+export function buildConMedLog(dataset: Dataset, studyId: string): ConMedEntry[] {
+  const subById = new Map(dataset.subjects.map((s) => [s.id, s]));
+  const siteById = new Map(dataset.sites.map((s) => [s.id, s]));
+  return (dataset.conMeds ?? [])
+    .filter((c) => c.study_id === studyId)
+    .map((c) => {
+      const subj = subById.get(c.subject_id);
+      const site = subj?.site_id ? siteById.get(subj.site_id) : undefined;
+      return {
+        id: c.id, subjectCode: subj?.subject_code ?? "—",
+        siteCode: site?.code ?? "—", siteName: site?.name ?? "—",
+        medication: c.medication, drugClass: c.drug_class, dose: c.dose, route: c.route,
+        startDate: c.start_date, endDate: c.end_date, ongoing: c.ongoing,
+        indication: c.indication, concurrentWith: c.concurrent_with, interaction: c.interaction,
+      };
+    })
+    .sort((a, b) => a.subjectCode.localeCompare(b.subjectCode) || a.startDate.localeCompare(b.startDate));
+}
+
+export interface ConMedClassRow { drugClass: string; count: number; subjects: number; interaction: boolean }
+export function conMedByClass(entries: ConMedEntry[]): ConMedClassRow[] {
+  const map = new Map<string, { count: number; subjects: Set<string>; interaction: boolean }>();
+  for (const e of entries) {
+    const r = map.get(e.drugClass) ?? { count: 0, subjects: new Set<string>(), interaction: false };
+    r.count++; r.subjects.add(e.subjectCode); r.interaction = r.interaction || e.interaction;
+    map.set(e.drugClass, r);
+  }
+  return Array.from(map.entries())
+    .map(([drugClass, r]) => ({ drugClass, count: r.count, subjects: r.subjects.size, interaction: r.interaction }))
+    .sort((a, b) => b.count - a.count || a.drugClass.localeCompare(b.drugClass));
+}
+
+export interface ConMedSummary { total: number; subjectsWithConMed: number; topClass: string; interactionCount: number }
+export function conMedSummary(entries: ConMedEntry[]): ConMedSummary {
+  const byClass = conMedByClass(entries);
+  return {
+    total: entries.length,
+    subjectsWithConMed: new Set(entries.map((e) => e.subjectCode)).size,
+    topClass: byClass[0]?.drugClass ?? "—",
+    interactionCount: entries.filter((e) => e.interaction).length,
+  };
 }
 
 // ─── Study header / timeline ─────────────────────────────────────────────────

@@ -4,7 +4,7 @@ import { useStudySession } from "@/lib/session-store/SessionStore";
 import {
   REPORT_CATEGORIES, type ReportMeta, type ReportId,
   dispositions, sitePerformance, visitComplianceRows, completenessByForm,
-  queryAging, armLabeler, downloadCsv, csvFilename,
+  queryAging, armLabeler, downloadCsv, csvFilename, buildConMedLog,
 } from "@/lib/reports-data";
 import { buildSdvWorklist } from "@/lib/sdv-data";
 import type { Role } from "@/lib/permissions";
@@ -98,6 +98,11 @@ export function buildReportCsv(id: ReportId, dataset: Dataset, studyId: string):
       return {
         headers: ["Query ID", "Subject", "Form", "Field", "Raised by", "Raised date", "Days open", "Status", "Assigned to"],
         rows: queryAging(dataset, studyId).map((q) => [q.code, q.subjectCode, q.formName, q.fieldLabel, q.raisedBy, q.raisedDate, q.daysOpen, q.status, q.assignedTo]),
+      };
+    case "conmed-log":
+      return {
+        headers: ["Subject", "Site", "Medication", "Drug class", "Dose", "Route", "Start date", "End date", "Indication", "Concurrent with", "Interaction"],
+        rows: buildConMedLog(dataset, studyId).map((e) => [e.subjectCode, `${e.siteCode} · ${e.siteName}`, e.medication, e.drugClass, e.dose, e.route, e.startDate, e.ongoing ? "Ongoing" : e.endDate, e.indication, e.concurrentWith, e.interaction ? "Yes" : "No"]),
       };
     case "sdv-completion":
       return {

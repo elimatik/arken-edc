@@ -123,6 +123,9 @@
 .cell-crit { color: var(--red-600); font-weight: var(--weight-medium); }
 .rpt-row-crit { background: var(--red-50); }
 .rpt-row-crit:hover { background: var(--red-50); }
+.rpt-row-warn { background: var(--amber-50); }
+.rpt-row-warn:hover { background: var(--amber-50); }
+.rpt-interaction-flag { margin-left: 6px; color: var(--amber-700); font-size: 12px; vertical-align: middle; }
 
 /* ─── Chips ───────────────────────────────────────────────────────────────── */
 .rpt-ms-chip { display: inline-block; padding: 1px var(--space-2); border-radius: var(--radius-full); font-size: 10px; font-weight: var(--weight-medium); text-transform: capitalize; white-space: nowrap; }

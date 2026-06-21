@@ -16,7 +16,8 @@ import { SitePerformanceReport } from "@/components/reports/reports/SitePerforma
 import { VisitComplianceReport } from "@/components/reports/reports/VisitComplianceReport";
 import { DataCompletenessReport } from "@/components/reports/reports/DataCompletenessReport";
 import { QueryEditCheckReport } from "@/components/reports/reports/QueryEditCheckReport";
-import { SafetyAeSummaryReport } from "@/components/reports/reports/SafetyAeSummaryReport";
+import { AeSaeSummaryReport } from "@/components/reports/reports/AeSaeSummaryReport";
+import { ConMedLogReport } from "@/components/reports/reports/ConMedLogReport";
 import { SdvCompletionReport } from "@/components/reports/reports/SdvCompletionReport";
 import "./reports.css";
 
@@ -33,7 +34,8 @@ const RENDERERS: Record<ReportId, (p: ReportProps) => JSX.Element> = {
   "visit-compliance": VisitComplianceReport,
   "data-completeness": DataCompletenessReport,
   "query-edit-check": QueryEditCheckReport,
-  "safety-ae": SafetyAeSummaryReport,
+  "safety-ae": AeSaeSummaryReport,
+  "conmed-log": ConMedLogReport,
   "sdv-completion": SdvCompletionReport,
 };
 

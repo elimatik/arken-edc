@@ -189,6 +189,26 @@ export interface MembershipRow {
   role: Role;
 }
 
+// Concomitant medication — a medicine a subject takes alongside the investigational
+// product. Session-only seed data (no conmeds table in Supabase); the ConMed Log
+// report reads these directly. `interaction` flags a known drug-interaction class
+// (e.g. a concurrent antibiotic in an antimicrobial-treatment study).
+export interface ConMedRow {
+  id: string;
+  study_id: string;
+  subject_id: string;
+  medication: string;
+  drug_class: string;
+  dose: string;
+  route: string;
+  start_date: string;
+  end_date: string | null; // null = ongoing
+  ongoing: boolean;
+  indication: string;
+  concurrent_with: string; // visit / timepoint label
+  interaction: boolean; // overlaps a known drug-interaction class
+}
+
 // Emergency unblinding (double-blind studies only) — session-only. Records who
 // revealed a subject's arm and why; drives the Subject-Record arm reveal and an
 // "Emergency Unblinding" entry in the Audit Trail. Permanent + auditable.
@@ -281,6 +301,7 @@ export interface Dataset {
   deltaRecords: DeltaRecordRow[];
   unblindings: UnblindingRow[]; // session-only emergency-unblinding log
   studyLocks: StudyLockRow[]; // session-only database-lock log
+  conMeds: ConMedRow[]; // session-only concomitant-medication seed
   memberships: MembershipRow[];
   speciesRanges: SpeciesRangeRow[];
 }
@@ -303,6 +324,7 @@ export const EMPTY_DATASET: Dataset = {
   deltaRecords: [],
   unblindings: [],
   studyLocks: [],
+  conMeds: [],
   memberships: [],
   speciesRanges: [],
 };

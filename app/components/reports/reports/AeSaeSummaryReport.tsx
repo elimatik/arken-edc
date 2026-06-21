@@ -4,18 +4,45 @@ import { useMemo } from "react";
 import { useStudySession } from "@/lib/session-store/SessionStore";
 import type { ReportProps } from "@/app/study/[studyId]/reports/page";
 import { Section, StatGrid, StatTile, EmptyNote, fmtDate } from "@/components/reports/ReportKit";
-import { adverseEvents, safetySummary, aeBySite, aeByArm, dartDistribution, brWithdrawalBlocks } from "@/lib/reports-data";
+import { buildAeRoster, safetySummary, aeBySite, aeByArm, dartDistribution, brWithdrawalBlocks, type AeRow } from "@/lib/reports-data";
 
 const SEV_CLS: Record<string, string> = { mild: "ms-done", moderate: "ms-active", severe: "ms-crit", "life-threatening": "ms-crit" };
 
-export function SafetyAeSummaryReport({ studyId, aggregate, hideArms }: ReportProps) {
+function AeTable({ rows, sae }: { rows: AeRow[]; sae?: boolean }) {
+  return (
+    <table className="rpt-table">
+      <thead><tr>
+        <th>Subject</th><th>Site</th><th>AE description</th><th>Onset</th><th>Severity</th>
+        <th>Relatedness</th>{sae && <th>SAE criterion</th>}<th>Status</th><th>Outcome</th>
+      </tr></thead>
+      <tbody>
+        {rows.map((a, i) => (
+          <tr key={i} className={a.serious ? "rpt-row-crit" : ""}>
+            <td className="mono">{a.subjectCode}</td>
+            <td>{a.siteName}</td>
+            <td>{a.description}{a.serious && !sae && <span className="rpt-sae-tag">SAE</span>}</td>
+            <td className="mono">{fmtDate(a.onsetDate)}</td>
+            <td><span className={`rpt-ms-chip ${SEV_CLS[a.severity.toLowerCase()] ?? "ms-future"}`}>{a.severity}</span></td>
+            <td>{a.relatedness}</td>
+            {sae && <td>{a.saeCriterion ?? "—"}</td>}
+            <td>{a.status}</td>
+            <td>{a.outcome}</td>
+          </tr>
+        ))}
+      </tbody>
+    </table>
+  );
+}
+
+export function AeSaeSummaryReport({ studyId, aggregate, hideArms }: ReportProps) {
   const { dataset } = useStudySession();
 
   const d = useMemo(() => {
-    const aes = adverseEvents(dataset, studyId);
+    const aes = buildAeRoster(dataset, studyId);
     const study = dataset.studies.find((s) => s.id === studyId);
     return {
-      aes, summary: safetySummary(dataset, studyId, aes),
+      aes, saes: aes.filter((a) => a.serious),
+      summary: safetySummary(dataset, studyId, aes),
       bySite: aeBySite(aes), byArm: aeByArm(dataset, studyId, aes), isBr: study?.code === "BR-2502",
       dart: dartDistribution(dataset, studyId), withdrawals: brWithdrawalBlocks(dataset, studyId),
     };
@@ -35,6 +62,19 @@ export function SafetyAeSummaryReport({ studyId, aggregate, hideArms }: ReportPr
         </StatGrid>
       </Section>
 
+      {/* SAEs first — immediately visible without scrolling. Skipped in the Sponsor
+          aggregate view (no subject IDs). */}
+      {!aggregate && (
+        <Section title="Serious adverse events (SAE)" icon="alert-triangle">
+          {d.saes.length > 0 ? (
+            <>
+              <div className="rpt-action-banner"><i className="ti ti-urgent"></i> {d.saes.length} serious {d.saes.length === 1 ? "event" : "events"} — expedited reporting may be required.</div>
+              <AeTable rows={d.saes} sae />
+            </>
+          ) : <EmptyNote>No serious adverse events recorded for this study.</EmptyNote>}
+        </Section>
+      )}
+
       <Section title="Adverse events" icon="alert-octagon">
         {d.aes.length === 0 ? (
           <EmptyNote>No adverse events recorded for this study.</EmptyNote>
@@ -44,23 +84,7 @@ export function SafetyAeSummaryReport({ studyId, aggregate, hideArms }: ReportPr
             <tbody>{d.bySite.map((r) => <tr key={r.siteName}><td>{r.siteName}</td><td className="mono">{r.aeCount}</td><td className={`mono${r.saeCount > 0 ? " cell-crit" : ""}`}>{r.saeCount}</td></tr>)}</tbody>
           </table>
         ) : (
-          <table className="rpt-table">
-            <thead><tr><th>Subject</th><th>Site</th><th>AE description</th><th>Onset</th><th>Severity</th><th>Relatedness</th><th>Status</th><th>Outcome</th></tr></thead>
-            <tbody>
-              {d.aes.map((a, i) => (
-                <tr key={i} className={a.serious ? "rpt-row-crit" : ""}>
-                  <td className="mono">{a.subjectCode}</td>
-                  <td>{a.siteName}</td>
-                  <td>{a.description}{a.serious && <span className="rpt-sae-tag">SAE</span>}</td>
-                  <td className="mono">{fmtDate(a.onsetDate)}</td>
-                  <td><span className={`rpt-ms-chip ${SEV_CLS[a.severity.toLowerCase()] ?? "ms-future"}`}>{a.severity}</span></td>
-                  <td>{a.relatedness}</td>
-                  <td>{a.status}</td>
-                  <td>{a.outcome}</td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
+          <AeTable rows={d.aes} />
         )}
       </Section>
 
