@@ -59,7 +59,7 @@ export function sdvProgress(dataset: Dataset, studyId: string): SdvProgress {
     const f = fieldById.get(v.form_field_id);
     return !!f && !SDV_INELIGIBLE.has(f.field_type);
   }).length;
-  const verified = dataset.sdvRecords.filter((r) => instIds.has(r.form_instance_id)).length;
+  const verified = dataset.sdvRecords.filter((r) => r.status === "verified" && instIds.has(r.form_instance_id)).length;
   return { verified, total };
 }
 
@@ -159,7 +159,7 @@ export function sdvProgressBySite(dataset: Dataset, studyId: string): SiteFormPr
       const f = fieldById.get(v.form_field_id);
       return !!f && !SDV_INELIGIBLE.has(f.field_type);
     }).length;
-    const verified = dataset.sdvRecords.filter((r) => instIds.has(r.form_instance_id)).length;
+    const verified = dataset.sdvRecords.filter((r) => r.status === "verified" && instIds.has(r.form_instance_id)).length;
     return { siteId: site.id, code: site.code, name: site.name, completed: verified, total, pct: total ? Math.round((verified / total) * 100) : 0 };
   }).sort((a, b) => a.pct - b.pct);
 }

@@ -71,7 +71,7 @@ export function AppShell({ study, sites, children }: AppShellProps) {
             onSelectSite={setSelectedSiteId}
             activeRole={activeRole}
             onChangeRole={changeRole}
-            hideSiteFilter={sub === "audit-trail" || sub === "queries" || sub === "visits"}
+            hideSiteFilter={sub === "audit-trail" || sub === "queries" || sub === "visits" || sub === "sdv"}
           />
           {isStudyLocked(dataset, study.id) && (
             <div className="db-lock-bar" role="status">

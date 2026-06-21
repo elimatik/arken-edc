@@ -98,6 +98,45 @@ export async function hydrateFromSupabase(): Promise<Dataset> {
     SUMMARY_FORM_NAMES.has(f.name) ? { ...f, is_summary: true } : f,
   );
 
+  // ─── Seeded SDV state (session-only) ────────────────────────────────────────
+  // No interactive SDV has run on a fresh tab, so seed verified records to a target
+  // % per site — the CRA/DM dashboard SDV bars + lock-readiness then show real
+  // progress, and the SDV worklist opens with partially-verified forms. Deterministic
+  // (verify the first N% of SDV-eligible field values by id) so it's stable.
+  const SDV_TARGETS: Record<string, Record<string, number>> = {
+    "CA-0801": { "101": 74, "102": 58, "103": 42 },
+    "BR-2502": { TX: 65, KS: 50, NE: 35, CO: 20 },
+    "PH-2401": { RUA: 62 },
+  };
+  const SDV_INELIGIBLE = new Set(["file", "calculated", "textarea"]);
+  const studyCodeById = new Map((studies.data ?? []).map((s) => [s.id, s.code]));
+  const siteCodeById = new Map((sites.data ?? []).map((s) => [s.id, s.code]));
+  const subjById2 = new Map((subjects.data ?? []).map((s) => [s.id, s]));
+  const instById2 = new Map((formInstances as Dataset["formInstances"]).map((i) => [i.id, i]));
+  const fieldTypeById = new Map((formFields as Dataset["formFields"]).map((f) => [f.id, f.field_type]));
+  const fvByBucket = new Map<string, Dataset["fieldValues"]>();
+  for (const fv of fieldValues as Dataset["fieldValues"]) {
+    if (fv.value == null || fv.value === "") continue;
+    const ft = fieldTypeById.get(fv.form_field_id);
+    if (!ft || SDV_INELIGIBLE.has(ft)) continue;
+    const inst = instById2.get(fv.form_instance_id);
+    const subj = inst?.subject_id ? subjById2.get(inst.subject_id) : undefined;
+    if (!subj || !subj.site_id) continue;
+    const code = studyCodeById.get(subj.study_id), siteCode = siteCodeById.get(subj.site_id);
+    if (!code || !siteCode || SDV_TARGETS[code]?.[siteCode] == null) continue;
+    const key = `${code}|${siteCode}`;
+    (fvByBucket.get(key) ?? fvByBucket.set(key, []).get(key)!).push(fv);
+  }
+  const seededSdv: Dataset["sdvRecords"] = [];
+  for (const [key, fvs] of Array.from(fvByBucket.entries())) {
+    const [code, siteCode] = key.split("|");
+    const pct = SDV_TARGETS[code][siteCode];
+    const sorted = fvs.slice().sort((a, b) => (a.id < b.id ? -1 : 1));
+    const n = Math.round((pct / 100) * sorted.length);
+    for (let i = 0; i < n; i++) seededSdv.push({ id: `sdvseed-${sorted[i].id}`, form_instance_id: sorted[i].form_instance_id, field_value_id: sorted[i].id, status: "verified", verified_by_name: "Jordan Reyes", verified_at: "2026-06-12" });
+  }
+  const sdvWithSeed = [...(sdvRecords as Dataset["sdvRecords"]), ...seededSdv];
+
   return {
     studies: (studies.data ?? []) as Dataset["studies"],
     sites: sitesWithTargets,
@@ -112,7 +151,7 @@ export async function hydrateFromSupabase(): Promise<Dataset> {
     queries: splitQueries,
     queryMessages: rawMsgs,
     editChecks,
-    sdvRecords: sdvRecords as Dataset["sdvRecords"],
+    sdvRecords: sdvWithSeed,
     deltaRecords: [], // session-only — not sourced from Supabase
     unblindings: [], // session-only — emergency-unblinding log
     studyLocks: [], // session-only — database-lock log

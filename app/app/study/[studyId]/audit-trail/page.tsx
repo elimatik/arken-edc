@@ -264,6 +264,7 @@ function buildAuditEvents(dataset: Dataset, studyId: string, baseNow: number): A
 
   // 5 — SDV verifications (each sdv_record is a verification act).
   for (const s of dataset.sdvRecords) {
+    if (s.id.startsWith("sdvseed-") || s.status !== "verified") continue; // seeded baseline isn't an audit event; only verified records
     const ctx = ctxOfInstance(s.form_instance_id); if (!ctx) continue;
     const fo = fieldOfValue(s.field_value_id ?? null);
     push({ ts: s.verified_at ?? synthTs(`sdv${s.id}`, baseNow), type: "sdv",
