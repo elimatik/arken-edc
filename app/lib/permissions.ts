@@ -58,8 +58,9 @@ export const NAV_ITEMS: NavItem[] = [
     access: { DM: open } },
   { key: "calendar", label: "Calendar", icon: "calendar",
     access: { CRC: open, CRA: open, DM: open, PI: open, Sponsor: open } },
+  // Reports is a reporting/oversight surface — CRC (a data-entry role) is excluded.
   { key: "reports", label: "Reports", icon: "chart-bar",
-    access: { CRC: open, CRA: open, DM: open, PI: open, Sponsor: { blinded: true }, Admin: open } },
+    access: { CRA: open, DM: open, PI: open, Sponsor: { blinded: true }, Admin: open } },
   { key: "inventory", label: "Inventory", icon: "package",
     access: { CRA: open, DM: open, Sponsor: { blinded: true }, Admin: open } },
   // Audit Trail (21 CFR Part 11) — oversight roles only; the CRC who enters data
@@ -87,6 +88,7 @@ export const NAV_ROUTES: Partial<Record<string, string>> = {
   queries: "queries",
   visits: "visits",
   sdv: "sdv",
+  reports: "reports",
   audit: "audit-trail",
   sites: "sites",
   settings: "settings",
