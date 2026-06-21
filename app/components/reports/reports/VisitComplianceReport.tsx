@@ -122,6 +122,8 @@ export function VisitComplianceReport({ studyId }: ReportProps) {
           </table>
         </Section>
       )}
+
+      <p className="rpt-footnote">Visit windows per {study.code} protocol. A visit is overdue when today exceeds the target date + window end; a visit still within its window is not overdue even if past the target date.</p>
     </>
   );
 }

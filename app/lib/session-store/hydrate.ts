@@ -80,6 +80,14 @@ export async function hydrateFromSupabase(): Promise<Dataset> {
     return true;
   });
 
+  // Study-level enrolment targets, pinned here so they match the actual demo
+  // cohort sizes regardless of what the (possibly stale) Supabase seed carries —
+  // CA-0801 60 dogs (3 sites × 20), BR-2502 12 animals (4 feedlots), PH-2401 2 pens.
+  const STUDY_TARGETS: Record<string, number> = { "CA-0801": 60, "BR-2502": 12, "PH-2401": 2 };
+  const studiesWithTargets = ((studies.data ?? []) as Dataset["studies"]).map((s) =>
+    STUDY_TARGETS[s.code] != null ? { ...s, enrollment_target: STUDY_TARGETS[s.code] } : s,
+  );
+
   // Session-only per-feedlot enrolment targets for BR-2502 (not a DB column —
   // seeded here, same as the other Overview-config fields). Over the cap is a
   // protocol deviation. Counts: TX/KS under cap, NE at cap, CO over cap (demo).
@@ -179,8 +187,25 @@ export async function hydrateFromSupabase(): Promise<Dataset> {
     { medication: "Bacitracin methylene disalicylate", drug_class: "Feed additive", dose: "50 g/tonne", route: "In-feed", start_date: "2026-03-01", end_date: null, ongoing: true, indication: "Enteric health — basal feed", concurrent_with: "Day 0–42", interaction: false },
   ], "T01");
 
+  // ─── Seeded SAE reporting timelines (session-only) ──────────────────────────
+  // AE forms carry no notification dates, so one realistic SAE per study is seeded
+  // here with its GCP/VICH reporting timeline. Attached to a real subject per study.
+  type SaeSpec = Omit<Dataset["saeReports"][number], "id" | "study_id" | "subject_id">;
+  const saeReports: Dataset["saeReports"] = [];
+  const pushSae = (code: string, spec: SaeSpec) => {
+    const subj = subjectsOf(code)[0];
+    const studyId = (studies.data ?? []).find((s) => s.code === code)?.id ?? "";
+    if (subj) saeReports.push({ id: `sae-${code}`, study_id: studyId, subject_id: subj.id, ...spec });
+  };
+  // CA-0801 — drug-related hypersensitivity; notified same day (filed on time).
+  pushSae("CA-0801", { description: "Serious hypersensitivity reaction", onset_date: "2025-09-15", severity: "Severe", relatedness: "Probable", sae_criterion: "Life-threatening", outcome: "Recovered", pi_aware_date: "2025-09-15", sponsor_notified_date: "2025-09-15" });
+  // BR-2502 — fatal BRD despite treatment; notified +1 day (on time, borderline).
+  pushSae("BR-2502", { description: "Fatal bovine respiratory disease despite treatment", onset_date: "2026-01-12", severity: "Severe", relatedness: "Unlikely", sae_criterion: "Death", outcome: "Fatal", pi_aware_date: "2026-01-12", sponsor_notified_date: "2026-01-13" });
+  // PH-2401 — sudden pen-level mortality spike; report still pending.
+  pushSae("PH-2401", { description: "Sudden mortality spike >10% in 24h (pen-level)", onset_date: "2026-03-22", severity: "Severe", relatedness: "Unlikely", sae_criterion: "Other important medical event", outcome: "Ongoing", pi_aware_date: "2026-03-22", sponsor_notified_date: null });
+
   return {
-    studies: (studies.data ?? []) as Dataset["studies"],
+    studies: studiesWithTargets,
     sites: sitesWithTargets,
     barns: (barns.data ?? []) as Dataset["barns"],
     pens: (pens.data ?? []) as Dataset["pens"],
@@ -198,6 +223,7 @@ export async function hydrateFromSupabase(): Promise<Dataset> {
     unblindings: [], // session-only — emergency-unblinding log
     studyLocks: [], // session-only — database-lock log
     conMeds, // session-only — seeded concomitant medications
+    saeReports, // session-only — seeded SAE reporting timelines
     memberships: (memberships.data ?? []) as Dataset["memberships"],
     speciesRanges: (speciesRanges.data ?? []) as Dataset["speciesRanges"],
   };

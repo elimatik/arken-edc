@@ -7,28 +7,64 @@ import { Section, StatGrid, StatTile, EmptyNote, fmtDate } from "@/components/re
 import { buildAeRoster, safetySummary, aeBySite, aeByArm, dartDistribution, brWithdrawalBlocks, type AeRow } from "@/lib/reports-data";
 
 const SEV_CLS: Record<string, string> = { mild: "ms-done", moderate: "ms-active", severe: "ms-crit", "life-threatening": "ms-crit" };
+const FILED_META: Record<string, { label: string; cls: string }> = {
+  yes: { label: "Yes", cls: "ms-done" }, no: { label: "No", cls: "ms-crit" }, pending: { label: "Pending", cls: "ms-active" },
+};
 
-function AeTable({ rows, sae }: { rows: AeRow[]; sae?: boolean }) {
+function AeTable({ rows }: { rows: AeRow[] }) {
   return (
     <table className="rpt-table">
       <thead><tr>
         <th>Subject</th><th>Site</th><th>AE description</th><th>Onset</th><th>Severity</th>
-        <th>Relatedness</th>{sae && <th>SAE criterion</th>}<th>Status</th><th>Outcome</th>
+        <th>Relatedness</th><th>Status</th><th>Outcome</th>
       </tr></thead>
       <tbody>
         {rows.map((a, i) => (
           <tr key={i} className={a.serious ? "rpt-row-crit" : ""}>
             <td className="mono">{a.subjectCode}</td>
             <td>{a.siteName}</td>
-            <td>{a.description}{a.serious && !sae && <span className="rpt-sae-tag">SAE</span>}</td>
+            <td>{a.description}{a.serious && <span className="rpt-sae-tag">SAE</span>}</td>
             <td className="mono">{fmtDate(a.onsetDate)}</td>
             <td><span className={`rpt-ms-chip ${SEV_CLS[a.severity.toLowerCase()] ?? "ms-future"}`}>{a.severity}</span></td>
             <td>{a.relatedness}</td>
-            {sae && <td>{a.saeCriterion ?? "—"}</td>}
             <td>{a.status}</td>
             <td>{a.outcome}</td>
           </tr>
         ))}
+      </tbody>
+    </table>
+  );
+}
+
+// SAE sub-table with the GCP/VICH reporting timeline.
+function SaeTimelineTable({ rows }: { rows: AeRow[] }) {
+  return (
+    <table className="rpt-table">
+      <thead><tr>
+        <th>Subject</th><th>Site</th><th>AE description</th><th>SAE date</th><th>Severity</th>
+        <th>Relatedness</th><th>SAE criterion</th><th>PI aware</th><th>Sponsor notified</th>
+        <th>Days to notify</th><th>Report due</th><th>Filed on time</th>
+      </tr></thead>
+      <tbody>
+        {rows.map((a, i) => {
+          const filed = a.filedOnTime ? FILED_META[a.filedOnTime] : null;
+          return (
+            <tr key={i} className="rpt-row-crit">
+              <td className="mono">{a.subjectCode}</td>
+              <td>{a.siteName}</td>
+              <td>{a.description}</td>
+              <td className="mono">{fmtDate(a.onsetDate)}</td>
+              <td><span className={`rpt-ms-chip ${SEV_CLS[a.severity.toLowerCase()] ?? "ms-future"}`}>{a.severity}</span></td>
+              <td>{a.relatedness}</td>
+              <td>{a.saeCriterion ?? "—"}</td>
+              <td className="mono">{fmtDate(a.piAwareDate)}</td>
+              <td className="mono">{a.sponsorNotifiedDate ? fmtDate(a.sponsorNotifiedDate) : <span className="rpt-ms-chip ms-active">Pending</span>}</td>
+              <td className={`mono${a.daysToNotify == null ? "" : a.daysToNotify <= 1 ? " cell-good" : " cell-crit"}`}>{a.daysToNotify == null ? "—" : `${a.daysToNotify}d`}</td>
+              <td className="mono">{fmtDate(a.reportDueDate)}</td>
+              <td>{filed ? <span className={`rpt-ms-chip ${filed.cls}`}>{filed.label}</span> : "—"}</td>
+            </tr>
+          );
+        })}
       </tbody>
     </table>
   );
@@ -69,7 +105,8 @@ export function AeSaeSummaryReport({ studyId, aggregate, hideArms }: ReportProps
           {d.saes.length > 0 ? (
             <>
               <div className="rpt-action-banner"><i className="ti ti-urgent"></i> {d.saes.length} serious {d.saes.length === 1 ? "event" : "events"} — expedited reporting may be required.</div>
-              <AeTable rows={d.saes} sae />
+              <SaeTimelineTable rows={d.saes} />
+              <p className="rpt-footnote">SAE reporting timelines per ICH E6 R2 §5.17 and VICH GL42. Fatal or life-threatening SAEs: sponsor notification within 24 h, regulatory report within 7 calendar days. All other SAEs: 15 days.</p>
             </>
           ) : <EmptyNote>No serious adverse events recorded for this study.</EmptyNote>}
         </Section>

@@ -21,6 +21,10 @@ export function EnrollmentDispositionReport({ studyId, aggregate, hideArms }: Re
   const { study } = useShell();
   const { sort, toggle } = useTableSort(null);
   const showArm = !hideArms;
+  // PH-2401 enrolls pens, not individual birds — swap the experimental-unit labels.
+  const isPen = study.code === "PH-2401";
+  const unit = isPen ? "Pen" : "Subject";
+  const fLabel = (base: string) => (isPen ? `Pens ${base.toLowerCase()}` : base);
 
   const d = useMemo(() => {
     const ix = buildSubjectIndex(dataset, studyId);
@@ -70,22 +74,27 @@ export function EnrollmentDispositionReport({ studyId, aggregate, hideArms }: Re
 
   return (
     <>
-      <Section title="Disposition funnel" icon="filter">
+      {isPen && (
+        <div className="rpt-action-banner" style={{ background: "var(--blue-50)", color: "var(--blue-600)" }}>
+          <i className="ti ti-info-circle"></i> Pen-level enrollment — PH-2401 uses the pen as the experimental unit; individual bird mortality is tracked in the Flock Health form, not as subject disposition.
+        </div>
+      )}
+      <Section title={`${unit} disposition funnel`} icon="filter">
         <Funnel steps={[
-          { label: "Screened", value: d.funnel.screened },
-          { label: "Eligible", value: d.funnel.eligible },
-          { label: "Enrolled", value: d.funnel.enrolled, tone: "blue" },
-          { label: "Active", value: d.funnel.active, tone: "good" },
-          { label: "Completed", value: d.funnel.completed, tone: "good" },
-          { label: "Withdrawn", value: d.funnel.withdrawn, tone: "warn" },
+          { label: fLabel("Screened"), value: d.funnel.screened },
+          { label: fLabel("Eligible"), value: d.funnel.eligible },
+          { label: fLabel("Enrolled"), value: d.funnel.enrolled, tone: "blue" },
+          { label: fLabel("Active"), value: d.funnel.active, tone: "good" },
+          { label: fLabel("Completed"), value: d.funnel.completed, tone: "good" },
+          { label: fLabel("Withdrawn"), value: d.funnel.withdrawn, tone: "warn" },
           { label: "Screen fails", value: d.funnel.screenFailures, tone: "crit" },
         ]} />
       </Section>
 
-      <Section title="Subject disposition" icon="users" action={!aggregate && <ExportCsvButton studyCode={study.code} slug="enrollment_disposition" headers={csvHeaders} rows={csvRows} />}>
+      <Section title={`${unit} disposition`} icon="users" action={!aggregate && <ExportCsvButton studyCode={study.code} slug="enrollment_disposition" headers={csvHeaders} rows={csvRows} />}>
         {aggregate ? (
           <table className="rpt-table">
-            <thead><tr><th>Site</th>{showArm && <th>Arm</th>}<th>Subjects</th></tr></thead>
+            <thead><tr><th>Site</th>{showArm && <th>Arm</th>}<th>{isPen ? "Pens" : "Subjects"}</th></tr></thead>
             <tbody>
               {sponsorRows.map((r, i) => <tr key={i}><td>{r.site}</td>{showArm && <td>{r.arm}</td>}<td className="mono">{r.count}</td></tr>)}
             </tbody>
@@ -93,7 +102,7 @@ export function EnrollmentDispositionReport({ studyId, aggregate, hideArms }: Re
         ) : (
           <table className="rpt-table">
             <thead><tr>
-              <SortTh label="Subject" sortKey="subject" sort={sort} onSort={toggle} />
+              <SortTh label={isPen ? "Pen ID" : "Subject"} sortKey="subject" sort={sort} onSort={toggle} />
               {showArm && <SortTh label="Arm" sortKey="arm" sort={sort} onSort={toggle} />}
               <SortTh label="Site" sortKey="site" sort={sort} onSort={toggle} />
               <SortTh label="Status" sortKey="status" sort={sort} onSort={toggle} />
@@ -115,6 +124,9 @@ export function EnrollmentDispositionReport({ studyId, aggregate, hideArms }: Re
               ))}
             </tbody>
           </table>
+        )}
+        {isPen && (
+          <p className="rpt-footnote">Individual bird mortality (cumulative flock mortality %) is reported in the Flock Health &amp; Litter form and summarized in the AE / SAE Roster. Pen withdrawal (removing an entire pen from the study) is distinct from flock mortality.</p>
         )}
       </Section>
 

@@ -8,9 +8,16 @@ import type { Dataset, FormInstanceRow } from "./session-store/types";
 
 // Per-study visit windows (day → ± allowed days). Drives both the schedule and
 // the on-time / outside-window classification.
+// Protocol-realistic windows (± allowed days) per study visit day. The set of
+// days here also defines which visits are scheduled.
+//  CA-0801 (84-day atopic-derm): Day 0 exact (eligibility), follow-ups ±3, EOS ±5.
+//  BR-2502 (28-day BRD): Day 0 exact (same-day treatment), Day 3 ±1 (rapid
+//    progression), Day 7/14 ±2, Day 28 ±3.
+//  PH-2401 (42-day broiler): all weekly weighings ±2 (production trials are less
+//    time-critical than disease trials).
 export const VISIT_WINDOWS: Record<string, Record<number, number>> = {
-  "CA-0801": { 14: 2, 28: 3, 56: 5, 84: 5 },
-  "BR-2502": { 0: 0, 3: 1, 7: 2, 14: 3, 28: 4 },
+  "CA-0801": { 0: 0, 14: 3, 28: 3, 42: 3, 56: 3, 84: 5 },
+  "BR-2502": { 0: 0, 3: 1, 7: 2, 14: 2, 28: 3 },
   "PH-2401": { 7: 2, 14: 2, 21: 2, 28: 2, 35: 2, 42: 2 },
 };
 

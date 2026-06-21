@@ -7,7 +7,7 @@
 // ════════════════════════════════════════════════════════════════════════════
 import type { Dataset, SubjectRow } from "@/lib/session-store/types";
 import type { Role } from "@/lib/permissions";
-import { buildVisits } from "@/lib/visits-data";
+import { buildVisits, addDays } from "@/lib/visits-data";
 
 // ─── Report catalog ──────────────────────────────────────────────────────────
 export type ReportId =
@@ -267,7 +267,7 @@ export function sitePerformance(dataset: Dataset, studyId: string): SitePerfRow[
     }).length;
     const sdvVerified = dataset.sdvRecords.filter((r) => r.status === "verified" && instIds.has(r.form_instance_id)).length;
     const openQueries = dataset.queries.filter((q) => instIds.has(q.form_instance_id) && q.status !== "resolved" && (!q.field_value_id || fvById.has(q.field_value_id))).length;
-    const overdueVisits = visits.filter((v) => v.siteId === site.id && !v.completed && v.subjectStatus === "active" && v.targetDate < today).length;
+    const overdueVisits = visits.filter((v) => v.siteId === site.id && !v.completed && v.subjectStatus === "active" && addDays(v.targetDate, v.window) < today).length;
     // last data entry ≈ latest date value carried on any of this site's instances.
     let lastDataEntry: string | null = null;
     for (const v of dataset.fieldValues) {
@@ -325,7 +325,9 @@ export function visitComplianceRows(dataset: Dataset, studyId: string): VisitCom
       status = Math.abs(daysFromTarget) <= v.window ? "on-time" : "outside";
     } else if (v.completed) {
       status = "on-time";
-    } else if (v.subjectStatus === "active" && v.targetDate < today) {
+    } else if (v.subjectStatus === "active" && addDays(v.targetDate, v.window) < today) {
+      // Overdue only once today is past the window END — a visit still inside its
+      // window is not overdue even if the target date has passed.
       status = "overdue"; daysFromTarget = dayDiff(v.targetDate, today);
     } else {
       status = "pending";
@@ -499,7 +501,14 @@ export function resolutionBySite(dataset: Dataset, studyId: string): SiteResolut
 }
 
 // ─── Safety / AE ─────────────────────────────────────────────────────────────
-export interface AeRow { subjectCode: string; siteName: string; arm: string | null; description: string; onsetDate: string | null; severity: string; relatedness: string; status: string; outcome: string; serious: boolean; saeCriterion: string | null }
+export type FiledStatus = "yes" | "no" | "pending";
+export interface AeRow {
+  subjectCode: string; siteName: string; arm: string | null; description: string; onsetDate: string | null;
+  severity: string; relatedness: string; status: string; outcome: string; serious: boolean; saeCriterion: string | null;
+  // SAE reporting timeline — populated only for seeded SAE records (null otherwise).
+  piAwareDate: string | null; sponsorNotifiedDate: string | null; reportDueDate: string | null;
+  daysToNotify: number | null; filedOnTime: FiledStatus | null;
+}
 const SAE_YES = new Set(["yes", "true", "y", "1", "serious"]);
 
 // Normalise free-form causality to the standard ICH E6 categories.
@@ -550,6 +559,26 @@ export function buildAeRoster(dataset: Dataset, studyId: string): AeRow[] {
       severity: vals.get("severity") ?? "—", relatedness: normalizeRelatedness(vals.get("relatedness") ?? vals.get("relationship")),
       status: vals.get("ongoing") === "Yes" ? "Ongoing" : (vals.get("outcome") ? "Closed" : "Open"),
       outcome: vals.get("outcome") ?? "—", serious, saeCriterion: saeCriterionOf(vals, serious),
+      piAwareDate: null, sponsorNotifiedDate: null, reportDueDate: null, daysToNotify: null, filedOnTime: null,
+    });
+  }
+
+  // Merge seeded SAEs (with reporting timeline). Fatal / life-threatening → 7-day
+  // regulatory report window; all other serious events → 15 days.
+  for (const sae of (dataset.saeReports ?? []).filter((s) => s.study_id === studyId)) {
+    const subj = subById.get(sae.subject_id);
+    if (!subj) continue;
+    const fatal = /death|fatal|life/i.test(sae.sae_criterion);
+    const reportDueDate = addDays(sae.pi_aware_date, fatal ? 7 : 15);
+    const daysToNotify = sae.sponsor_notified_date ? dayDiff(sae.pi_aware_date, sae.sponsor_notified_date) : null;
+    const filedOnTime: FiledStatus = sae.sponsor_notified_date == null ? "pending" : sae.sponsor_notified_date <= reportDueDate ? "yes" : "no";
+    rows.push({
+      subjectCode: subj.subject_code, siteName: subj.site_id ? siteById.get(subj.site_id)?.name ?? "—" : "—",
+      arm: subj.randomization_arm, description: sae.description, onsetDate: sae.onset_date,
+      severity: sae.severity, relatedness: normalizeRelatedness(sae.relatedness),
+      status: sae.outcome && sae.outcome !== "Ongoing" ? "Closed" : "Ongoing", outcome: sae.outcome,
+      serious: true, saeCriterion: sae.sae_criterion,
+      piAwareDate: sae.pi_aware_date, sponsorNotifiedDate: sae.sponsor_notified_date, reportDueDate, daysToNotify, filedOnTime,
     });
   }
   return rows.sort((a, b) => (b.onsetDate ?? "").localeCompare(a.onsetDate ?? ""));

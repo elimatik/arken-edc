@@ -189,6 +189,23 @@ export interface MembershipRow {
   role: Role;
 }
 
+// Serious adverse event with its GCP/VICH reporting timeline. Session-only seed
+// (the AE forms carry no notification dates); the AE/SAE Roster merges these into
+// the serious-event sub-section. `sponsor_notified_date` null = not yet notified.
+export interface SaeReportRow {
+  id: string;
+  study_id: string;
+  subject_id: string;
+  description: string;
+  onset_date: string;
+  severity: string;
+  relatedness: string;
+  sae_criterion: string; // Death | Life-threatening | Hospitalization | Disability | Congenital anomaly | Other important medical event
+  outcome: string;
+  pi_aware_date: string;
+  sponsor_notified_date: string | null;
+}
+
 // Concomitant medication — a medicine a subject takes alongside the investigational
 // product. Session-only seed data (no conmeds table in Supabase); the ConMed Log
 // report reads these directly. `interaction` flags a known drug-interaction class
@@ -302,6 +319,7 @@ export interface Dataset {
   unblindings: UnblindingRow[]; // session-only emergency-unblinding log
   studyLocks: StudyLockRow[]; // session-only database-lock log
   conMeds: ConMedRow[]; // session-only concomitant-medication seed
+  saeReports: SaeReportRow[]; // session-only SAE reporting-timeline seed
   memberships: MembershipRow[];
   speciesRanges: SpeciesRangeRow[];
 }
@@ -325,6 +343,7 @@ export const EMPTY_DATASET: Dataset = {
   unblindings: [],
   studyLocks: [],
   conMeds: [],
+  saeReports: [],
   memberships: [],
   speciesRanges: [],
 };

@@ -107,6 +107,7 @@
 .rpt-prop-leg { display: inline-flex; align-items: center; gap: 6px; }
 .rpt-prop-leg i { width: 10px; height: 10px; border-radius: var(--radius-sm); display: inline-block; }
 .rpt-bar-caption { margin-top: var(--space-2); font-size: var(--text-xs); color: var(--color-text-tertiary); }
+.rpt-footnote { margin-top: var(--space-3); font-size: var(--text-xs); color: var(--color-text-tertiary); line-height: 1.5; max-width: 90ch; }
 
 /* ─── Tables ──────────────────────────────────────────────────────────────── */
 .rpt-table { width: 100%; border-collapse: collapse; font-size: var(--text-sm); background: var(--color-surface); border: 1px solid var(--color-border); border-radius: var(--radius-lg); overflow: hidden; }
