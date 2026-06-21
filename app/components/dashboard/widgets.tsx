@@ -257,7 +257,7 @@ export function QcatRow({ label, n, pct, fill }: { label: string; n: number; pct
     <div className="qcat-row">
       <span className="qcat-label">{label}</span>
       <div className="qcat-track">
-        <div className="qcat-fill" style={{ width: `${pct}%`, background: QCAT_COLORS[fill] || "var(--blue-600)" }}></div>
+        <div className="qcat-fill" style={{ width: `${pct}%`, background: "var(--blue-400)" }}></div>
       </div>
       <span className="qcat-count">{n}</span>
     </div>

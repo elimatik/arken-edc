@@ -11,6 +11,7 @@ import {
   subjectCounts, openQueryCount, respondedQueryCount, formProgress, sdvProgress, openEditCheckCount,
   pendingDeltaCount, visitCompliance, upcomingVisits, formProgressBySite, sdvProgressBySite, queryWorklist,
   brMorbidity, brMortality, brRetreatment, brMeanDart, brEnrollmentBySite, editChecksBySite,
+  phFlockHealth, phMeanFcr, phMeanAdg, phFeedAnalysisStatus,
   type SiteEnrollment, type SiteFormProgress, type RatePct,
 } from "@/lib/dashboard-data";
 import type { Dataset, FieldValueRow } from "@/lib/session-store/types";
@@ -312,7 +313,7 @@ export function RoleDashboard({ role, studyName, studyCode, today }: Props) {
 
   // CA-0801 and BR-2502 have bespoke role dashboards wired to live store
   // aggregates; other studies/roles fall back to the generic renderers.
-  const caRender = studyCode === "CA-0801" ? CA_RENDERERS[role] : studyCode === "BR-2502" ? BR_RENDERERS[role] : undefined;
+  const caRender = studyCode === "CA-0801" ? CA_RENDERERS[role] : studyCode === "BR-2502" ? BR_RENDERERS[role] : studyCode === "PH-2401" ? PH_RENDERERS[role] : undefined;
   return (
     <div className="dashboard">
       <nav className="dashboard-bc" aria-label="Breadcrumb">
@@ -873,6 +874,144 @@ const BR_RENDERERS: Partial<Record<Role, CaRenderer>> = {
   DM: renderBrDM,
 };
 
+// ════════════════════════════════════════════════════════════════════════════
+// PH-2401 — live-wired CRC / CRA / DM / Sponsor dashboards (pens, not animals;
+// single facility). All data scoped to the PH study from the store — never the
+// generic CA placeholders.
+// ════════════════════════════════════════════════════════════════════════════
+function PhFlockHealthCard({ dataset }: { dataset: Dataset }) {
+  const fh = phFlockHealth(dataset);
+  const fcr = phMeanFcr(dataset);
+  const adg = phMeanAdg(dataset);
+  return (
+    <Card title="Flock health (study)" icon="ti-feather">
+      <div className="brd-stat-row">
+        <div className="brd-stat"><div className="brd-stat-val">{fh.totalBirdsPlaced}</div><div className="brd-stat-lbl">Birds placed</div></div>
+        <div className="brd-stat"><div className="brd-stat-val">{fh.currentAlive}</div><div className="brd-stat-lbl">Currently alive</div></div>
+        <div className="brd-stat"><div className="brd-stat-val" style={{ color: SEV(fh.mortalityPct, 4, 7) }}>{fh.mortalityPct == null ? "—" : `${fh.mortalityPct.toFixed(1)}%`}</div><div className="brd-stat-lbl">Mortality</div><div className="brd-stat-sub mono">{fh.cumulativeMortality} birds</div></div>
+        <div className="brd-stat"><div className="brd-stat-val">{fcr == null ? "—" : fcr.toFixed(2)}</div><div className="brd-stat-lbl">Mean FCR</div><div className="brd-stat-sub mono">ADG {adg == null ? "—" : Math.round(adg)} g/d</div></div>
+      </div>
+      <div className="card-note">Live rollup across pens. Mortality = cumulative deaths ÷ birds placed.</div>
+    </Card>
+  );
+}
+
+// ══ PH-2401 · CRC ══════════════════════════════════════════════════════════
+function renderPhCRC(_agg: StudyAggregates, dataset: Dataset, studyId: string) {
+  const sc = subjectCounts(dataset, studyId);
+  const fp = formProgress(dataset, studyId);
+  const vc = visitCompliance(dataset, studyId);
+  return (
+    <>
+      <div className="stat-row" style={{ gridTemplateColumns: "repeat(4,1fr)" }}>
+        <Chip val={String(sc.total)} label="Pens enrolled" accent="blue" />
+        <Chip val={String(openQueryCount(dataset, studyId))} label="Open queries" accent={openQueryCount(dataset, studyId) ? "alert" : ""} />
+        <Chip val={`${fp.completed} / ${fp.total}`} label="Forms completed" />
+        <Chip val={`${vc.overdue} · ${vc.dueThisWeek}`} label="visits overdue · due this week" accent={vc.overdue ? "alert" : vc.dueThisWeek ? "warn" : ""} />
+      </div>
+      <div style={{ display: "grid", gridTemplateColumns: "repeat(2, 1fr)", gap: "var(--space-4)", marginTop: "var(--space-4)" }}>
+        <div className="dash-col">
+          <PhFlockHealthCard dataset={dataset} />
+          <SiteProgressCard rows={formProgressBySite(dataset, studyId)} title="Data entry progress" icon="ti-forms" />
+        </div>
+        <div className="dash-col">
+          <UpcomingVisitsCard dataset={dataset} studyId={studyId} />
+          <OpenQueriesCountCard dataset={dataset} studyId={studyId} />
+        </div>
+      </div>
+    </>
+  );
+}
+
+// ══ PH-2401 · CRA ══════════════════════════════════════════════════════════
+function renderPhCRA(_agg: StudyAggregates, dataset: Dataset, studyId: string) {
+  const sdv = sdvProgress(dataset, studyId);
+  const toResolve = openQueryCount(dataset, studyId);
+  const ec = openEditCheckCount(dataset, studyId);
+  const fa = phFeedAnalysisStatus(dataset);
+  const sdvPct = sdv.total ? Math.round((sdv.verified / sdv.total) * 100) : 0;
+  return (
+    <>
+      <div className="stat-row" style={{ gridTemplateColumns: "repeat(4,1fr)" }}>
+        <Chip val={`${sdv.verified} / ${sdv.total}`} label={`Fields SDV-verified (${sdvPct}%)`} accent="blue" />
+        <Chip val={String(toResolve)} label="Queries to resolve" accent={toResolve ? "alert" : ""} />
+        <Chip val={String(ec)} label="Open edit checks" accent={ec ? "alert" : ""} />
+        <Chip val={`${fa.confirmed} / ${fa.total}`} label="T02 feed analysis confirmed" accent={fa.pending ? "warn" : "good"} />
+      </div>
+      <div style={{ display: "grid", gridTemplateColumns: "repeat(2, 1fr)", gap: "var(--space-4)", marginTop: "var(--space-4)" }}>
+        <div className="dash-col">
+          <SiteProgressCard rows={sdvProgressBySite(dataset, studyId)} title="SDV progress" icon="ti-shield-check" suffix="fields" />
+          <PhFlockHealthCard dataset={dataset} />
+        </div>
+        <div className="dash-col">
+          <QueryWorklistCard dataset={dataset} studyId={studyId} />
+          <VisitWindowsCard vc={visitCompliance(dataset, studyId)} note="PH-2401 weekly visits (Day 7–42) vs ±2-day windows." />
+        </div>
+      </div>
+    </>
+  );
+}
+
+// ══ PH-2401 · DM ═══════════════════════════════════════════════════════════
+function renderPhDM(_agg: StudyAggregates, dataset: Dataset, studyId: string) {
+  const ec = openEditCheckCount(dataset, studyId);
+  const pendingDelta = pendingDeltaCount(dataset, studyId);
+  const open = openQueryCount(dataset, studyId), responded = respondedQueryCount(dataset, studyId);
+  const clean = open === 0 && ec === 0 && pendingDelta === 0;
+  return (
+    <>
+      <div className="stat-row" style={{ gridTemplateColumns: "repeat(4,1fr)" }}>
+        <Chip val={String(ec)} label="Open edit checks" accent={ec ? "alert" : ""} />
+        <Chip val={String(pendingDelta)} label="Pending Δ approvals" accent={pendingDelta ? "warn" : ""} />
+        <Chip val={`${open} · ${responded}`} label="Queries open · responded" accent={open ? "alert" : ""} />
+        <Chip val={clean ? "Clean" : "Issues"} label="Lock readiness" accent={clean ? "good" : "warn"} />
+      </div>
+      <div style={{ display: "grid", gridTemplateColumns: "repeat(2, 1fr)", gap: "var(--space-4)", marginTop: "var(--space-4)" }}>
+        <div className="dash-col">
+          <PhFlockHealthCard dataset={dataset} />
+          <SiteProgressCard rows={formProgressBySite(dataset, studyId)} title="Data entry progress" icon="ti-forms" />
+        </div>
+        <div className="dash-col">
+          <VisitWindowsCard vc={visitCompliance(dataset, studyId)} note="PH-2401 weekly visits (Day 7–42) vs ±2-day windows." />
+          <QueryWorklistCard dataset={dataset} studyId={studyId} />
+        </div>
+      </div>
+    </>
+  );
+}
+
+// ══ PH-2401 · Sponsor (live aggregate) ═════════════════════════════════════
+function renderPhSponsor(_agg: StudyAggregates, dataset: Dataset, studyId: string) {
+  const sc = subjectCounts(dataset, studyId);
+  const fh = phFlockHealth(dataset);
+  const fcr = phMeanFcr(dataset);
+  return (
+    <>
+      <div className="stat-row" style={{ gridTemplateColumns: "repeat(4,1fr)" }}>
+        <Chip val={String(sc.total)} label="Pens enrolled" accent="blue" />
+        <Chip val={String(fh.totalBirdsPlaced)} label="Birds placed" accent="good" />
+        <Chip val={fh.mortalityPct == null ? "—" : `${fh.mortalityPct.toFixed(1)}%`} label="Mortality" accent={fh.mortalityPct && fh.mortalityPct > 5 ? "warn" : "good"} />
+        <Chip val={fcr == null ? "—" : fcr.toFixed(2)} label="Mean FCR" />
+      </div>
+      <div style={{ display: "grid", gridTemplateColumns: "repeat(2, 1fr)", gap: "var(--space-4)", marginTop: "var(--space-4)" }}>
+        <div className="dash-col">
+          <PhFlockHealthCard dataset={dataset} />
+        </div>
+        <div className="dash-col">
+          <VisitWindowsCard vc={visitCompliance(dataset, studyId)} note="PH-2401 weekly visits (Day 7–42) vs ±2-day windows." />
+        </div>
+      </div>
+    </>
+  );
+}
+
+const PH_RENDERERS: Partial<Record<Role, CaRenderer>> = {
+  CRC: renderPhCRC,
+  CRA: renderPhCRA,
+  DM: renderPhDM,
+  Sponsor: renderPhSponsor,
+};
+
 // ══ CRC ═══════════════════════════════════════════════════════════════════
 function renderCRC() {
   return (
@@ -1167,9 +1306,8 @@ function renderSponsor() {
         <div className="dash-col">
           <Card title="Study enrollment" icon="ti-users">
             <EnrollBar cur={89} tgt={120} pct={74} legs={[
-              { c: "var(--blue-600)", t: "Enrolled — 89" },
-              { c: "var(--green-600)", t: "On track" },
-              { c: "var(--color-border)", t: "31 remaining" },
+              { c: "var(--blue-400)", t: "Enrolled — 89" },
+              { c: "var(--slate-300)", t: "31 remaining" },
             ]} />
           </Card>
           <Card title="Key milestones" icon="ti-flag-2">
