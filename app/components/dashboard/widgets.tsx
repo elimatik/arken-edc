@@ -251,14 +251,9 @@ export function SdvRow({ name, pct }: { name: string; pct: number }) {
 }
 
 // ─── Query category row ──────────────────────────────────────────────────────
-const QCAT_COLORS: Record<string, string> = {
-  ec: "var(--amber-700)",
-  md: "var(--orange-700)",
-  or: "var(--red-600)",
-  sd: "var(--purple-600)",
-  ot: "var(--slate-600)",
-};
-export function QcatRow({ label, n, pct, fill }: { label: string; n: number; pct: number; fill: string }) {
+// `fill` is accepted (callers tag rows by category) but the bar uses a single
+// token (--blue-400) for visual consistency, so it is intentionally not read.
+export function QcatRow({ label, n, pct }: { label: string; n: number; pct: number; fill?: string }) {
   return (
     <div className="qcat-row">
       <span className="qcat-label">{label}</span>

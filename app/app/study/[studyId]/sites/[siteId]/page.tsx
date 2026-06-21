@@ -85,7 +85,13 @@ export default function SiteRecordPage() {
     regulatory_authority: s?.regulatory_authority ?? "USDA", import_export_required: s?.import_export_required ?? "No", permit_number: s?.permit_number ?? "",
   });
   const [form, setForm] = useState(() => initForm(site));
-  useEffect(() => { if (site && !editingInfo && !editingReg) setForm(initForm(site)); /* eslint-disable-next-line */ }, [site?.id, editingInfo, editingReg]);
+  useEffect(() => {
+    if (site && !editingInfo && !editingReg) setForm(initForm(site));
+    // intentional: re-init the form only when the site identity or an edit-mode
+    // toggle changes — not on every initForm/site reference (initForm is a stable
+    // local factory; depending on it would re-init on each render).
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [site?.id, editingInfo, editingReg]);
   const set = (k: keyof ReturnType<typeof initForm>, v: string) => setForm((f) => ({ ...f, [k]: v }));
 
   function save() {

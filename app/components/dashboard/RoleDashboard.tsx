@@ -14,7 +14,7 @@ import {
   phFlockHealth, phMeanFcr, phMeanAdg, phFeedAnalysisStatus,
   type SiteEnrollment, type SiteFormProgress, type RatePct,
 } from "@/lib/dashboard-data";
-import type { Dataset, FieldValueRow } from "@/lib/session-store/types";
+import type { Dataset } from "@/lib/session-store/types";
 import type { Role } from "@/lib/permissions";
 import {
   Card,
@@ -139,105 +139,6 @@ function computeAggregates(dataset: Dataset, studyId: string): StudyAggregates {
     arms: Array.from(armMap.entries()).map(([label, count]) => ({ label, count })),
     queryList,
   };
-}
-
-// ─── CA-0801 visit-window compliance ─────────────────────────────────────────
-// Scheduled follow-up / end-of-study visits with their allowed ± windows (days).
-// The visit day is read from the parent visit form name ("… Day N"); the actual
-// date is the `visit_date` value on that visit's Physical Examination sub-form.
-const CA_VISIT_WINDOWS: Record<number, number> = { 14: 2, 28: 3, 56: 5, 84: 5 };
-
-export interface VisitCompliance {
-  onTime: number;
-  outside: number;
-  overdue: number;
-}
-
-function caVisitCompliance(dataset: Dataset, studyId: string): VisitCompliance {
-  const forms = dataset.forms.filter((f) => f.study_id === studyId);
-  const formById = new Map(forms.map((f) => [f.id, f]));
-  const subs = dataset.subjects.filter((s) => s.study_id === studyId);
-  const subjIds = new Set(subs.map((s) => s.id));
-
-  // The `visit_date` field id per form (the sub-form that carries the visit date).
-  const visitDateFieldByForm = new Map<string, string>();
-  for (const ff of dataset.formFields) {
-    if (ff.code === "visit_date" && formById.has(ff.form_id)) visitDateFieldByForm.set(ff.form_id, ff.id);
-  }
-
-  // Scheduled visits = forms with a `visit_date` field whose parent visit container
-  // name contains "Day N" and N is a known follow-up/EOS window day.
-  const scheduled: { formId: string; fieldId: string; day: number; window: number }[] = [];
-  for (const [formId, fieldId] of Array.from(visitDateFieldByForm.entries())) {
-    const form = formById.get(formId);
-    if (!form) continue;
-    const parent = form.parent_form_id ? formById.get(form.parent_form_id) : undefined;
-    const m = (parent?.name ?? form.name).match(/Day\s+(\d+)/i);
-    const day = m ? Number(m[1]) : NaN;
-    const window = CA_VISIT_WINDOWS[day];
-    if (window != null) scheduled.push({ formId, fieldId, day, window });
-  }
-
-  // Per subject: enrollment baseline = earliest non-empty visit_date across the
-  // subject's instances (the Screening / Baseline visit date).
-  const insts = dataset.formInstances.filter((i) => i.subject_id != null && subjIds.has(i.subject_id));
-  const visitDateFieldIds = new Set(Array.from(visitDateFieldByForm.values()));
-  const fvByInst = new Map<string, FieldValueRow[]>();
-  for (const v of dataset.fieldValues) {
-    const arr = fvByInst.get(v.form_instance_id);
-    if (arr) arr.push(v);
-    else fvByInst.set(v.form_instance_id, [v]);
-  }
-  const parseDate = (s?: string | null) => {
-    if (!s) return null;
-    const d = new Date(s);
-    return Number.isNaN(d.getTime()) ? null : d;
-  };
-
-  const baselineBySubject = new Map<string, Date>();
-  for (const inst of insts) {
-    if (inst.subject_id == null) continue;
-    for (const v of fvByInst.get(inst.id) ?? []) {
-      if (!visitDateFieldIds.has(v.form_field_id)) continue;
-      const d = parseDate(v.value);
-      if (!d) continue;
-      const cur = baselineBySubject.get(inst.subject_id);
-      if (!cur || d.getTime() < cur.getTime()) baselineBySubject.set(inst.subject_id, d);
-    }
-  }
-
-  // The actual visit date per (subject, scheduled form): visit_date on its instance.
-  const actualBySubjectForm = new Map<string, Date>();
-  for (const inst of insts) {
-    if (inst.subject_id == null) continue;
-    const fieldId = visitDateFieldByForm.get(inst.form_id);
-    if (!fieldId) continue;
-    const fv = (fvByInst.get(inst.id) ?? []).find((v) => v.form_field_id === fieldId);
-    const d = parseDate(fv?.value);
-    if (d) actualBySubjectForm.set(`${inst.subject_id}|${inst.form_id}`, d);
-  }
-
-  const today = new Date();
-  let onTime = 0;
-  let outside = 0;
-  let overdue = 0;
-  for (const sub of subs) {
-    const baseline = baselineBySubject.get(sub.id);
-    if (!baseline) continue; // not yet enrolled (no baseline visit date)
-    for (const sv of scheduled) {
-      const target = new Date(baseline.getTime() + sv.day * 86400000);
-      const actual = actualBySubjectForm.get(`${sub.id}|${sv.formId}`);
-      if (actual) {
-        const diff = Math.abs(actual.getTime() - target.getTime()) / 86400000;
-        if (diff <= sv.window) onTime++;
-        else outside++;
-      } else if (target.getTime() < today.getTime()) {
-        overdue++;
-      }
-      // Future, not-yet-due, incomplete visits are not counted.
-    }
-  }
-  return { onTime, outside, overdue };
 }
 
 // 4-colour visit-urgency palette (Tailwind 400). Legend dot = bar fill (same token).
