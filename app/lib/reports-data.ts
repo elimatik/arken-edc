@@ -120,15 +120,19 @@ const earliestDate = (m: Map<string, string[]> | undefined, ...codes: string[]):
   return out;
 };
 
-// Form codes are sequential (F029, …) not semantic, so forms are detected by the
-// semantic FIELD codes they carry — the same way the panels resolve them.
-const AE_DESC_FIELD_CODES = new Set(["ae_term", "ae_description", "event_description", "event_term"]);
+// Form codes are sequential (F029, …) not semantic. Detect by FIELD code, or by
+// the (semantic) form NAME where a single field code isn't universal — e.g. all
+// three studies' AE forms are named "Adverse Event" but use different term fields.
 const CONMED_MED_FIELD_CODES = new Set(["medication", "medication_name"]);
+const VEDDRA_FIELD_CODES = ["veddra_term", "event_term", "veddra_code", "veddra_coded_term"]; // coded-term storage (priority order)
 function formsWithAnyFieldCode(dataset: Dataset, studyId: string, codes: Set<string>): Set<string> {
   const studyFormIds = new Set(dataset.forms.filter((f) => f.study_id === studyId).map((f) => f.id));
   const out = new Set<string>();
   for (const f of dataset.formFields) if (studyFormIds.has(f.form_id) && codes.has(f.code)) out.add(f.form_id);
   return out;
+}
+function aeFormIds(dataset: Dataset, studyId: string): Set<string> {
+  return new Set(dataset.forms.filter((f) => f.study_id === studyId && f.name === "Adverse Event").map((f) => f.id));
 }
 // Minimal drug classification for instance-derived ConMeds (seeded entries carry
 // their own class). Antibiotics flag a potential interaction.
@@ -266,8 +270,10 @@ export function sitePerformance(dataset: Dataset, studyId: string): SitePerfRow[
   const today = todayISO();
   const devBySite = new Map<string, number>();
   for (const d of dataset.protocolDeviations ?? []) if (d.study_id === studyId && d.site_id) devBySite.set(d.site_id, (devBySite.get(d.site_id) ?? 0) + 1);
-  // last monitoring date per site: site-scoped monitoring_visits / siv instances' visit_date.
-  const monForms = new Set(dataset.forms.filter((f) => (f.code === "monitoring_visits" || f.code === "siv") && f.study_id === studyId).map((f) => f.id));
+  // last monitoring date per site — SIV / monitoring forms detected by field code.
+  const monForms = new Set<string>();
+  const studyFormIds2 = new Set(dataset.forms.filter((f) => f.study_id === studyId).map((f) => f.id));
+  for (const f of dataset.formFields) if (studyFormIds2.has(f.form_id) && (f.code === "siv_date" || f.code === "findings_summary" || f.code === "cra_name")) monForms.add(f.form_id);
   const monDateFields = new Set(dataset.formFields.filter((f) => monForms.has(f.form_id) && (f.code === "visit_date" || f.code === "siv_date")).map((f) => f.id));
   const lastMonBySite = new Map<string, string>();
   for (const inst of dataset.formInstances) {
@@ -329,7 +335,14 @@ export function protocolDeviations(dataset: Dataset, studyId: string): Deviation
 export interface MonitoringLogRow { siteCode: string; siteName: string; visitType: string; date: string | null; conductedBy: string; findings: string }
 export function monitoringLog(dataset: Dataset, studyId: string): MonitoringLogRow[] {
   const siteById = new Map(dataset.sites.map((s) => [s.id, s]));
-  const monForms = new Map(dataset.forms.filter((f) => (f.code === "monitoring_visits" || f.code === "siv") && f.study_id === studyId).map((f) => [f.id, f.code]));
+  // Detect SIV / monitoring forms by their field codes (form code is sequential).
+  const monForms = new Map<string, "siv" | "monitoring_visits">();
+  const studyFormIds = new Set(dataset.forms.filter((f) => f.study_id === studyId).map((f) => f.id));
+  for (const f of dataset.formFields) {
+    if (!studyFormIds.has(f.form_id)) continue;
+    if (f.code === "siv_date") monForms.set(f.form_id, "siv");
+    else if ((f.code === "findings_summary" || f.code === "cra_name") && !monForms.has(f.form_id)) monForms.set(f.form_id, "monitoring_visits");
+  }
   const fieldById = new Map(dataset.formFields.map((f) => [f.id, f]));
   const rows: MonitoringLogRow[] = [];
   for (const inst of dataset.formInstances) {
@@ -606,9 +619,9 @@ function saeCriterionOf(vals: Map<string, string>, serious: boolean): string | n
 }
 
 export function buildAeRoster(dataset: Dataset, studyId: string): AeRow[] {
-  // Real AE form instances (detected by their AE-description field) so a panel-
-  // entered AE flows straight into the roster — one source of truth.
-  const aeForms = formsWithAnyFieldCode(dataset, studyId, AE_DESC_FIELD_CODES);
+  // Real AE form instances (detected by form name — all three studies name it
+  // "Adverse Event") so a panel-entered AE flows straight into the roster.
+  const aeForms = aeFormIds(dataset, studyId);
   const subById = new Map(dataset.subjects.map((s) => [s.id, s]));
   const siteById = new Map(dataset.sites.map((s) => [s.id, s]));
   const fieldById = new Map(dataset.formFields.map((f) => [f.id, f]));
@@ -625,7 +638,7 @@ export function buildAeRoster(dataset: Dataset, studyId: string): AeRow[] {
     const serious = SAE_YES.has(saeRaw) || /life|death|hospital/.test((vals.get("sae_category") ?? "").toLowerCase());
     // VeDDRA: a coded term field (veddra_term) → Coded; veddra_status 'excluded' →
     // Excluded; otherwise the verbatim term carries over as Pending coding.
-    const coded = vals.get("veddra_term") ?? vals.get("veddra_code") ?? vals.get("coded_term");
+    const coded = VEDDRA_FIELD_CODES.map((c) => vals.get(c)).find(Boolean);
     const excluded = (vals.get("veddra_status") ?? "").toLowerCase() === "excluded";
     rows.push({
       subjectCode: subj.subject_code, siteName: subj.site_id ? siteById.get(subj.site_id)?.name ?? "—" : "—",
@@ -663,6 +676,45 @@ export function buildAeRoster(dataset: Dataset, studyId: string): AeRow[] {
     });
   }
   return rows.sort((a, b) => (b.onsetDate ?? "").localeCompare(a.onsetDate ?? ""));
+}
+
+// Subject-level AE list (Subject Record AE/SAE tab) — same form-instance source as
+// the study roster, scoped to one subject, with per-subject sequential AE numbers.
+export interface SubjectAeRow {
+  aeNo: string; onsetDate: string | null; description: string; severity: string;
+  relatedness: string; serious: boolean; status: string; outcome: string;
+  veddraCode: string; veddraCoding: "coded" | "pending" | "excluded";
+}
+export function subjectAeList(dataset: Dataset, subjectId: string): SubjectAeRow[] {
+  const studyId = dataset.subjects.find((s) => s.id === subjectId)?.study_id;
+  if (!studyId) return [];
+  const aeForms = aeFormIds(dataset, studyId);
+  const fieldById = new Map(dataset.formFields.map((f) => [f.id, f]));
+  const raw: (Omit<SubjectAeRow, "aeNo"> & { sortKey: string })[] = [];
+  for (const inst of dataset.formInstances) {
+    if (!aeForms.has(inst.form_id) || inst.subject_id !== subjectId) continue;
+    const vals = new Map<string, string>();
+    for (const v of dataset.fieldValues) if (v.form_instance_id === inst.id && v.value) { const c = fieldById.get(v.form_field_id)?.code; if (c) vals.set(c, v.value); }
+    const description = vals.get("ae_term") ?? vals.get("ae_description") ?? vals.get("event_description") ?? vals.get("description");
+    if (!description) continue;
+    const onsetDate = vals.get("ae_onset_date") ?? vals.get("ae_start_date") ?? null;
+    const coded = VEDDRA_FIELD_CODES.map((c) => vals.get(c)).find(Boolean);
+    const excluded = (vals.get("veddra_status") ?? "").toLowerCase() === "excluded";
+    const saeRaw = (vals.get("sae_flag") ?? vals.get("serious_sae") ?? vals.get("seriousness") ?? "").toLowerCase();
+    raw.push({
+      onsetDate, description, severity: vals.get("severity") ?? "—",
+      relatedness: normalizeRelatedness(vals.get("relatedness") ?? vals.get("relationship")),
+      serious: SAE_YES.has(saeRaw) || /serious|life|death/.test(saeRaw),
+      status: vals.get("ongoing") === "Yes" ? "Ongoing" : vals.get("outcome") ? "Closed" : "Open",
+      outcome: vals.get("outcome") ?? "—",
+      veddraCode: excluded ? "N/A — excluded" : coded ?? description, veddraCoding: excluded ? "excluded" : coded ? "coded" : "pending",
+      sortKey: onsetDate ?? inst.id,
+    });
+  }
+  // Number AE-0001… by chronological onset; display most-recent first.
+  raw.sort((a, b) => a.sortKey.localeCompare(b.sortKey));
+  const numbered = raw.map((r, i) => ({ ...r, aeNo: `AE-${String(i + 1).padStart(4, "0")}` }));
+  return numbered.sort((a, b) => (b.onsetDate ?? "").localeCompare(a.onsetDate ?? ""));
 }
 
 export interface SafetySummary { aeCount: number; saeCount: number; subjectsWithAe: number; enrolled: number; aeRate: number | null; withdrawalBlocks: number }
@@ -909,7 +961,7 @@ export function studyHeader(dataset: Dataset, studyId: string): StudyHeader {
 export interface TeamRow { name: string; role: string; siteName: string; status: string }
 export function studyTeam(dataset: Dataset, studyId: string): TeamRow[] {
   const siteById = new Map(dataset.sites.map((s) => [s.id, s]));
-  const staffForms = new Set(dataset.forms.filter((f) => f.code === "staff_delegation" && f.study_id === studyId).map((f) => f.id));
+  const staffForms = formsWithAnyFieldCode(dataset, studyId, new Set(["staff_name"]));
   const fieldById = new Map(dataset.formFields.map((f) => [f.id, f]));
   const rows: TeamRow[] = [];
   for (const inst of dataset.formInstances) {

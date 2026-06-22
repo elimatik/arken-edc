@@ -1,6 +1,6 @@
 "use client";
 
-import { Fragment, useEffect, useRef, useState } from "react";
+import { Fragment, useEffect, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { useShell } from "@/components/shell/ShellContext";
 import { useStudySession } from "@/lib/session-store/SessionStore";
@@ -9,6 +9,7 @@ import { DEMO_USER_ID } from "@/lib/constants";
 import { useNdaName } from "@/lib/use-nda-name";
 import { evaluateField, rangeLabel } from "@/lib/forms/validation";
 import { isStudyLocked } from "@/lib/study-lock";
+import { subjectAeList } from "@/lib/reports-data";
 import { LOCK_TOOLTIP } from "@/lib/use-study-locked";
 import type { Dataset, FormFieldRow } from "@/lib/session-store/types";
 import "./subject-record.css";
@@ -139,10 +140,13 @@ function isSdvEligible(field: FormFieldRow): boolean {
 // VeDDRA dictionary coding lives on AE + ConMed forms. The panel field is a
 // READ-ONLY display of the DM's coding (done centrally in the Coding module),
 // rendered after the verbatim term (AE description / ConMed medication).
-// Anchor field codes (form `code` is sequential F0xx, so detect by these semantic
-// FIELD codes). The VeDDRA display is injected right after whichever appears.
-const AE_DESC_CODES = new Set(["event_description", "ae_description", "ae_term", "event_term"]);
+// AE / ConMed forms are detected by NAME (form `code` is sequential F0xx); the
+// VeDDRA read-only block is injected after the verbatim term (anchor codes vary
+// per study). The schema's own coded-term field (VEDDRA_FIELD_CODES) is hidden —
+// the injected block is the surface, that field is the underlying storage.
+const AE_ANCHOR_CODES = new Set(["ae_term", "event_description", "description", "ae_description"]);
 const CONMED_MED_CODES = new Set(["medication", "medication_name"]);
+const VEDDRA_FIELD_CODES = new Set(["veddra_term", "event_term", "veddra_code", "veddra_coded_term"]);
 
 export function SubjectRecord({ studyId, subjectId, initialFormId, initialPanelFieldId, initialSdv }: Props) {
   const router = useRouter();
@@ -151,6 +155,14 @@ export function SubjectRecord({ studyId, subjectId, initialFormId, initialPanelF
   const { dataset, ready, update } = useStudySession();
 
   const [selectedFormId, setSelectedFormId] = useState<string | undefined>(initialFormId);
+  const [aeView, setAeView] = useState(false); // AE/SAE tab (vs form view)
+  const subjectAes = useMemo(() => subjectAeList(dataset, subjectId), [dataset, subjectId]);
+  const aeStats = useMemo(() => ({
+    total: subjectAes.length,
+    saes: subjectAes.filter((a) => a.serious).length,
+    open: subjectAes.filter((a) => a.status === "Open" || a.status === "Ongoing").length,
+    resolved: subjectAes.filter((a) => a.status === "Closed").length,
+  }), [subjectAes]);
   // null = not yet initialised → default to "all groups collapsed except the active one".
   const [collapsedGroups, setCollapsedGroups] = useState<Set<string> | null>(null);
   const [remarksOpen, setRemarksOpen] = useState(false);
@@ -365,7 +377,7 @@ export function SubjectRecord({ studyId, subjectId, initialFormId, initialPanelF
         key={item.id}
         id={`sb-form-${item.id}`}
         className={`form-item${item.id === activeFormId ? " active" : ""}${item.icon === "final" ? " done" : ""}`}
-        onClick={() => setSelectedFormId(item.id)}
+        onClick={() => { setSelectedFormId(item.id); setAeView(false); }}
         title={item.name}
         type="button"
       >
@@ -576,9 +588,9 @@ export function SubjectRecord({ studyId, subjectId, initialFormId, initialPanelF
     for (const v of dataset.fieldValues) {
       if (v.form_instance_id !== instId || !v.value) continue;
       const c = codeOf(v.form_field_id) ?? "";
-      if (c === "veddra_term" || c === "veddra_code") coded = v.value;
+      if (VEDDRA_FIELD_CODES.has(c)) coded = coded ?? v.value;
       else if (c === "veddra_status") status = v.value;
-      else if (!verbatim && (AE_DESC_CODES.has(c) || CONMED_MED_CODES.has(c))) verbatim = v.value;
+      else if (!verbatim && (AE_ANCHOR_CODES.has(c) || CONMED_MED_CODES.has(c))) verbatim = v.value;
     }
     if (status === "excluded") return { term: "Not codable — excluded", status: "excluded" };
     if (coded) return { term: coded, status: "coded" };
@@ -1377,7 +1389,7 @@ export function SubjectRecord({ studyId, subjectId, initialFormId, initialPanelF
   const subjOpenQueries = dataset.queries.filter((q) => subjInstIds.has(q.form_instance_id) && q.status !== "resolved").length;
   const aeFormIds = new Set(dataset.forms.filter((f) => f.study_id === studyId && /adverse event/i.test(f.name)).map((f) => f.id));
   const aeCount = dataset.formInstances.filter((i) => i.subject_id === subjectId && aeFormIds.has(i.form_id) && dataset.fieldValues.some((v) => v.form_instance_id === i.id && v.value)).length;
-  const goToForm = (id: string) => { setSelectedFormId(id); setTimelineOpen(false); };
+  const goToForm = (id: string) => { setSelectedFormId(id); setTimelineOpen(false); setAeView(false); };
 
   return (
     <div className="sr-screen">
@@ -1411,6 +1423,13 @@ export function SubjectRecord({ studyId, subjectId, initialFormId, initialPanelF
         )}
         <div className="sidebar-label">Forms</div>
         {sidebarTree.map(renderNode)}
+        {activeRole !== "Sponsor" && (
+          <button type="button" className={`ae-sae-nav${aeView ? " active" : ""}`} onClick={() => setAeView(true)}>
+            <i className="ti ti-alert-triangle"></i>
+            <span className="ae-sae-nav-label">AE / SAE</span>
+            {aeStats.total > 0 && <span className={`ae-sae-nav-count${aeStats.saes > 0 ? " has-sae" : ""}`}>{aeStats.total}</span>}
+          </button>
+        )}
       </nav>
 
       {/* Form content */}
@@ -1607,8 +1626,45 @@ export function SubjectRecord({ studyId, subjectId, initialFormId, initialPanelF
           </div>
         </div>
 
+        {/* AE / SAE tab — subject-level view of all adverse events (same source as
+            the study AE Roster, scoped to this subject). */}
+        {aeView && (
+          <div className="sr-ae-view">
+            <div className="sr-ae-head">
+              <h2 className="sr-ae-title"><i className="ti ti-alert-triangle"></i> Adverse Events &amp; SAEs</h2>
+            </div>
+            <div className="sr-ae-stats">
+              <div className="sr-ae-stat"><span className="sr-ae-stat-val">{aeStats.total}</span><span className="sr-ae-stat-lbl">Total AEs</span></div>
+              <div className={`sr-ae-stat${aeStats.saes > 0 ? " crit" : ""}`}><span className="sr-ae-stat-val">{aeStats.saes}</span><span className="sr-ae-stat-lbl">SAEs</span></div>
+              <div className="sr-ae-stat"><span className="sr-ae-stat-val">{aeStats.open}</span><span className="sr-ae-stat-lbl">Open</span></div>
+              <div className="sr-ae-stat"><span className="sr-ae-stat-val">{aeStats.resolved}</span><span className="sr-ae-stat-lbl">Resolved</span></div>
+            </div>
+            {subjectAes.length === 0 ? (
+              <div className="sr-ae-empty"><i className="ti ti-info-circle"></i> No adverse events recorded for this subject.</div>
+            ) : (
+              <table className="sr-ae-table">
+                <thead><tr><th>AE No.</th><th>Onset</th><th>Description</th><th>Severity</th><th>Relatedness</th><th>SAE</th><th>Status</th><th>VeDDRA</th></tr></thead>
+                <tbody>
+                  {subjectAes.map((a) => (
+                    <tr key={a.aeNo} className={a.serious ? "sr-ae-row-crit" : ""}>
+                      <td className="mono">{a.aeNo}</td>
+                      <td className="mono">{a.onsetDate ?? "—"}</td>
+                      <td>{a.description}</td>
+                      <td><span className={`veddra-chip ${a.severity.toLowerCase() === "mild" ? "coded" : a.severity.toLowerCase() === "moderate" ? "pending" : "excluded"}`} style={a.severity.toLowerCase() === "severe" || a.severity.toLowerCase() === "life-threatening" ? { background: "var(--red-50)", color: "var(--red-600)" } : undefined}>{a.severity}</span></td>
+                      <td>{a.relatedness}</td>
+                      <td>{a.serious ? <span className="veddra-chip" style={{ background: "var(--red-50)", color: "var(--red-600)" }}>SAE</span> : "—"}</td>
+                      <td>{a.status}</td>
+                      <td><i className={`ti ${a.veddraCoding === "coded" ? "ti-circle-check" : a.veddraCoding === "excluded" ? "ti-circle-x" : "ti-clock"}`} title={a.veddraCoding === "coded" ? "Coded" : a.veddraCoding === "excluded" ? "Excluded from coding" : "Pending coding"} style={{ color: a.veddraCoding === "coded" ? "var(--green-600)" : a.veddraCoding === "excluded" ? "var(--slate-400)" : "var(--amber-600)" }}></i></td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            )}
+          </div>
+        )}
+
         {/* Form body — real fields from form_fields */}
-        <div className="form-body">
+        <div className={`form-body${aeView ? " is-hidden" : ""}`}>
           {studyLocked && (
             <div className="ie-banner db-locked" role="status">
               <i className="ti ti-lock"></i>
@@ -2085,10 +2141,16 @@ export function SubjectRecord({ studyId, subjectId, initialFormId, initialPanelF
             </div>
             <div className="entry-panel-body">
               {(() => {
+                const nm = selectedForm?.name ?? "";
+                const isAeForm = nm === "Adverse Event";
+                const isConmedForm = nm === "ConMed" || nm === "Concomitant Medication Log";
                 let injected = false;
                 return fields.map((field) => {
-                  const isConmedAnchor = CONMED_MED_CODES.has(field.code);
-                  const anchor = !injected && (isConmedAnchor || AE_DESC_CODES.has(field.code));
+                  // Hide the schema's own VeDDRA coded-term field on AE/ConMed panels —
+                  // the injected read-only block (below) is the display surface.
+                  if ((isAeForm || isConmedForm) && VEDDRA_FIELD_CODES.has(field.code)) return null;
+                  const isConmedAnchor = isConmedForm && CONMED_MED_CODES.has(field.code);
+                  const anchor = !injected && (isConmedAnchor || (isAeForm && AE_ANCHOR_CODES.has(field.code)));
                   if (anchor) injected = true;
                   const row = (
                     <div className="entry-field" key={field.id}>
