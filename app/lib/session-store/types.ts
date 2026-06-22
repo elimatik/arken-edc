@@ -17,6 +17,11 @@ export interface StudyRow {
   status: string;
   enrollment_target: number | null;
   description: string | null;
+  // Session-only ethics & regulatory config (seeded in hydrate.ts).
+  iacuc_number?: string | null;
+  iacuc_approval_date?: string | null;
+  iacuc_expiry?: string | null;
+  vich_guideline?: string | null;
 }
 
 export interface SiteRow {
@@ -224,6 +229,23 @@ export interface ConMedRow {
   indication: string;
   concurrent_with: string; // visit / timepoint label
   interaction: boolean; // overlaps a known drug-interaction class
+  veddra_code: string; // coded drug term (VeDDRA dictionary)
+  coding_status: "coded" | "pending"; // DM coding state
+  washout_days: number; // protocol-defined washout (CA-0801 immunosuppressants); 0 = none
+  conmed_type: "metaphylaxis" | "therapeutic" | "preventive" | null; // BR-2502 antibiotic admin type
+}
+
+// Protocol deviation (ICH E6 §8.3.16). Session-only seed.
+export interface ProtocolDeviationRow {
+  id: string;
+  study_id: string;
+  site_id: string | null;
+  subject_code: string;
+  deviation_type: string; // Eligibility | Visit window | Dosing | Consent | Procedure
+  date: string;
+  severity: string; // Minor | Major
+  reported_to_sponsor: boolean;
+  status: string; // Open | Closed
 }
 
 // Emergency unblinding (double-blind studies only) — session-only. Records who
@@ -320,6 +342,7 @@ export interface Dataset {
   studyLocks: StudyLockRow[]; // session-only database-lock log
   conMeds: ConMedRow[]; // session-only concomitant-medication seed
   saeReports: SaeReportRow[]; // session-only SAE reporting-timeline seed
+  protocolDeviations: ProtocolDeviationRow[]; // session-only protocol-deviation seed
   memberships: MembershipRow[];
   speciesRanges: SpeciesRangeRow[];
 }
@@ -344,6 +367,7 @@ export const EMPTY_DATASET: Dataset = {
   studyLocks: [],
   conMeds: [],
   saeReports: [],
+  protocolDeviations: [],
   memberships: [],
   speciesRanges: [],
 };

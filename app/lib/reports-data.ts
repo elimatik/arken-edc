@@ -231,7 +231,7 @@ export interface SitePerfRow {
   enrolled: number; target: number | null;
   formPct: number; formCompleted: number; formTotal: number;
   sdvPct: number; sdvVerified: number; sdvTotal: number;
-  openQueries: number; overdueVisits: number;
+  openQueries: number; overdueVisits: number; deviations: number;
   lastDataEntry: string | null; lastMonitoring: string | null;
 }
 export function sitePerformance(dataset: Dataset, studyId: string): SitePerfRow[] {
@@ -243,6 +243,8 @@ export function sitePerformance(dataset: Dataset, studyId: string): SitePerfRow[
   const fvById = new Map(dataset.fieldValues.map((v) => [v.id, v]));
   const visits = buildVisits(dataset, studyId);
   const today = todayISO();
+  const devBySite = new Map<string, number>();
+  for (const d of dataset.protocolDeviations ?? []) if (d.study_id === studyId && d.site_id) devBySite.set(d.site_id, (devBySite.get(d.site_id) ?? 0) + 1);
   // last monitoring date per site: site-scoped monitoring_visits / siv instances' visit_date.
   const monForms = new Set(dataset.forms.filter((f) => (f.code === "monitoring_visits" || f.code === "siv") && f.study_id === studyId).map((f) => f.id));
   const monDateFields = new Set(dataset.formFields.filter((f) => monForms.has(f.form_id) && (f.code === "visit_date" || f.code === "siv_date")).map((f) => f.id));
@@ -280,9 +282,26 @@ export function sitePerformance(dataset: Dataset, studyId: string): SitePerfRow[
       target: site.enrollment_target ?? null,
       formPct: formTotal ? Math.round((formCompleted / formTotal) * 100) : 0, formCompleted, formTotal,
       sdvPct: sdvTotal ? Math.round((sdvVerified / sdvTotal) * 100) : 0, sdvVerified, sdvTotal,
-      openQueries, overdueVisits, lastDataEntry, lastMonitoring: lastMonBySite.get(site.id) ?? null,
+      openQueries, overdueVisits, deviations: devBySite.get(site.id) ?? 0,
+      lastDataEntry, lastMonitoring: lastMonBySite.get(site.id) ?? null,
     };
   });
+}
+
+// Protocol deviations (ICH E6 §8.3.16) — session-seeded, joined to sites.
+export interface DeviationRow { siteCode: string; siteName: string; subjectCode: string; type: string; date: string; severity: string; reportedToSponsor: boolean; status: string }
+export function protocolDeviations(dataset: Dataset, studyId: string): DeviationRow[] {
+  const siteById = new Map(dataset.sites.map((s) => [s.id, s]));
+  return (dataset.protocolDeviations ?? [])
+    .filter((d) => d.study_id === studyId)
+    .map((d) => {
+      const site = d.site_id ? siteById.get(d.site_id) : undefined;
+      return {
+        siteCode: site?.code ?? "—", siteName: site?.name ?? "—", subjectCode: d.subject_code,
+        type: d.deviation_type, date: d.date, severity: d.severity, reportedToSponsor: d.reported_to_sponsor, status: d.status,
+      };
+    })
+    .sort((a, b) => (b.date ?? "").localeCompare(a.date ?? ""));
 }
 
 // Monitoring visit log (site-scoped monitoring_visits / siv instances).
@@ -500,6 +519,34 @@ export function resolutionBySite(dataset: Dataset, studyId: string): SiteResolut
   }).filter((r) => r.raised > 0);
 }
 
+// ─── Query density (open queries per 100 CRF fields) ─────────────────────────
+export type DensityRating = "excellent" | "acceptable" | "review" | "action";
+export function densityRating(d: number): DensityRating {
+  return d < 2 ? "excellent" : d <= 5 ? "acceptable" : d <= 10 ? "review" : "action";
+}
+export interface QueryDensityRow { code: string; name: string; totalFields: number; openQueries: number; density: number; rating: DensityRating }
+export function queryDensityBySite(dataset: Dataset, studyId: string): QueryDensityRow[] {
+  const sites = dataset.sites.filter((s) => s.study_id === studyId).slice().sort((a, b) => a.code.localeCompare(b.code));
+  const subById = new Map(dataset.subjects.filter((s) => s.study_id === studyId).map((s) => [s.id, s]));
+  const insts = dataset.formInstances.filter((i) => i.subject_id != null && subById.has(i.subject_id));
+  const fvById = new Map(dataset.fieldValues.map((v) => [v.id, v]));
+  return sites.map((site) => {
+    const instIds = new Set(insts.filter((i) => subById.get(i.subject_id!)?.site_id === site.id).map((i) => i.id));
+    const totalFields = dataset.fieldValues.filter((v) => instIds.has(v.form_instance_id) && v.value != null && v.value !== "").length;
+    const openQueries = dataset.queries.filter((q) => instIds.has(q.form_instance_id) && q.status !== "resolved" && (!q.field_value_id || fvById.has(q.field_value_id))).length;
+    const density = totalFields ? Math.round((openQueries / totalFields) * 1000) / 10 : 0;
+    return { code: site.code, name: site.name, totalFields, openQueries, density, rating: densityRating(density) };
+  }).filter((r) => r.totalFields > 0);
+}
+export interface QueryDensitySummary { overall: number; highest: number; lowest: number; overallRating: DensityRating }
+export function queryDensitySummary(rows: QueryDensityRow[]): QueryDensitySummary {
+  const totalFields = rows.reduce((n, r) => n + r.totalFields, 0);
+  const openQueries = rows.reduce((n, r) => n + r.openQueries, 0);
+  const overall = totalFields ? Math.round((openQueries / totalFields) * 1000) / 10 : 0;
+  const densities = rows.map((r) => r.density);
+  return { overall, highest: densities.length ? Math.max(...densities) : 0, lowest: densities.length ? Math.min(...densities) : 0, overallRating: densityRating(overall) };
+}
+
 // ─── Safety / AE ─────────────────────────────────────────────────────────────
 export type FiledStatus = "yes" | "no" | "pending";
 export interface AeRow {
@@ -671,6 +718,7 @@ export function aeBySite(aes: AeRow[]): { siteName: string; aeCount: number; sae
 }
 
 // ─── Concomitant medications (ConMed Log) ────────────────────────────────────
+export type ConMedType = "metaphylaxis" | "therapeutic" | "preventive";
 export interface ConMedEntry {
   id: string;
   subjectCode: string;
@@ -686,21 +734,40 @@ export interface ConMedEntry {
   indication: string;
   concurrentWith: string;
   interaction: boolean;
+  veddraCode: string;
+  codingStatus: "coded" | "pending";
+  conmedType: ConMedType | null;
+  washoutDays: number;
+  enrollDate: string | null;
+  washoutEnd: string | null;
+  washoutOverlap: boolean | null; // null = no washout requirement / can't assess
 }
 export function buildConMedLog(dataset: Dataset, studyId: string): ConMedEntry[] {
   const subById = new Map(dataset.subjects.map((s) => [s.id, s]));
   const siteById = new Map(dataset.sites.map((s) => [s.id, s]));
+  const enrollBySubject = new Map(dispositions(dataset, studyId).map((d) => [d.subjectId, d.enrollDate]));
   return (dataset.conMeds ?? [])
     .filter((c) => c.study_id === studyId)
     .map((c) => {
       const subj = subById.get(c.subject_id);
       const site = subj?.site_id ? siteById.get(subj.site_id) : undefined;
+      const enrollDate = subj ? enrollBySubject.get(subj.id) ?? null : null;
+      // Washout overlap: ongoing immunosuppressant never clears; a stopped one
+      // overlaps when stop_date + washout_days reaches/passes enrollment.
+      const washoutEnd = c.washout_days > 0 && c.end_date ? addDays(c.end_date, c.washout_days) : null;
+      let washoutOverlap: boolean | null = null;
+      if (c.washout_days > 0) {
+        if (c.ongoing) washoutOverlap = true;
+        else if (washoutEnd && enrollDate) washoutOverlap = washoutEnd >= enrollDate;
+      }
       return {
         id: c.id, subjectCode: subj?.subject_code ?? "—",
         siteCode: site?.code ?? "—", siteName: site?.name ?? "—",
         medication: c.medication, drugClass: c.drug_class, dose: c.dose, route: c.route,
         startDate: c.start_date, endDate: c.end_date, ongoing: c.ongoing,
         indication: c.indication, concurrentWith: c.concurrent_with, interaction: c.interaction,
+        veddraCode: c.veddra_code, codingStatus: c.coding_status, conmedType: c.conmed_type,
+        washoutDays: c.washout_days, enrollDate, washoutEnd, washoutOverlap,
       };
     })
     .sort((a, b) => a.subjectCode.localeCompare(b.subjectCode) || a.startDate.localeCompare(b.startDate));
@@ -735,6 +802,7 @@ export interface StudyHeader {
   code: string; name: string; sponsor: string; phase: string; protocolVersion: string;
   status: string; lockDate: string | null; startDate: string | null; endDate: string | null;
   weekOfStudy: number | null; dayOfStudy: number | null;
+  iacucNumber: string | null; iacucApprovalDate: string | null; iacucExpiry: string | null; vichGuideline: string | null;
 }
 export function studyHeader(dataset: Dataset, studyId: string): StudyHeader {
   const study = dataset.studies.find((s) => s.id === studyId);
@@ -760,6 +828,8 @@ export function studyHeader(dataset: Dataset, studyId: string): StudyHeader {
     lockDate: lock ? lock.created_at.slice(0, 10) : null, startDate: start, endDate: end,
     weekOfStudy: start ? Math.max(0, Math.floor(dayDiff(start, today) / 7)) : null,
     dayOfStudy: start ? Math.max(0, dayDiff(start, today)) : null,
+    iacucNumber: study?.iacuc_number ?? null, iacucApprovalDate: study?.iacuc_approval_date ?? null,
+    iacucExpiry: study?.iacuc_expiry ?? null, vichGuideline: study?.vich_guideline ?? null,
   };
 }
 

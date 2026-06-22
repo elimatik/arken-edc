@@ -81,8 +81,8 @@ export function buildReportCsv(id: ReportId, dataset: Dataset, studyId: string):
     }
     case "site-performance":
       return {
-        headers: ["Site", "Enrolled", "Target", "Form completion %", "SDV %", "Open queries", "Overdue visits", "Last data entry", "Last monitoring"],
-        rows: sitePerformance(dataset, studyId).map((s) => [`${s.code} · ${s.name}`, s.enrolled, s.target, s.formPct, s.sdvPct, s.openQueries, s.overdueVisits, s.lastDataEntry, s.lastMonitoring]),
+        headers: ["Site", "Enrolled", "Target", "Form completion %", "SDV %", "Open queries", "Overdue visits", "Deviations", "Last data entry", "Last monitoring"],
+        rows: sitePerformance(dataset, studyId).map((s) => [`${s.code} · ${s.name}`, s.enrolled, s.target, s.formPct, s.sdvPct, s.openQueries, s.overdueVisits, s.deviations, s.lastDataEntry, s.lastMonitoring]),
       };
     case "visit-compliance":
       return {
@@ -101,8 +101,8 @@ export function buildReportCsv(id: ReportId, dataset: Dataset, studyId: string):
       };
     case "conmed-log":
       return {
-        headers: ["Subject", "Site", "Medication", "Drug class", "Dose", "Route", "Start date", "End date", "Indication", "Concurrent with", "Interaction"],
-        rows: buildConMedLog(dataset, studyId).map((e) => [e.subjectCode, `${e.siteCode} · ${e.siteName}`, e.medication, e.drugClass, e.dose, e.route, e.startDate, e.ongoing ? "Ongoing" : e.endDate, e.indication, e.concurrentWith, e.interaction ? "Yes" : "No"]),
+        headers: ["Subject", "Site", "Medication", "Drug class", "Dose", "Route", "Start date", "End date", "Indication", "VeDDRA code", "Coding", "Concurrent with", "Interaction"],
+        rows: buildConMedLog(dataset, studyId).map((e) => [e.subjectCode, `${e.siteCode} · ${e.siteName}`, e.medication, e.drugClass, e.dose, e.route, e.startDate, e.ongoing ? "Ongoing" : e.endDate, e.indication, e.veddraCode, e.codingStatus, e.concurrentWith, e.interaction ? "Yes" : "No"]),
       };
     case "sdv-completion":
       return {

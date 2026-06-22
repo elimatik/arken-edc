@@ -84,9 +84,17 @@ export async function hydrateFromSupabase(): Promise<Dataset> {
   // cohort sizes regardless of what the (possibly stale) Supabase seed carries —
   // CA-0801 60 dogs (3 sites × 20), BR-2502 12 animals (4 feedlots), PH-2401 2 pens.
   const STUDY_TARGETS: Record<string, number> = { "CA-0801": 60, "BR-2502": 12, "PH-2401": 2 };
-  const studiesWithTargets = ((studies.data ?? []) as Dataset["studies"]).map((s) =>
-    STUDY_TARGETS[s.code] != null ? { ...s, enrollment_target: STUDY_TARGETS[s.code] } : s,
-  );
+  // Ethics & regulatory config (session-only — not DB columns).
+  const STUDY_ETHICS: Record<string, { iacuc_number: string; iacuc_approval_date: string; iacuc_expiry: string; vich_guideline: string }> = {
+    "CA-0801": { iacuc_number: "IACUC-2024-CA-0801", iacuc_approval_date: "2024-09-01", iacuc_expiry: "2026-09-01", vich_guideline: "VICH GL9 (Efficacy) · VICH GL6 (Safety)" },
+    "BR-2502": { iacuc_number: "IACUC-2025-BR-2502", iacuc_approval_date: "2025-01-15", iacuc_expiry: "2027-01-15", vich_guideline: "VICH GL9 (Efficacy) · VICH GL6 (Safety)" },
+    "PH-2401": { iacuc_number: "IACUC-2024-PH-2401", iacuc_approval_date: "2024-08-01", iacuc_expiry: "2026-08-01", vich_guideline: "VICH GL9 (Efficacy)" },
+  };
+  const studiesWithTargets = ((studies.data ?? []) as Dataset["studies"]).map((s) => ({
+    ...s,
+    ...(STUDY_TARGETS[s.code] != null ? { enrollment_target: STUDY_TARGETS[s.code] } : {}),
+    ...(STUDY_ETHICS[s.code] ?? {}),
+  }));
 
   // Session-only per-feedlot enrolment targets for BR-2502 (not a DB column —
   // seeded here, same as the other Overview-config fields). Over the cap is a
@@ -168,23 +176,27 @@ export async function hydrateFromSupabase(): Promise<Dataset> {
       conMeds.push({ id: `conmed-${code}-${i}`, study_id: studyId, subject_id: subj.id, ...spec });
     });
   };
-  // CA-0801 — prior atopic-dermatitis therapies washed out before the study (ended).
+  // CA-0801 — prior atopic-dermatitis therapies + washout compliance. Cyclosporine
+  // is still ongoing at enrollment (washout incomplete → overlap flag); the JAK
+  // inhibitor and steroid stopped well before enrollment (washout clear).
   pushConMeds("CA-0801", [
-    { medication: "Oclacitinib (Apoquel)", drug_class: "JAK inhibitor", dose: "0.5 mg/kg", route: "Oral", start_date: "2025-09-01", end_date: "2025-09-21", ongoing: false, indication: "Pruritus — prior therapy", concurrent_with: "Pre-study washout", interaction: false },
-    { medication: "Prednisolone", drug_class: "Corticosteroid", dose: "0.5 mg/kg", route: "Oral", start_date: "2025-09-08", end_date: "2025-09-15", ongoing: false, indication: "Flare control — prior therapy", concurrent_with: "Pre-study washout", interaction: false },
-    { medication: "Cyclosporine", drug_class: "Immunosuppressant", dose: "5 mg/kg", route: "Oral", start_date: "2025-08-12", end_date: "2025-09-02", ongoing: false, indication: "Atopic dermatitis — prior therapy", concurrent_with: "Pre-study washout", interaction: false },
+    { medication: "Cyclosporine", drug_class: "Immunosuppressant", dose: "5 mg/kg", route: "Oral", start_date: "2026-03-20", end_date: null, ongoing: true, indication: "Atopic dermatitis — immunosuppressant (washout incomplete)", concurrent_with: "Baseline", interaction: false, veddra_code: "ciclosporin", coding_status: "coded", washout_days: 28, conmed_type: null },
+    { medication: "Oclacitinib (Apoquel)", drug_class: "JAK inhibitor", dose: "0.5 mg/kg", route: "Oral", start_date: "2025-12-01", end_date: "2026-01-15", ongoing: false, indication: "Pruritus — prior therapy", concurrent_with: "Pre-study washout", interaction: false, veddra_code: "oclacitinib maleate", coding_status: "pending", washout_days: 14, conmed_type: null },
+    { medication: "Prednisolone", drug_class: "Corticosteroid", dose: "0.5 mg/kg", route: "Oral", start_date: "2026-01-20", end_date: "2026-02-03", ongoing: false, indication: "Flare control — prior therapy", concurrent_with: "Pre-study washout", interaction: false, veddra_code: "prednisolone", coding_status: "coded", washout_days: 14, conmed_type: null },
   ]);
-  // BR-2502 — concurrent antibiotics (confound the antimicrobial effect → flagged).
+  // BR-2502 — antibiotics. Tulathromycin given to the whole pen on arrival
+  // (metaphylaxis, confounds the antimicrobial endpoint); florfenicol to an
+  // individual sick animal (therapeutic).
   pushConMeds("BR-2502", [
-    { medication: "Tulathromycin (Draxxin)", drug_class: "Antibiotic — macrolide", dose: "2.5 mg/kg", route: "Injectable, SC", start_date: "2026-01-05", end_date: null, ongoing: true, indication: "BRD metaphylaxis", concurrent_with: "Pre-enrollment", interaction: true },
-    { medication: "Florfenicol (Nuflor)", drug_class: "Antibiotic — phenicol", dose: "40 mg/kg", route: "Injectable, SC", start_date: "2026-01-08", end_date: "2026-01-18", ongoing: false, indication: "Respiratory infection", concurrent_with: "Day 0", interaction: true },
-    { medication: "Tulathromycin (Draxxin)", drug_class: "Antibiotic — macrolide", dose: "2.5 mg/kg", route: "Injectable, SC", start_date: "2026-01-10", end_date: null, ongoing: true, indication: "BRD metaphylaxis", concurrent_with: "Pre-enrollment", interaction: true },
-    { medication: "Florfenicol (Nuflor)", drug_class: "Antibiotic — phenicol", dose: "40 mg/kg", route: "Injectable, SC", start_date: "2026-01-12", end_date: "2026-01-22", ongoing: false, indication: "Respiratory infection", concurrent_with: "Day 0", interaction: true },
+    { medication: "Tulathromycin (Draxxin)", drug_class: "Antibiotic — macrolide", dose: "2.5 mg/kg", route: "Injectable, SC", start_date: "2026-01-05", end_date: null, ongoing: true, indication: "BRD metaphylaxis (whole pen, on arrival)", concurrent_with: "Pre-enrollment", interaction: true, veddra_code: "tulathromycin", coding_status: "coded", washout_days: 0, conmed_type: "metaphylaxis" },
+    { medication: "Tulathromycin (Draxxin)", drug_class: "Antibiotic — macrolide", dose: "2.5 mg/kg", route: "Injectable, SC", start_date: "2026-01-10", end_date: null, ongoing: true, indication: "BRD metaphylaxis (whole pen, on arrival)", concurrent_with: "Pre-enrollment", interaction: true, veddra_code: "tulathromycin", coding_status: "coded", washout_days: 0, conmed_type: "metaphylaxis" },
+    { medication: "Florfenicol (Nuflor)", drug_class: "Antibiotic — phenicol", dose: "40 mg/kg", route: "Injectable, SC", start_date: "2026-01-08", end_date: "2026-01-18", ongoing: false, indication: "Respiratory infection (individual animal)", concurrent_with: "Day 0", interaction: true, veddra_code: "florfenicol", coding_status: "coded", washout_days: 0, conmed_type: "therapeutic" },
+    { medication: "Florfenicol (Nuflor)", drug_class: "Antibiotic — phenicol", dose: "40 mg/kg", route: "Injectable, SC", start_date: "2026-01-12", end_date: "2026-01-22", ongoing: false, indication: "Respiratory infection (individual animal)", concurrent_with: "Day 0", interaction: true, veddra_code: "florfenicol", coding_status: "coded", washout_days: 0, conmed_type: "therapeutic" },
   ]);
   // PH-2401 — basal-feed additives / coccidiostat in the T01 control pens (pen-level).
   pushConMeds("PH-2401", [
-    { medication: "Salinomycin", drug_class: "Coccidiostat", dose: "60 g/tonne", route: "In-feed", start_date: "2026-03-01", end_date: null, ongoing: true, indication: "Coccidiosis prevention — basal feed", concurrent_with: "Day 0–42", interaction: false },
-    { medication: "Bacitracin methylene disalicylate", drug_class: "Feed additive", dose: "50 g/tonne", route: "In-feed", start_date: "2026-03-01", end_date: null, ongoing: true, indication: "Enteric health — basal feed", concurrent_with: "Day 0–42", interaction: false },
+    { medication: "Salinomycin", drug_class: "Coccidiostat", dose: "60 g/tonne", route: "In-feed", start_date: "2026-03-01", end_date: null, ongoing: true, indication: "Coccidiosis prevention — basal feed", concurrent_with: "Day 0–42", interaction: false, veddra_code: "salinomycin", coding_status: "coded", washout_days: 0, conmed_type: null },
+    { medication: "Bacitracin methylene disalicylate", drug_class: "Feed additive", dose: "50 g/tonne", route: "In-feed", start_date: "2026-03-01", end_date: null, ongoing: true, indication: "Enteric health — basal feed", concurrent_with: "Day 0–42", interaction: false, veddra_code: "bacitracin", coding_status: "coded", washout_days: 0, conmed_type: null },
   ], "T01");
 
   // ─── Seeded SAE reporting timelines (session-only) ──────────────────────────
@@ -203,6 +215,18 @@ export async function hydrateFromSupabase(): Promise<Dataset> {
   pushSae("BR-2502", { description: "Fatal bovine respiratory disease despite treatment", onset_date: "2026-01-12", severity: "Severe", relatedness: "Unlikely", sae_criterion: "Death", outcome: "Fatal", pi_aware_date: "2026-01-12", sponsor_notified_date: "2026-01-13" });
   // PH-2401 — sudden pen-level mortality spike; report still pending.
   pushSae("PH-2401", { description: "Sudden mortality spike >10% in 24h (pen-level)", onset_date: "2026-03-22", severity: "Severe", relatedness: "Unlikely", sae_criterion: "Other important medical event", outcome: "Ongoing", pi_aware_date: "2026-03-22", sponsor_notified_date: null });
+
+  // ─── Seeded protocol deviations (session-only) ──────────────────────────────
+  const siteIdOf = (studyCode: string, siteCode: string): string | null => {
+    const sid = (studies.data ?? []).find((s) => s.code === studyCode)?.id;
+    return (sites.data ?? []).find((s) => s.study_id === sid && s.code === siteCode)?.id ?? null;
+  };
+  const devStudyId = (code: string) => (studies.data ?? []).find((s) => s.code === code)?.id ?? "";
+  const protocolDeviations: Dataset["protocolDeviations"] = [
+    { id: "dev-CA", study_id: devStudyId("CA-0801"), site_id: siteIdOf("CA-0801", "101"), subject_code: "CA-0801-101-03", deviation_type: "Visit window", date: "2026-05-18", severity: "Minor", reported_to_sponsor: true, status: "Closed" },
+    { id: "dev-BR", study_id: devStudyId("BR-2502"), site_id: siteIdOf("BR-2502", "TX"), subject_code: "BR-2502-TX-001", deviation_type: "Dosing", date: "2026-01-05", severity: "Major", reported_to_sponsor: true, status: "Open" },
+    { id: "dev-PH", study_id: devStudyId("PH-2401"), site_id: siteIdOf("PH-2401", "RUA"), subject_code: "PH-2401-P03", deviation_type: "Eligibility", date: "2026-03-02", severity: "Major", reported_to_sponsor: true, status: "Closed" },
+  ].filter((d) => d.study_id);
 
   return {
     studies: studiesWithTargets,
@@ -224,6 +248,7 @@ export async function hydrateFromSupabase(): Promise<Dataset> {
     studyLocks: [], // session-only — database-lock log
     conMeds, // session-only — seeded concomitant medications
     saeReports, // session-only — seeded SAE reporting timelines
+    protocolDeviations, // session-only — seeded protocol deviations
     memberships: (memberships.data ?? []) as Dataset["memberships"],
     speciesRanges: (speciesRanges.data ?? []) as Dataset["speciesRanges"],
   };

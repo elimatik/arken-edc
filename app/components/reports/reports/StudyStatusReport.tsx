@@ -65,6 +65,16 @@ export function StudyStatusReport({ studyId, hideArms }: ReportProps) {
         </div>
       </div>
 
+      <div className="rpt-ethics">
+        <div className="rpt-ethics-label">Ethics &amp; Regulatory</div>
+        <div className="rpt-ethics-grid">
+          <div><span className="rpt-fact-k">IACUC Approval No.</span><span className="mono">{h.iacucNumber ?? "—"}</span></div>
+          <div><span className="rpt-fact-k">VICH Guideline</span><span>{h.vichGuideline ?? "—"}</span></div>
+          <div><span className="rpt-fact-k">Approval date</span><span className="mono">{fmtDate(h.iacucApprovalDate)}</span></div>
+          <div><span className="rpt-fact-k">Expiry / Review date</span><span className="mono">{fmtDate(h.iacucExpiry)}</span></div>
+        </div>
+      </div>
+
       <Section title="Key metrics" icon="gauge">
         <StatGrid>
           <StatTile value={data.target ? `${data.funnel.enrolled}/${data.target}` : String(data.funnel.enrolled)} label="Subjects enrolled" sub={data.target ? `${enrolPct}% of target` : undefined} tone="blue" />

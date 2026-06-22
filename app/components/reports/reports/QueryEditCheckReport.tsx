@@ -5,20 +5,30 @@ import { useStudySession } from "@/lib/session-store/SessionStore";
 import { useShell } from "@/components/shell/ShellContext";
 import type { ReportProps } from "@/app/study/[studyId]/reports/page";
 import { Section, StatGrid, StatTile, BarList, EmptyNote, ExportCsvButton, fmtDate } from "@/components/reports/ReportKit";
-import { querySummary, queriesByType, queryAging, resolutionBySite } from "@/lib/reports-data";
+import { querySummary, queriesByType, queryAging, resolutionBySite, queryDensityBySite, queryDensitySummary, type DensityRating } from "@/lib/reports-data";
 
 const STATUS_CHIP: Record<string, string> = { open: "ms-crit", responded: "ms-active", resolved: "ms-done" };
+const RATING_META: Record<DensityRating, { label: string; cls: string }> = {
+  excellent: { label: "Excellent", cls: "ms-done" },
+  acceptable: { label: "Acceptable", cls: "ms-future" },
+  review: { label: "Review needed", cls: "ms-warn" },
+  action: { label: "Action required", cls: "ms-crit" },
+};
 
 export function QueryEditCheckReport({ studyId }: ReportProps) {
   const { dataset } = useStudySession();
   const { study } = useShell();
 
-  const d = useMemo(() => ({
-    summary: querySummary(dataset, studyId),
-    byType: queriesByType(dataset, studyId),
-    aging: queryAging(dataset, studyId),
-    bySite: resolutionBySite(dataset, studyId),
-  }), [dataset, studyId]);
+  const d = useMemo(() => {
+    const density = queryDensityBySite(dataset, studyId);
+    return {
+      summary: querySummary(dataset, studyId),
+      byType: queriesByType(dataset, studyId),
+      aging: queryAging(dataset, studyId),
+      bySite: resolutionBySite(dataset, studyId),
+      density, densitySummary: queryDensitySummary(density),
+    };
+  }, [dataset, studyId]);
 
   const maxType = Math.max(1, ...d.byType.map((t) => t.count));
   const csvHeaders = ["Query ID", "Subject", "Form", "Field", "Raised by", "Raised date", "Days open", "Status", "Assigned to"];
@@ -40,6 +50,31 @@ export function QueryEditCheckReport({ studyId }: ReportProps) {
         {d.summary.total > 0 ? (
           <BarList items={d.byType.map((t) => ({ label: t.label, pct: Math.round((t.count / maxType) * 100), note: String(t.count) }))} />
         ) : <EmptyNote>No queries raised for this study.</EmptyNote>}
+      </Section>
+
+      <Section title="Query density" icon="gauge">
+        <StatGrid>
+          <StatTile value={`${d.densitySummary.overall}`} label="Overall — per 100 fields" tone={RATING_META[d.densitySummary.overallRating].cls === "ms-crit" ? "crit" : RATING_META[d.densitySummary.overallRating].cls === "ms-warn" ? "warn" : "good"} />
+          <StatTile value={`${d.densitySummary.highest}`} label="Highest site" />
+          <StatTile value={`${d.densitySummary.lowest}`} label="Lowest site" />
+        </StatGrid>
+        {d.density.length > 0 ? (
+          <table className="rpt-table" style={{ marginTop: "var(--space-3)" }}>
+            <thead><tr><th>Site</th><th>Total fields</th><th>Open queries</th><th>Density (per 100)</th><th>Rating</th></tr></thead>
+            <tbody>
+              {d.density.map((r) => (
+                <tr key={r.code}>
+                  <td>{r.code} · {r.name}</td>
+                  <td className="mono">{r.totalFields}</td>
+                  <td className="mono">{r.openQueries}</td>
+                  <td className="mono">{r.density}</td>
+                  <td><span className={`rpt-ms-chip ${RATING_META[r.rating].cls}`}>{RATING_META[r.rating].label}</span></td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        ) : <EmptyNote>No CRF fields recorded for this study.</EmptyNote>}
+        <p className="rpt-footnote">Query density = open queries per 100 CRF fields. Industry benchmark: &lt; 2 per 100 fields indicates high data quality. Density &gt; 5 per 100 fields warrants site investigation. Ratings: &lt; 2 Excellent · 2–5 Acceptable · 5–10 Review needed · &gt; 10 Action required.</p>
       </Section>
 
       <Section title="Query aging" icon="clock-hour-4" action={<ExportCsvButton studyCode={study.code} slug="query_edit_check" headers={csvHeaders} rows={csvRows} />}>

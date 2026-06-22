@@ -7,7 +7,13 @@ import { useTableSort } from "@/lib/useTableSort";
 import { SortTh } from "@/components/common/SortTh";
 import type { ReportProps } from "@/app/study/[studyId]/reports/page";
 import { Section, StatGrid, StatTile, EmptyNote, ExportCsvButton, fmtDate } from "@/components/reports/ReportKit";
-import { buildConMedLog, conMedByClass, conMedSummary, type ConMedEntry } from "@/lib/reports-data";
+import { buildConMedLog, conMedByClass, conMedSummary, type ConMedEntry, type ConMedType } from "@/lib/reports-data";
+
+const TYPE_META: Record<ConMedType, { label: string; cls: string }> = {
+  metaphylaxis: { label: "Metaphylaxis", cls: "ms-active" },
+  therapeutic: { label: "Therapeutic", cls: "ms-warn" },
+  preventive: { label: "Preventive", cls: "ms-future" },
+};
 
 // ConMed is subject-level medication data — no treatment-arm column, so blinding
 // (hideArms) has nothing to neutralise here.
@@ -15,6 +21,8 @@ export function ConMedLogReport({ studyId }: ReportProps) {
   const { dataset } = useStudySession();
   const { study } = useShell();
   const { sort, toggle } = useTableSort(null);
+  const isCa = study.code === "CA-0801"; // washout compliance
+  const isBr = study.code === "BR-2502"; // metaphylaxis type
 
   const d = useMemo(() => {
     const entries = buildConMedLog(dataset, studyId);
@@ -32,8 +40,12 @@ export function ConMedLogReport({ studyId }: ReportProps) {
     return f ? arr.sort((a, b) => f(a).localeCompare(f(b)) * dir) : arr;
   }, [d.entries, sort]);
 
-  const csvHeaders = ["Subject", "Site", "Medication", "Drug class", "Dose", "Route", "Start date", "End date", "Indication", "Concurrent with", "Interaction"];
-  const csvRows = d.entries.map((e) => [e.subjectCode, `${e.siteCode} · ${e.siteName}`, e.medication, e.drugClass, e.dose, e.route, e.startDate, e.ongoing ? "Ongoing" : e.endDate, e.indication, e.concurrentWith, e.interaction ? "Yes" : "No"]);
+  const csvHeaders = ["Subject", "Site", ...(isBr ? ["Type"] : []), "Medication", "Drug class", "Dose", "Route", "Start date", "End date", "Indication", "VeDDRA code", "Coding", ...(isCa ? ["Washout"] : [])];
+  const csvRows = d.entries.map((e) => [
+    e.subjectCode, `${e.siteCode} · ${e.siteName}`, ...(isBr ? [e.conmedType ?? "—"] : []),
+    e.medication, e.drugClass, e.dose, e.route, e.startDate, e.ongoing ? "Ongoing" : e.endDate, e.indication,
+    e.veddraCode, e.codingStatus, ...(isCa ? [e.washoutOverlap == null ? "—" : e.washoutOverlap ? "Overlap" : "Clear"] : []),
+  ]);
 
   if (d.entries.length === 0) {
     return (
@@ -59,29 +71,47 @@ export function ConMedLogReport({ studyId }: ReportProps) {
           <thead><tr>
             <SortTh label="Subject" sortKey="subject" sort={sort} onSort={toggle} />
             <th>Site</th>
+            {isBr && <th>Type</th>}
             <SortTh label="Medication" sortKey="med" sort={sort} onSort={toggle} />
             <SortTh label="Drug class" sortKey="class" sort={sort} onSort={toggle} />
             <th>Dose</th><th>Route</th>
             <SortTh label="Start" sortKey="start" sort={sort} onSort={toggle} />
-            <th>End</th><th>Indication</th><th>Concurrent with</th>
+            <th>End</th><th>Indication</th>
+            <th>VeDDRA code</th><th>Coding</th>
+            {isCa && <th>Washout</th>}
           </tr></thead>
           <tbody>
-            {sorted.map((e) => (
-              <tr key={e.id} className={e.interaction ? "rpt-row-warn" : ""}>
-                <td className="mono">{e.subjectCode}</td>
-                <td>{e.siteCode} · {e.siteName}</td>
-                <td>{e.medication}{e.interaction && <span className="rpt-interaction-flag" title="Overlaps a known interaction class"><i className="ti ti-alert-triangle-filled"></i></span>}</td>
-                <td>{e.drugClass}</td>
-                <td className="mono">{e.dose}</td>
-                <td>{e.route}</td>
-                <td className="mono">{fmtDate(e.startDate)}</td>
-                <td className="mono">{e.ongoing ? <span className="rpt-ms-chip ms-active">Ongoing</span> : fmtDate(e.endDate)}</td>
-                <td className="rpt-cell-wrap">{e.indication}</td>
-                <td>{e.concurrentWith}</td>
-              </tr>
-            ))}
+            {sorted.map((e) => {
+              const meta = e.conmedType ? TYPE_META[e.conmedType] : null;
+              const isMeta = e.conmedType === "metaphylaxis";
+              return (
+                <tr key={e.id} className={e.interaction ? "rpt-row-warn" : ""}>
+                  <td className="mono">{e.subjectCode}</td>
+                  <td>{e.siteCode} · {e.siteName}</td>
+                  {isBr && <td>{meta ? <span className={`rpt-ms-chip ${meta.cls}`}>{meta.label}</span> : "—"}{isMeta && <span className="rpt-interaction-flag" title="Metaphylactic antibiotic — administered to the whole pen on arrival. May confound individual treatment response if the study drug has overlapping antimicrobial activity. Flag for DM and biostatistician review."><i className="ti ti-alert-triangle"></i></span>}</td>}
+                  <td>{e.medication}{e.interaction && !isBr && <span className="rpt-interaction-flag" title="Overlaps a known interaction class"><i className="ti ti-alert-triangle-filled"></i></span>}</td>
+                  <td>{e.drugClass}</td>
+                  <td className="mono">{e.dose}</td>
+                  <td>{e.route}</td>
+                  <td className="mono">{fmtDate(e.startDate)}</td>
+                  <td className="mono">{e.ongoing ? <span className="rpt-ms-chip ms-active">Ongoing</span> : fmtDate(e.endDate)}</td>
+                  <td className="rpt-cell-wrap">{e.indication}</td>
+                  <td className="mono">{e.veddraCode}</td>
+                  <td><span className={`rpt-ms-chip ${e.codingStatus === "coded" ? "ms-done" : "ms-warn"}`}>{e.codingStatus === "coded" ? "Coded" : "Pending"}</span></td>
+                  {isCa && <td>{e.washoutOverlap == null ? "—" : e.washoutOverlap
+                    ? <span className="rpt-ms-chip ms-warn" title={`Washout period ends ${e.washoutEnd ? fmtDate(e.washoutEnd) : "after enrollment (ongoing)"} — subject enrolled ${fmtDate(e.enrollDate)}. Verify eligibility with PI.`}>⚠ Washout overlap</span>
+                    : <span className="rpt-ms-chip ms-done">✓ Washout clear</span>}</td>}
+                </tr>
+              );
+            })}
           </tbody>
         </table>
+        <p className="rpt-footnote">
+          Drug terms coded using VeDDRA (Veterinary Dictionary for Drug Reactions and Adverse Events). Coding performed by the Data Manager in the Coding module. Pending terms require DM review before database lock.{" "}
+          <span className="rpt-link-disabled" title="Coming soon">Go to Coding →</span>
+        </p>
+        {isCa && <p className="rpt-footnote">Washout compliance calculated from reported stop date + protocol-defined washout period. Overlapping entries require PI confirmation that eligibility criteria were still met.</p>}
+        {isBr && <p className="rpt-footnote">Metaphylaxis = mass medication of the entire pen on feedlot arrival (preventive/control measure). Therapeutic = treatment of an individual sick animal. Metaphylactic antibiotics with overlapping activity to the investigational product should be reviewed for potential confounding.</p>}
       </Section>
 
       <Section title="ConMed by drug class" icon="chart-bar">

@@ -81,6 +81,10 @@ export function EnrollmentDispositionReport({ studyId, aggregate, hideArms }: Re
 
   return (
     <>
+      <div className="rpt-guideline-banner">
+        <i className="ti ti-book"></i>
+        <span>This report follows the REFLECT statement (Reporting guideline for Randomized Controlled Trials in livestock and companion animal research, Sargeant et al. 2010) — the veterinary equivalent of CONSORT for human trials.</span>
+      </div>
       {isPen && (
         <div className="rpt-action-banner" style={{ background: "var(--blue-50)", color: "var(--blue-600)" }}>
           <i className="ti ti-info-circle"></i> Pen-level enrollment — PH-2401 uses the pen as the experimental unit; individual bird mortality is tracked in the Flock Health form, not as subject disposition.
