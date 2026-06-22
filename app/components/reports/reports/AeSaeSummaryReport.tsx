@@ -8,7 +8,7 @@ import { buildAeRoster, safetySummary, aeBySite, aeByArm, dartDistribution, brWi
 
 const SEV_CLS: Record<string, string> = { mild: "ms-done", moderate: "ms-active", severe: "ms-crit", "life-threatening": "ms-crit" };
 const FILED_META: Record<string, { label: string; cls: string }> = {
-  yes: { label: "Yes", cls: "ms-done" }, no: { label: "No", cls: "ms-crit" }, pending: { label: "Pending", cls: "ms-active" },
+  yes: { label: "Yes", cls: "ms-done" }, no: { label: "No", cls: "ms-crit" }, pending: { label: "Pending", cls: "ms-warn" },
 };
 
 function AeTable({ rows }: { rows: AeRow[] }) {
@@ -58,7 +58,7 @@ function SaeTimelineTable({ rows }: { rows: AeRow[] }) {
               <td>{a.relatedness}</td>
               <td>{a.saeCriterion ?? "—"}</td>
               <td className="mono">{fmtDate(a.piAwareDate)}</td>
-              <td className="mono">{a.sponsorNotifiedDate ? fmtDate(a.sponsorNotifiedDate) : <span className="rpt-ms-chip ms-active">Pending</span>}</td>
+              <td className="mono">{a.sponsorNotifiedDate ? fmtDate(a.sponsorNotifiedDate) : (a.filedOnTime === "no" ? <span className="rpt-ms-chip ms-crit">Overdue</span> : <span className="rpt-ms-chip ms-warn">Pending</span>)}</td>
               <td className={`mono${a.daysToNotify == null ? "" : a.daysToNotify <= 1 ? " cell-good" : " cell-crit"}`}>{a.daysToNotify == null ? "—" : `${a.daysToNotify}d`}</td>
               <td className="mono">{fmtDate(a.reportDueDate)}</td>
               <td>{filed ? <span className={`rpt-ms-chip ${filed.cls}`}>{filed.label}</span> : "—"}</td>
@@ -106,6 +106,7 @@ export function AeSaeSummaryReport({ studyId, aggregate, hideArms }: ReportProps
             <>
               <div className="rpt-action-banner"><i className="ti ti-urgent"></i> {d.saes.length} serious {d.saes.length === 1 ? "event" : "events"} — expedited reporting may be required.</div>
               <SaeTimelineTable rows={d.saes} />
+              <p className="rpt-footnote">Causality assessment per VICH GL6 (veterinary) criteria: Not related / Unlikely / Possible / Probable / Definite. Assessed by the Principal Investigator.</p>
               <p className="rpt-footnote">SAE reporting timelines per ICH E6 R2 §5.17 and VICH GL42. Fatal or life-threatening SAEs: sponsor notification within 24 h, regulatory report within 7 calendar days. All other SAEs: 15 days.</p>
             </>
           ) : <EmptyNote>No serious adverse events recorded for this study.</EmptyNote>}

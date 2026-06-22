@@ -12,9 +12,16 @@ import {
   armLabeler, buildSubjectIndex, type Disposition,
 } from "@/lib/reports-data";
 
+// Status → disposition-chip class (mirrors the funnel-tile accents).
 const STATUS_CHIP: Record<string, string> = {
-  active: "ms-active", completed: "ms-done", withdrawn: "ms-crit", screening: "ms-future", enrolled: "ms-active", randomized: "ms-active",
+  active: "s-active", completed: "s-completed", withdrawn: "s-withdrawn", screening: "s-screening", enrolled: "s-enrolled", randomized: "s-enrolled",
 };
+// A screen-failure row (status "screening" + ineligible) reads as a red "Screen
+// fail" chip to match the funnel's red Screen-fails tile.
+function dispChip(x: { status: string; isScreenFailure: boolean }): { cls: string; label: string } {
+  if (x.isScreenFailure) return { cls: "s-screenfail", label: "Screen fail" };
+  return { cls: STATUS_CHIP[x.status] ?? "s-screening", label: x.status };
+}
 
 export function EnrollmentDispositionReport({ studyId, aggregate, hideArms }: ReportProps) {
   const { dataset } = useStudySession();
@@ -116,7 +123,7 @@ export function EnrollmentDispositionReport({ studyId, aggregate, hideArms }: Re
                   <td className="mono">{x.subjectCode}</td>
                   {showArm && <td>{d.label(x.arm)}</td>}
                   <td>{x.siteCode} · {x.siteName}</td>
-                  <td><span className={`rpt-ms-chip ${STATUS_CHIP[x.status] ?? "ms-future"}`}>{x.status}</span></td>
+                  <td>{(() => { const c = dispChip(x); return <span className={`disp-chip ${c.cls}`}>{c.label}</span>; })()}</td>
                   <td className="mono">{fmtDate(x.enrollDate)}</td>
                   <td className="mono">{fmtDate(x.exitDate)}</td>
                   <td>{x.exitReason ?? "—"}</td>

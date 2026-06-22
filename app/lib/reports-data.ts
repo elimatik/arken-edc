@@ -571,7 +571,11 @@ export function buildAeRoster(dataset: Dataset, studyId: string): AeRow[] {
     const fatal = /death|fatal|life/i.test(sae.sae_criterion);
     const reportDueDate = addDays(sae.pi_aware_date, fatal ? 7 : 15);
     const daysToNotify = sae.sponsor_notified_date ? dayDiff(sae.pi_aware_date, sae.sponsor_notified_date) : null;
-    const filedOnTime: FiledStatus = sae.sponsor_notified_date == null ? "pending" : sae.sponsor_notified_date <= reportDueDate ? "yes" : "no";
+    // Not yet notified: "pending" only while still within the report window —
+    // once the due date passes without filing it becomes "no" (overdue).
+    const filedOnTime: FiledStatus = sae.sponsor_notified_date == null
+      ? (reportDueDate < todayISO() ? "no" : "pending")
+      : sae.sponsor_notified_date <= reportDueDate ? "yes" : "no";
     rows.push({
       subjectCode: subj.subject_code, siteName: subj.site_id ? siteById.get(subj.site_id)?.name ?? "—" : "—",
       arm: subj.randomization_arm, description: sae.description, onsetDate: sae.onset_date,

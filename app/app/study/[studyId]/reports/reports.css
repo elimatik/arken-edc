@@ -33,7 +33,7 @@
 .rpt-header-text { width: 100%; min-width: 0; white-space: nowrap; }
 .rpt-eyebrow { font-size: 10px; font-weight: var(--weight-medium); letter-spacing: var(--tracking-caps); text-transform: uppercase; color: var(--blue-600); }
 .rpt-title { font-size: var(--text-2xl); font-weight: var(--weight-medium); color: var(--color-text-primary); margin: 2px 0 var(--space-1); }
-.rpt-desc { font-size: var(--text-sm); color: var(--color-text-secondary); max-width: 64ch; white-space: normal; }
+.rpt-desc { font-size: var(--text-sm); color: var(--color-text-secondary); max-width: none; white-space: normal; }
 .rpt-meta { display: flex; flex-wrap: wrap; gap: var(--space-4); margin-top: var(--space-3); font-size: var(--text-xs); color: var(--color-text-tertiary); }
 .rpt-meta span { display: inline-flex; align-items: center; gap: 4px; }
 .rpt-disclaimer { display: inline-flex; align-items: center; gap: var(--space-2); margin-top: var(--space-3); padding: var(--space-1) var(--space-3); border-radius: var(--radius-md); background: var(--amber-50); color: var(--amber-700); font-size: var(--text-xs); }
@@ -107,7 +107,7 @@
 .rpt-prop-leg { display: inline-flex; align-items: center; gap: 6px; }
 .rpt-prop-leg i { width: 10px; height: 10px; border-radius: var(--radius-sm); display: inline-block; }
 .rpt-bar-caption { margin-top: var(--space-2); font-size: var(--text-xs); color: var(--color-text-tertiary); }
-.rpt-footnote { margin-top: var(--space-3); font-size: var(--text-xs); color: var(--color-text-tertiary); line-height: 1.5; max-width: 90ch; }
+.rpt-footnote { margin-top: var(--space-3); font-size: var(--text-xs); color: var(--color-text-tertiary); line-height: 1.5; max-width: none; }
 
 /* ─── Tables ──────────────────────────────────────────────────────────────── */
 .rpt-table { width: 100%; border-collapse: collapse; font-size: var(--text-sm); background: var(--color-surface); border: 1px solid var(--color-border); border-radius: var(--radius-lg); overflow: hidden; }
@@ -134,6 +134,18 @@
 .rpt-ms-chip.ms-active { background: var(--blue-50); color: var(--blue-600); }
 .rpt-ms-chip.ms-future { background: var(--slate-50); color: var(--slate-600); }
 .rpt-ms-chip.ms-crit { background: var(--red-50); color: var(--red-600); }
+.rpt-ms-chip.ms-warn { background: var(--amber-50); color: var(--amber-700); }
+
+/* Disposition status chips — tinted + bordered to match the funnel-tile accent
+   each status maps to (enrolled→blue · active/completed→green · screening→slate
+   · withdrawn→amber · screen-fail→red). */
+.disp-chip { display: inline-block; padding: 2px 10px; border-radius: var(--radius-full); border: 1px solid transparent; font-size: 10px; font-weight: var(--weight-medium); text-transform: capitalize; white-space: nowrap; }
+.disp-chip.s-enrolled  { background: color-mix(in srgb, var(--blue-400) 12%, transparent);  border-color: var(--blue-400);  color: var(--blue-800); }
+.disp-chip.s-active    { background: color-mix(in srgb, var(--green-500) 12%, transparent); border-color: var(--green-500); color: var(--green-800); }
+.disp-chip.s-completed { background: color-mix(in srgb, var(--green-500) 12%, transparent); border-color: var(--green-500); color: var(--green-800); }
+.disp-chip.s-screening { background: color-mix(in srgb, var(--slate-300) 25%, transparent); border-color: var(--slate-300); color: var(--slate-600); }
+.disp-chip.s-withdrawn { background: color-mix(in srgb, var(--amber-400) 14%, transparent); border-color: var(--amber-400); color: var(--amber-700); }
+.disp-chip.s-screenfail{ background: color-mix(in srgb, var(--red-400) 12%, transparent);   border-color: var(--red-400);   color: var(--red-800); }
 .rpt-sae-tag { margin-left: var(--space-2); padding: 0 5px; border-radius: var(--radius-sm); background: var(--red-600); color: #fff; font-size: 9px; font-weight: var(--weight-bold); letter-spacing: 0.05em; vertical-align: middle; }
 .rpt-flag { display: inline-flex; align-items: center; gap: 4px; color: var(--red-600); font-weight: var(--weight-medium); }
 
