@@ -246,6 +246,26 @@ Putting randomization on its own form — with the supply link as a first-class 
 
 ---
 
+## Reports & safety — interview talking points
+
+The Reports module is where the clinical-domain depth is most visible. Six things to point at:
+
+- **Role-scoped, blinding-aware reporting.** "Reports are role-scoped and blinding-aware — a CRC on the double-blind CA-0801 sees no treatment-arm breakdown; a DM sees the full split. It's one `shouldHideArms()` helper, called from **both** the reports and the dashboard, so the rule lives in exactly one place and can't drift between screens."
+
+- **SAE reporting timelines that flag overdue notifications.** "The SAE section shows the reporting timeline per ICH E6 R2 §5.17 and VICH GL42 — PI-aware date, sponsor-notified date, days-to-notify, and the regulatory report-due date. It flags overdue notifications in red, and it's time-relative: PH-2401 has a missed deadline that turns red automatically as the due date passes, not a hardcoded state."
+
+- **VeDDRA coding follows the production EDC pattern.** "Dictionary coding mirrors how Medidata Rave and Oracle InForm work: verbatim terms are captured at the site, coded centrally by the Data Manager in the Coding module, and the coded term flows back to the originating record. On the AE/ConMed panels the VeDDRA field is **read-only for every role** — it's the *result* of coding, not the input. The display contracts are already wired; the Coding module is the write path."
+
+- **Washout compliance catches an eligibility violation automatically.** "The washout flag on CA-0801 ConMed entries calculates stop-date + the protocol-defined washout period and flags any overlap with the enrollment date. It catches a real eligibility violation — a prior immunosuppressant that wasn't fully washed out — without anyone having to check it by hand."
+
+- **Metaphylaxis type, because it's a known confounder.** "The BR-2502 ConMed log has a Metaphylaxis / Therapeutic / Preventive type column with a warning on metaphylactic antibiotics — mass medication of the whole pen on feedlot arrival is a known confounder in BRD efficacy trials, so it's flagged for the DM and biostatistician to review."
+
+- **Query density is the metric a sponsor's data team uses.** "Query density — open queries per 100 CRF fields — is the standard data-quality metric in clinical trials. The Query report shows it per site with rated thresholds, which is exactly the lens a sponsor's data-quality team would use to decide which sites need attention."
+
+The through-line for all six: these aren't generic dashboards dressed in medical words — each one encodes a real regulatory requirement or a real source of bias that someone in veterinary clinical research would recognize immediately.
+
+---
+
 ### A note on sharing the work
 
 Because this case study is shared publicly for evaluation, the live app gates every non-owner visitor through a one-time **access agreement** before the study selector — name + agreement, recorded to a Supabase `nda_agreements` table — while an owner code (`ARKEN-ADMIN`) bypasses it. It's a small, deliberate decision: protect the originality of the design and patterns documented here without putting friction between a reviewer and the work. (Minor study-list affordances live alongside it — e.g. pinning studies to the top of the table, marked only by a filled pin icon, no row highlight.)

@@ -376,7 +376,7 @@ export function SubjectRecord({ studyId, subjectId, initialFormId, initialPanelF
       <button
         key={item.id}
         id={`sb-form-${item.id}`}
-        className={`form-item${item.id === activeFormId ? " active" : ""}${item.icon === "final" ? " done" : ""}`}
+        className={`form-item${item.id === activeFormId && !aeView ? " active" : ""}${item.icon === "final" ? " done" : ""}`}
         onClick={() => { setSelectedFormId(item.id); setAeView(false); }}
         title={item.name}
         type="button"
