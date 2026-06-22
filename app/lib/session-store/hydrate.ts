@@ -210,11 +210,11 @@ export async function hydrateFromSupabase(): Promise<Dataset> {
     if (subj) saeReports.push({ id: `sae-${code}`, study_id: studyId, subject_id: subj.id, ...spec });
   };
   // CA-0801 — drug-related hypersensitivity; notified same day (filed on time).
-  pushSae("CA-0801", { description: "Serious hypersensitivity reaction", onset_date: "2025-09-15", severity: "Severe", relatedness: "Probable", sae_criterion: "Life-threatening", outcome: "Recovered", pi_aware_date: "2025-09-15", sponsor_notified_date: "2025-09-15" });
+  pushSae("CA-0801", { description: "Serious hypersensitivity reaction", onset_date: "2025-09-15", severity: "Severe", relatedness: "Probable", sae_criterion: "Life-threatening", outcome: "Recovered", pi_aware_date: "2025-09-15", sponsor_notified_date: "2025-09-15", veddra_code: "hypersensitivity", veddra_coding: "coded" });
   // BR-2502 — fatal BRD despite treatment; notified +1 day (on time, borderline).
-  pushSae("BR-2502", { description: "Fatal bovine respiratory disease despite treatment", onset_date: "2026-01-12", severity: "Severe", relatedness: "Unlikely", sae_criterion: "Death", outcome: "Fatal", pi_aware_date: "2026-01-12", sponsor_notified_date: "2026-01-13" });
+  pushSae("BR-2502", { description: "Fatal bovine respiratory disease despite treatment", onset_date: "2026-01-12", severity: "Severe", relatedness: "Unlikely", sae_criterion: "Death", outcome: "Fatal", pi_aware_date: "2026-01-12", sponsor_notified_date: "2026-01-13", veddra_code: "bovine respiratory disease", veddra_coding: "coded" });
   // PH-2401 — sudden pen-level mortality spike; report still pending.
-  pushSae("PH-2401", { description: "Sudden mortality spike >10% in 24h (pen-level)", onset_date: "2026-03-22", severity: "Severe", relatedness: "Unlikely", sae_criterion: "Other important medical event", outcome: "Ongoing", pi_aware_date: "2026-03-22", sponsor_notified_date: null });
+  pushSae("PH-2401", { description: "Sudden mortality spike >10% in 24h (pen-level)", onset_date: "2026-03-22", severity: "Severe", relatedness: "Unlikely", sae_criterion: "Other important medical event", outcome: "Ongoing", pi_aware_date: "2026-03-22", sponsor_notified_date: null, veddra_code: "increased mortality", veddra_coding: "coded" });
 
   // ─── Seeded protocol deviations (session-only) ──────────────────────────────
   const siteIdOf = (studyCode: string, siteCode: string): string | null => {

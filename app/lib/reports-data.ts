@@ -552,6 +552,7 @@ export type FiledStatus = "yes" | "no" | "pending";
 export interface AeRow {
   subjectCode: string; siteName: string; arm: string | null; description: string; onsetDate: string | null;
   severity: string; relatedness: string; status: string; outcome: string; serious: boolean; saeCriterion: string | null;
+  veddraCode: string; veddraCoding: "coded" | "pending"; // coded AE term (VeDDRA)
   // SAE reporting timeline — populated only for seeded SAE records (null otherwise).
   piAwareDate: string | null; sponsorNotifiedDate: string | null; reportDueDate: string | null;
   daysToNotify: number | null; filedOnTime: FiledStatus | null;
@@ -599,6 +600,9 @@ export function buildAeRoster(dataset: Dataset, studyId: string): AeRow[] {
     if (!desc) continue; // an AE form with no event recorded isn't an AE
     const saeRaw = (vals.get("sae_flag") ?? vals.get("serious_sae") ?? vals.get("seriousness") ?? "").toLowerCase();
     const serious = SAE_YES.has(saeRaw) || /life|death|hospital/.test((vals.get("sae_category") ?? "").toLowerCase());
+    // VeDDRA: a coded term field (veddra_term / event_term) → Coded; otherwise the
+    // verbatim term carries over as Pending coding.
+    const coded = vals.get("veddra_term") ?? vals.get("veddra_code") ?? vals.get("coded_term");
     rows.push({
       subjectCode: subj.subject_code, siteName: subj.site_id ? siteById.get(subj.site_id)?.name ?? "—" : "—",
       arm: subj.randomization_arm,
@@ -606,6 +610,7 @@ export function buildAeRoster(dataset: Dataset, studyId: string): AeRow[] {
       severity: vals.get("severity") ?? "—", relatedness: normalizeRelatedness(vals.get("relatedness") ?? vals.get("relationship")),
       status: vals.get("ongoing") === "Yes" ? "Ongoing" : (vals.get("outcome") ? "Closed" : "Open"),
       outcome: vals.get("outcome") ?? "—", serious, saeCriterion: saeCriterionOf(vals, serious),
+      veddraCode: coded ?? desc, veddraCoding: coded ? "coded" : "pending",
       piAwareDate: null, sponsorNotifiedDate: null, reportDueDate: null, daysToNotify: null, filedOnTime: null,
     });
   }
@@ -629,6 +634,7 @@ export function buildAeRoster(dataset: Dataset, studyId: string): AeRow[] {
       severity: sae.severity, relatedness: normalizeRelatedness(sae.relatedness),
       status: sae.outcome && sae.outcome !== "Ongoing" ? "Closed" : "Ongoing", outcome: sae.outcome,
       serious: true, saeCriterion: sae.sae_criterion,
+      veddraCode: sae.veddra_code ?? sae.description, veddraCoding: sae.veddra_coding ?? "pending",
       piAwareDate: sae.pi_aware_date, sponsorNotifiedDate: sae.sponsor_notified_date, reportDueDate, daysToNotify, filedOnTime,
     });
   }

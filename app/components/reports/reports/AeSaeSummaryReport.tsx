@@ -15,7 +15,7 @@ function AeTable({ rows }: { rows: AeRow[] }) {
   return (
     <table className="rpt-table">
       <thead><tr>
-        <th>Subject</th><th>Site</th><th>AE description</th><th>Onset</th><th>Severity</th>
+        <th>Subject</th><th>Site</th><th>AE description</th><th>VeDDRA code</th><th>Onset</th><th>Severity</th>
         <th>Relatedness</th><th>Status</th><th>Outcome</th>
       </tr></thead>
       <tbody>
@@ -24,6 +24,7 @@ function AeTable({ rows }: { rows: AeRow[] }) {
             <td className="mono">{a.subjectCode}</td>
             <td>{a.siteName}</td>
             <td>{a.description}{a.serious && <span className="rpt-sae-tag">SAE</span>}</td>
+            <td className="rpt-vedra-cell"><span className="mono">{a.veddraCode}</span><span className={`rpt-ms-chip ${a.veddraCoding === "coded" ? "ms-done" : "ms-warn"}`}>{a.veddraCoding === "coded" ? "Coded" : "Pending"}</span></td>
             <td className="mono">{fmtDate(a.onsetDate)}</td>
             <td><span className={`rpt-ms-chip ${SEV_CLS[a.severity.toLowerCase()] ?? "ms-future"}`}>{a.severity}</span></td>
             <td>{a.relatedness}</td>

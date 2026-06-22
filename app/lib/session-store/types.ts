@@ -209,6 +209,8 @@ export interface SaeReportRow {
   outcome: string;
   pi_aware_date: string;
   sponsor_notified_date: string | null;
+  veddra_code: string; // coded AE term (VeDDRA)
+  veddra_coding: "coded" | "pending";
 }
 
 // Concomitant medication — a medicine a subject takes alongside the investigational
