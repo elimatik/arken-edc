@@ -366,7 +366,7 @@ export function SubjectRecord({ studyId, subjectId, initialFormId, initialPanelF
     return <span className="status-glyph" title={title}>{inner}</span>;
   }
   function toggleGroup(id: string) {
-    setAeView(false); // interacting with the form tree exits the AE/SAE view
+    // Expand/collapse only — does not change selection or exit the AE/SAE view.
     const next = new Set(collapsedSet);
     if (next.has(id)) next.delete(id);
     else next.add(id);
