@@ -366,6 +366,7 @@ export function SubjectRecord({ studyId, subjectId, initialFormId, initialPanelF
     return <span className="status-glyph" title={title}>{inner}</span>;
   }
   function toggleGroup(id: string) {
+    setAeView(false); // interacting with the form tree exits the AE/SAE view
     const next = new Set(collapsedSet);
     if (next.has(id)) next.delete(id);
     else next.add(id);
@@ -400,7 +401,7 @@ export function SubjectRecord({ studyId, subjectId, initialFormId, initialPanelF
     return (
       <div className="form-group" key={node.id}>
         <button
-          className={`form-group-header${activeAncestorIds.has(node.id) ? " active-parent" : ""}`}
+          className={`form-group-header${activeAncestorIds.has(node.id) && !aeView ? " active-parent" : ""}`}
           onClick={() => toggleGroup(node.id)}
           aria-expanded={!collapsed}
           title={node.name}
