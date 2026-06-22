@@ -12,15 +12,15 @@ import {
   armLabeler, buildSubjectIndex, type Disposition,
 } from "@/lib/reports-data";
 
-// Status → disposition-chip class (mirrors the funnel-tile accents).
+// Status → standard chip class (same light-tint .rpt-ms-chip primitive as the
+// Overdue/On-time chips). active/completed→green, enrolled→blue, screening &
+// withdrawn→slate (neutral/closed — no action), screen-fail→red.
 const STATUS_CHIP: Record<string, string> = {
-  active: "s-active", completed: "s-completed", withdrawn: "s-withdrawn", screening: "s-screening", enrolled: "s-enrolled", randomized: "s-enrolled",
+  active: "ms-done", completed: "ms-done", withdrawn: "ms-future", screening: "ms-future", enrolled: "ms-active", randomized: "ms-active",
 };
-// A screen-failure row (status "screening" + ineligible) reads as a red "Screen
-// fail" chip to match the funnel's red Screen-fails tile.
 function dispChip(x: { status: string; isScreenFailure: boolean }): { cls: string; label: string } {
-  if (x.isScreenFailure) return { cls: "s-screenfail", label: "Screen fail" };
-  return { cls: STATUS_CHIP[x.status] ?? "s-screening", label: x.status };
+  if (x.isScreenFailure) return { cls: "ms-crit", label: "Screen fail" };
+  return { cls: STATUS_CHIP[x.status] ?? "ms-future", label: x.status };
 }
 
 export function EnrollmentDispositionReport({ studyId, aggregate, hideArms }: ReportProps) {
@@ -123,7 +123,7 @@ export function EnrollmentDispositionReport({ studyId, aggregate, hideArms }: Re
                   <td className="mono">{x.subjectCode}</td>
                   {showArm && <td>{d.label(x.arm)}</td>}
                   <td>{x.siteCode} · {x.siteName}</td>
-                  <td>{(() => { const c = dispChip(x); return <span className={`disp-chip ${c.cls}`}>{c.label}</span>; })()}</td>
+                  <td>{(() => { const c = dispChip(x); return <span className={`rpt-ms-chip ${c.cls}`}>{c.label}</span>; })()}</td>
                   <td className="mono">{fmtDate(x.enrollDate)}</td>
                   <td className="mono">{fmtDate(x.exitDate)}</td>
                   <td>{x.exitReason ?? "—"}</td>
