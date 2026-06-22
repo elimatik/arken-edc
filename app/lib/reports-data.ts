@@ -120,6 +120,27 @@ const earliestDate = (m: Map<string, string[]> | undefined, ...codes: string[]):
   return out;
 };
 
+// Form codes are sequential (F029, …) not semantic, so forms are detected by the
+// semantic FIELD codes they carry — the same way the panels resolve them.
+const AE_DESC_FIELD_CODES = new Set(["ae_term", "ae_description", "event_description", "event_term"]);
+const CONMED_MED_FIELD_CODES = new Set(["medication", "medication_name"]);
+function formsWithAnyFieldCode(dataset: Dataset, studyId: string, codes: Set<string>): Set<string> {
+  const studyFormIds = new Set(dataset.forms.filter((f) => f.study_id === studyId).map((f) => f.id));
+  const out = new Set<string>();
+  for (const f of dataset.formFields) if (studyFormIds.has(f.form_id) && codes.has(f.code)) out.add(f.form_id);
+  return out;
+}
+// Minimal drug classification for instance-derived ConMeds (seeded entries carry
+// their own class). Antibiotics flag a potential interaction.
+function classifyDrug(med: string): { drugClass: string; interaction: boolean } {
+  const m = med.toLowerCase();
+  if (/cillin|mycin|floxacin|florfenicol|tulathromycin|ceftiofur|sulfa|tetracyclin|oxytet|antibiotic/.test(m)) return { drugClass: "Antibiotic", interaction: true };
+  if (/prednis|cortico|dexameth|steroid/.test(m)) return { drugClass: "Corticosteroid", interaction: false };
+  if (/cyclospor|ciclospor|oclacitinib|immunosup/.test(m)) return { drugClass: "Immunosuppressant", interaction: false };
+  if (/coccidiostat|salinomycin|monensin|narasin/.test(m)) return { drugClass: "Coccidiostat", interaction: false };
+  return { drugClass: "Other", interaction: false };
+}
+
 const ENROLLED = new Set(["randomized", "enrolled", "active", "completed", "withdrawn"]);
 const DONE_STATUSES = new Set(["in_review", "reviewed", "finalized", "locked"]);
 const SDV_INELIGIBLE = new Set(["file", "calculated", "textarea"]);
@@ -585,7 +606,9 @@ function saeCriterionOf(vals: Map<string, string>, serious: boolean): string | n
 }
 
 export function buildAeRoster(dataset: Dataset, studyId: string): AeRow[] {
-  const aeForms = new Set(dataset.forms.filter((f) => f.study_id === studyId && (f.code === "adverse_event" || /_ae$/.test(f.code) || f.code === "injection_site")).map((f) => f.id));
+  // Real AE form instances (detected by their AE-description field) so a panel-
+  // entered AE flows straight into the roster — one source of truth.
+  const aeForms = formsWithAnyFieldCode(dataset, studyId, AE_DESC_FIELD_CODES);
   const subById = new Map(dataset.subjects.map((s) => [s.id, s]));
   const siteById = new Map(dataset.sites.map((s) => [s.id, s]));
   const fieldById = new Map(dataset.formFields.map((f) => [f.id, f]));
@@ -600,9 +623,10 @@ export function buildAeRoster(dataset: Dataset, studyId: string): AeRow[] {
     if (!desc) continue; // an AE form with no event recorded isn't an AE
     const saeRaw = (vals.get("sae_flag") ?? vals.get("serious_sae") ?? vals.get("seriousness") ?? "").toLowerCase();
     const serious = SAE_YES.has(saeRaw) || /life|death|hospital/.test((vals.get("sae_category") ?? "").toLowerCase());
-    // VeDDRA: a coded term field (veddra_term / event_term) → Coded; otherwise the
-    // verbatim term carries over as Pending coding.
+    // VeDDRA: a coded term field (veddra_term) → Coded; veddra_status 'excluded' →
+    // Excluded; otherwise the verbatim term carries over as Pending coding.
     const coded = vals.get("veddra_term") ?? vals.get("veddra_code") ?? vals.get("coded_term");
+    const excluded = (vals.get("veddra_status") ?? "").toLowerCase() === "excluded";
     rows.push({
       subjectCode: subj.subject_code, siteName: subj.site_id ? siteById.get(subj.site_id)?.name ?? "—" : "—",
       arm: subj.randomization_arm,
@@ -610,7 +634,7 @@ export function buildAeRoster(dataset: Dataset, studyId: string): AeRow[] {
       severity: vals.get("severity") ?? "—", relatedness: normalizeRelatedness(vals.get("relatedness") ?? vals.get("relationship")),
       status: vals.get("ongoing") === "Yes" ? "Ongoing" : (vals.get("outcome") ? "Closed" : "Open"),
       outcome: vals.get("outcome") ?? "—", serious, saeCriterion: saeCriterionOf(vals, serious),
-      veddraCode: coded ?? desc, veddraCoding: coded ? "coded" : "pending",
+      veddraCode: excluded ? "N/A — excluded from coding" : coded ?? desc, veddraCoding: excluded ? "excluded" : coded ? "coded" : "pending",
       piAwareDate: null, sponsorNotifiedDate: null, reportDueDate: null, daysToNotify: null, filedOnTime: null,
     });
   }
@@ -633,7 +657,7 @@ export function buildAeRoster(dataset: Dataset, studyId: string): AeRow[] {
       arm: subj.randomization_arm, description: sae.description, onsetDate: sae.onset_date,
       severity: sae.severity, relatedness: normalizeRelatedness(sae.relatedness),
       status: sae.outcome && sae.outcome !== "Ongoing" ? "Closed" : "Ongoing", outcome: sae.outcome,
-      serious: true, saeCriterion: sae.sae_criterion,
+      serious: sae.serious ?? true, saeCriterion: (sae.serious ?? true) ? sae.sae_criterion : null,
       veddraCode: sae.veddra_code ?? sae.description, veddraCoding: sae.veddra_coding ?? "pending",
       piAwareDate: sae.pi_aware_date, sponsorNotifiedDate: sae.sponsor_notified_date, reportDueDate, daysToNotify, filedOnTime,
     });
@@ -748,13 +772,54 @@ export interface ConMedEntry {
   washoutEnd: string | null;
   washoutOverlap: boolean | null; // null = no washout requirement / can't assess
 }
+function washoutOverlapOf(washoutDays: number, ongoing: boolean, endDate: string | null, enrollDate: string | null): { washoutEnd: string | null; overlap: boolean | null } {
+  const washoutEnd = washoutDays > 0 && endDate ? addDays(endDate, washoutDays) : null;
+  let overlap: boolean | null = null;
+  if (washoutDays > 0) {
+    if (ongoing) overlap = true;
+    else if (washoutEnd && enrollDate) overlap = washoutEnd >= enrollDate;
+  }
+  return { washoutEnd, overlap };
+}
 export function buildConMedLog(dataset: Dataset, studyId: string): ConMedEntry[] {
   const subById = new Map(dataset.subjects.map((s) => [s.id, s]));
   const siteById = new Map(dataset.sites.map((s) => [s.id, s]));
+  const fieldById = new Map(dataset.formFields.map((f) => [f.id, f]));
   const enrollBySubject = new Map(dispositions(dataset, studyId).map((d) => [d.subjectId, d.enrollDate]));
-  return (dataset.conMeds ?? [])
-    .filter((c) => c.study_id === studyId)
-    .map((c) => {
+  const out: ConMedEntry[] = [];
+
+  // 1. Real ConMed form instances (detected by their medication field) — so a
+  //    panel-entered ConMed flows straight into the report. One source of truth.
+  const conmedForms = formsWithAnyFieldCode(dataset, studyId, CONMED_MED_FIELD_CODES);
+  for (const inst of dataset.formInstances) {
+    if (!conmedForms.has(inst.form_id) || !inst.subject_id) continue;
+    const subj = subById.get(inst.subject_id);
+    if (!subj || subj.study_id !== studyId) continue;
+    const vals = new Map<string, string>();
+    for (const v of dataset.fieldValues) if (v.form_instance_id === inst.id && v.value) { const c = fieldById.get(v.form_field_id)?.code; if (c) vals.set(c, v.value); }
+    const medication = vals.get("medication") ?? vals.get("medication_name");
+    if (!medication) continue; // an empty ConMed instance carries nothing to report
+    const site = subj.site_id ? siteById.get(subj.site_id) : undefined;
+    const endDate = vals.get("end_date") ?? vals.get("stop_date") ?? null;
+    const ongoing = (vals.get("ongoing") ?? "") === "Yes" || (!endDate && !!vals.get("start_date"));
+    const enrollDate = enrollBySubject.get(subj.id) ?? null;
+    const cls = classifyDrug(medication);
+    const washoutDays = cls.drugClass === "Immunosuppressant" || cls.drugClass === "Corticosteroid" ? (dataset.studies.find((s) => s.id === studyId)?.code === "CA-0801" ? (/cyclospor|ciclospor/.test(medication.toLowerCase()) ? 28 : 14) : 0) : 0;
+    const { washoutEnd, overlap } = washoutOverlapOf(washoutDays, ongoing, endDate, enrollDate);
+    const codedTerm = vals.get("veddra_term") ?? vals.get("veddra_code");
+    const excluded = (vals.get("veddra_status") ?? "").toLowerCase() === "excluded";
+    out.push({
+      id: inst.id, subjectCode: subj.subject_code, siteCode: site?.code ?? "—", siteName: site?.name ?? "—",
+      medication, drugClass: cls.drugClass, dose: vals.get("dose") ?? vals.get("dose_route") ?? "—",
+      route: vals.get("route") ?? "—", startDate: vals.get("start_date") ?? "—", endDate, ongoing,
+      indication: vals.get("indication") ?? "—", concurrentWith: vals.get("concurrent_with") ?? "—", interaction: cls.interaction,
+      veddraCode: excluded ? "N/A — excluded from coding" : codedTerm ?? medication, codingStatus: excluded ? "excluded" : codedTerm ? "coded" : "pending",
+      conmedType: null, washoutDays, enrollDate, washoutEnd, washoutOverlap: overlap,
+    });
+  }
+
+  // 2. Seeded ConMed demo data (rich fields the form schema doesn't capture) — merged.
+  for (const c of (dataset.conMeds ?? []).filter((c) => c.study_id === studyId)) {
       const subj = subById.get(c.subject_id);
       const site = subj?.site_id ? siteById.get(subj.site_id) : undefined;
       const enrollDate = subj ? enrollBySubject.get(subj.id) ?? null : null;
@@ -766,7 +831,7 @@ export function buildConMedLog(dataset: Dataset, studyId: string): ConMedEntry[]
         if (c.ongoing) washoutOverlap = true;
         else if (washoutEnd && enrollDate) washoutOverlap = washoutEnd >= enrollDate;
       }
-      return {
+      out.push({
         id: c.id, subjectCode: subj?.subject_code ?? "—",
         siteCode: site?.code ?? "—", siteName: site?.name ?? "—",
         medication: c.medication, drugClass: c.drug_class, dose: c.dose, route: c.route,
@@ -774,9 +839,9 @@ export function buildConMedLog(dataset: Dataset, studyId: string): ConMedEntry[]
         indication: c.indication, concurrentWith: c.concurrent_with, interaction: c.interaction,
         veddraCode: c.veddra_code, codingStatus: c.coding_status, conmedType: c.conmed_type,
         washoutDays: c.washout_days, enrollDate, washoutEnd, washoutOverlap,
-      };
-    })
-    .sort((a, b) => a.subjectCode.localeCompare(b.subjectCode) || a.startDate.localeCompare(b.startDate));
+      });
+  }
+  return out.sort((a, b) => a.subjectCode.localeCompare(b.subjectCode) || a.startDate.localeCompare(b.startDate));
 }
 
 export interface ConMedClassRow { drugClass: string; count: number; subjects: number; interaction: boolean }

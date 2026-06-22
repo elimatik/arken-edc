@@ -211,6 +211,7 @@ export interface SaeReportRow {
   sponsor_notified_date: string | null;
   veddra_code: string; // coded AE term (VeDDRA)
   veddra_coding: "coded" | "pending" | "excluded";
+  serious?: boolean; // default true; false = a seeded non-serious AE (e.g. excluded minor reaction)
 }
 
 // Concomitant medication — a medicine a subject takes alongside the investigational

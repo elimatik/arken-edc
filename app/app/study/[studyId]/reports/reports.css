@@ -129,6 +129,7 @@
 .rpt-interaction-flag { margin-left: 6px; color: var(--amber-700); font-size: 12px; vertical-align: middle; }
 .rpt-vedra-cell { white-space: nowrap; }
 .rpt-vedra-cell .mono { margin-right: 6px; }
+.rpt-coding-icon { font-size: 14px; vertical-align: middle; }
 
 /* ─── Chips ───────────────────────────────────────────────────────────────── */
 .rpt-ms-chip { display: inline-block; padding: 1px var(--space-2); border-radius: var(--radius-full); font-size: 10px; font-weight: var(--weight-medium); text-transform: capitalize; white-space: nowrap; }

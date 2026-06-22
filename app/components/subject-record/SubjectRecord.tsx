@@ -139,8 +139,9 @@ function isSdvEligible(field: FormFieldRow): boolean {
 // VeDDRA dictionary coding lives on AE + ConMed forms. The panel field is a
 // READ-ONLY display of the DM's coding (done centrally in the Coding module),
 // rendered after the verbatim term (AE description / ConMed medication).
-const AE_FORM_RE = /adverse_event|_ae$|injection_site/;
-const AE_DESC_CODES = new Set(["event_description", "ae_description", "ae_term", "event_term", "description"]);
+// Anchor field codes (form `code` is sequential F0xx, so detect by these semantic
+// FIELD codes). The VeDDRA display is injected right after whichever appears.
+const AE_DESC_CODES = new Set(["event_description", "ae_description", "ae_term", "event_term"]);
 const CONMED_MED_CODES = new Set(["medication", "medication_name"]);
 
 export function SubjectRecord({ studyId, subjectId, initialFormId, initialPanelFieldId, initialSdv }: Props) {
@@ -2084,11 +2085,10 @@ export function SubjectRecord({ studyId, subjectId, initialFormId, initialPanelF
             </div>
             <div className="entry-panel-body">
               {(() => {
-                const fc = selectedForm?.code ?? "";
-                const isAe = AE_FORM_RE.test(fc), isConmed = fc === "conmed";
                 let injected = false;
                 return fields.map((field) => {
-                  const anchor = !injected && ((isAe && AE_DESC_CODES.has(field.code)) || (isConmed && CONMED_MED_CODES.has(field.code)));
+                  const isConmedAnchor = CONMED_MED_CODES.has(field.code);
+                  const anchor = !injected && (isConmedAnchor || AE_DESC_CODES.has(field.code));
                   if (anchor) injected = true;
                   const row = (
                     <div className="entry-field" key={field.id}>
@@ -2103,7 +2103,7 @@ export function SubjectRecord({ studyId, subjectId, initialFormId, initialPanelF
                   const vd = veddraForInstance(entryInstanceId);
                   return [row, (
                     <div className="entry-field" key="veddra-readonly">
-                      <label className="field-label">VeDDRA {isConmed ? "drug " : ""}term</label>
+                      <label className="field-label">VeDDRA {isConmedAnchor ? "drug " : ""}term</label>
                       <div className={`veddra-readonly ${vd.status}`}>
                         <span className="veddra-term">{vd.term}</span>
                         <span className={`veddra-chip ${vd.status}`}>{vd.status === "coded" ? "Coded" : vd.status === "excluded" ? "Excluded" : "Pending coding"}</span>

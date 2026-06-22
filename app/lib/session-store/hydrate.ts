@@ -183,6 +183,7 @@ export async function hydrateFromSupabase(): Promise<Dataset> {
     { medication: "Cyclosporine", drug_class: "Immunosuppressant", dose: "5 mg/kg", route: "Oral", start_date: "2026-03-20", end_date: null, ongoing: true, indication: "Atopic dermatitis — immunosuppressant (washout incomplete)", concurrent_with: "Baseline", interaction: false, veddra_code: "ciclosporin", coding_status: "coded", washout_days: 28, conmed_type: null },
     { medication: "Oclacitinib (Apoquel)", drug_class: "JAK inhibitor", dose: "0.5 mg/kg", route: "Oral", start_date: "2025-12-01", end_date: "2026-01-15", ongoing: false, indication: "Pruritus — prior therapy", concurrent_with: "Pre-study washout", interaction: false, veddra_code: "oclacitinib maleate", coding_status: "pending", washout_days: 14, conmed_type: null },
     { medication: "Prednisolone", drug_class: "Corticosteroid", dose: "0.5 mg/kg", route: "Oral", start_date: "2026-01-20", end_date: "2026-02-03", ongoing: false, indication: "Flare control — prior therapy", concurrent_with: "Pre-study washout", interaction: false, veddra_code: "prednisolone", coding_status: "coded", washout_days: 14, conmed_type: null },
+    { medication: "Saline flush", drug_class: "Other", dose: "10 mL", route: "Injectable, IV", start_date: "2026-04-22", end_date: "2026-04-22", ongoing: false, indication: "Catheter flush", concurrent_with: "Baseline", interaction: false, veddra_code: "N/A — not a regulated drug", coding_status: "excluded", washout_days: 0, conmed_type: null },
   ]);
   // BR-2502 — antibiotics. Tulathromycin given to the whole pen on arrival
   // (metaphylaxis, confounds the antimicrobial endpoint); florfenicol to an
@@ -204,17 +205,20 @@ export async function hydrateFromSupabase(): Promise<Dataset> {
   // here with its GCP/VICH reporting timeline. Attached to a real subject per study.
   type SaeSpec = Omit<Dataset["saeReports"][number], "id" | "study_id" | "subject_id">;
   const saeReports: Dataset["saeReports"] = [];
-  const pushSae = (code: string, spec: SaeSpec) => {
-    const subj = subjectsOf(code)[0];
+  const pushSae = (code: string, spec: SaeSpec, suffix = "", subjIdx = 0) => {
+    const subj = subjectsOf(code)[subjIdx] ?? subjectsOf(code)[0];
     const studyId = (studies.data ?? []).find((s) => s.code === code)?.id ?? "";
-    if (subj) saeReports.push({ id: `sae-${code}`, study_id: studyId, subject_id: subj.id, ...spec });
+    if (subj) saeReports.push({ id: `sae-${code}${suffix}`, study_id: studyId, subject_id: subj.id, ...spec });
   };
   // CA-0801 — drug-related hypersensitivity; notified same day (filed on time).
-  pushSae("CA-0801", { description: "Serious hypersensitivity reaction", onset_date: "2025-09-15", severity: "Severe", relatedness: "Probable", sae_criterion: "Life-threatening", outcome: "Recovered", pi_aware_date: "2025-09-15", sponsor_notified_date: "2025-09-15", veddra_code: "hypersensitivity", veddra_coding: "coded" });
+  pushSae("CA-0801", { description: "Serious hypersensitivity reaction", onset_date: "2025-09-15", severity: "Severe", relatedness: "Probable", sae_criterion: "Life-threatening", outcome: "Recovered", pi_aware_date: "2025-09-15", sponsor_notified_date: "2025-09-15", veddra_code: "hypersensitivity", veddra_coding: "coded", serious: true });
   // BR-2502 — fatal BRD despite treatment; notified +1 day (on time, borderline).
-  pushSae("BR-2502", { description: "Fatal bovine respiratory disease despite treatment", onset_date: "2026-01-12", severity: "Severe", relatedness: "Unlikely", sae_criterion: "Death", outcome: "Fatal", pi_aware_date: "2026-01-12", sponsor_notified_date: "2026-01-13", veddra_code: "bovine respiratory disease", veddra_coding: "coded" });
+  pushSae("BR-2502", { description: "Fatal bovine respiratory disease despite treatment", onset_date: "2026-01-12", severity: "Severe", relatedness: "Unlikely", sae_criterion: "Death", outcome: "Fatal", pi_aware_date: "2026-01-12", sponsor_notified_date: "2026-01-13", veddra_code: "bovine respiratory disease", veddra_coding: "coded", serious: true });
   // PH-2401 — sudden pen-level mortality spike; report still pending.
-  pushSae("PH-2401", { description: "Sudden mortality spike >10% in 24h (pen-level)", onset_date: "2026-03-22", severity: "Severe", relatedness: "Unlikely", sae_criterion: "Other important medical event", outcome: "Ongoing", pi_aware_date: "2026-03-22", sponsor_notified_date: null, veddra_code: "increased mortality", veddra_coding: "coded" });
+  pushSae("PH-2401", { description: "Sudden mortality spike >10% in 24h (pen-level)", onset_date: "2026-03-22", severity: "Severe", relatedness: "Unlikely", sae_criterion: "Other important medical event", outcome: "Ongoing", pi_aware_date: "2026-03-22", sponsor_notified_date: null, veddra_code: "increased mortality", veddra_coding: "coded", serious: true });
+  // BR-2502 — non-serious minor injection-site reaction the DM excluded from VeDDRA
+  // coding (below threshold). Demonstrates the Excluded state in the AE roster.
+  pushSae("BR-2502", { description: "Mild injection-site reaction (transient swelling)", onset_date: "2026-01-09", severity: "Mild", relatedness: "Possible", sae_criterion: "", outcome: "Recovered", pi_aware_date: "2026-01-09", sponsor_notified_date: null, veddra_code: "N/A — excluded from coding", veddra_coding: "excluded", serious: false }, "-excl", 1);
 
   // ─── Seeded protocol deviations (session-only) ──────────────────────────────
   const siteIdOf = (studyCode: string, siteCode: string): string | null => {
