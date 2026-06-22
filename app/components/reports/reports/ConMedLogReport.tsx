@@ -6,7 +6,7 @@ import { useShell } from "@/components/shell/ShellContext";
 import { useTableSort } from "@/lib/useTableSort";
 import { SortTh } from "@/components/common/SortTh";
 import type { ReportProps } from "@/app/study/[studyId]/reports/page";
-import { Section, StatGrid, StatTile, EmptyNote, ExportCsvButton, fmtDate } from "@/components/reports/ReportKit";
+import { Section, StatGrid, StatTile, EmptyNote, ExportCsvButton, CodingChip, fmtDate } from "@/components/reports/ReportKit";
 import { buildConMedLog, conMedByClass, conMedSummary, type ConMedEntry, type ConMedType } from "@/lib/reports-data";
 
 const TYPE_META: Record<ConMedType, { label: string; cls: string }> = {
@@ -77,7 +77,7 @@ export function ConMedLogReport({ studyId }: ReportProps) {
             <th>Dose</th><th>Route</th>
             <SortTh label="Start" sortKey="start" sort={sort} onSort={toggle} />
             <th>End</th><th>Indication</th>
-            <th>VeDDRA code</th><th>Coding</th>
+            <th>VeDDRA term</th>
             {isCa && <th>Washout</th>}
           </tr></thead>
           <tbody>
@@ -96,8 +96,7 @@ export function ConMedLogReport({ studyId }: ReportProps) {
                   <td className="mono">{fmtDate(e.startDate)}</td>
                   <td className="mono">{e.ongoing ? <span className="rpt-ms-chip ms-active">Ongoing</span> : fmtDate(e.endDate)}</td>
                   <td className="rpt-cell-wrap">{e.indication}</td>
-                  <td className="mono">{e.veddraCode}</td>
-                  <td><span className={`rpt-ms-chip ${e.codingStatus === "coded" ? "ms-done" : "ms-warn"}`}>{e.codingStatus === "coded" ? "Coded" : "Pending"}</span></td>
+                  <td className="rpt-vedra-cell"><span className="mono">{e.veddraCode}</span><CodingChip status={e.codingStatus} /></td>
                   {isCa && <td>{e.washoutOverlap == null ? "—" : e.washoutOverlap
                     ? <span className="rpt-ms-chip ms-warn" title={`Washout period ends ${e.washoutEnd ? fmtDate(e.washoutEnd) : "after enrollment (ongoing)"} — subject enrolled ${fmtDate(e.enrollDate)}. Verify eligibility with PI.`}>⚠ Washout overlap</span>
                     : <span className="rpt-ms-chip ms-done">✓ Washout clear</span>}</td>}

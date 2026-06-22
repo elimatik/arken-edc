@@ -136,6 +136,13 @@ function isSdvEligible(field: FormFieldRow): boolean {
   return !["file", "calculated", "textarea"].includes(field.field_type);
 }
 
+// VeDDRA dictionary coding lives on AE + ConMed forms. The panel field is a
+// READ-ONLY display of the DM's coding (done centrally in the Coding module),
+// rendered after the verbatim term (AE description / ConMed medication).
+const AE_FORM_RE = /adverse_event|_ae$|injection_site/;
+const AE_DESC_CODES = new Set(["event_description", "ae_description", "ae_term", "event_term", "description"]);
+const CONMED_MED_CODES = new Set(["medication", "medication_name"]);
+
 export function SubjectRecord({ studyId, subjectId, initialFormId, initialPanelFieldId, initialSdv }: Props) {
   const router = useRouter();
   const ndaName = useNdaName(); // visitor name from the access agreement (acting user)
@@ -558,6 +565,23 @@ export function SubjectRecord({ studyId, subjectId, initialFormId, initialPanelF
   const fieldByCode = (code: string) => fields.find((f) => f.code === code);
   function entryVal(instId: string, fieldId: string): string {
     return dataset.fieldValues.find((v) => v.form_instance_id === instId && v.form_field_id === fieldId)?.value ?? "";
+  }
+  // VeDDRA coding state for a repeating-form entry — read-only display. The Coding
+  // module writes veddra_term / veddra_status back to the instance; until then a
+  // term reads as Pending (its verbatim value). Excluded = DM marked not-codable.
+  function veddraForInstance(instId: string): { term: string; status: "coded" | "pending" | "excluded" } {
+    const codeOf = (fid: string) => dataset.formFields.find((f) => f.id === fid)?.code;
+    let coded: string | undefined, status: string | undefined, verbatim = "";
+    for (const v of dataset.fieldValues) {
+      if (v.form_instance_id !== instId || !v.value) continue;
+      const c = codeOf(v.form_field_id) ?? "";
+      if (c === "veddra_term" || c === "veddra_code") coded = v.value;
+      else if (c === "veddra_status") status = v.value;
+      else if (!verbatim && (AE_DESC_CODES.has(c) || CONMED_MED_CODES.has(c))) verbatim = v.value;
+    }
+    if (status === "excluded") return { term: "Not codable — excluded", status: "excluded" };
+    if (coded) return { term: coded, status: "coded" };
+    return { term: verbatim || "—", status: "pending" };
   }
   function setEntryVal(instId: string, field: FormFieldRow, value: string) {
     if (readOnly) return;
@@ -2059,15 +2083,36 @@ export function SubjectRecord({ studyId, subjectId, initialFormId, initialPanelF
               <button className="panel-close" onClick={() => setEntryInstanceId(null)} type="button"><i className="ti ti-x"></i></button>
             </div>
             <div className="entry-panel-body">
-              {fields.map((field) => (
-                <div className="entry-field" key={field.id}>
-                  <label className="field-label">
-                    {field.label}
-                    {field.is_required && <span className="field-req"> *</span>}
-                  </label>
-                  {renderEntryControl(field, entryInstanceId)}
-                </div>
-              ))}
+              {(() => {
+                const fc = selectedForm?.code ?? "";
+                const isAe = AE_FORM_RE.test(fc), isConmed = fc === "conmed";
+                let injected = false;
+                return fields.map((field) => {
+                  const anchor = !injected && ((isAe && AE_DESC_CODES.has(field.code)) || (isConmed && CONMED_MED_CODES.has(field.code)));
+                  if (anchor) injected = true;
+                  const row = (
+                    <div className="entry-field" key={field.id}>
+                      <label className="field-label">
+                        {field.label}
+                        {field.is_required && <span className="field-req"> *</span>}
+                      </label>
+                      {renderEntryControl(field, entryInstanceId)}
+                    </div>
+                  );
+                  if (!anchor) return row;
+                  const vd = veddraForInstance(entryInstanceId);
+                  return [row, (
+                    <div className="entry-field" key="veddra-readonly">
+                      <label className="field-label">VeDDRA {isConmed ? "drug " : ""}term</label>
+                      <div className={`veddra-readonly ${vd.status}`}>
+                        <span className="veddra-term">{vd.term}</span>
+                        <span className={`veddra-chip ${vd.status}`}>{vd.status === "coded" ? "Coded" : vd.status === "excluded" ? "Excluded" : "Pending coding"}</span>
+                      </div>
+                      <span className="field-hint">Coded by the Data Manager via the Coding module.</span>
+                    </div>
+                  )];
+                });
+              })()}
             </div>
             <div className="entry-panel-footer">
               <button className="btn-primary" type="button" onClick={() => setEntryInstanceId(null)}>Done</button>

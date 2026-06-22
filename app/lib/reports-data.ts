@@ -552,7 +552,7 @@ export type FiledStatus = "yes" | "no" | "pending";
 export interface AeRow {
   subjectCode: string; siteName: string; arm: string | null; description: string; onsetDate: string | null;
   severity: string; relatedness: string; status: string; outcome: string; serious: boolean; saeCriterion: string | null;
-  veddraCode: string; veddraCoding: "coded" | "pending"; // coded AE term (VeDDRA)
+  veddraCode: string; veddraCoding: "coded" | "pending" | "excluded"; // coded AE term (VeDDRA)
   // SAE reporting timeline — populated only for seeded SAE records (null otherwise).
   piAwareDate: string | null; sponsorNotifiedDate: string | null; reportDueDate: string | null;
   daysToNotify: number | null; filedOnTime: FiledStatus | null;
@@ -741,7 +741,7 @@ export interface ConMedEntry {
   concurrentWith: string;
   interaction: boolean;
   veddraCode: string;
-  codingStatus: "coded" | "pending";
+  codingStatus: "coded" | "pending" | "excluded";
   conmedType: ConMedType | null;
   washoutDays: number;
   enrollDate: string | null;

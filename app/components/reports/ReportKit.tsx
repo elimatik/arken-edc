@@ -85,6 +85,18 @@ export function ProportionBar({ segments, total }: { segments: { label: string; 
   );
 }
 
+// VeDDRA coding state chip — Coded (green) / Pending (amber) / Excluded (slate).
+// Read-only everywhere; the value is set by the DM in the Coding module.
+const CODING_META = {
+  coded: { label: "Coded", cls: "ms-done" },
+  pending: { label: "Pending", cls: "ms-warn" },
+  excluded: { label: "Excluded", cls: "ms-future" },
+} as const;
+export function CodingChip({ status }: { status: "coded" | "pending" | "excluded" }) {
+  const m = CODING_META[status] ?? CODING_META.pending;
+  return <span className={`rpt-ms-chip ${m.cls}`}>{m.label}</span>;
+}
+
 export function EmptyNote({ children }: { children: ReactNode }) {
   return <div className="rpt-empty"><i className="ti ti-info-circle"></i> {children}</div>;
 }

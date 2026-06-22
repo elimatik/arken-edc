@@ -3,7 +3,7 @@
 import { useMemo } from "react";
 import { useStudySession } from "@/lib/session-store/SessionStore";
 import type { ReportProps } from "@/app/study/[studyId]/reports/page";
-import { Section, StatGrid, StatTile, EmptyNote, fmtDate } from "@/components/reports/ReportKit";
+import { Section, StatGrid, StatTile, EmptyNote, CodingChip, fmtDate } from "@/components/reports/ReportKit";
 import { buildAeRoster, safetySummary, aeBySite, aeByArm, dartDistribution, brWithdrawalBlocks, type AeRow } from "@/lib/reports-data";
 
 const SEV_CLS: Record<string, string> = { mild: "ms-done", moderate: "ms-active", severe: "ms-crit", "life-threatening": "ms-crit" };
@@ -24,7 +24,7 @@ function AeTable({ rows }: { rows: AeRow[] }) {
             <td className="mono">{a.subjectCode}</td>
             <td>{a.siteName}</td>
             <td>{a.description}{a.serious && <span className="rpt-sae-tag">SAE</span>}</td>
-            <td className="rpt-vedra-cell"><span className="mono">{a.veddraCode}</span><span className={`rpt-ms-chip ${a.veddraCoding === "coded" ? "ms-done" : "ms-warn"}`}>{a.veddraCoding === "coded" ? "Coded" : "Pending"}</span></td>
+            <td className="rpt-vedra-cell"><span className="mono">{a.veddraCode}</span><CodingChip status={a.veddraCoding} /></td>
             <td className="mono">{fmtDate(a.onsetDate)}</td>
             <td><span className={`rpt-ms-chip ${SEV_CLS[a.severity.toLowerCase()] ?? "ms-future"}`}>{a.severity}</span></td>
             <td>{a.relatedness}</td>

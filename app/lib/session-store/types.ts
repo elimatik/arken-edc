@@ -210,7 +210,7 @@ export interface SaeReportRow {
   pi_aware_date: string;
   sponsor_notified_date: string | null;
   veddra_code: string; // coded AE term (VeDDRA)
-  veddra_coding: "coded" | "pending";
+  veddra_coding: "coded" | "pending" | "excluded";
 }
 
 // Concomitant medication — a medicine a subject takes alongside the investigational
@@ -232,7 +232,7 @@ export interface ConMedRow {
   concurrent_with: string; // visit / timepoint label
   interaction: boolean; // overlaps a known drug-interaction class
   veddra_code: string; // coded drug term (VeDDRA dictionary)
-  coding_status: "coded" | "pending"; // DM coding state
+  coding_status: "coded" | "pending" | "excluded"; // DM coding state (excluded = not codable, e.g. water)
   washout_days: number; // protocol-defined washout (CA-0801 immunosuppressants); 0 = none
   conmed_type: "metaphylaxis" | "therapeutic" | "preventive" | null; // BR-2502 antibiotic admin type
 }
