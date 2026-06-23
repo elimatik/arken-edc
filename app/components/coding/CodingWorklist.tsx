@@ -139,7 +139,7 @@ export function CodingWorklist({ studyId }: { studyId: string }) {
                   <td>{dim(r.soc)}</td>
                   <td>{r.code ? <span className="cell-mono cell-xs">{r.code}</span> : <span className="cell-dash">—</span>}</td>
                   <td><span className={`badge ${badge.cls}`}>{badge.icon && <i className={`ti ${badge.icon}`}></i>}{badge.label}</span></td>
-                  <td>{r.codedBy ? <span className="cell-muted">{r.codedBy === "Auto" ? <><i className="ti ti-sparkles cod-auto-icon"></i> Auto {r.autoConf ? Math.round(r.autoConf * 100) + "%" : ""}</> : r.codedBy}</span> : <span className="cell-dash">—</span>}</td>
+                  <td>{r.codedBy ? <span className="cell-muted">{r.codedBy === "Auto" ? <><i className="ti ti-sparkles cod-auto-icon"></i> Auto {r.autoConf ? Math.round(r.autoConf * 100) + "%" : ""}</> : r.codedBy}</span> : <span className="cell-dash">—</span>}{r.comment && <i className="ti ti-message-2 cod-note-icon" title={r.comment}></i>}</td>
                   <td className="cod-action-cell"><button className="cod-icon-btn" type="button" title={r.status === "pending" ? "Code this term" : "Edit coding"} onClick={(e) => { e.stopPropagation(); setPanelRow(r); }}><i className={`ti ti-${r.status === "pending" ? "tag" : "edit"}`}></i></button></td>
                 </tr>
               );
