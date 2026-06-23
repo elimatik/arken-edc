@@ -24,6 +24,8 @@ Last updated: 2026-06-23 | **Coding / VeDDRA module COMPLETE** (the write path) 
 
 **Coding / VeDDRA module — DONE** (see the top of this milestone). The ConMed report's "Go to Coding →" link is now live. **NEXT UP:** the Inventory module (drug accountability + dispensing, resolving the Randomization lot/kit links) or the portfolio site.
 
+**Known limitation (seeded demo data vs form instances):** Seeded ConMed/SAE demo data lives in the `conMeds`/`saeReports` tables and shows in reports + the coding worklist. Real entries created via the Subject Record panel show in all surfaces including the coding worklist (one source of truth). Seeded entries are **not** form instances — promoting them would require a seed restructure (+ key bump). Acceptable for the portfolio demo; document if asked. (Lock readiness shows SDV % as display-only — `sdvProgress`, same value as the CRA dashboard tile — it does not gate the Lock button; the gate stays open-queries + forms-finalized with an Admin override.)
+
 ---
 
 **(Superseded) Session 69 — BR-2502 role dashboards wired to live aggregates** (CRC / CRA / DM), mirroring the CA-0801 pattern. New shared `lib/dashboard-data.ts` (generic + BR + PH derivations). **138 forms / 1081 fields** across the 3 studies.

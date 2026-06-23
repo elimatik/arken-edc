@@ -247,13 +247,16 @@ function SiteEnrollCard({ ctx }: { ctx: CardCtx }) {
 }
 function LockReadinessCard({ ctx }: { ctx: CardCtx }) {
   const ec = openEditCheckCount(ctx.dataset, ctx.studyId), pd = pendingDeltaCount(ctx.dataset, ctx.studyId), oq = openQueryCount(ctx.dataset, ctx.studyId);
-  const clean = ec === 0 && pd === 0 && oq === 0;
+  const sdv = sdvProgress(ctx.dataset, ctx.studyId);
+  const sdvPct = sdv.total ? Math.round((sdv.verified / sdv.total) * 100) : 0;
+  const clean = ec === 0 && pd === 0 && oq === 0; // SDV is informational — does not gate
   return (
     <Card title="Data lock readiness" icon="ti-lock">
       <div className="agg-list">
         <div className="agg-row"><span className="agg-lbl">Open queries</span><span className="agg-val" style={{ color: oq ? "var(--amber-700)" : undefined }}>{oq}</span></div>
         <div className="agg-row"><span className="agg-lbl">Open edit checks</span><span className="agg-val" style={{ color: ec ? "var(--orange-700)" : undefined }}>{ec}</span></div>
         <div className="agg-row"><span className="agg-lbl">Pending Δ approvals</span><span className="agg-val" style={{ color: pd ? "var(--amber-700)" : undefined }}>{pd}</span></div>
+        <div className="agg-row"><span className="agg-lbl"><i className="ti ti-shield-check" style={{ fontSize: "13px", marginRight: "4px", color: "var(--color-text-tertiary)" }}></i>SDV complete</span><span className="agg-val" style={{ color: "var(--color-text-secondary)" }}>{sdvPct}% ({sdv.verified} / {sdv.total})</span></div>
         <div className="agg-row"><span className="agg-lbl">Status</span><span className="agg-val" style={{ color: clean ? "var(--green-600)" : "var(--amber-700)" }}>{clean ? "Clean" : "Issues"}</span></div>
       </div>
     </Card>
@@ -1586,13 +1589,14 @@ function StudyLockAdminCard() {
     const totalForms = insts.length;
     const finalizedForms = insts.filter((i) => i.status === "finalized" || i.status === "locked").length;
     const notFinalized = totalForms - finalizedForms;
-    const sdvTotal = insts.length;
-    const sdvDone = insts.filter((i) => i.sdv_complete).length;
+    // Field-level SDV % — same source as the CRA dashboard SDV tile (display only).
+    const sdv = sdvProgress(dataset, study.id);
+    const sdvPct = sdv.total ? Math.round((sdv.verified / sdv.total) * 100) : 0;
     const clean = openQueries === 0 && notFinalized === 0;
     const outstanding: string[] = [];
     if (openQueries > 0) outstanding.push(`${openQueries} open ${openQueries === 1 ? "query" : "queries"}`);
     if (notFinalized > 0) outstanding.push(`${notFinalized} ${notFinalized === 1 ? "form" : "forms"} not finalized`);
-    return { openQueries, totalForms, finalizedForms, notFinalized, sdvTotal, sdvDone, clean, outstanding };
+    return { openQueries, totalForms, finalizedForms, notFinalized, sdvPct, sdvVerified: sdv.verified, sdvFields: sdv.total, clean, outstanding };
   }, [dataset, study.id]);
 
   function open(next: "lock" | "unlock") {
@@ -1667,7 +1671,7 @@ function StudyLockAdminCard() {
                 </div>
                 <div className="db-lock-check info">
                   <i className="ti ti-shield-check"></i>
-                  SDV complete: <strong>{readiness.sdvDone} / {readiness.sdvTotal}</strong>
+                  SDV complete: <strong>{readiness.sdvPct}% ({readiness.sdvVerified} / {readiness.sdvFields} fields verified)</strong>
                 </div>
                 {!readiness.clean && (
                   <>
