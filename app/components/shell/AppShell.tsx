@@ -30,7 +30,9 @@ export function AppShell({ study, sites, children }: AppShellProps) {
   // Amber dot on Inventory when any active vial in the study expires within 30 days.
   const inventoryExpiry = hasExpiringVials(dataset, study.id, 30);
   const [expanded, setExpanded] = useState(false);
-  const [selectedSiteId, setSelectedSiteId] = useState<string | null>(null); // null = All Sites
+  // Global site context is retired — each module owns its own site selector (e.g.
+  // the Inventory header). Kept null in ShellContext for not-yet-migrated screens.
+  const selectedSiteId: string | null = null;
   const [aiOpen, setAiOpen] = useState(false); // Arken Insights slide-in
 
   // The active nav item is derived from the route (first path segment under the study).
@@ -72,12 +74,8 @@ export function AppShell({ study, sites, children }: AppShellProps) {
         <div className="main">
           <Topbar
             study={study}
-            sites={sites}
-            selectedSiteId={selectedSiteId}
-            onSelectSite={setSelectedSiteId}
             activeRole={activeRole}
             onChangeRole={changeRole}
-            hideSiteFilter={sub === "audit-trail" || sub === "queries" || sub === "visits" || sub === "sdv" || sub === "reports"}
             onToggleAI={() => setAiOpen((o) => !o)}
           />
           {isStudyLocked(dataset, study.id) && (

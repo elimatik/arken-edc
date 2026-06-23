@@ -6,27 +6,19 @@ import { ROLES, type Role } from "@/lib/permissions";
 import { useNdaName, useNdaInitials } from "@/lib/use-nda-name";
 import { useStudySession } from "@/lib/session-store/SessionStore";
 import { getPinnedStudies, togglePinnedStudy } from "@/lib/pinned-study";
-import type { ShellSite, ShellStudy } from "./ShellContext";
+import type { ShellStudy } from "./ShellContext";
 
 interface TopbarProps {
   study: ShellStudy;
-  sites: ShellSite[];
-  selectedSiteId: string | null;
-  onSelectSite: (siteId: string | null) => void;
   activeRole: Role;
   onChangeRole: (role: Role) => void;
-  hideSiteFilter?: boolean; // screens with their own in-toolbar site filter (Audit Trail, Queries)
   onToggleAI?: () => void; // opens the Arken Insights slide-in
 }
 
 export function Topbar({
   study,
-  sites,
-  selectedSiteId,
-  onSelectSite,
   activeRole,
   onChangeRole,
-  hideSiteFilter = false,
   onToggleAI,
 }: TopbarProps) {
   const router = useRouter();
@@ -34,11 +26,7 @@ export function Topbar({
   const userName = useNdaName();
   const userInitials = useNdaInitials();
   const [pickerOpen, setPickerOpen] = useState(false);
-  const [siteMenuOpen, setSiteMenuOpen] = useState(false);
   const [pinnedIds, setPinnedIds] = useState<string[]>(() => getPinnedStudies());
-
-  const selectedSite = sites.find((s) => s.id === selectedSiteId);
-  const siteLabel = selectedSite ? selectedSite.name : "All Sites";
 
   function openPicker() {
     setPinnedIds(getPinnedStudies()); // refresh from storage in case it changed elsewhere
@@ -138,39 +126,8 @@ export function Topbar({
         </div>
       </div>
 
-      {/* Hidden on screens that carry their own in-toolbar site filter
-          (Audit Trail, Queries) — the topbar pill would be redundant there. */}
-      {!hideSiteFilter && (
-      <div className="tb-site-wrap">
-        <button
-          className="tb-site-btn"
-          onClick={() => setSiteMenuOpen((o) => !o)}
-          aria-haspopup="menu"
-          aria-expanded={siteMenuOpen}
-          aria-label={`Site: ${siteLabel} — change site`}
-          type="button"
-        >
-          {siteLabel}
-          <i className="ti ti-chevron-right" aria-hidden="true"></i>
-        </button>
-        {siteMenuOpen && <div className="tb-picker-backdrop" onClick={() => setSiteMenuOpen(false)} />}
-        <div className={`tb-site-menu${siteMenuOpen ? " open" : ""}`} role="menu">
-          <button className={`tb-site-item${selectedSiteId === null ? " active" : ""}`} type="button" onClick={() => { onSelectSite(null); setSiteMenuOpen(false); }}>
-            All Sites
-          </button>
-          {sites.map((site) => (
-            <button
-              key={site.id}
-              className={`tb-site-item${selectedSiteId === site.id ? " active" : ""}`}
-              type="button"
-              onClick={() => { onSelectSite(site.id); setSiteMenuOpen(false); }}
-            >
-              {site.name}
-            </button>
-          ))}
-        </div>
-      </div>
-      )}
+      {/* Site context is handled per-module (e.g. the Inventory header selector),
+          not by a global topbar dropdown. */}
 
       {/* Right: utilities + role switcher + avatar */}
       <div className="tb-right">
