@@ -3,7 +3,7 @@
 import { useMemo, useState } from "react";
 import type { Vial } from "@/lib/session-store/types";
 import {
-  currentVol, vialUses, volFill, expiryColor, vialDisplayId, STATUS_LABELS, STATUS_BADGE,
+  currentVol, vialUses, volFill, expiryColor, vialDisplayId, lastUpdated, STATUS_LABELS, STATUS_BADGE,
   type InvConfig,
 } from "@/lib/inventory-data";
 
@@ -16,11 +16,12 @@ const KPI_META: { key: string; label: string; color: string; sub: string }[] = [
 ];
 
 // Tab 1 — vial/batch list (ported from renderInventory + KPI cards).
-export function InventoryTab({ cfg, hideArms, vials, openDetail }: {
+export function InventoryTab({ cfg, hideArms, vials, openDetail, onEdit }: {
   cfg: InvConfig;
   hideArms: boolean;
   vials: Vial[];
   openDetail: (vialId: string) => void;
+  onEdit: (vialId: string) => void;
 }) {
   const [status, setStatus] = useState("");
   const [group, setGroup] = useState("");
@@ -84,7 +85,7 @@ export function InventoryTab({ cfg, hideArms, vials, openDetail }: {
         <table className="inv-table">
           <thead><tr>
             <th>{cfg.idLabel}</th><th>Lot</th>{!hideArms && <th>Treatment group</th>}
-            <th>Initial vol.</th><th>Conc.</th><th>Current vol.</th><th>Uses</th><th>Expiry date</th><th>Status</th><th></th>
+            <th>Initial vol.</th><th>Conc.</th><th>Current vol.</th><th>Uses</th><th>Expiry date</th><th>Last updated</th><th>Status</th><th></th>
           </tr></thead>
           <tbody>
             {rows.map((v) => {
@@ -106,14 +107,16 @@ export function InventoryTab({ cfg, hideArms, vials, openDetail }: {
                   </td>
                   <td><span className="inv-mono">{uc > 0 ? `${uc}×` : "—"}</span></td>
                   <td><span className="inv-mono" style={{ fontSize: 11, color: expiryColor(v.expiryDate) }}>{v.expiryDate || "—"}</span></td>
+                  <td><span className="inv-mono" style={{ fontSize: 11, color: "var(--color-text-tertiary)" }}>{lastUpdated(v) ?? "—"}</span></td>
                   <td><span className={`inv-badge ${STATUS_BADGE[v.status]}`}>{STATUS_LABELS[v.status] ?? v.status}</span></td>
-                  <td><div style={{ display: "flex", justifyContent: "flex-end" }}>
+                  <td><div style={{ display: "flex", justifyContent: "flex-end", gap: 2 }}>
                     <button className="inv-btn-icon" title="View lifecycle" onClick={(e) => { e.stopPropagation(); openDetail(v.id); }}><i className="ti ti-timeline"></i></button>
+                    <button className="inv-btn-icon" title="Edit unit" onClick={(e) => { e.stopPropagation(); onEdit(v.id); }}><i className="ti ti-pencil"></i></button>
                   </div></td>
                 </tr>
               );
             })}
-            {rows.length === 0 && <tr><td colSpan={hideArms ? 9 : 10} style={{ padding: "var(--space-6)", textAlign: "center", color: "var(--color-text-tertiary)" }}>No {cfg.itemNoun}s match the current filters.</td></tr>}
+            {rows.length === 0 && <tr><td colSpan={hideArms ? 10 : 11} style={{ padding: "var(--space-6)", textAlign: "center", color: "var(--color-text-tertiary)" }}>No {cfg.itemNoun}s match the current filters.</td></tr>}
           </tbody>
         </table>
       </div>

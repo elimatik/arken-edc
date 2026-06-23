@@ -56,6 +56,10 @@ export function lastUse(v: Vial): string | null {
   const d = v.events.filter((e) => e.type === "dispense");
   return d.length ? d[d.length - 1].date : null;
 }
+// Date of the most recent lifecycle event (any type) — the "last updated" column.
+export function lastUpdated(v: Vial): string | null {
+  return v.events.length ? v.events[v.events.length - 1].date : null;
+}
 export function autoStatus(v: Vial): VialStatus {
   const cv = currentVol(v);
   if (v.events.some((e) => e.type === "returned")) return "returned";
