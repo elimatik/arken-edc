@@ -188,6 +188,7 @@ export interface DispenseRow {
   volDispensed: number;
   volAfterDisp: number;
   location?: "clinic" | "home" | "farm";
+  formInstanceId?: string; // Treatment Admin / Feed setup instance this was logged from
   returned: boolean;
   retVol?: number;
   retDate?: string;
@@ -213,6 +214,7 @@ export function buildDispenseRows(vials: Vial[]): DispenseRow[] {
         volDispensed: r1(e.volDispensed ?? 0),
         volAfterDisp: r1(v.initialVol - dispensedSoFar),
         location: e.location,
+        formInstanceId: e.formInstanceId,
         returned: !!ret,
         retVol: ret?.volReturned,
         retDate: ret?.date,

@@ -43,12 +43,21 @@ export default function InventoryPage() {
   const cfg = useMemo(() => invConfig(study.code), [study.code]);
   const hideArms = shouldHideArms(dataset, studyId, activeRole);
 
-  // Subject code → site name, for the Dispense log SITE column.
-  const siteOf = useMemo(() => {
-    const siteName = new Map(sites.map((s) => [s.id, s.name]));
-    const bySubject = new Map(dataset.subjects.filter((s) => s.study_id === studyId).map((s) => [s.subject_code, s.site_id ? siteName.get(s.site_id) ?? "—" : "—"]));
-    return (code: string) => bySubject.get(code) ?? "—";
-  }, [dataset.subjects, sites, studyId]);
+  // Resolve a dispense's linked form instance → name + Subject-Record deep-link
+  // (for the Dispense log FORM column). Null when no instance is linked.
+  const formInfo = useMemo(() => {
+    const formById = new Map(dataset.forms.map((f) => [f.id, f]));
+    const instById = new Map(dataset.formInstances.map((i) => [i.id, i]));
+    const subjIdByCode = new Map(dataset.subjects.filter((s) => s.study_id === studyId).map((s) => [s.subject_code, s.id]));
+    return (formInstanceId: string | undefined, subjectCode: string) => {
+      if (!formInstanceId) return null;
+      const inst = instById.get(formInstanceId);
+      const form = inst ? formById.get(inst.form_id) : undefined;
+      const subjId = subjIdByCode.get(subjectCode) ?? inst?.subject_id ?? null;
+      if (!form || !subjId) return null;
+      return { name: form.name, href: `/study/${studyId}/data-entry/${subjId}?form=${formInstanceId}` };
+    };
+  }, [dataset.forms, dataset.formInstances, dataset.subjects, studyId]);
 
   // CRC is auto-scoped to their site (no selector); others use the module selector.
   const effectiveSite = activeRole === "CRC" ? (sites[0]?.id ?? null) : moduleSite;
@@ -84,12 +93,18 @@ export default function InventoryPage() {
           <div className="inv-subtitle">{cfg.drugLabel}</div>
         </div>
         <div style={{ display: "flex", gap: "var(--space-2)", alignItems: "center" }}>
-          {activeRole !== "CRC" && (
-            <select className="inv-select" value={moduleSite ?? ""} onChange={(e) => setModuleSite(e.target.value || null)} title="Filter all tabs by site" aria-label="Site filter">
-              <option value="">All Sites</option>
-              {sites.map((s) => <option key={s.id} value={s.id}>{s.name}</option>)}
-            </select>
-          )}
+          {/* Module-level site filter — visible to all roles; disabled (auto-scoped) for CRC. */}
+          <select
+            className="inv-select inv-site-selector"
+            disabled={activeRole === "CRC"}
+            value={activeRole === "CRC" ? (effectiveSite ?? "") : (moduleSite ?? "")}
+            onChange={(e) => setModuleSite(e.target.value || null)}
+            title={activeRole === "CRC" ? "Scoped to your site" : "Filter all tabs by site"}
+            aria-label="Site filter"
+          >
+            <option value="">All Sites</option>
+            {sites.map((s) => <option key={s.id} value={s.id}>{s.name}</option>)}
+          </select>
           <button className="inv-btn-secondary"><i className="ti ti-download"></i> Export log</button>
           {tab === "receive" && canInv("receive", activeRole) && <button className="inv-btn-primary" onClick={() => setIntakeOpen(true)}><i className="ti ti-truck-delivery"></i> Receive shipment</button>}
         </div>
@@ -106,7 +121,7 @@ export default function InventoryPage() {
 
       {tab === "receive" && <ReceiveTab cfg={cfg} studyId={studyId} shipments={shipments} vials={allVials} role={activeRole} update={update} intakeOpen={intakeOpen} setIntakeOpen={setIntakeOpen} />}
       {tab === "inventory" && <InventoryTab cfg={cfg} hideArms={hideArms} vials={vials} openDetail={setDetailVialId} onEdit={setEditVialId} />}
-      {tab === "dispense" && <DispenseTab cfg={cfg} vials={vials} siteOf={siteOf} />}
+      {tab === "dispense" && <DispenseTab cfg={cfg} vials={vials} formInfo={formInfo} />}
       {tab === "recon" && <ReconciliationTab cfg={cfg} vials={vials} role={activeRole} />}
 
       {detailVial && <VialDetail cfg={cfg} hideArms={hideArms} vial={detailVial} onClose={() => setDetailVialId(null)} />}
