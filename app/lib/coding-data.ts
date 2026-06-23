@@ -77,7 +77,7 @@ export function buildCodingWorklist(dataset: Dataset, studyId: string): CodingRo
 export interface CodingPatch {
   status: CodingTask["status"];
   llt?: string; pt?: string; hlt?: string; soc?: string; code?: string;
-  codedBy?: string; autoConf?: number; conflict?: boolean; comment?: string;
+  codedBy?: string; autoConf?: number; conflict?: boolean;
 }
 
 // Apply a coding result inside an update() draft. Upserts the task (instance-derived
@@ -92,7 +92,6 @@ export function applyCoding(d: Dataset, row: CodingRow, patch: CodingPatch, nowI
   task.status = patch.status;
   task.llt = patch.llt; task.pt = patch.pt; task.hlt = patch.hlt; task.soc = patch.soc; task.code = patch.code;
   task.codedBy = patch.codedBy; task.autoConf = patch.autoConf; task.conflict = patch.conflict;
-  if (patch.comment !== undefined) task.comment = patch.comment;
   task.codedAt = nowISO;
 
   const term = patch.status === "excluded" ? "N/A — excluded from coding" : patch.pt ?? task.verbatimTerm;

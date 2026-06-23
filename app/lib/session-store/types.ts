@@ -216,7 +216,6 @@ export interface CodingTask {
   autoConf?: number; // 0–1, only when codedBy === "Auto"
   conflict?: boolean; // autoConf < 0.80
   codedAt?: string; // ISO timestamp
-  comment?: string;
 }
 
 // Serious adverse event with its GCP/VICH reporting timeline. Session-only seed
