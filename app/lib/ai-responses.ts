@@ -48,8 +48,16 @@ const AI_PERMS: Record<string, Role[]> = {
   lock: ["DM", "Admin"],
   user_mgmt: ["Admin"],
   audit: ["DM", "Admin", "PI"],
+  inventory: ["CRC", "CRA", "DM", "Admin"], // Sponsor denied (drug identity blinded)
 };
 const canAI = (perm: string, role: Role) => (AI_PERMS[perm] ?? []).includes(role);
+
+// Inventory / dispensing / expiry share a gate — Sponsor is blinded to drug identity.
+function inventoryGate(role: Role): AIResponse | null {
+  if (role === "Sponsor") return { type: "denied", text: "Drug identity is blinded for the Sponsor on this study — inventory and dispensing data isn't available to your role." };
+  if (!canAI("inventory", role)) return { type: "denied", text: "Inventory data isn't accessible for your role. Contact the CRA or Data Manager." };
+  return null;
+}
 
 export const SUGGESTIONS: Record<Role, string[]> = {
   CRC: ["How many forms are overdue?", "How many open queries do I have?", "What visits are coming up this week?", "Which subjects are on hold?"],
@@ -154,13 +162,29 @@ const RULES: Rule[] = [
     },
   },
   {
-    match: ["arm", "randomi", "group a", "group b", "balance"],
+    match: ["arm", "randomi", "group a", "group b", "balance", "arm assignment", "treatment group"],
     respond: (c) => {
-      if (shouldHideArms(c.dataset, c.studyId, c.role)) return { type: "denied", text: "Treatment-arm allocation is blinded for your role on this study." };
+      if (shouldHideArms(c.dataset, c.studyId, c.role)) return { type: "denied", text: "Arm assignment is blinded — contact the DM for unblinded data." };
+      if (!canAI("cross_site", c.role)) return { type: "denied", text: "Randomization data is scoped above your role. Contact the DM for arm assignments." };
       const arms = enrollmentByArm(dispositions(c.dataset, c.studyId), armLabeler(c.dataset, c.studyId, false));
       if (!arms.length) return { type: "text", text: "No randomized subjects yet." };
       return { type: "table", head: ["Arm", "Enrolled"], rows: arms.map((a) => [a.arm, String(a.count)]) };
     },
+  },
+  {
+    // Inventory / drug supply — stub pending the Inventory module.
+    match: ["inventory", "drug supply", "drug lot", "stock"],
+    respond: (c) => inventoryGate(c.role) ?? { type: "text", text: "Inventory data will be available once the Inventory module is complete. It will show lot numbers, quantities, expiry dates, and dispensing records." },
+  },
+  {
+    // Dispensing / doses administered — stub pending the Inventory module.
+    match: ["dispensing", "doses dispensed", "treatment administered", "doses administered"],
+    respond: (c) => inventoryGate(c.role) ?? { type: "text", text: "Dispensing data will be available once the Inventory module is complete. It will show doses dispensed and treatments administered by site." },
+  },
+  {
+    // Lot expiry — stub pending the Inventory module.
+    match: ["expiry", "expiring", "lot expiration", "expiration"],
+    respond: (c) => inventoryGate(c.role) ?? { type: "text", text: "Lot-expiry tracking will be available once the Inventory module is complete. It will list lots expiring within the next 30 days." },
   },
   {
     match: ["lock", "ready to lock", "database lock", "lock status"],
