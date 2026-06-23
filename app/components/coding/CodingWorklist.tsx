@@ -88,7 +88,7 @@ export function CodingWorklist({ studyId }: { studyId: string }) {
     <div className="cod-screen">
       <div className="cod-header">
         <div>
-          <h1 className="cod-title"><i className="ti ti-vocabulary"></i> VeDDRA Coding</h1>
+          <h1 className="cod-title">VeDDRA Coding</h1>
           <div className="cod-sub">Adverse-event and concomitant-medication term coding · VeDDRA v3.1 · MedDRA v26.1</div>
         </div>
         <div className="cod-header-actions">
@@ -116,7 +116,6 @@ export function CodingWorklist({ studyId }: { studyId: string }) {
           <thead><tr>
             <SortTh label="Verbatim term" sortKey="verbatim" sort={sort} onSort={toggle} />
             <SortTh label="Subject" sortKey="subject" sort={sort} onSort={toggle} />
-            <SortTh label="Species" sortKey="species" sort={sort} onSort={toggle} />
             <SortTh label="LLT" sortKey="llt" sort={sort} onSort={toggle} />
             <SortTh label="PT (Preferred term)" sortKey="pt" sort={sort} onSort={toggle} />
             <SortTh label="HLT" sortKey="hlt" sort={sort} onSort={toggle} />
@@ -132,7 +131,6 @@ export function CodingWorklist({ studyId }: { studyId: string }) {
                 <tr key={r.id} onClick={() => setPanelRow(r)}>
                   <td><span className="verbatim-term">{r.verbatimTerm}</span></td>
                   <td><div className="cell-mono">{r.subjectCode}</div><div className="cell-sub">{r.formLabel}</div></td>
-                  <td className="cell-muted">{r.species}</td>
                   <td>{em(r.llt)}{r.conflict && <div className="conflict-note"><i className="ti ti-alert-triangle"></i> Low confidence</div>}</td>
                   <td className={r.pt ? "cell-pt" : ""}>{em(r.pt)}</td>
                   <td>{dim(r.hlt)}</td>
