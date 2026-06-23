@@ -263,14 +263,18 @@ const RULES: Rule[] = [
     },
   },
   {
-    match: ["help", "what can you", "suggest", "what should"],
+    match: ["help", "what can you", "what can i ask", "what should i ask", "suggest"],
     respond: () => ({ type: "suggestions" }),
   },
 ];
 
-export function matchResponse(input: string, ctx: AICtx): AIResponse {
+// Path 1 of the hybrid AI: instant keyword matching. Returns a response when a
+// rule (or the CRC cross-site guard) fires, or null so the caller can fall back
+// to the Anthropic API (Path 2) for free-form questions.
+export function matchResponse(input: string, ctx: AICtx): AIResponse | null {
   const lower = input.toLowerCase();
   // Cross-site guard: a CRC asking about another site by name/code is denied.
+  // Stays on the keyword path — this is a security boundary, never sent to the API.
   if (ctx.role === "CRC") {
     const otherSite = ctx.dataset.sites.find((s) => s.study_id === ctx.studyId && s.id !== ctx.siteId && (lower.includes(s.code.toLowerCase()) || lower.includes(s.name.toLowerCase())));
     if (otherSite || /other site|cross-site|all sites|every site|each site/.test(lower)) {
@@ -281,5 +285,5 @@ export function matchResponse(input: string, ctx: AICtx): AIResponse {
   for (const rule of RULES) {
     if (rule.match.some((m) => lower.includes(m))) return rule.respond(c);
   }
-  return { type: "text", text: "I don't have specific data on that yet. Try asking about enrollment, queries, overdue forms, SDV progress, or upcoming visits." };
+  return null; // no keyword match → let the API fallback handle it
 }
