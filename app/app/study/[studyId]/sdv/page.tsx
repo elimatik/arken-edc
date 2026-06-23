@@ -92,7 +92,6 @@ export default function SdvPage() {
   return (
     <div className="sdv-screen">
       <div className="sdv-header">
-        <div className="sdv-bc">Source Data Verification</div>
         <div className="sdv-title-row">
           <h1 className="sdv-title">Source Data Verification</h1>
           <button className="sdv-btn-secondary" type="button" onClick={() => exportCsv(filtered, study.code)}><i className="ti ti-download"></i> Export CSV</button>

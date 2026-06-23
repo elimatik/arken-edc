@@ -68,7 +68,7 @@
 .vc-overdue { background: color-mix(in srgb, var(--red-400) 12%, transparent); border-color: var(--red-400); color: var(--red-800); }
 .vc-today { background: color-mix(in srgb, var(--amber-400) 12%, transparent); border-color: var(--amber-400); color: var(--amber-800); }
 .vc-week { background: color-mix(in srgb, var(--amber-400) 12%, transparent); border-color: var(--amber-400); color: var(--amber-800); }
-.vc-upcoming { background: color-mix(in srgb, var(--slate-400) 12%, transparent); border-color: var(--slate-400); color: var(--slate-700); }
+.vc-upcoming { background: var(--slate-50); border-color: var(--slate-300); color: var(--slate-600); }
 .vc-ontime { background: color-mix(in srgb, var(--green-500) 12%, transparent); border-color: var(--green-500); color: var(--green-800); }
 .vc-early { background: color-mix(in srgb, var(--blue-400) 12%, transparent); border-color: var(--blue-400); color: var(--blue-800); }
 .vc-outside { background: color-mix(in srgb, var(--blue-400) 12%, transparent); border-color: var(--blue-400); color: var(--blue-800); }

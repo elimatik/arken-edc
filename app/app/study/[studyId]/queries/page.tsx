@@ -338,7 +338,6 @@ export default function QueriesPage() {
     <div className="qy-screen">
       {/* Header */}
       <div className="qy-header">
-        <div className="qy-bc">Queries</div>
         <div className="qy-title-row">
           <div className="qy-title-left">
             <h1 className="qy-title">Queries</h1>

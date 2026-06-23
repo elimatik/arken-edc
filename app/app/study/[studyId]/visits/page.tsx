@@ -69,7 +69,6 @@ export default function VisitsPage() {
   const router = useRouter();
   const { activeRole, selectedSiteId } = useShell();
   const { dataset, ready } = useStudySession();
-  const study = dataset.studies.find((s) => s.id === studyId);
 
   const [today] = useState(() => dayKey());
   const allRows = useMemo(() => buildVisits(dataset, studyId), [dataset, studyId]);
@@ -164,7 +163,6 @@ export default function VisitsPage() {
     <div className="vs-screen">
       {/* Header */}
       <div className="vs-header">
-        <div className="vs-bc">{study?.code ?? "Study"} · Visits</div>
         <h1 className="vs-title">Visits</h1>
       </div>
 

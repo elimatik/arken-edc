@@ -550,7 +550,6 @@ export default function AuditTrailPage() {
     <div className="au-screen">
       {/* Header + CFR badge */}
       <div className="au-header">
-        <div className="au-bc">{study?.code ?? "Study"} · Audit Trail</div>
         <div className="au-title-row">
           <div className="au-title-left">
             <h1 className="au-title">Audit Trail</h1>

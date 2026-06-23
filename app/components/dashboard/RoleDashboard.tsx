@@ -527,9 +527,6 @@ export function RoleDashboard({ role, studyName, studyCode, today }: Props) {
 
   return (
     <div className="dashboard">
-      <nav className="dashboard-bc" aria-label="Breadcrumb">
-        <span className="dashboard-bc-cur">Dashboard</span>
-      </nav>
       {!ready ? (
         greeting
       ) : role === "Sponsor" ? (
