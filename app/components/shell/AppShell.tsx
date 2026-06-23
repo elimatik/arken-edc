@@ -9,6 +9,7 @@ import { useStudySession } from "@/lib/session-store/SessionStore";
 import { isStudyLocked } from "@/lib/study-lock";
 import { navItemsForRole, NAV_ROUTES, type Role } from "@/lib/permissions";
 import { actionableQueryCount } from "@/lib/queries-data";
+import { ArkenAI } from "@/components/ai/ArkenAI";
 import "./shell.css";
 
 interface AppShellProps {
@@ -81,6 +82,7 @@ export function AppShell({ study, sites, children }: AppShellProps) {
           )}
           <main className="page-content">{children}</main>
         </div>
+        <ArkenAI />
       </div>
     </ShellProvider>
   );
