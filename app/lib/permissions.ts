@@ -61,8 +61,10 @@ export const NAV_ITEMS: NavItem[] = [
   // Reports is a reporting/oversight surface — CRC (a data-entry role) is excluded.
   { key: "reports", label: "Reports", icon: "chart-bar",
     access: { CRA: open, DM: open, PI: open, Sponsor: { blinded: true }, Admin: open } },
-  { key: "inventory", label: "Inventory", icon: "package",
-    access: { CRA: open, DM: open, Sponsor: { blinded: true }, Admin: open } },
+  // Inventory — drug-supply tracking. CRC dispenses, CRA/DM oversee, Admin manages.
+  // Sponsor is excluded (drug identity is blinded on CA-0801); PI has no supply role.
+  { key: "inventory", label: "Inventory", icon: "flask",
+    access: { CRC: open, CRA: open, DM: open, Admin: open } },
   // Audit Trail (21 CFR Part 11) — oversight roles only; the CRC who enters data
   // does not review the immutable log of it.
   { key: "audit", label: "Audit Trail", title: "Audit Trail", icon: "clipboard-list",
@@ -90,6 +92,7 @@ export const NAV_ROUTES: Partial<Record<string, string>> = {
   sdv: "sdv",
   coding: "coding",
   reports: "reports",
+  inventory: "inventory",
   audit: "audit-trail",
   sites: "sites",
   settings: "settings",

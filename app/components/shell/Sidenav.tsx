@@ -13,9 +13,11 @@ interface SidenavProps {
   // Per-nav-key live badge counts (computed by the shell), overriding any static
   // item.badge. A value of 0 (or absent) hides the badge.
   badges?: Partial<Record<string, number>>;
+  // Per-nav-key amber alert dots (non-count indicators, e.g. inventory expiry).
+  dots?: Partial<Record<string, boolean>>;
 }
 
-export function Sidenav({ role, studyType, activeKey, expanded, onSelect, onToggle, badges }: SidenavProps) {
+export function Sidenav({ role, studyType, activeKey, expanded, onSelect, onToggle, badges, dots }: SidenavProps) {
   const items = navItemsForRole(role);
   const topItems = items.filter((i) => !i.bottom);
   const bottomItems = items.filter((i) => i.bottom);
@@ -29,6 +31,7 @@ export function Sidenav({ role, studyType, activeKey, expanded, onSelect, onTogg
     if (access?.blinded) title += " (blinded)";
 
     const badge = badges?.[item.key] ?? item.badge ?? 0;
+    const dot = !!dots?.[item.key];
 
     return (
     <button
@@ -45,6 +48,8 @@ export function Sidenav({ role, studyType, activeKey, expanded, onSelect, onTogg
         <span className="nav-badge" aria-hidden="true">
           {badge}
         </span>
+      ) : dot ? (
+        <span className="nav-dot" aria-hidden="true"></span>
       ) : null}
     </button>
     );

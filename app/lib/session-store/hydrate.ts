@@ -6,6 +6,7 @@
 import { supabase } from "@/lib/supabase";
 import { DEMO_USER_ID } from "@/lib/constants";
 import { searchDict } from "@/lib/veddra-dictionary";
+import { buildInventorySeed } from "./inventory-seed";
 import type { Dataset } from "./types";
 
 // Supabase / PostgREST caps a single select at ~1000 rows (the project's Max Rows
@@ -280,6 +281,9 @@ export async function hydrateFromSupabase(): Promise<Dataset> {
     { verbatim: "Salinomycin", termType: "drug", status: "coded", by: "Auto", conf: 0.98 },
   ]);
 
+  // ─── Seeded drug inventory (session-only) ───────────────────────────────────
+  const inventory = buildInventorySeed(studiesWithTargets, sitesWithTargets, (subjects.data ?? []) as Dataset["subjects"]);
+
   return {
     studies: studiesWithTargets,
     sites: sitesWithTargets,
@@ -302,6 +306,8 @@ export async function hydrateFromSupabase(): Promise<Dataset> {
     saeReports, // session-only — seeded SAE reporting timelines
     protocolDeviations, // session-only — seeded protocol deviations
     codingTasks, // session-only — seeded VeDDRA coding worklist
+    vials: inventory.vials, // session-only — seeded drug inventory
+    shipments: inventory.shipments, // session-only — seeded drug shipments
     memberships: (memberships.data ?? []) as Dataset["memberships"],
     speciesRanges: (speciesRanges.data ?? []) as Dataset["speciesRanges"],
   };

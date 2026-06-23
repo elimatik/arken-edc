@@ -14,6 +14,7 @@ import {
   dispositions, enrollmentByArm, armLabeler, queryDensityBySite, querySummary,
 } from "@/lib/reports-data";
 import { shouldHideArms } from "@/lib/study-config";
+import { drugLotsRemaining, dispensingCount, lotsExpiringSoon } from "@/lib/inventory-data";
 
 export type AIResponse =
   | { type: "callout"; val: string; lbl: string }
@@ -172,19 +173,35 @@ const RULES: Rule[] = [
     },
   },
   {
-    // Inventory / drug supply — stub pending the Inventory module.
-    match: ["inventory", "drug supply", "drug lot", "stock"],
-    respond: (c) => inventoryGate(c.role) ?? { type: "text", text: "Inventory data will be available once the Inventory module is complete. It will show lot numbers, quantities, expiry dates, and dispensing records." },
+    // Inventory / drug supply — live from the Inventory module.
+    match: ["inventory", "drug supply", "drug lot", "stock", "vials remaining", "how much drug"],
+    respond: (c) => {
+      const gate = inventoryGate(c.role); if (gate) return gate;
+      const r = drugLotsRemaining(c.dataset, c.studyId);
+      const noun = c.studyCode === "PH-2401" ? "batches" : "vials";
+      return { type: "callout", val: String(r.availableItems), lbl: `available ${noun} · ${r.volRemaining} ${r.unit} remaining` };
+    },
   },
   {
-    // Dispensing / doses administered — stub pending the Inventory module.
-    match: ["dispensing", "doses dispensed", "treatment administered", "doses administered"],
-    respond: (c) => inventoryGate(c.role) ?? { type: "text", text: "Dispensing data will be available once the Inventory module is complete. It will show doses dispensed and treatments administered by site." },
+    // Dispensing / doses administered — live count from vial events.
+    match: ["dispensing", "doses dispensed", "treatment administered", "doses administered", "how many dispensed"],
+    respond: (c) => {
+      const gate = inventoryGate(c.role); if (gate) return gate;
+      const n = dispensingCount(c.dataset, c.studyId);
+      const noun = c.studyCode === "PH-2401" ? "feed deliveries" : "dispensing events";
+      return { type: "callout", val: String(n), lbl: `${noun} logged · across all lots` };
+    },
   },
   {
-    // Lot expiry — stub pending the Inventory module.
+    // Lot expiry — live list of items expiring within 30 days.
     match: ["expiry", "expiring", "lot expiration", "expiration"],
-    respond: (c) => inventoryGate(c.role) ?? { type: "text", text: "Lot-expiry tracking will be available once the Inventory module is complete. It will list lots expiring within the next 30 days." },
+    respond: (c) => {
+      const gate = inventoryGate(c.role); if (gate) return gate;
+      const soon = lotsExpiringSoon(c.dataset, c.studyId, 30);
+      if (!soon.length) return { type: "text", text: "No lots are expiring within the next 30 days." };
+      const list = soon.map((s) => `${s.id} (${s.lotId}) — expires ${s.expiryDate}`).join("; ");
+      return { type: "text", text: `${soon.length} ${soon.length === 1 ? "item expires" : "items expire"} within 30 days: ${list}.` };
+    },
   },
   {
     match: ["lock", "ready to lock", "database lock", "lock status"],

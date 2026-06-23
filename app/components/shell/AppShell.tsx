@@ -9,6 +9,7 @@ import { useStudySession } from "@/lib/session-store/SessionStore";
 import { isStudyLocked } from "@/lib/study-lock";
 import { navItemsForRole, NAV_ROUTES, type Role } from "@/lib/permissions";
 import { actionableQueryCount } from "@/lib/queries-data";
+import { hasExpiringVials } from "@/lib/inventory-data";
 import { ArkenAI } from "@/components/ai/ArkenAI";
 import "./shell.css";
 
@@ -26,6 +27,8 @@ export function AppShell({ study, sites, children }: AppShellProps) {
   // Live Queries badge — count of queries needing the active role's action.
   // Recomputes on role switch and on any query mutation (dataset is session state).
   const queriesBadge = actionableQueryCount(dataset, study.id, activeRole);
+  // Amber dot on Inventory when any active vial in the study expires within 30 days.
+  const inventoryExpiry = hasExpiringVials(dataset, study.id, 30);
   const [expanded, setExpanded] = useState(false);
   const [selectedSiteId, setSelectedSiteId] = useState<string | null>(null); // null = All Sites
 
@@ -63,6 +66,7 @@ export function AppShell({ study, sites, children }: AppShellProps) {
           onSelect={navigate}
           onToggle={() => setExpanded((e) => !e)}
           badges={{ queries: queriesBadge }}
+          dots={{ inventory: inventoryExpiry }}
         />
         <div className="main">
           <Topbar

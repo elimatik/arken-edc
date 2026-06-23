@@ -175,6 +175,24 @@
   height: 18px;
   font-size: 10px;
 }
+/* Amber alert dot (non-count indicators, e.g. inventory near-expiry). */
+.nav-dot {
+  position: absolute;
+  top: 8px;
+  right: 20px;
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: var(--amber-200);
+  box-shadow: 0 0 0 2px var(--color-nav-bg);
+}
+.sidenav.expanded .nav-dot {
+  position: relative;
+  top: auto;
+  right: auto;
+  margin-left: auto;
+  box-shadow: none;
+}
 
 /* Bottom section */
 .nav-spacer { flex: 1; }

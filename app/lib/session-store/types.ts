@@ -348,6 +348,57 @@ export interface SpeciesRangeRow {
   unit: string;
 }
 
+// ─── Inventory (session-only — drug supply tracking) ─────────────────────────
+export type VialStatus = "available" | "athome" | "depleted" | "removed" | "returned" | "unusable";
+export type VialEventType = "received" | "dispense" | "return" | "removed" | "returned";
+
+export interface VialEvent {
+  type: VialEventType;
+  date: string; // ISO YYYY-MM-DD
+  note?: string;
+  // dispense fields
+  subject?: string; // subject_code
+  visit?: string;
+  volDispensed?: number;
+  route?: string;
+  location?: "clinic" | "home" | "farm";
+  formInstanceId?: string; // links to Treatment Admin / Feed setup instance
+  by?: string; // dispensed by
+  // return fields
+  volReturned?: number;
+  condition?: string;
+}
+
+export interface Vial {
+  id: string; // "VL-BR-001" — or BATCH ID for feed studies
+  studyId: string;
+  lotId: string; // groups vials into shipment lots
+  kitNumber?: string; // CA-0801 blinded kit label ("Kit A-001")
+  drugName: string; // blinding-gated on CA-0801
+  treatmentGroup: string; // "Treatment A" / "Control" etc.
+  initialVol: number;
+  concentration: number; // %
+  unit: string; // "ml" for vials, "kg" for feed batches
+  expiryDate: string;
+  receivedDate: string;
+  status: VialStatus;
+  siteId: string | null;
+  events: VialEvent[];
+  expectedDailyDose?: number; // CA-0801 volume accountability (ml/day)
+  withdrawalDays?: number; // BR-2502 withdrawal period (days)
+}
+
+export interface Shipment {
+  id: string; // "SHP-001"
+  studyId: string;
+  lot: string; // "LOT-001"
+  shipDate: string;
+  receiveDate: string;
+  vialCount: number;
+  usableCount: number;
+  confirmed: boolean;
+}
+
 // The full hydrated dataset held in the session.
 export interface Dataset {
   studies: StudyRow[];
@@ -371,6 +422,8 @@ export interface Dataset {
   saeReports: SaeReportRow[]; // session-only SAE reporting-timeline seed
   protocolDeviations: ProtocolDeviationRow[]; // session-only protocol-deviation seed
   codingTasks: CodingTask[]; // session-only VeDDRA coding worklist (source of truth for coded state)
+  vials: Vial[]; // session-only drug-inventory worklist (Inventory module)
+  shipments: Shipment[]; // session-only drug shipments (Inventory module)
   memberships: MembershipRow[];
   speciesRanges: SpeciesRangeRow[];
 }
@@ -397,6 +450,8 @@ export const EMPTY_DATASET: Dataset = {
   saeReports: [],
   protocolDeviations: [],
   codingTasks: [],
+  vials: [],
+  shipments: [],
   memberships: [],
   speciesRanges: [],
 };

@@ -26,8 +26,8 @@ type AuditType =
   | "query_raised" | "query_responded" | "query_resolved"
   | "sdv" | "form_submitted" | "form_locked"
   | "randomization" | "consent" | "protocol_deviation"
-  | "subject_enrolled" | "subject_withdrawn" | "unblinding" | "database_lock" | "database_unlock" | "login";
-type FilterCat = "data_entry" | "query" | "sdv" | "status_change" | "form_lock" | "randomization" | "consent" | "deviation" | "unblinding" | "database_lock" | "login";
+  | "subject_enrolled" | "subject_withdrawn" | "unblinding" | "database_lock" | "database_unlock" | "drug_supply" | "login";
+type FilterCat = "data_entry" | "query" | "sdv" | "status_change" | "form_lock" | "randomization" | "consent" | "deviation" | "unblinding" | "database_lock" | "drug_supply" | "login";
 
 const TYPE_META: Record<AuditType, { label: string; cls: string; icon: string; cat: FilterCat }> = {
   data_entry:        { label: "Data Entry",         cls: "at-entry",     icon: "pencil",          cat: "data_entry" },
@@ -47,6 +47,7 @@ const TYPE_META: Record<AuditType, { label: string; cls: string; icon: string; c
   unblinding:        { label: "Emergency Unblinding",cls: "at-unblind",  icon: "eye-exclamation", cat: "unblinding" },
   database_lock:     { label: "Database Lock",       cls: "at-dblock",    icon: "lock",            cat: "database_lock" },
   database_unlock:   { label: "Database Unlock",     cls: "at-dunlock",   icon: "lock-open",       cat: "database_lock" },
+  drug_supply:       { label: "Drug Supply",         cls: "at-supply",    icon: "flask",           cat: "drug_supply" },
   login:             { label: "Login",              cls: "at-login",     icon: "login",           cat: "login" },
 };
 
@@ -62,6 +63,7 @@ const CAT_OPTIONS: { value: string; label: string }[] = [
   { value: "deviation", label: "Protocol deviation" },
   { value: "unblinding", label: "Emergency unblinding" },
   { value: "database_lock", label: "Database lock" },
+  { value: "drug_supply", label: "Drug supply" },
   { value: "login", label: "Login" },
 ];
 
@@ -338,6 +340,35 @@ function buildAuditEvents(dataset: Dataset, studyId: string, baseNow: number): A
     if (subj.status === "withdrawn") {
       push({ ts: synthTs(`wd${subj.id}`, baseNow, 30), type: "subject_withdrawn", user: CAST.PI, ...ctx, fieldId: null, fieldLabel: "", fieldCode: "",
         oldValue: null, newValue: null, details: "Subject withdrawn from study — data preserved for analysis", statusBefore: "Active", statusAfter: "Withdrawn" });
+    }
+  }
+
+  // 7.5 — Drug supply (Inventory module). Each vial lifecycle event + every
+  // confirmed shipment is an auditable manual action. Subjects are referenced by
+  // code on dispense events; sites come from the vial's siteId.
+  {
+    const subjByCode = new Map(dataset.subjects.filter((s) => s.study_id === studyId).map((s) => [s.subject_code, s]));
+    const invUser = mkUser("Supply Coordinator", "CRC");
+    const supplyCtx = (vialSiteId: string | null, subjectCode: string | null) => {
+      const subj = subjectCode ? subjByCode.get(subjectCode) : undefined;
+      const siteId = subj?.site_id ?? vialSiteId ?? null;
+      const siteName = siteId ? siteById.get(siteId)?.name ?? "—" : "—";
+      return { scope: (subj ? "subject" : "site") as AuditScope, subjectId: subj?.id ?? null, subjectCode: subjectCode ?? "—", siteId, siteName,
+        formId: null, formName: "Inventory", formPath: "Inventory", fieldId: null, fieldLabel: "", fieldCode: "", oldValue: null };
+    };
+    for (const v of dataset.vials.filter((x) => x.studyId === studyId)) {
+      for (const e of v.events) {
+        if (e.type === "received") continue; // surfaced via the shipment, not separately
+        const ts = `${e.date}T09:00:00Z`;
+        const u = e.by ? mkUser(e.by, "CRC") : invUser;
+        if (e.type === "dispense") push({ ts, type: "drug_supply", user: u, ...supplyCtx(v.siteId, e.subject ?? null), newValue: v.id, details: `Drug dispensed — ${v.id} — ${e.subject ?? "—"} (${e.volDispensed ?? 0} ${v.unit})` });
+        else if (e.type === "return") push({ ts, type: "drug_supply", user: u, ...supplyCtx(v.siteId, null), newValue: v.id, details: `Drug returned — ${v.id} — ${e.volReturned ?? 0} ${v.unit}` });
+        else if (e.type === "removed") push({ ts, type: "drug_supply", user: invUser, ...supplyCtx(v.siteId, null), newValue: v.id, details: `Vial removed — ${v.id} — ${e.note ?? "removed"}` });
+        else if (e.type === "returned") push({ ts, type: "drug_supply", user: invUser, ...supplyCtx(v.siteId, null), newValue: v.id, details: `Drug returned to sponsor — ${v.id}` });
+      }
+    }
+    for (const s of dataset.shipments.filter((x) => x.studyId === studyId && x.confirmed)) {
+      push({ ts: `${s.receiveDate}T08:00:00Z`, type: "drug_supply", user: invUser, ...supplyCtx(null, null), newValue: s.id, details: `Shipment confirmed — ${s.id} (${s.usableCount}/${s.vialCount} usable)` });
     }
   }
 
