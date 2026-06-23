@@ -42,10 +42,9 @@ async function askArkenAI(input: string, context: string, history: { role: "user
   }
 }
 
-export function ArkenAI() {
+export function ArkenAI({ open, onClose }: { open: boolean; onClose: () => void }) {
   const { study, sites, selectedSiteId, activeRole } = useShell();
   const { dataset, ready } = useStudySession();
-  const [isOpen, setIsOpen] = useState(false);
   const [thread, setThread] = useState<Msg[]>([]);
   const [input, setInput] = useState("");
   const [typing, setTyping] = useState(false);
@@ -61,8 +60,8 @@ export function ArkenAI() {
   useEffect(() => { setThread([]); }, [study.id]);
   // Keep the thread pinned to the newest message.
   useEffect(() => { if (threadRef.current) threadRef.current.scrollTop = threadRef.current.scrollHeight; }, [thread, typing]);
-
-  function open() { setIsOpen(true); setTimeout(() => inputRef.current?.focus(), 100); }
+  // Focus the compose box when the panel opens.
+  useEffect(() => { if (open) setTimeout(() => inputRef.current?.focus(), 100); }, [open]);
 
   function send(text: string) {
     const q = text.trim();
@@ -94,21 +93,16 @@ export function ArkenAI() {
     if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); send(input); }
   }
 
-  if (!ready) return null;
+  if (!ready || !open) return null;
 
   return (
     <>
-      {!isOpen && (
-        <button className="ai-pill" type="button" onClick={open} aria-label="Open Arken Insights">
-          <i className="ti ti-sparkles"></i> Arken Insights
-        </button>
-      )}
-
-      <div className={`ai-panel${isOpen ? " open" : ""}`} role="dialog" aria-label="Arken Insights">
+      <div className="ai-overlay" onClick={onClose} />
+      <div className="ai-panel open" role="dialog" aria-label="Arken Insights">
         <div className="ai-panel-header">
           <div className="ai-panel-icon"><i className="ti ti-sparkles"></i></div>
           <span className="ai-panel-title">Arken Insights</span>
-          <button className="ai-panel-close" type="button" onClick={() => setIsOpen(false)} aria-label="Close"><i className="ti ti-x"></i></button>
+          <button className="ai-panel-close" type="button" onClick={onClose} aria-label="Close"><i className="ti ti-x"></i></button>
         </div>
 
         <div className="ai-scope-bar">

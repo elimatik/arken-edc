@@ -2,14 +2,16 @@
 
 import { useMemo, useState } from "react";
 import type { Vial } from "@/lib/session-store/types";
-import { buildReconRows, type InvConfig } from "@/lib/inventory-data";
+import type { Role } from "@/lib/permissions";
+import { buildReconRows, canInv, type InvConfig } from "@/lib/inventory-data";
 
 type Confirm = "pending" | "confirmed" | "discrepancy";
 interface ReconState { status: Confirm; notes: string }
 
 // Tab 5 — reconciliation (ported from renderReconciliation). Confirm state is held
 // in the view (UI-level coordinator overlay, not written back to the store).
-export function ReconciliationTab({ cfg, vials }: { cfg: InvConfig; vials: Vial[] }) {
+export function ReconciliationTab({ cfg, vials, role }: { cfg: InvConfig; vials: Vial[]; role: Role }) {
+  const canReconcile = canInv("reconcile", role);
   const rows = useMemo(() => buildReconRows(vials), [vials]);
   const [state, setState] = useState<Record<string, ReconState>>({});
 
@@ -26,8 +28,8 @@ export function ReconciliationTab({ cfg, vials }: { cfg: InvConfig; vials: Vial[
   return (
     <>
       <div className="inv-infobar">
-        <span>Auto-calculated status vs coordinator-confirmed · Variance = received − returned − removed</span>
-        <button className="inv-btn-primary" style={{ marginLeft: "auto" }} onClick={acceptAllBalanced}><i className="ti ti-check"></i> Accept all balanced</button>
+        <span>Variance = received − dispensed − returned − removed. Balanced when all units are fully accounted for.</span>
+        {canReconcile && <button className="inv-btn-primary" style={{ marginLeft: "auto" }} onClick={acceptAllBalanced}><i className="ti ti-check"></i> Accept all balanced</button>}
       </div>
 
       <div className="inv-table-wrap">
@@ -40,7 +42,7 @@ export function ReconciliationTab({ cfg, vials }: { cfg: InvConfig; vials: Vial[
             {rows.map((r) => {
               const st = get(r.group);
               const varColor = r.balanced ? "var(--green-600)" : r.variance > 0 ? "var(--amber-700)" : "var(--red-600)";
-              const badge = r.balanced ? "inv-badge-available" : r.variance > 0 ? "inv-badge-removed" : "inv-badge-unusable";
+              const badge = r.balanced ? "inv-badge-available" : r.variance > 0 ? "inv-badge-amber" : "inv-badge-unusable";
               return (
                 <tr key={r.group}>
                   <td style={{ fontWeight: "var(--weight-medium)" }}>{r.group}</td>
@@ -52,13 +54,15 @@ export function ReconciliationTab({ cfg, vials }: { cfg: InvConfig; vials: Vial[
                   <td className="inv-mono" style={{ fontWeight: "var(--weight-medium)", color: varColor }}>{r.balanced ? "✓ 0" : `${r.variance > 0 ? "⚠ +" : "⚠ "}${r.variance}`}</td>
                   <td><span className={`inv-badge ${badge}`}>{r.status}</span></td>
                   <td>
-                    <select className="inv-recon-select" value={st.status} onChange={(e) => set(r.group, { status: e.target.value as Confirm })}>
-                      <option value="pending">Pending</option>
-                      <option value="confirmed">Confirmed ✓</option>
-                      <option value="discrepancy">Flag discrepancy</option>
-                    </select>
+                    {canReconcile ? (
+                      <select className="inv-recon-select" value={st.status} onChange={(e) => set(r.group, { status: e.target.value as Confirm })}>
+                        <option value="pending">Pending</option>
+                        <option value="confirmed">Confirmed ✓</option>
+                        <option value="discrepancy">Flag discrepancy</option>
+                      </select>
+                    ) : <span style={{ fontSize: "var(--text-xs)", color: "var(--color-text-tertiary)", textTransform: "capitalize" }}>{st.status}</span>}
                   </td>
-                  <td><input className="inv-recon-note" placeholder="Notes…" value={st.notes} onChange={(e) => set(r.group, { notes: e.target.value })} /></td>
+                  <td><input className="inv-recon-note" placeholder="Notes…" value={st.notes} onChange={(e) => set(r.group, { notes: e.target.value })} disabled={!canReconcile} /></td>
                 </tr>
               );
             })}

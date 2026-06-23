@@ -16,6 +16,7 @@ interface TopbarProps {
   activeRole: Role;
   onChangeRole: (role: Role) => void;
   hideSiteFilter?: boolean; // screens with their own in-toolbar site filter (Audit Trail, Queries)
+  onToggleAI?: () => void; // opens the Arken Insights slide-in
 }
 
 export function Topbar({
@@ -26,6 +27,7 @@ export function Topbar({
   activeRole,
   onChangeRole,
   hideSiteFilter = false,
+  onToggleAI,
 }: TopbarProps) {
   const router = useRouter();
   const { dataset } = useStudySession();
@@ -178,6 +180,9 @@ export function Topbar({
         </button>
         <button className="tb-icon" title="Help" type="button">
           <i className="ti ti-help-circle" aria-hidden="true"></i>
+        </button>
+        <button className="tb-icon" title="Arken Insights" aria-label="Arken Insights" type="button" onClick={onToggleAI}>
+          <i className="ti ti-sparkles" aria-hidden="true"></i>
         </button>
 
         {/* Role switcher — visible to all roles, switches instantly */}

@@ -10,7 +10,7 @@ import { useShell } from "@/components/shell/ShellContext";
 import { useStudySession } from "@/lib/session-store/SessionStore";
 import { shouldHideArms } from "@/lib/study-config";
 import {
-  invConfig, studyVials, studyShipments, vialsForSite, buildDispenseRows, buildReconRows,
+  invConfig, studyVials, studyShipments, vialsForSite, buildDispenseRows, buildReconRows, canInv,
   type DispenseRow,
 } from "@/lib/inventory-data";
 import { InventoryTab } from "@/components/inventory/InventoryTab";
@@ -42,7 +42,13 @@ export default function InventoryPage() {
 
   const cfg = useMemo(() => invConfig(study.code), [study.code]);
   const hideArms = shouldHideArms(dataset, studyId, activeRole);
-  const isAdmin = activeRole === "Admin";
+
+  // Subject code → site name, for the Dispense log SITE column.
+  const siteOf = useMemo(() => {
+    const siteName = new Map(sites.map((s) => [s.id, s.name]));
+    const bySubject = new Map(dataset.subjects.filter((s) => s.study_id === studyId).map((s) => [s.subject_code, s.site_id ? siteName.get(s.site_id) ?? "—" : "—"]));
+    return (code: string) => bySubject.get(code) ?? "—";
+  }, [dataset.subjects, sites, studyId]);
 
   // CRC is scoped to a single site; others honour the topbar site filter.
   const effectiveSite = activeRole === "CRC" ? (selectedSiteId ?? sites[0]?.id ?? null) : selectedSiteId;
@@ -79,7 +85,7 @@ export default function InventoryPage() {
         </div>
         <div style={{ display: "flex", gap: "var(--space-2)" }}>
           <button className="inv-btn-secondary"><i className="ti ti-download"></i> Export log</button>
-          {tab === "receive" && isAdmin && <button className="inv-btn-primary" onClick={() => setIntakeOpen(true)}><i className="ti ti-truck-delivery"></i> Receive shipment</button>}
+          {tab === "receive" && canInv("receive", activeRole) && <button className="inv-btn-primary" onClick={() => setIntakeOpen(true)}><i className="ti ti-truck-delivery"></i> Receive shipment</button>}
         </div>
       </div>
 
@@ -92,13 +98,13 @@ export default function InventoryPage() {
         ))}
       </div>
 
-      {tab === "receive" && <ReceiveTab cfg={cfg} studyId={studyId} shipments={shipments} vials={allVials} isAdmin={isAdmin} update={update} intakeOpen={intakeOpen} setIntakeOpen={setIntakeOpen} />}
+      {tab === "receive" && <ReceiveTab cfg={cfg} studyId={studyId} shipments={shipments} vials={allVials} role={activeRole} update={update} intakeOpen={intakeOpen} setIntakeOpen={setIntakeOpen} />}
       {tab === "inventory" && <InventoryTab cfg={cfg} hideArms={hideArms} vials={vials} openDetail={setDetailVialId} onEdit={setEditVialId} />}
-      {tab === "dispense" && <DispenseTab cfg={cfg} vials={vials} onReturn={(row, readOnly) => setReturnState({ row, readOnly })} />}
-      {tab === "recon" && <ReconciliationTab cfg={cfg} vials={vials} />}
+      {tab === "dispense" && <DispenseTab cfg={cfg} vials={vials} role={activeRole} siteOf={siteOf} onReturn={(row, readOnly) => setReturnState({ row, readOnly })} />}
+      {tab === "recon" && <ReconciliationTab cfg={cfg} vials={vials} role={activeRole} />}
 
       {detailVial && <VialDetail cfg={cfg} hideArms={hideArms} vial={detailVial} onClose={() => setDetailVialId(null)} />}
-      {editVial && <VialEditPanel cfg={cfg} hideArms={hideArms} vial={editVial} isAdmin={isAdmin} onClose={() => setEditVialId(null)} update={update} />}
+      {editVial && <VialEditPanel cfg={cfg} hideArms={hideArms} vial={editVial} role={activeRole} onClose={() => setEditVialId(null)} update={update} />}
       {returnState && <ReturnModal row={returnState.row} readOnly={returnState.readOnly} onClose={() => setReturnState(null)} update={update} />}
     </div>
   );

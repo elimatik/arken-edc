@@ -2,25 +2,37 @@
 
 import { useEffect, useState } from "react";
 import type { Dataset, Shipment, Vial } from "@/lib/session-store/types";
-import { type InvConfig } from "@/lib/inventory-data";
+import type { Role } from "@/lib/permissions";
+import { canInv, type InvConfig } from "@/lib/inventory-data";
 
 const TODAY = new Date().toISOString().slice(0, 10);
 
 interface DraftRow { id: string; vol: number; conc: number; expiry: string; group: string; condition: string; received: boolean; usable: boolean; notes: string }
-type Review = { shipmentId: string; readOnly: boolean; isNew: boolean; rows: DraftRow[]; lot: string };
+type Review = { shipmentId: string; confirmed: boolean; isNew: boolean; rows: DraftRow[]; lot: string };
 
-// Tab — receive shipment. The intake modal is driven from the page header (Admin
-// only); CRC/CRA/DM see the list read-only.
-export function ReceiveTab({ cfg, studyId, shipments, vials, isAdmin, update, intakeOpen, setIntakeOpen }: {
+// Split a stored received-event note ("Good — over-temp excursion") into the
+// Condition and Notes columns.
+function splitNote(note: string | undefined, fallback: string): { condition: string; notes: string } {
+  if (!note) return { condition: fallback, notes: "" };
+  const idx = note.indexOf(" — ");
+  return idx === -1 ? { condition: note, notes: "" } : { condition: note.slice(0, idx), notes: note.slice(idx + 3) };
+}
+
+// Tab — receive shipment. Intake (creating a pending shipment) is driven from the
+// page header (CRC/Admin). Confirming a pending shipment is CRA/DM/Admin only —
+// segregation of duties. Post-confirmation Volume/Conc/Expiry/Group are locked;
+// only Condition and Notes stay editable.
+export function ReceiveTab({ cfg, studyId, shipments, vials, role, update, intakeOpen, setIntakeOpen }: {
   cfg: InvConfig;
   studyId: string;
   shipments: Shipment[];
   vials: Vial[];
-  isAdmin: boolean;
+  role: Role;
   update: (m: (d: Dataset) => void) => void;
   intakeOpen: boolean;
   setIntakeOpen: (v: boolean) => void;
 }) {
+  const canConfirm = canInv("confirm", role);
   const [review, setReview] = useState<Review | null>(null);
   const [shipDate, setShipDate] = useState("");
   const [recvDate, setRecvDate] = useState("");
@@ -29,22 +41,23 @@ export function ReceiveTab({ cfg, studyId, shipments, vials, isAdmin, update, in
   useEffect(() => { if (intakeOpen) { setShipDate(""); setRecvDate(""); setCsvName(null); } }, [intakeOpen]);
 
   // Pending review starts every checkbox UNCHECKED (the reviewer must confirm each
-  // unit); the read-only confirmed view shows the real received/usable state.
-  function draftsFromLot(lot: string, readOnly: boolean): DraftRow[] {
+  // unit); the confirmed view reflects the real received/usable state and lets the
+  // Condition/Notes be edited post-confirmation.
+  function draftsFromLot(lot: string, confirmed: boolean): DraftRow[] {
     return vials.filter((v) => lot.includes(v.lotId) || v.lotId === lot).map((v) => {
       const recEvent = v.events.find((e) => e.type === "received");
+      const { condition, notes } = splitNote(recEvent?.note, v.status === "removed" ? "Quarantine" : "Good");
       return {
         id: v.id, vol: v.initialVol, conc: v.concentration, expiry: v.expiryDate, group: v.treatmentGroup,
-        condition: recEvent?.note ?? (v.status === "removed" ? "Quarantine" : "Good"),
-        received: readOnly ? v.status !== "removed" || v.events.some((e) => e.type === "received") : false,
-        usable: readOnly ? v.status !== "removed" : false,
-        notes: "",
+        condition: confirmed ? condition : "Good",
+        notes: confirmed ? notes : "",
+        received: false, usable: confirmed ? v.status !== "removed" : false,
       };
     });
   }
 
-  function openReview(s: Shipment, readOnly: boolean) {
-    setReview({ shipmentId: s.id, readOnly, isNew: false, lot: s.lot, rows: draftsFromLot(s.lot, readOnly) });
+  function openReview(s: Shipment, confirmed: boolean) {
+    setReview({ shipmentId: s.id, confirmed, isNew: false, lot: s.lot, rows: draftsFromLot(s.lot, confirmed) });
   }
   function closeReview() { setReview(null); }
   function setRow(i: number, patch: Partial<DraftRow>) {
@@ -93,16 +106,32 @@ export function ReceiveTab({ cfg, studyId, shipments, vials, isAdmin, update, in
     }));
     update((d) => { d.shipments.push({ id, studyId, lot, shipDate: shipDate || TODAY, receiveDate: recvDate || TODAY, vialCount: count, usableCount: 0, confirmed: false }); });
     setIntakeOpen(false);
-    setReview({ shipmentId: id, readOnly: false, isNew: true, lot, rows });
+    setReview({ shipmentId: id, confirmed: false, isNew: true, lot, rows });
   }
 
-  // ── Confirmed shipment — read-only plain-text view (no form styling) ──
-  if (review?.readOnly) {
+  // Persist Condition/Notes edits made in the confirmed view to each vial's
+  // received event (Volume/Conc/Expiry/Group stay locked — the source of record).
+  function saveConfirmedEdits() {
+    if (!review) return;
+    update((d) => {
+      for (const row of review.rows) {
+        const v = d.vials.find((x) => x.id === row.id);
+        const rec = v?.events.find((e) => e.type === "received");
+        if (rec) rec.note = `${row.condition}${row.notes ? ` — ${row.notes}` : ""}`;
+      }
+    });
+    closeReview();
+  }
+
+  // ── Confirmed shipment — Volume/Conc/Expiry/Group locked as plain text;
+  //    Condition + Notes remain editable. ──
+  if (review?.confirmed) {
     return (
       <>
         <div className="inv-infobar">
           <button className="inv-btn-secondary" style={{ height: 28, fontSize: "var(--text-xs)" }} onClick={closeReview}><i className="ti ti-arrow-left"></i> Back</button>
-          <span style={{ fontSize: "var(--text-sm)", fontWeight: "var(--weight-medium)" }}>{review.shipmentId} — {review.lot} · Confirmed · view only</span>
+          <span style={{ fontSize: "var(--text-sm)", fontWeight: "var(--weight-medium)" }}>{review.shipmentId} — {review.lot} · Confirmed · source of record (locked)</span>
+          <button className="inv-btn-primary" style={{ marginLeft: "auto" }} onClick={saveConfirmedEdits}><i className="ti ti-device-floppy"></i> Save condition / notes</button>
         </div>
         <div className="inv-table-wrap">
           <table className="inv-table">
@@ -110,16 +139,16 @@ export function ReceiveTab({ cfg, studyId, shipments, vials, isAdmin, update, in
               <th>{cfg.idLabel}</th><th>Vol ({cfg.unit})</th><th>Conc (%)</th><th>Expiry</th><th>Group</th><th>Condition</th><th>Notes</th><th>Usable</th>
             </tr></thead>
             <tbody>
-              {review.rows.map((row) => (
+              {review.rows.map((row, i) => (
                 <tr key={row.id}>
                   <td className="inv-mono" style={{ fontWeight: "var(--weight-medium)" }}>{row.id}</td>
                   <td className="inv-mono">{row.vol}</td>
                   <td className="inv-mono">{row.conc}</td>
                   <td className="inv-mono" style={{ fontSize: 11 }}>{row.expiry}</td>
                   <td>{row.group}</td>
-                  <td>{row.condition || "—"}</td>
-                  <td className="inv-muted">{row.notes || "—"}</td>
-                  <td>{row.usable ? <span style={{ color: "var(--green-600)" }}>Yes</span> : <span style={{ color: "var(--amber-700)" }}>No</span>}</td>
+                  <td><input className="inv-grid-input" style={{ width: 110 }} value={row.condition} onChange={(e) => setRow(i, { condition: e.target.value })} placeholder="Good" /></td>
+                  <td><input className="inv-grid-input" style={{ width: 160 }} value={row.notes} onChange={(e) => setRow(i, { notes: e.target.value })} placeholder="Optional notes…" /></td>
+                  <td>{row.usable ? <span style={{ color: "var(--green-600)" }}>Yes</span> : <span style={{ color: "var(--red-700)" }}>No</span>}</td>
                 </tr>
               ))}
             </tbody>
@@ -179,7 +208,7 @@ export function ReceiveTab({ cfg, studyId, shipments, vials, isAdmin, update, in
           <div className="inv-empty-icon"><i className="ti ti-truck-delivery"></i></div>
           <div style={{ textAlign: "center" }}>
             <div style={{ fontSize: "var(--text-base)", fontWeight: "var(--weight-medium)" }}>No shipments yet</div>
-            <div style={{ fontSize: "var(--text-sm)", color: "var(--color-text-tertiary)" }}>{isAdmin ? "Use “Receive shipment” in the header to record your first shipment." : "No shipments have been recorded for this study."}</div>
+            <div style={{ fontSize: "var(--text-sm)", color: "var(--color-text-tertiary)" }}>{canInv("receive", role) ? "Use “Receive shipment” in the header to record your first shipment." : "No shipments have been recorded for this study."}</div>
           </div>
         </div>
       ) : (
@@ -192,7 +221,7 @@ export function ReceiveTab({ cfg, studyId, shipments, vials, isAdmin, update, in
               <tbody>
                 {shipments.map((s) => {
                   const quarantined = s.vialCount - s.usableCount;
-                  const canReview = isAdmin && !s.confirmed;
+                  const canReview = canConfirm && !s.confirmed;
                   return (
                     <tr key={s.id} style={{ cursor: canReview ? "pointer" : "default" }} onClick={canReview ? () => openReview(s, false) : undefined}>
                       <td className="inv-mono" style={{ fontWeight: "var(--weight-medium)" }}>{s.id}</td>
@@ -210,9 +239,9 @@ export function ReceiveTab({ cfg, studyId, shipments, vials, isAdmin, update, in
                           {s.confirmed
                             ? <><button className="inv-btn-icon" title="View" onClick={() => openReview(s, true)}><i className="ti ti-eye"></i></button>
                                 <button className="inv-btn-icon" title="Download CSV"><i className="ti ti-download"></i></button></>
-                            : isAdmin
+                            : canConfirm
                               ? <button className="inv-btn-secondary" style={{ height: 28, fontSize: "var(--text-xs)" }} onClick={() => openReview(s, false)}><i className="ti ti-pencil"></i> Log &amp; confirm</button>
-                              : <span style={{ fontSize: "var(--text-xs)", color: "var(--color-text-tertiary)" }}>Awaiting confirmation</span>}
+                              : <span style={{ fontSize: "var(--text-xs)", color: "var(--color-text-tertiary)" }}>Awaiting CRA/DM confirmation</span>}
                         </div>
                       </td>
                     </tr>

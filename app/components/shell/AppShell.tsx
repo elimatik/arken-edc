@@ -31,6 +31,7 @@ export function AppShell({ study, sites, children }: AppShellProps) {
   const inventoryExpiry = hasExpiringVials(dataset, study.id, 30);
   const [expanded, setExpanded] = useState(false);
   const [selectedSiteId, setSelectedSiteId] = useState<string | null>(null); // null = All Sites
+  const [aiOpen, setAiOpen] = useState(false); // Arken Insights slide-in
 
   // The active nav item is derived from the route (first path segment under the study).
   const base = `/study/${study.id}`;
@@ -77,6 +78,7 @@ export function AppShell({ study, sites, children }: AppShellProps) {
             activeRole={activeRole}
             onChangeRole={changeRole}
             hideSiteFilter={sub === "audit-trail" || sub === "queries" || sub === "visits" || sub === "sdv" || sub === "reports"}
+            onToggleAI={() => setAiOpen((o) => !o)}
           />
           {isStudyLocked(dataset, study.id) && (
             <div className="db-lock-bar" role="status">
@@ -86,7 +88,7 @@ export function AppShell({ study, sites, children }: AppShellProps) {
           )}
           <main className="page-content">{children}</main>
         </div>
-        <ArkenAI />
+        <ArkenAI open={aiOpen} onClose={() => setAiOpen(false)} />
       </div>
     </ShellProvider>
   );

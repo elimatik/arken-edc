@@ -3,7 +3,7 @@
 import { useMemo, useState } from "react";
 import type { Vial } from "@/lib/session-store/types";
 import {
-  currentVol, vialUses, volFill, expiryColor, vialDisplayId, lastUpdated, STATUS_LABELS, STATUS_BADGE,
+  currentVol, volFill, expiryColor, vialDisplayId, lastUpdated, STATUS_LABELS, STATUS_BADGE,
   type InvConfig,
 } from "@/lib/inventory-data";
 
@@ -85,13 +85,12 @@ export function InventoryTab({ cfg, hideArms, vials, openDetail, onEdit }: {
         <table className="inv-table">
           <thead><tr>
             <th>{cfg.idLabel}</th><th>Lot</th>{!hideArms && <th>Treatment group</th>}
-            <th>Initial vol.</th><th>Conc.</th><th>Current vol.</th><th>Uses</th><th>Expiry date</th><th>Last updated</th><th>Status</th><th></th>
+            <th>Initial vol.</th><th>Conc.</th><th>Current vol.</th><th>Expiry date</th><th>Status</th><th>Last updated</th><th></th>
           </tr></thead>
           <tbody>
             {rows.map((v) => {
               const cv = currentVol(v);
               const fill = volFill(cv, v.initialVol, v.status);
-              const uc = vialUses(v);
               return (
                 <tr key={v.id} className="clickable" onClick={() => openDetail(v.id)}>
                   <td><span className="inv-mono" style={{ fontWeight: "var(--weight-medium)" }}>{vialDisplayId(v, hideArms)}</span></td>
@@ -105,10 +104,9 @@ export function InventoryTab({ cfg, hideArms, vials, openDetail, onEdit }: {
                       <span className="inv-vol-label">{cv} / {v.initialVol} {v.unit}</span>
                     </div>
                   </td>
-                  <td><span className="inv-mono">{uc > 0 ? `${uc}×` : "—"}</span></td>
                   <td><span className="inv-mono" style={{ fontSize: 11, color: expiryColor(v.expiryDate) }}>{v.expiryDate || "—"}</span></td>
-                  <td><span className="inv-mono" style={{ fontSize: 11, color: "var(--color-text-tertiary)" }}>{lastUpdated(v) ?? "—"}</span></td>
                   <td><span className={`inv-badge ${STATUS_BADGE[v.status]}`}>{STATUS_LABELS[v.status] ?? v.status}</span></td>
+                  <td><span className="inv-mono" style={{ fontSize: 11, color: "var(--color-text-tertiary)" }}>{lastUpdated(v) ?? "—"}</span></td>
                   <td><div style={{ display: "flex", justifyContent: "flex-end", gap: 2 }}>
                     <button className="inv-btn-icon" title="View lifecycle" onClick={(e) => { e.stopPropagation(); openDetail(v.id); }}><i className="ti ti-timeline"></i></button>
                     <button className="inv-btn-icon" title="Edit unit" onClick={(e) => { e.stopPropagation(); onEdit(v.id); }}><i className="ti ti-pencil"></i></button>

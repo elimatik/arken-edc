@@ -1,14 +1,13 @@
 /* ════════════════════════════════════════════════════════════════════════════
-   Arken Insights — global AI chat widget. Ported from 32-dashboard-v2.html.
+   Arken Insights — AI chat. Opened from the topbar ✨ button; right-side slide-in
+   panel (overlays other slide-ins). Ported from 32-dashboard-v2.html.
 ═══════════════════════════════════════════════════════════════════════════ */
-.ai-pill { position: fixed; bottom: var(--space-5); right: var(--space-5); z-index: 500; display: flex; align-items: center; gap: var(--space-2); height: 40px; padding: 0 var(--space-4); background: var(--color-cta-bg); border: none; border-radius: var(--radius-full); color: #fff; font-size: var(--text-sm); font-weight: var(--weight-medium); font-family: var(--font-sans); cursor: pointer; box-shadow: 0 4px 16px rgba(14, 18, 28, 0.22); transition: all var(--duration-fast); }
-.ai-pill:hover { background: var(--color-cta-hover); box-shadow: 0 6px 20px rgba(14, 18, 28, 0.28); }
-.ai-pill i { font-size: 16px; }
+.ai-overlay { position: fixed; inset: 0; background: rgba(14, 18, 28, 0.35); z-index: 600; }
 
-.ai-panel { position: fixed; bottom: var(--space-5); right: var(--space-5); z-index: 500; width: 360px; max-height: 540px; background: var(--color-surface); border: 1px solid var(--color-border); border-radius: var(--radius-lg); box-shadow: 0 8px 32px rgba(14, 18, 28, 0.18); display: none; flex-direction: column; }
+.ai-panel { position: fixed; top: 0; right: 0; z-index: 601; width: 400px; max-width: 100vw; height: 100%; background: var(--color-surface); border-left: 1px solid var(--color-border); box-shadow: -8px 0 32px rgba(14, 18, 28, 0.18); display: none; flex-direction: column; }
 .ai-panel.open { display: flex; }
 
-.ai-panel-header { background: var(--color-cta-bg); border-radius: var(--radius-lg) var(--radius-lg) 0 0; padding: var(--space-3) var(--space-4); display: flex; align-items: center; gap: var(--space-2); flex-shrink: 0; }
+.ai-panel-header { background: var(--color-cta-bg); padding: var(--space-3) var(--space-4); display: flex; align-items: center; gap: var(--space-2); flex-shrink: 0; }
 .ai-panel-icon { width: 28px; height: 28px; border-radius: 50%; background: rgba(255, 255, 255, 0.15); display: flex; align-items: center; justify-content: center; flex-shrink: 0; }
 .ai-panel-icon i { font-size: 15px; color: #fff; }
 .ai-panel-title { font-size: var(--text-base); font-weight: var(--weight-medium); color: #fff; flex: 1; }

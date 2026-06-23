@@ -5,6 +5,22 @@
 // (BR withdrawal link, CA volume accountability, PH batch/kg) lives here too.
 // ════════════════════════════════════════════════════════════════════════════
 import type { Dataset, Vial, VialEvent, VialStatus } from "@/lib/session-store/types";
+import type { Role } from "@/lib/permissions";
+
+// ─── Role permissions (hardcoded defaults) ──────────────────────────────────
+// TODO: move to Settings → Inventory permissions when the Settings module exists
+// (flagged in SESSION_HANDOFF). Segregation of duties: the role that physically
+// receives a shipment does not confirm its own receipt.
+export type InvAction = "receive" | "confirm" | "return" | "remove" | "dispense" | "reconcile";
+export const INVENTORY_PERMISSIONS: Record<InvAction, Role[]> = {
+  receive: ["CRC", "Admin"],
+  confirm: ["CRA", "DM", "Admin"],
+  return: ["CRC", "CRA", "Admin"],
+  remove: ["Admin"],
+  dispense: ["CRC", "Admin"],
+  reconcile: ["CRA", "DM", "Admin"],
+};
+export const canInv = (action: InvAction, role: Role): boolean => INVENTORY_PERMISSIONS[action].includes(role);
 
 const todayISO = () => new Date().toISOString().slice(0, 10);
 const dayDiff = (a: string, b: string) => Math.round((Date.parse(b) - Date.parse(a)) / 86400000);
@@ -226,11 +242,14 @@ export function buildReconRows(vials: Vial[]): ReconRow[] {
   return groups.map((grp) => {
     const gv = vials.filter((v) => (v.treatmentGroup || "Unknown") === grp);
     const received = gv.length;
-    const removed = gv.filter((v) => v.events.some((e) => e.type === "removed") && !v.events.some((e) => e.type === "dispense")).length;
+    // Mutually exclusive accounting buckets so each unit is counted once.
+    const removed = gv.filter((v) => v.status === "removed").length;
+    const returned = gv.filter((v) => v.status === "returned").length;
+    const dispensed = gv.filter((v) => v.status !== "removed" && v.status !== "returned" && v.events.some((e) => e.type === "dispense")).length;
     const usable = received - removed;
-    const dispensed = Math.min(gv.reduce((s, v) => s + v.events.filter((e) => e.type === "dispense").length, 0), usable);
-    const returned = gv.filter((v) => v.status === "returned" || v.status === "depleted").length;
-    const variance = received - returned - removed;
+    // Variance = units neither dispensed, returned-to-sponsor, nor removed — i.e.
+    // still unaccounted on the shelf. Balanced (0) when everything is accounted for.
+    const variance = received - dispensed - returned - removed;
     const balanced = variance === 0;
     const status: ReconRow["status"] = balanced ? "Balanced" : variance > 0 ? "Outstanding" : "Over-counted";
     return { group: grp, received, usable, removed, dispensed, returned, variance, status, balanced };

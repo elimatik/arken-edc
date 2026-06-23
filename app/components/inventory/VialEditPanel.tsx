@@ -2,19 +2,21 @@
 
 import { useState } from "react";
 import type { Dataset, Vial } from "@/lib/session-store/types";
-import { vialDisplayId, type InvConfig } from "@/lib/inventory-data";
+import type { Role } from "@/lib/permissions";
+import { vialDisplayId, canInv, type InvConfig } from "@/lib/inventory-data";
 
 const TODAY = new Date().toISOString().slice(0, 10);
 
 // Pencil-edit slide-in for an existing unit. Volume/conc/expiry are locked once a
 // shipment is confirmed — the only actions here are status changes (remove /
 // return to sponsor), each of which writes a vial event (the audit-trail source).
-// Remove is Admin-only; CRC/CRA/DM can mark returned but not remove.
-export function VialEditPanel({ cfg, hideArms, vial, isAdmin, onClose, update }: {
+// Mark returned: CRC/CRA/Admin. Remove unit: Admin only. Both stay visible even for
+// already-removed/returned units (a removed unit can still be returned to sponsor).
+export function VialEditPanel({ cfg, hideArms, vial, role, onClose, update }: {
   cfg: InvConfig;
   hideArms: boolean;
   vial: Vial;
-  isAdmin: boolean;
+  role: Role;
   onClose: () => void;
   update: (m: (d: Dataset) => void) => void;
 }) {
@@ -23,7 +25,8 @@ export function VialEditPanel({ cfg, hideArms, vial, isAdmin, onClose, update }:
   const [retDate, setRetDate] = useState(TODAY);
   const [retNotes, setRetNotes] = useState("");
   const id = vialDisplayId(vial, hideArms);
-  const terminal = vial.status === "removed" || vial.status === "returned";
+  const canReturn = canInv("return", role);
+  const canRemove = canInv("remove", role);
 
   function removeUnit() {
     if (!reason.trim()) return;
@@ -59,17 +62,18 @@ export function VialEditPanel({ cfg, hideArms, vial, isAdmin, onClose, update }:
         <div className="inv-sp-body">
           <div className="inv-hint">Volume, concentration and expiry are locked after the shipment is confirmed. Available actions:</div>
 
-          {terminal && <div className="inv-preview"><div className="inv-preview-text" style={{ color: "var(--color-text-tertiary)" }}>This unit is already {vial.status}. No further status changes are available.</div></div>}
+          <div className="inv-preview"><div className="inv-preview-text" style={{ color: "var(--color-text-tertiary)" }}>Current status: <strong style={{ textTransform: "capitalize" }}>{vial.status}</strong></div></div>
 
-          {!terminal && mode === "menu" && (
+          {mode === "menu" && (
             <>
-              <button className="inv-btn-purple" onClick={() => setMode("return")}><i className="ti ti-truck-delivery"></i> Mark as returned to sponsor</button>
-              {isAdmin && <button className="inv-btn-danger" onClick={() => setMode("remove")}><i className="ti ti-trash"></i> Remove unit</button>}
-              {!isAdmin && <div className="inv-hint">Removing a unit is an Administrator action.</div>}
+              {canReturn && <button className="inv-btn-purple" onClick={() => setMode("return")}><i className="ti ti-truck-delivery"></i> Mark as returned to sponsor</button>}
+              {canRemove && <button className="inv-btn-danger" onClick={() => setMode("remove")}><i className="ti ti-trash"></i> Remove unit</button>}
+              {!canRemove && <div className="inv-hint">Removing a unit is an Administrator action.</div>}
+              {!canReturn && !canRemove && <div className="inv-hint">Your role has no edit actions for this unit.</div>}
             </>
           )}
 
-          {!terminal && mode === "return" && (
+          {mode === "return" && (
             <>
               <div className="inv-form-row"><span className="inv-label">Return to sponsor date</span>
                 <input className="inv-input inv-mono" value={retDate} onChange={(e) => setRetDate(e.target.value)} /></div>
@@ -79,7 +83,7 @@ export function VialEditPanel({ cfg, hideArms, vial, isAdmin, onClose, update }:
             </>
           )}
 
-          {!terminal && mode === "remove" && (
+          {mode === "remove" && (
             <>
               <div className="inv-form-row"><span className="inv-label">Reason for removal</span>
                 <input className="inv-input" placeholder="e.g. Seal compromised — quarantined" value={reason} onChange={(e) => setReason(e.target.value)} /></div>
@@ -89,7 +93,7 @@ export function VialEditPanel({ cfg, hideArms, vial, isAdmin, onClose, update }:
         </div>
 
         <div className="inv-sp-footer">
-          {mode === "menu" || terminal
+          {mode === "menu"
             ? <button className="inv-btn-secondary" onClick={onClose}>Close</button>
             : <>
                 <button className="inv-btn-secondary" onClick={() => setMode("menu")}>Cancel</button>
