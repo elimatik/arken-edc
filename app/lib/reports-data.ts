@@ -8,6 +8,7 @@
 import type { Dataset, SubjectRow } from "@/lib/session-store/types";
 import type { Role } from "@/lib/permissions";
 import { buildVisits, addDays } from "@/lib/visits-data";
+import { codingIndex, codedDisplay, normalizeTerm } from "@/lib/coding-data";
 
 // ─── Report catalog ──────────────────────────────────────────────────────────
 export type ReportId =
@@ -675,6 +676,13 @@ export function buildAeRoster(dataset: Dataset, studyId: string): AeRow[] {
       piAwareDate: sae.pi_aware_date, sponsorNotifiedDate: sae.sponsor_notified_date, reportDueDate, daysToNotify, filedOnTime,
     });
   }
+  // The Coding module is the source of truth for VeDDRA — override each row's
+  // coded term/status from the DM's coding where it exists.
+  const ci = codingIndex(dataset, studyId);
+  for (const r of rows) {
+    const disp = codedDisplay(ci.get(normalizeTerm(r.description)));
+    if (disp) { r.veddraCode = disp.term; r.veddraCoding = disp.status; }
+  }
   return rows.sort((a, b) => (b.onsetDate ?? "").localeCompare(a.onsetDate ?? ""));
 }
 
@@ -892,6 +900,12 @@ export function buildConMedLog(dataset: Dataset, studyId: string): ConMedEntry[]
         veddraCode: c.veddra_code, codingStatus: c.coding_status, conmedType: c.conmed_type,
         washoutDays: c.washout_days, enrollDate, washoutEnd, washoutOverlap,
       });
+  }
+  // Override VeDDRA from the Coding module (source of truth) by verbatim term.
+  const ci = codingIndex(dataset, studyId);
+  for (const e of out) {
+    const disp = codedDisplay(ci.get(normalizeTerm(e.medication)));
+    if (disp) { e.veddraCode = disp.status === "coded" ? disp.term : e.veddraCode; e.codingStatus = disp.status; }
   }
   return out.sort((a, b) => a.subjectCode.localeCompare(b.subjectCode) || a.startDate.localeCompare(b.startDate));
 }

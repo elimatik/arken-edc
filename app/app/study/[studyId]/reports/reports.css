@@ -167,6 +167,8 @@
 
 /* Disabled "Go to Coding →" link (route not built yet) */
 .rpt-link-disabled { color: var(--color-text-placeholder); cursor: not-allowed; white-space: nowrap; font-weight: var(--weight-medium); }
+.rpt-link { color: var(--blue-600); white-space: nowrap; font-weight: var(--weight-medium); text-decoration: none; }
+.rpt-link:hover { text-decoration: underline; text-underline-offset: 2px; }
 
 /* SDV certificate action bar */
 .rpt-cert-bar { display: flex; align-items: center; gap: var(--space-3); margin-bottom: var(--space-5); }

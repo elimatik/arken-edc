@@ -5,6 +5,7 @@
 
 import { supabase } from "@/lib/supabase";
 import { DEMO_USER_ID } from "@/lib/constants";
+import { searchDict } from "@/lib/veddra-dictionary";
 import type { Dataset } from "./types";
 
 // Supabase / PostgREST caps a single select at ~1000 rows (the project's Max Rows
@@ -232,6 +233,53 @@ export async function hydrateFromSupabase(): Promise<Dataset> {
     { id: "dev-PH", study_id: devStudyId("PH-2401"), site_id: siteIdOf("PH-2401", "RUA"), subject_code: "PH-2401-P03", deviation_type: "Eligibility", date: "2026-03-02", severity: "Major", reported_to_sponsor: true, status: "Closed" },
   ].filter((d) => d.study_id);
 
+  // ─── Seeded VeDDRA coding tasks (session-only) ──────────────────────────────
+  // The Coding-module worklist: verbatim AE + drug terms scoped to real subjects.
+  // Coded entries pull their VeDDRA hierarchy from the dictionary (searchDict).
+  type CodingSpec = { verbatim: string; termType: "ae" | "drug"; status: "pending" | "coded"; by?: string; conf?: number };
+  const codingTasks: Dataset["codingTasks"] = [];
+  const pushCoding = (code: string, specs: CodingSpec[]) => {
+    const subs = subjectsOf(code);
+    const sid = (studies.data ?? []).find((s) => s.code === code)?.id ?? "";
+    specs.forEach((spec, i) => {
+      const subj = subs[i % Math.max(1, subs.length)];
+      if (!subj) return;
+      const task: Dataset["codingTasks"][number] = {
+        id: `code-${code}-${i}`, studyId: sid, subjectId: subj.id, formInstanceId: "",
+        fieldCode: spec.termType === "drug" ? "medication" : "ae_term", verbatimTerm: spec.verbatim, termType: spec.termType, status: spec.status,
+      };
+      if (spec.status === "coded") {
+        const r = searchDict(spec.verbatim)[0];
+        task.llt = r.llt; task.pt = r.pt; task.hlt = r.hlt; task.soc = r.soc; task.code = r.code;
+        task.codedBy = spec.by ?? "A. Reyes"; task.codedAt = "2026-06-12T10:00:00Z";
+        if (spec.by === "Auto") { task.autoConf = spec.conf; task.conflict = (spec.conf ?? 1) < 0.8; }
+      }
+      codingTasks.push(task);
+    });
+  };
+  pushCoding("BR-2502", [
+    { verbatim: "Injection site swelling", termType: "ae", status: "coded", by: "Auto", conf: 0.94 },
+    { verbatim: "Laboured breathing", termType: "ae", status: "coded", by: "A. Reyes" },
+    { verbatim: "Nasal discharge increased", termType: "ae", status: "pending" },
+    { verbatim: "Eye discharge", termType: "ae", status: "pending" },
+    { verbatim: "Rapid heart rate", termType: "ae", status: "pending" },
+    { verbatim: "Tulathromycin (Draxxin)", termType: "drug", status: "coded", by: "Auto", conf: 0.98 },
+    { verbatim: "Florfenicol (Nuflor)", termType: "drug", status: "coded", by: "Auto", conf: 0.97 },
+  ]);
+  pushCoding("CA-0801", [
+    { verbatim: "Serious hypersensitivity reaction", termType: "ae", status: "coded", by: "A. Reyes" },
+    { verbatim: "Pruritus flare", termType: "ae", status: "pending" },
+    { verbatim: "Alopecia localized", termType: "ae", status: "pending" },
+    { verbatim: "Oclacitinib (Apoquel)", termType: "drug", status: "pending" }, // the pending-drug demo case
+    { verbatim: "Prednisolone", termType: "drug", status: "coded", by: "A. Reyes" },
+    { verbatim: "Cyclosporine", termType: "drug", status: "coded", by: "A. Reyes" },
+  ]);
+  pushCoding("PH-2401", [
+    { verbatim: "Increased flock mortality", termType: "ae", status: "coded", by: "A. Reyes" },
+    { verbatim: "Feed intake reduced", termType: "ae", status: "pending" },
+    { verbatim: "Salinomycin", termType: "drug", status: "coded", by: "Auto", conf: 0.98 },
+  ]);
+
   return {
     studies: studiesWithTargets,
     sites: sitesWithTargets,
@@ -253,6 +301,7 @@ export async function hydrateFromSupabase(): Promise<Dataset> {
     conMeds, // session-only — seeded concomitant medications
     saeReports, // session-only — seeded SAE reporting timelines
     protocolDeviations, // session-only — seeded protocol deviations
+    codingTasks, // session-only — seeded VeDDRA coding worklist
     memberships: (memberships.data ?? []) as Dataset["memberships"],
     speciesRanges: (speciesRanges.data ?? []) as Dataset["speciesRanges"],
   };

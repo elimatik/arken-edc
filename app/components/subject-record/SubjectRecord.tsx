@@ -10,6 +10,7 @@ import { useNdaName } from "@/lib/use-nda-name";
 import { evaluateField, rangeLabel } from "@/lib/forms/validation";
 import { isStudyLocked } from "@/lib/study-lock";
 import { subjectAeList } from "@/lib/reports-data";
+import { codingIndex, codedDisplay, normalizeTerm } from "@/lib/coding-data";
 import { LOCK_TOOLTIP } from "@/lib/use-study-locked";
 import type { Dataset, FormFieldRow } from "@/lib/session-store/types";
 import "./subject-record.css";
@@ -157,6 +158,7 @@ export function SubjectRecord({ studyId, subjectId, initialFormId, initialPanelF
   const [selectedFormId, setSelectedFormId] = useState<string | undefined>(initialFormId);
   const [aeView, setAeView] = useState(false); // AE/SAE tab (vs form view)
   const subjectAes = useMemo(() => subjectAeList(dataset, subjectId), [dataset, subjectId]);
+  const codingIdx = useMemo(() => codingIndex(dataset, studyId), [dataset, studyId]);
   const aeStats = useMemo(() => ({
     total: subjectAes.length,
     saes: subjectAes.filter((a) => a.serious).length,
@@ -593,6 +595,9 @@ export function SubjectRecord({ studyId, subjectId, initialFormId, initialPanelF
       else if (c === "veddra_status") status = v.value;
       else if (!verbatim && (AE_ANCHOR_CODES.has(c) || CONMED_MED_CODES.has(c))) verbatim = v.value;
     }
+    // The Coding module is the source of truth — its result wins over instance fields.
+    const ct = codedDisplay(codingIdx.get(normalizeTerm(verbatim)));
+    if (ct && verbatim) return ct;
     if (status === "excluded") return { term: "Not codable — excluded", status: "excluded" };
     if (coded) return { term: coded, status: "coded" };
     return { term: verbatim || "—", status: "pending" };

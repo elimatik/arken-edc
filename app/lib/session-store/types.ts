@@ -194,6 +194,31 @@ export interface MembershipRow {
   role: Role;
 }
 
+// VeDDRA coding task — the unit of work in the Coding module (the DM's write path).
+// One per uncoded/coded verbatim AE or ConMed term. The Coding module is the source
+// of truth for a term's coding state; panels + reports read it back by subject +
+// verbatim match. Session-only (seeded + created in-session).
+export interface CodingTask {
+  id: string;
+  studyId: string;
+  subjectId: string;
+  formInstanceId: string; // "" when the term lives in a seeded saeReports/conMeds entry
+  fieldCode: string;
+  verbatimTerm: string;
+  termType: "ae" | "drug";
+  status: "pending" | "coded" | "review" | "excluded";
+  llt?: string;
+  pt?: string;
+  hlt?: string;
+  soc?: string;
+  code?: string;
+  codedBy?: string; // user name or "Auto"
+  autoConf?: number; // 0–1, only when codedBy === "Auto"
+  conflict?: boolean; // autoConf < 0.80
+  codedAt?: string; // ISO timestamp
+  comment?: string;
+}
+
 // Serious adverse event with its GCP/VICH reporting timeline. Session-only seed
 // (the AE forms carry no notification dates); the AE/SAE Roster merges these into
 // the serious-event sub-section. `sponsor_notified_date` null = not yet notified.
@@ -346,6 +371,7 @@ export interface Dataset {
   conMeds: ConMedRow[]; // session-only concomitant-medication seed
   saeReports: SaeReportRow[]; // session-only SAE reporting-timeline seed
   protocolDeviations: ProtocolDeviationRow[]; // session-only protocol-deviation seed
+  codingTasks: CodingTask[]; // session-only VeDDRA coding worklist (source of truth for coded state)
   memberships: MembershipRow[];
   speciesRanges: SpeciesRangeRow[];
 }
@@ -371,6 +397,7 @@ export const EMPTY_DATASET: Dataset = {
   conMeds: [],
   saeReports: [],
   protocolDeviations: [],
+  codingTasks: [],
   memberships: [],
   speciesRanges: [],
 };

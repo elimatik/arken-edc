@@ -1,6 +1,7 @@
 "use client";
 
 import { useMemo } from "react";
+import Link from "next/link";
 import { useStudySession } from "@/lib/session-store/SessionStore";
 import { useShell } from "@/components/shell/ShellContext";
 import { useTableSort } from "@/lib/useTableSort";
@@ -107,7 +108,7 @@ export function ConMedLogReport({ studyId }: ReportProps) {
         </table>
         <p className="rpt-footnote">
           Drug terms coded using VeDDRA (Veterinary Dictionary for Drug Reactions and Adverse Events). Coding performed by the Data Manager in the Coding module. Pending terms require DM review before database lock.{" "}
-          <span className="rpt-link-disabled" title="Coming soon">Go to Coding →</span>
+          <Link className="rpt-link" href={`/study/${studyId}/coding`}>Go to Coding →</Link>
         </p>
         {isCa && <p className="rpt-footnote">Washout compliance calculated from reported stop date + protocol-defined washout period. Overlapping entries require PI confirmation that eligibility criteria were still met.</p>}
         {isBr && <p className="rpt-footnote">Metaphylaxis = mass medication of the entire pen on feedlot arrival (preventive/control measure). Therapeutic = treatment of an individual sick animal. Metaphylactic antibiotics with overlapping activity to the investigational product should be reviewed for potential confounding.</p>}

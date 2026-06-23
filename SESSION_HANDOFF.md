@@ -1,12 +1,14 @@
 # Arken EDC — Session Handoff
 **Paste this entire file at the start of a new conversation.**
-Last updated: 2026-06-22 | **Reports module + SDV module + VeDDRA coding architecture COMPLETE.** Session key **v40** (`arken_session_store_v40` — confirmed in `lib/session-store/SessionStore.tsx`). **NEXT UP: the Coding / VeDDRA module** (the write path — see below).
+Last updated: 2026-06-23 | **Coding / VeDDRA module COMPLETE** (the write path) — Reports + SDV + Coding all done. Session key **v41** (`arken_session_store_v41`). **NEXT UP: Inventory module** (drug accountability/dispensing) or the portfolio site.
 
 ---
 
-## ⭐ Current milestone — SDV, Reports, VeDDRA (post-Session-69)
+## ⭐ Current milestone — SDV, Reports, VeDDRA + Coding module (post-Session-69)
 
-**DATA_KEY: `arken_session_store_v40`** (authoritative; the older "v34/v35" notes below are superseded). Bump on dataset-shape OR demo-data change. v40 history: v40 'excluded' VeDDRA seed (saline-flush ConMed + BR non-serious AE) + `serious` flag on seeded AEs · v39 VeDDRA code/status on seeded SAEs · v38 ethics/IACUC config + ConMed VeDDRA/washout/type + protocol deviations · v37 study-level enrolment targets pinned (CA 60 / BR 12 / PH 2) + SAE reporting-timeline seed (`saeReports`) · v36 seeded ConMeds · v35 seeded SDV verified records per site.
+**Coding / VeDDRA module — COMPLETE** (`/study/[studyId]/coding`, DM only; others redirect). Ported from `22-coding.html`. View 1 worklist (4 tabs All/Pending/Needs-review/Coded with live counts, search, sortable table with the LLT/PT/HLT/SOC VeDDRA hierarchy, Auto-coded sparkle + confidence %, "Low confidence" conflict note, summary bar) + View 2 slide-in panel (verbatim block, VeDDRA/MedDRA toggle, dictionary search auto-seeded with the term, hierarchy breadcrumb, scored results, selected-code block, + Confirm / Flag-for-review / Mark-excluded / Add-comment). `Auto-code all` runs the AUTO_CODE_RULES matcher with animated per-row progress (≥0.80 → coded, <0.80 → review, else pending). New: `lib/veddra-dictionary.ts` (VEDRA_DB + AUTO_CODE_RULES + drug terms, static), `lib/coding-data.ts` (`buildCodingWorklist` = seeded codingTasks ∪ AE/ConMed form instances; `applyCoding` write-back; `codingIndex`/`codedDisplay`/`normalizeTerm`). **The Coding module is the source of truth for VeDDRA state** — `buildAeRoster`, `buildConMedLog`, and the panel `veddraForInstance` all read `codingIndex` (by normalized verbatim) to override displayed coding; `applyCoding` also mirrors onto the seeded conMeds/saeReports + writes veddra fields onto the instance where they exist. So confirming a code in the Coding module flips the AE/ConMed panel + the reports to Coded automatically. The ConMed report's **"Go to Coding →" link is now LIVE**. Seeded ~17 codingTasks (verbatim AE + drug terms scoped to real subjects; "Oclacitinib (Apoquel)" left pending as the demo case). Coding nav icon → `vocabulary`, `NAV_ROUTES.coding`. **Key → v41.**
+
+**DATA_KEY: `arken_session_store_v41`** (authoritative; the older "v34/v35" notes below are superseded). Bump on dataset-shape OR demo-data change. v41 adds the session-only `codingTasks` worklist. v40 history: v40 'excluded' VeDDRA seed (saline-flush ConMed + BR non-serious AE) + `serious` flag on seeded AEs · v39 VeDDRA code/status on seeded SAEs · v38 ethics/IACUC config + ConMed VeDDRA/washout/type + protocol deviations · v37 study-level enrolment targets pinned (CA 60 / BR 12 / PH 2) + SAE reporting-timeline seed (`saeReports`) · v36 seeded ConMeds · v35 seeded SDV verified records per site.
 
 **SDV module** (`/study/[studyId]/sdv`) — worklist (one row per form instance: subject · visit · form · site · SDV status · progress · queries) with tabs/filters/sort; the Queries column shows a count only (no flag icon). Clicking a row deep-links to the Subject Record with SDV mode active (`?form=&sdv=true`) — CRA verifies field-by-field; DM gets a read-only view. No separate form view.
 
@@ -20,7 +22,7 @@ Last updated: 2026-06-22 | **Reports module + SDV module + VeDDRA coding archite
 
 **Form rename retained:** "Subject Status" → "Withdrawal Form" (CA-0801).
 
-**NEXT UP: Coding / VeDDRA module** — the write path. A worklist of uncoded verbatim AE/ConMed terms across all subjects; DM searches the VeDDRA dictionary, confirms a match (or marks Excluded); on confirm, write `veddra_term` + `veddra_status` back to the originating instance (and the seeded demo tables). Then flip the ConMed report's "Go to Coding →" to a live link.
+**Coding / VeDDRA module — DONE** (see the top of this milestone). The ConMed report's "Go to Coding →" link is now live. **NEXT UP:** the Inventory module (drug accountability + dispensing, resolving the Randomization lot/kit links) or the portfolio site.
 
 ---
 
