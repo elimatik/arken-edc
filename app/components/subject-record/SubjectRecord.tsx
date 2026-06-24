@@ -516,6 +516,7 @@ export function SubjectRecord({ studyId, subjectId, initialFormId, initialPanelF
   const isRandForm = /randomi[sz]ation/i.test(activeForm?.name ?? "");
   // BR screening prompt: DART ≥ 2 on the BRD Case Definition form before randomization.
   const isScreeningForm = studyRow?.code === "BR-2502" && /BRD Case|Screening/i.test(activeForm?.name ?? "");
+  const isClinicalResponseForm = studyRow?.code === "BR-2502" && /Clinical Response/i.test(activeForm?.name ?? "");
 
   // Completed / withdrawn subjects are closed: every form is read-only, data-entry
   // actions (Submit/Finalize/Lock, new SDV, new change reasons) are hidden, and a
@@ -703,6 +704,17 @@ export function SubjectRecord({ studyId, subjectId, initialFormId, initialPanelF
     const n = Number(v);
     return v != null && v !== "" && !Number.isNaN(n) ? n : undefined;
   }
+  // Read a field value off the subject's Vital Signs form instance for a given day
+  // ("Day 3"). Used by the Clinical Response cross-visit derivations.
+  function vitalValueForDay(dayLabel: string, code: string): string | null {
+    const vsForm = dataset.forms.find((f) => f.study_id === studyId && /Vital Signs/i.test(f.name) && f.name.includes(dayLabel));
+    if (!vsForm) return null;
+    const inst = dataset.formInstances.find((i) => i.subject_id === subjectId && i.form_id === vsForm.id);
+    if (!inst) return null;
+    const fid = dataset.formFields.find((f) => f.form_id === vsForm.id && f.code === code)?.id;
+    const fv = fid ? dataset.fieldValues.find((v) => v.form_instance_id === inst.id && v.form_field_id === fid) : undefined;
+    return fv?.value ?? null;
+  }
   function calcValue(field: FormFieldRow): string {
     // Protocol version in effect — fixed per study, traceable on every visit form.
     if (field.code === "protocol_version") {
@@ -719,6 +731,34 @@ export function SubjectRecord({ studyId, subjectId, initialFormId, initialPanelF
     }
     if (field.code === "lot_number") return /re-treatment|rescue/i.test(selectedForm?.name ?? "") ? "LOT-BR-002" : "LOT-BR-001";
     if (field.code === "route" && studyRow?.code === "BR-2502") return "SC injection";
+    // BR-2502 Clinical Response — DART + derivations sourced from Vital Signs (same day).
+    if (field.code === "assessment_day") return selectedForm?.name?.match(/Day \d+/)?.[0] ?? "—";
+    if (field.code === "dart_at_visit") {
+      const day = selectedForm?.name?.match(/Day \d+/)?.[0] ?? "";
+      const v = vitalValueForDay(day, "clinical_illness_score");
+      return v != null && v !== "" ? v : `Complete Vital Signs — ${day} first`;
+    }
+    if (field.code === "response_vs_baseline") {
+      const day = selectedForm?.name?.match(/Day \d+/)?.[0] ?? "";
+      const baseRaw = vitalValueForDay("Day 0", "clinical_illness_score");
+      const curRaw = vitalValueForDay(day, "clinical_illness_score");
+      const base = Number(baseRaw), cur = Number(curRaw);
+      if (baseRaw == null || baseRaw === "" || Number.isNaN(base)) return "Baseline DART not recorded";
+      if (curRaw == null || curRaw === "" || Number.isNaN(cur)) return "—";
+      return cur < base ? "Improved" : cur === base ? "No change" : "Worsened";
+    }
+    if (field.code === "temperature_normalized") {
+      const day = selectedForm?.name?.match(/Day \d+/)?.[0] ?? "";
+      const t = Number(vitalValueForDay(day, "rectal_temp"));
+      if (Number.isNaN(t)) return "—";
+      return t < 40 ? "Yes" : "No";
+    }
+    if (field.code === "requires_retreatment") {
+      const day = selectedForm?.name?.match(/Day \d+/)?.[0] ?? "";
+      const cur = Number(vitalValueForDay(day, "clinical_illness_score"));
+      if (Number.isNaN(cur)) return "—";
+      return cur >= 2 ? "Yes — re-treatment indicated" : "No";
+    }
     // GCP feed-additive counter-signature — auto-populated once the verify flag is
     // Yes (the showIf already hides these unless verified): who verified + when.
     if (field.code === "verifier_name") return ndaName;
@@ -1282,9 +1322,14 @@ export function SubjectRecord({ studyId, subjectId, initialFormId, initialPanelF
     }
     // calculated — read-only computed value
     if (type === "calculated") {
+      const val = calcValue(field);
+      const tone = field.code === "response_vs_baseline" ? (val === "Improved" ? "green" : val === "Worsened" ? "red" : val === "No change" ? "slate" : "")
+        : field.code === "temperature_normalized" ? (val === "Yes" ? "green" : val === "No" ? "red" : "")
+        : field.code === "requires_retreatment" ? (val.startsWith("Yes") ? "amber" : val === "No" ? "green" : "")
+        : "";
       return (
         <div className="field-calc">
-          <span>{calcValue(field)}</span>
+          {tone ? <span className={`field-chip ${tone}`}>{val}</span> : <span>{val}</span>}
           <span className="field-calc-tag">auto</span>
         </div>
       );
@@ -1737,7 +1782,7 @@ export function SubjectRecord({ studyId, subjectId, initialFormId, initialPanelF
           {isRandForm && studyRow && (
             <RandomizationPanel dataset={dataset} update={update} subject={subject} studyId={studyId} studyCode={studyRow.code} role={activeRole} ndaName={ndaName} penMode={studyRow.code === "PH-2401"} />
           )}
-          {isScreeningForm && subject.status === "screening" && !subject.randomization_arm && (() => {
+          {isScreeningForm && !subject.randomization_arm && (() => {
             const dartF = fields.find((f) => f.code === "dart_score");
             const dart = dartF ? Number(fvFor(dartF.id)?.value) : NaN;
             if (Number.isNaN(dart) || dart < 2) return null;
@@ -1750,6 +1795,23 @@ export function SubjectRecord({ studyId, subjectId, initialFormId, initialPanelF
                   <div className="rand-screening-sub">Complete the Randomization &amp; Allocation form to proceed.</div>
                 </div>
                 {randFormId && <button type="button" className="rand-screening-link" onClick={() => setSelectedFormId(randFormId)}>Go to Randomization <i className="ti ti-arrow-right"></i></button>}
+              </div>
+            );
+          })()}
+          {isClinicalResponseForm && (() => {
+            const day = activeForm?.name?.match(/Day \d+/)?.[0] ?? "";
+            if (day === "Day 0") return null; // no re-treatment prompt at baseline
+            const cur = Number(vitalValueForDay(day, "clinical_illness_score"));
+            if (Number.isNaN(cur) || cur < 2) return null;
+            const retreatFormId = dataset.forms.find((f) => f.study_id === studyId && /re-treatment|rescue/i.test(f.name))?.id;
+            return (
+              <div className="rand-screening-banner" role="status">
+                <i className="ti ti-info-circle"></i>
+                <div>
+                  <div className="rand-screening-title">Re-treatment indicated — DART score ≥ 2.</div>
+                  <div className="rand-screening-sub">Complete the Re-treatment / Rescue Therapy form.</div>
+                </div>
+                {retreatFormId && <button type="button" className="rand-screening-link" onClick={() => setSelectedFormId(retreatFormId)}>Go to Re-treatment <i className="ti ti-arrow-right"></i></button>}
               </div>
             );
           })()}

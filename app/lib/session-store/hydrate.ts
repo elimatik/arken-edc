@@ -153,9 +153,47 @@ export async function hydrateFromSupabase(): Promise<Dataset> {
   // Fields dropped outright (arm assignment belongs only on the Randomization form):
   // BR Screening "Randomized arm" + PH Pen Demographics "Treatment arm".
   const DROP_FIELD_IDS = new Set(["6200000C-0000-0000-0000-000000002502", "6200000E-0000-0000-0000-000000002401"]);
+
+  // ─── BR-2502 Vital Signs (5 forms) + Clinical Response (5 forms) reshape ────
+  // Vital Signs → 7 fields (drop the duplicated clinical sub-components, add body
+  // weight). Clinical Response → DART read-only from Vital Signs; Response vs
+  // baseline / Temperature normalized / Requires re-treatment become calculated.
+  const suf = "-0000-0000-0000-000000002502";
+  const VS_FORM_IDS = ["61000007", "6100000A", "6100000D", "61000010", "61000013"].map((p) => p + suf);
+  const CR_FORM_IDS = ["61000008", "6100000B", "6100000E", "61000011", "61000014"].map((p) => p + suf);
+  const CR_DAY0 = "61000008" + suf;
+  const byForm = (fid: string) => new Map((formFields as FF[]).filter((f) => f.form_id === fid).map((f) => [f.code, f]));
+  const vsFields: FF[] = [];
+  for (const fid of VS_FORM_IDS) {
+    const ex = byForm(fid);
+    let seq = 1;
+    for (const code of ["visit_date", "protocol_version", "rectal_temp", "heart_rate", "resp_rate"]) { const f = ex.get(code); if (f) vsFields.push({ ...f, sequence: seq++ }); }
+    vsFields.push(ff(fid, `${fid}-body_weight`, "body_weight", "Body weight", "number", null, "kg", true, seq++, { vital: "weight", section: "Vital Signs" }));
+    const dart = ex.get("clinical_illness_score"); if (dart) vsFields.push({ ...dart, sequence: seq++ });
+  }
+  const crFields: FF[] = [];
+  for (const fid of CR_FORM_IDS) {
+    const ex = byForm(fid);
+    const isDay0 = fid === CR_DAY0;
+    const keep = (code: string, seq: number) => { const f = ex.get(code); return f ? { ...f, sequence: seq } : null; };
+    let seq = 1;
+    const out: (FF | null)[] = [
+      ff(fid, `${fid}-assessment_day`, "assessment_day", "Assessment day", "calculated", null, null, false, seq++, { readonlyAuto: true }),
+      keep("protocol_version", seq++) ?? ff(fid, `${fid}-protocol`, "protocol_version", "Protocol version", "calculated", null, null, false, seq - 1, { readonlyAuto: true }),
+      keep("visit_date", seq++) ?? ff(fid, `${fid}-visit_date`, "visit_date", "Visit date", "date", null, null, true, seq - 1, null),
+      ff(fid, `${fid}-dart_at_visit`, "dart_at_visit", "DART at this visit", "calculated", null, null, false, seq++, { readonlyAuto: true }),
+      isDay0 ? null : ff(fid, ex.get("response_vs_baseline")?.id ?? `${fid}-response`, "response_vs_baseline", "Response vs baseline", "calculated", null, null, false, seq++, { readonlyAuto: true }),
+      ff(fid, ex.get("temperature_normalized")?.id ?? `${fid}-tempnorm`, "temperature_normalized", "Temperature normalized (< 40.0 °C)", "calculated", null, null, false, seq++, { readonlyAuto: true }),
+      keep("treatment_success_interim", seq++) ?? ff(fid, `${fid}-success`, "treatment_success_interim", "Treatment success (interim)", "radio", ["Yes", "No"], null, false, seq - 1, null),
+      isDay0 ? null : ff(fid, ex.get("requires_retreatment")?.id ?? `${fid}-req`, "requires_retreatment", "Requires re-treatment", "calculated", null, null, false, seq++, { readonlyAuto: true }),
+      keep("assessor", seq++) ?? ff(fid, `${fid}-assessor`, "assessor", "Assessor", "text", null, null, true, seq - 1, null),
+    ];
+    crFields.push(...out.filter((x): x is FF => x !== null));
+  }
+  const RESHAPED_FORM_IDS = new Set([F005, F025, ...VS_FORM_IDS, ...CR_FORM_IDS]);
   const reshapedFormFields: FF[] = [
-    ...(formFields as FF[]).filter((f) => f.form_id !== F005 && f.form_id !== F025 && !DROP_FIELD_IDS.has(f.id)),
-    ...F005_FIELDS, ...F025_FIELDS,
+    ...(formFields as FF[]).filter((f) => !RESHAPED_FORM_IDS.has(f.form_id) && !DROP_FIELD_IDS.has(f.id)),
+    ...F005_FIELDS, ...F025_FIELDS, ...vsFields, ...crFields,
   ];
 
   // ─── Seeded SDV state (session-only) ────────────────────────────────────────

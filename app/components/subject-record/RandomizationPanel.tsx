@@ -86,9 +86,9 @@ export function RandomizationPanel({ dataset, update, subject, studyId, studyCod
       {/* ── Result block ── */}
       {result && (
         <div className="rand-result">
-          <div className="rand-result-head"><i className="ti ti-circle-check"></i> {penMode || studyCode === "PH-2401" ? "Treatment assigned" : "Randomized"}</div>
+          <div className="rand-result-head"><i className="ti ti-circle-check"></i> Randomized</div>
           <dl className="rand-result-grid">
-            {!penMode && <><dt>Randomization number</dt><dd className="mono">{result.number}</dd></>}
+            <dt>Randomization number</dt><dd className="mono">{result.number}</dd>
             {studyCode === "CA-0801" && <><dt>Kit assigned</dt><dd className="mono">{result.kit}</dd></>}
             {studyCode === "BR-2502" && <>
               <dt>Treatment group</dt><dd>{result.group}</dd>
@@ -103,7 +103,7 @@ export function RandomizationPanel({ dataset, update, subject, studyId, studyCod
               <dt>Feed batch</dt><dd className="mono">{result.feedBatch}</dd>
             </>}
             <dt>Date</dt><dd>{result.date}</dd>
-            {!penMode && <><dt>Assigned by</dt><dd>{result.by}</dd></>}
+            <dt>Assigned by</dt><dd>{result.by}</dd>
           </dl>
 
           {/* CA blinded arm + controlled reveal */}
