@@ -169,13 +169,17 @@ export async function hydrateFromSupabase(): Promise<Dataset> {
   // Vital Signs → 7 fields (drop the duplicated clinical sub-components, add body
   // weight). Clinical Response → DART read-only from Vital Signs; Response vs
   // baseline / Temperature normalized / Requires re-treatment become calculated.
-  const suf = "-0000-0000-0000-000000002502";
-  const VS_FORM_IDS = ["61000007", "6100000A", "6100000D", "61000010", "61000013"].map((p) => p + suf);
-  const CR_FORM_IDS = ["61000008", "6100000B", "6100000E", "61000011", "61000014"].map((p) => p + suf);
-  const CR_DAY0 = "61000008" + suf;
+  // Match the Vital Signs / Clinical Response forms BY NAME (not hardcoded IDs) so
+  // EVERY visit (Day 0/3/7/14/28) gets the identical reshape — robust to whatever
+  // form IDs the live DB actually carries. (Day 3/7 differing from Day 28 was an
+  // ID-match miss when the live DB's IDs drifted from the hardcoded list.)
+  const brVsForms = (forms.data ?? []).filter((f) => f.study_id === brStudyId && /Vital Signs/i.test(f.name));
+  const brCrForms = (forms.data ?? []).filter((f) => f.study_id === brStudyId && /Clinical Response/i.test(f.name));
+  if (typeof console !== "undefined") console.warn(`[hydrate] BR reshape — Vital Signs: [${brVsForms.map((f) => f.name).join(", ")}] · Clinical Response: [${brCrForms.map((f) => f.name).join(", ")}]`);
   const byForm = (fid: string) => new Map((formFields as FF[]).filter((f) => f.form_id === fid).map((f) => [f.code, f]));
   const vsFields: FF[] = [];
-  for (const fid of VS_FORM_IDS) {
+  for (const vf of brVsForms) {
+    const fid = vf.id;
     const ex = byForm(fid);
     let seq = 1;
     for (const code of ["visit_date", "rectal_temp", "heart_rate", "resp_rate"]) { const f = ex.get(code); if (f) vsFields.push({ ...f, sequence: seq++ }); }
@@ -183,9 +187,10 @@ export async function hydrateFromSupabase(): Promise<Dataset> {
     const dart = ex.get("clinical_illness_score"); if (dart) vsFields.push({ ...dart, sequence: seq++ });
   }
   const crFields: FF[] = [];
-  for (const fid of CR_FORM_IDS) {
+  for (const cf of brCrForms) {
+    const fid = cf.id;
     const ex = byForm(fid);
-    const isDay0 = fid === CR_DAY0;
+    const isDay0 = /day\s*0\b/i.test(cf.name);
     const keep = (code: string, seq: number) => { const f = ex.get(code); return f ? { ...f, sequence: seq } : null; };
     let seq = 1;
     const out: (FF | null)[] = [
@@ -199,7 +204,7 @@ export async function hydrateFromSupabase(): Promise<Dataset> {
     ];
     crFields.push(...out.filter((x): x is FF => x !== null));
   }
-  const RESHAPED_FORM_IDS = new Set([F005, F025, ...VS_FORM_IDS, ...CR_FORM_IDS]);
+  const RESHAPED_FORM_IDS = new Set([F005, F025, ...brVsForms.map((f) => f.id), ...brCrForms.map((f) => f.id)]);
   const reshapedFormFields: FF[] = [
     ...(formFields as FF[]).filter((f) => !RESHAPED_FORM_IDS.has(f.form_id) && !shouldDropField(f)),
     ...F005_FIELDS, ...F025_FIELDS, ...vsFields, ...crFields,
