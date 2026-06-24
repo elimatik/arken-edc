@@ -54,7 +54,7 @@ const REPEATING_COLUMNS: Record<string, [string, string][]> = {
   "Protocol Deviation": [["deviation_type", "Type"], ["deviation_date", "Date"], ["major_minor", "Major / Minor"], ["description", "Description"]],
   "Mortality & Cull Record": [["event_date", "Date"], ["death_count", "Deaths"], ["cull_count", "Culls"], ["cause_deaths", "Cause"]],
   "Injection Site Reaction": [["observation_date", "Date"], ["injection_site", "Site"], ["grade", "Grade"], ["reaction_present", "Reaction"]],
-  "Re-treatment Log": [["retreatment_date", "Date"], ["dart_score_retreatment", "DART"], ["body_weight_retreatment", "Weight (kg)"], ["administered_by", "By"], ["retreatment_reason", "Reason"]],
+  "Re-treatment Log": [["retreatment_date", "Date"], ["lot_number", "Lot"], ["unit_id", "Unit"], ["body_weight_retreatment", "Weight (kg)"], ["administered_by", "By"], ["retreatment_reason", "Reason"]],
   "Sample Collection": [["collection_date", "Date"], ["sample_type", "Type"], ["sample_ids", "Sample IDs"], ["sent_to_lab", "Sent"]],
   "Concomitant Medication Log": [["start_date", "Start"], ["medication", "Medication"], ["dose_route", "Dose / route"], ["indication", "Indication"]],
 };
@@ -653,6 +653,26 @@ export function SubjectRecord({ studyId, subjectId, initialFormId, initialPanelF
     if (entryInstanceId === instId) setEntryInstanceId(null);
     setDeleteEntryId(null);
   }
+  // Available physical units (vials) of a lot, optionally narrowed to an arm's group.
+  function brAvailableUnits(lot: string | null | undefined, armGroup?: string) {
+    return dataset.vials.filter((v) => v.studyId === studyId && v.status === "available" && (!lot || v.lotId === lot) && (!armGroup || v.treatmentGroup === armGroup));
+  }
+  // On unit selection: dispense it (status → athome + a dispense event, which the
+  // audit trail surfaces as "Drug dispensed — [unit] — [subject]"). Idempotent per
+  // (unit, subject, form instance) so re-renders don't duplicate.
+  function dispenseUnitToSubject(vialId: string, visit: string, formInstanceId: string, volDispensed: number) {
+    const code = subject?.subject_code;
+    if (!code) return;
+    update((d) => {
+      const v = d.vials.find((x) => x.id === vialId);
+      if (!v) return;
+      if (v.events.some((e) => e.type === "dispense" && e.subject === code && e.formInstanceId === formInstanceId)) return;
+      v.status = "athome";
+      v.events.push({ type: "dispense", date: new Date().toISOString().slice(0, 10), subject: code, visit, volDispensed: volDispensed || 0, route: "SC injection", location: "farm", by: ndaName, formInstanceId });
+    });
+  }
+  const brUnitWarn = (lot: string) => <div style={{ fontSize: "var(--text-xs)", color: "var(--amber-700)", background: "var(--amber-50)", border: "1px solid var(--amber-200)", borderRadius: "var(--radius-md)", padding: "4px 8px" }}>No available units in {lot} — contact inventory manager</div>;
+
   function renderEntryControl(field: FormFieldRow, instId: string) {
     const v = entryVal(instId, field.id);
     const t = field.field_type;
@@ -678,6 +698,23 @@ export function SubjectRecord({ studyId, subjectId, initialFormId, initialPanelF
         <select className="field-select" value={v} disabled={readOnly} onChange={(e) => setEntryVal(instId, field, e.target.value)}>
           <option value="">Select lot…</option>
           {opts.map((l) => <option key={l.lot} value={l.lot}>{l.lot} · {l.drug} · {l.count} vials remaining</option>)}
+        </select>
+      );
+    }
+    // Re-treatment Log — Unit / Vial ID: cascades from the selected lot.
+    if (field.code === "unit_id") {
+      const lotF = fields.find((f) => f.code === "lot_number");
+      const lot = lotF ? entryVal(instId, lotF.id) : "";
+      if (!lot) return <select className="field-select" value="" disabled><option>Select a lot first</option></select>;
+      const units = brAvailableUnits(lot);
+      if (!units.length) return brUnitWarn(lot);
+      const wf = fields.find((f) => f.code === "body_weight_retreatment");
+      const w = wf ? Number(entryVal(instId, wf.id)) : NaN;
+      const dose = !Number.isNaN(w) && w ? Math.round((w * 2.5 / 100) * 10) / 10 : 0;
+      return (
+        <select className="field-select" value={v} disabled={readOnly} onChange={(e) => { setEntryVal(instId, field, e.target.value); if (e.target.value) dispenseUnitToSubject(e.target.value, "Re-treatment", instId, dose); }}>
+          <option value="">Select unit…</option>
+          {units.map((u) => <option key={u.id} value={u.id}>{u.id} · {u.initialVol} {u.unit} remaining · Available</option>)}
         </select>
       );
     }
@@ -1354,6 +1391,23 @@ export function SubjectRecord({ studyId, subjectId, initialFormId, initialPanelF
           {penOptions.map((o) => (
             <option key={o} value={o}>{o}</option>
           ))}
+        </select>
+      );
+    }
+    // Unit / Vial ID (BR-2502 Treatment Admin) — units from the auto-assigned lot,
+    // filtered to the animal's arm; selecting one dispenses it to inventory.
+    if (field.code === "unit_id" && studyRow?.code === "BR-2502") {
+      const lot = "LOT-BR-001"; // F005 auto-assigned lot (Treatment Admin primary)
+      const armGroup = BR_ARM_TO_GROUP[brArmCode(subject?.randomization_arm)];
+      const units = brAvailableUnits(lot, armGroup);
+      if (!units.length) return brUnitWarn(lot);
+      const wf = fields.find((f) => f.code === "body_weight_dosing");
+      const w = wf ? Number(fvFor(wf.id)?.value) : NaN;
+      const dose = !Number.isNaN(w) && w ? Math.round((w * 2.5 / 100) * 10) / 10 : 0;
+      return (
+        <select className={`field-select${stateCls}`} value={value} disabled={ro} onChange={(e) => { commit(e.target.value); if (e.target.value && instance) dispenseUnitToSubject(e.target.value, "Day 0", instance.id, dose); }}>
+          <option value="">Select unit…</option>
+          {units.map((u) => <option key={u.id} value={u.id}>{u.id} · {u.initialVol} {u.unit} remaining · Available</option>)}
         </select>
       );
     }
