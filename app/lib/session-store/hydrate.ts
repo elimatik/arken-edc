@@ -153,8 +153,17 @@ export async function hydrateFromSupabase(): Promise<Dataset> {
     ff(F025, "f025-notes", "notes", "Notes", "textarea", null, null, false, 10, null),
   ];
   // Fields dropped outright (arm assignment belongs only on the Randomization form):
-  // BR Screening "Randomized arm" + PH Pen Demographics "Treatment arm".
-  const DROP_FIELD_IDS = new Set(["6200000C-0000-0000-0000-000000002502", "6200000E-0000-0000-0000-000000002401"]);
+  // BR Screening "Randomized arm" + PH Pen Demographics "Treatment arm". Matched by
+  // form + code (robust to any field-ID change) rather than a hardcoded ID.
+  const DROP_FIELD_MATCHERS: { form: string; code: string }[] = [
+    { form: "61000002-0000-0000-0000-000000002502", code: "randomized_arm" }, // BR Screening / BRD Case Definition
+    { form: "61000002-0000-0000-0000-000000002401", code: "treatment_arm" }, // PH Pen Demographics & Setup
+  ];
+  const shouldDropField = (f: FF): boolean => {
+    const hit = DROP_FIELD_MATCHERS.some((m) => f.form_id === m.form && f.code === m.code);
+    if (hit && typeof console !== "undefined") console.warn(`[hydrate] dropped field "${f.code}" (${f.id}) from form ${f.form_id}`);
+    return hit;
+  };
 
   // ─── BR-2502 Vital Signs (5 forms) + Clinical Response (5 forms) reshape ────
   // Vital Signs → 7 fields (drop the duplicated clinical sub-components, add body
@@ -192,7 +201,7 @@ export async function hydrateFromSupabase(): Promise<Dataset> {
   }
   const RESHAPED_FORM_IDS = new Set([F005, F025, ...VS_FORM_IDS, ...CR_FORM_IDS]);
   const reshapedFormFields: FF[] = [
-    ...(formFields as FF[]).filter((f) => !RESHAPED_FORM_IDS.has(f.form_id) && !DROP_FIELD_IDS.has(f.id)),
+    ...(formFields as FF[]).filter((f) => !RESHAPED_FORM_IDS.has(f.form_id) && !shouldDropField(f)),
     ...F005_FIELDS, ...F025_FIELDS, ...vsFields, ...crFields,
   ];
 

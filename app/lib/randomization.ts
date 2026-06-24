@@ -102,7 +102,7 @@ export function buildRandomizationResult(dataset: Dataset, studyCode: string, st
   const subj = dataset.subjects.find((s) => s.id === subjectId);
   const { values } = randInstanceValues(dataset, studyId, subjectId);
   const get = (c: string) => values.get(c) ?? "";
-  const arm = subj?.randomization_arm ?? get("randomized_arm") ?? null;
+  const arm = subj?.randomization_arm ?? get("assigned_arm") ?? null;
   const site = subj?.site_id ? dataset.sites.find((s) => s.id === subj.site_id) : undefined;
   const studySubs = dataset.subjects.filter((s) => s.study_id === studyId).slice().sort((a, b) => (a.subject_code < b.subject_code ? -1 : 1));
   const seqAll = Math.max(1, studySubs.findIndex((s) => s.id === subjectId) + 1);
