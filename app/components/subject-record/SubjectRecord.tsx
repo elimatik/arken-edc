@@ -58,6 +58,10 @@ const REPEATING_COLUMNS: Record<string, [string, string][]> = {
   "Sample Collection": [["collection_date", "Date"], ["sample_type", "Type"], ["sample_ids", "Sample IDs"], ["sent_to_lab", "Sent"]],
   "Concomitant Medication Log": [["start_date", "Start"], ["medication", "Medication"], ["dose_route", "Dose / route"], ["indication", "Indication"]],
 };
+// BR-2502 arm → test article (read-only auto) + inventory treatment group (lot filter).
+const BR_ARM_TO_DRUG: Record<string, string> = { T01: "Tulathromycin 2.5 mg/kg SC", T02: "Saline placebo SC", T03: "Tulathromycin 5 mg/kg SC" };
+const BR_ARM_TO_GROUP: Record<string, string> = { T01: "Treatment A", T02: "Control", T03: "Treatment B" };
+const brArmCode = (arm: string | null | undefined) => (arm ?? "").match(/T0\d/)?.[0] ?? "";
 // Custom "Add" button label per repeating form (defaults to "Add <name>").
 const REPEATING_ADD_LABEL: Record<string, string> = {
   "Mortality & Cull Record": "Record mortality",
@@ -652,16 +656,24 @@ export function SubjectRecord({ studyId, subjectId, initialFormId, initialPanelF
   function renderEntryControl(field: FormFieldRow, instId: string) {
     const v = entryVal(instId, field.id);
     const t = field.field_type;
-    // Re-treatment Log — Lot number: dropdown of real available lots (item 2).
+    // Re-treatment Log — Test article: read-only, auto from the subject's arm (item 1).
+    if (field.code === "test_article") {
+      const drug = BR_ARM_TO_DRUG[brArmCode(subject?.randomization_arm)] ?? subject?.randomization_arm ?? "—";
+      return <div className="field-calc"><span>{drug}</span><span className="field-calc-tag">auto</span></div>;
+    }
+    // Re-treatment Log — Lot number: dropdown of real available lots, filtered to the
+    // arm's treatment group (items 1 & 2).
     if (field.code === "lot_number") {
+      const group = BR_ARM_TO_GROUP[brArmCode(subject?.randomization_arm)];
       const lots = new Map<string, { lot: string; drug: string; count: number }>();
       for (const vl of dataset.vials) {
         if (vl.studyId !== studyId || (vl.status !== "available" && vl.status !== "athome")) continue;
+        if (group && vl.treatmentGroup !== group) continue; // filter to this animal's arm
         const e = lots.get(vl.lotId) ?? { lot: vl.lotId, drug: vl.drugName, count: 0 };
         e.count++; lots.set(vl.lotId, e);
       }
       const opts = Array.from(lots.values());
-      if (!opts.length) return <div style={{ fontSize: "var(--text-xs)", color: "var(--amber-700)", background: "var(--amber-50)", border: "1px solid var(--amber-200)", borderRadius: "var(--radius-md)", padding: "4px 8px" }}>No available lots — contact inventory manager</div>;
+      if (!opts.length) return <div style={{ fontSize: "var(--text-xs)", color: "var(--amber-700)", background: "var(--amber-50)", border: "1px solid var(--amber-200)", borderRadius: "var(--radius-md)", padding: "4px 8px" }}>No available lots for this treatment arm — contact inventory manager</div>;
       return (
         <select className="field-select" value={v} disabled={readOnly} onChange={(e) => setEntryVal(instId, field, e.target.value)}>
           <option value="">Select lot…</option>
