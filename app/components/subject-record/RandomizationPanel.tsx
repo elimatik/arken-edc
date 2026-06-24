@@ -52,7 +52,7 @@ export function RandomizationPanel({ dataset, update, subject, studyId, studyCod
           if (existing) existing.value = value;
           else d.fieldValues.push({ id: `fv-rand-${inst.id}-${code}`, form_instance_id: inst.id, form_field_id: fid, value });
         };
-        writeVal("randomized_arm", arm);
+        writeVal("assigned_arm", arm); // F004 Randomization form uses code "assigned_arm"
         writeVal("randomization_date", nowIso.slice(0, 10));
         writeVal("randomized_by", ndaName);
       }
