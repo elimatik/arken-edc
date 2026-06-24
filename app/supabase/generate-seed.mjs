@@ -680,7 +680,6 @@ const BR_TREE = [
       yn("inclusion_met", "Inclusion criteria met"),
       msel("exclusion_criteria", "Exclusion criteria", ["Pregnant", "Chronic illness", "Concurrent illness", "Prior treatment", "Other"]),
       crit("eligible", "Eligible"),
-      sel("randomized_arm", "Randomized arm", ["T01", "T02", "T03"]),
       eligibilityStatus(),
     ]),
     leaf("demographics", "Animal Demographics", [
@@ -1347,7 +1346,7 @@ const brDemo = BR_ANIMALS.map((a, idx) => {
   forms.push({ key: "screening", status: oneTimeStatus, values: {
     screening_date: a.enroll, dart_score: "2", screening_temp: ["40.2", 40.2],
     visual_brd_signs: ["Nasal discharge", "Cough"], days_on_feed: ["2", 2],
-    prior_brd_treatment: "No", inclusion_met: "Yes", eligible: "Yes", randomized_arm: a.arm } });
+    prior_brd_treatment: "No", inclusion_met: "Yes", eligible: "Yes" } });
   forms.push({ key: "demographics", status: oneTimeStatus, values: {
     animal_id: tag, eid_rfid: `8400032025${String(10000 + idx).padStart(5, "0")}`, sex, breed_type: breed,
     age_months: [String(a.age), a.age], arrival_weight: [String(weight), weight],

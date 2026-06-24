@@ -46,7 +46,7 @@ const STATUS_MAP: Record<string, { cls: string; label: string }> = {
 const REPEATING_FORMS = [
   "ConMed", "Adverse Event", "Protocol Deviation", "Mortality & Cull Record",
   // BR-2502 Group G — Safety & Events (as-needed repeating logs).
-  "Injection Site Reaction", "Re-treatment / Rescue Therapy", "Sample Collection", "Concomitant Medication Log",
+  "Injection Site Reaction", "Re-treatment Log", "Sample Collection", "Concomitant Medication Log",
 ];
 const REPEATING_COLUMNS: Record<string, [string, string][]> = {
   ConMed: [["medication_name", "Drug name"], ["dose", "Dose"], ["route", "Route"], ["start_date", "Start date"], ["ongoing", "Ongoing"]],
@@ -54,7 +54,7 @@ const REPEATING_COLUMNS: Record<string, [string, string][]> = {
   "Protocol Deviation": [["deviation_type", "Type"], ["deviation_date", "Date"], ["major_minor", "Major / Minor"], ["description", "Description"]],
   "Mortality & Cull Record": [["event_date", "Date"], ["death_count", "Deaths"], ["cull_count", "Culls"], ["cause_deaths", "Cause"]],
   "Injection Site Reaction": [["observation_date", "Date"], ["injection_site", "Site"], ["grade", "Grade"], ["reaction_present", "Reaction"]],
-  "Re-treatment / Rescue Therapy": [["retreatment_date", "Date"], ["dart_score_retreatment", "DART"], ["retreatment_reason", "Reason"], ["administered_by", "By"]],
+  "Re-treatment Log": [["retreatment_date", "Date"], ["dart_score_retreatment", "DART"], ["body_weight_retreatment", "Weight (kg)"], ["administered_by", "By"], ["retreatment_reason", "Reason"]],
   "Sample Collection": [["collection_date", "Date"], ["sample_type", "Type"], ["sample_ids", "Sample IDs"], ["sent_to_lab", "Sent"]],
   "Concomitant Medication Log": [["start_date", "Start"], ["medication", "Medication"], ["dose_route", "Dose / route"], ["indication", "Indication"]],
 };
@@ -517,6 +517,7 @@ export function SubjectRecord({ studyId, subjectId, initialFormId, initialPanelF
   // BR screening prompt: DART ≥ 2 on the BRD Case Definition form before randomization.
   const isScreeningForm = studyRow?.code === "BR-2502" && /BRD Case|Screening/i.test(activeForm?.name ?? "");
   const isClinicalResponseForm = studyRow?.code === "BR-2502" && /Clinical Response/i.test(activeForm?.name ?? "");
+  const isVitalSignsForm = studyRow?.code === "BR-2502" && /Vital Signs/i.test(activeForm?.name ?? "");
 
   // Completed / withdrawn subjects are closed: every form is read-only, data-entry
   // actions (Submit/Finalize/Lock, new SDV, new change reasons) are hidden, and a
@@ -731,6 +732,13 @@ export function SubjectRecord({ studyId, subjectId, initialFormId, initialPanelF
     }
     if (field.code === "lot_number") return /re-treatment|rescue/i.test(selectedForm?.name ?? "") ? "LOT-BR-002" : "LOT-BR-001";
     if (field.code === "route" && studyRow?.code === "BR-2502") return "SC injection";
+    // BR-2502 Screening — eligibility temperature criterion derived from the temp field.
+    if (field.code === "meets_temp_criterion") {
+      const tf = fields.find((f) => f.code === "screening_temp" || f.code === "rectal_temp");
+      const t = tf ? Number(fvFor(tf.id)?.value) : NaN;
+      if (Number.isNaN(t)) return "—";
+      return t >= 40 ? "Yes" : "No";
+    }
     // BR-2502 Clinical Response — DART + derivations sourced from Vital Signs (same day).
     if (field.code === "assessment_day") return selectedForm?.name?.match(/Day \d+/)?.[0] ?? "—";
     if (field.code === "dart_at_visit") {
@@ -1324,7 +1332,7 @@ export function SubjectRecord({ studyId, subjectId, initialFormId, initialPanelF
     if (type === "calculated") {
       const val = calcValue(field);
       const tone = field.code === "response_vs_baseline" ? (val === "Improved" ? "green" : val === "Worsened" ? "red" : val === "No change" ? "slate" : "")
-        : field.code === "temperature_normalized" ? (val === "Yes" ? "green" : val === "No" ? "red" : "")
+        : field.code === "temperature_normalized" || field.code === "meets_temp_criterion" ? (val === "Yes" ? "green" : val === "No" ? "red" : "")
         : field.code === "requires_retreatment" ? (val.startsWith("Yes") ? "amber" : val === "No" ? "green" : "")
         : "";
       return (
@@ -1798,18 +1806,22 @@ export function SubjectRecord({ studyId, subjectId, initialFormId, initialPanelF
               </div>
             );
           })()}
-          {isClinicalResponseForm && (() => {
+          {(isClinicalResponseForm || isVitalSignsForm) && (() => {
             const day = activeForm?.name?.match(/Day \d+/)?.[0] ?? "";
-            if (day === "Day 0") return null; // no re-treatment prompt at baseline
-            const cur = Number(vitalValueForDay(day, "clinical_illness_score"));
+            const dayNum = Number(day.replace("Day ", ""));
+            if (!(dayNum >= 3)) return null; // never at Day 0 (enrolment criterion, not a trigger)
+            // Vital Signs reads its own DART field; Clinical Response reads the same-day Vital Signs.
+            const cur = isVitalSignsForm
+              ? Number(fvFor(fields.find((f) => f.code === "clinical_illness_score")?.id ?? "")?.value)
+              : Number(vitalValueForDay(day, "clinical_illness_score"));
             if (Number.isNaN(cur) || cur < 2) return null;
             const retreatFormId = dataset.forms.find((f) => f.study_id === studyId && /re-treatment|rescue/i.test(f.name))?.id;
             return (
               <div className="rand-screening-banner" role="status">
                 <i className="ti ti-info-circle"></i>
                 <div>
-                  <div className="rand-screening-title">Re-treatment indicated — DART score ≥ 2.</div>
-                  <div className="rand-screening-sub">Complete the Re-treatment / Rescue Therapy form.</div>
+                  <div className="rand-screening-title">DART score ≥ 2 — re-treatment may be required.</div>
+                  <div className="rand-screening-sub">Add a row to the Re-treatment Log in Safety &amp; Events.</div>
                 </div>
                 {retreatFormId && <button type="button" className="rand-screening-link" onClick={() => setSelectedFormId(retreatFormId)}>Go to Re-treatment <i className="ti ti-arrow-right"></i></button>}
               </div>

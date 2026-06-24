@@ -112,8 +112,10 @@ export async function hydrateFromSupabase(): Promise<Dataset> {
   // Read-only auto-derived rollup forms — flag them on the form row (so renderers
   // check `form.is_summary`, not the form name).
   const SUMMARY_FORM_NAMES = new Set(["Production Summary", "Pen BRD Summary"]);
+  const F025_ID = "61000019-0000-0000-0000-000000002502";
   const formsWithFlags = ((forms.data ?? []) as Dataset["forms"]).map((f) =>
-    SUMMARY_FORM_NAMES.has(f.name) ? { ...f, is_summary: true } : f,
+    f.id === F025_ID ? { ...f, name: "Re-treatment Log" } // repeating table in Safety & Events
+      : SUMMARY_FORM_NAMES.has(f.name) ? { ...f, is_summary: true } : f,
   );
 
   // ─── BR-2502 Treatment Administration (F005) + Re-treatment (F025) reshape ──
@@ -167,7 +169,7 @@ export async function hydrateFromSupabase(): Promise<Dataset> {
   for (const fid of VS_FORM_IDS) {
     const ex = byForm(fid);
     let seq = 1;
-    for (const code of ["visit_date", "protocol_version", "rectal_temp", "heart_rate", "resp_rate"]) { const f = ex.get(code); if (f) vsFields.push({ ...f, sequence: seq++ }); }
+    for (const code of ["visit_date", "rectal_temp", "heart_rate", "resp_rate"]) { const f = ex.get(code); if (f) vsFields.push({ ...f, sequence: seq++ }); }
     vsFields.push(ff(fid, `${fid}-body_weight`, "body_weight", "Body weight", "number", null, "kg", true, seq++, { vital: "weight", section: "Vital Signs" }));
     const dart = ex.get("clinical_illness_score"); if (dart) vsFields.push({ ...dart, sequence: seq++ });
   }
@@ -178,8 +180,6 @@ export async function hydrateFromSupabase(): Promise<Dataset> {
     const keep = (code: string, seq: number) => { const f = ex.get(code); return f ? { ...f, sequence: seq } : null; };
     let seq = 1;
     const out: (FF | null)[] = [
-      ff(fid, `${fid}-assessment_day`, "assessment_day", "Assessment day", "calculated", null, null, false, seq++, { readonlyAuto: true }),
-      keep("protocol_version", seq++) ?? ff(fid, `${fid}-protocol`, "protocol_version", "Protocol version", "calculated", null, null, false, seq - 1, { readonlyAuto: true }),
       keep("visit_date", seq++) ?? ff(fid, `${fid}-visit_date`, "visit_date", "Visit date", "date", null, null, true, seq - 1, null),
       ff(fid, `${fid}-dart_at_visit`, "dart_at_visit", "DART at this visit", "calculated", null, null, false, seq++, { readonlyAuto: true }),
       isDay0 ? null : ff(fid, ex.get("response_vs_baseline")?.id ?? `${fid}-response`, "response_vs_baseline", "Response vs baseline", "calculated", null, null, false, seq++, { readonlyAuto: true }),
@@ -195,6 +195,20 @@ export async function hydrateFromSupabase(): Promise<Dataset> {
     ...(formFields as FF[]).filter((f) => !RESHAPED_FORM_IDS.has(f.form_id) && !DROP_FIELD_IDS.has(f.id)),
     ...F005_FIELDS, ...F025_FIELDS, ...vsFields, ...crFields,
   ];
+
+  // Seed one Re-treatment Log entry on BR-2502-CO-001 so the demo table isn't empty.
+  const CO001 = "340A0000-0000-0000-0000-000000002502";
+  const fInst = formInstances as Dataset["formInstances"];
+  if ((subjects.data ?? []).some((s) => s.id === CO001) && !fInst.some((i) => i.id === "fi-retreat-co001")) {
+    fInst.push({ id: "fi-retreat-co001", form_id: F025, subject_id: CO001, status: "in_work" });
+    (fieldValues as Dataset["fieldValues"]).push(
+      { id: "fv-rt-date", form_instance_id: "fi-retreat-co001", form_field_id: "f025-retreatment_date", value: "2026-05-20" },
+      { id: "fv-rt-dart", form_instance_id: "fi-retreat-co001", form_field_id: "f025-dart", value: "2" },
+      { id: "fv-rt-weight", form_instance_id: "fi-retreat-co001", form_field_id: "f025-weight", value: "192" },
+      { id: "fv-rt-by", form_instance_id: "fi-retreat-co001", form_field_id: "f025-administered_by", value: "M. Okafor" },
+      { id: "fv-rt-reason", form_instance_id: "fi-retreat-co001", form_field_id: "f025-reason", value: "DART ≥ 2 at Day 7" },
+    );
+  }
 
   // ─── Seeded SDV state (session-only) ────────────────────────────────────────
   // No interactive SDV has run on a fresh tab, so seed verified records to a target
