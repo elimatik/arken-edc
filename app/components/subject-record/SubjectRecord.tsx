@@ -12,6 +12,7 @@ import { isStudyLocked } from "@/lib/study-lock";
 import { subjectAeList } from "@/lib/reports-data";
 import { codingIndex, codedDisplay, normalizeTerm } from "@/lib/coding-data";
 import { LOCK_TOOLTIP } from "@/lib/use-study-locked";
+import { RandomizationPanel } from "./RandomizationPanel";
 import type { Dataset, FormFieldRow } from "@/lib/session-store/types";
 import "./subject-record.css";
 
@@ -509,6 +510,10 @@ export function SubjectRecord({ studyId, subjectId, initialFormId, initialPanelF
   // portal, so the Subject Record shows an info note and disabled fields.
   const activeForm = dataset.forms.find((f) => f.id === activeFormId);
   const isEproForm = (activeForm?.name ?? "").startsWith("ePRO");
+  // Randomization action lives at the top of the Randomization form (CA/BR); for
+  // PH-2401 it's a read-only assignment block on the Pen Demographics form.
+  const isRandForm = /randomi[sz]ation/i.test(activeForm?.name ?? "");
+  const isPenSetupForm = studyRow?.code === "PH-2401" && /pen demographics/i.test(activeForm?.name ?? "");
 
   // Completed / withdrawn subjects are closed: every form is read-only, data-entry
   // actions (Submit/Finalize/Lock, new SDV, new change reasons) are hidden, and a
@@ -1708,6 +1713,9 @@ export function SubjectRecord({ studyId, subjectId, initialFormId, initialPanelF
               <i className="ti ti-shield-check"></i>
               Eligibility override — PI {subject.override_by ?? "—"} documented a reason for override on {subject.override_at ?? "—"}. This subject was initially flagged as ineligible.
             </div>
+          )}
+          {(isRandForm || isPenSetupForm) && studyRow && (
+            <RandomizationPanel dataset={dataset} update={update} subject={subject} studyId={studyId} studyCode={studyRow.code} role={activeRole} ndaName={ndaName} penMode={isPenSetupForm} />
           )}
           {/* Withdrawal-period food-safety HARD block (BR-2502 EOS / Withdrawal Confirmation). */}
           {withdrawalBlockBanner && (

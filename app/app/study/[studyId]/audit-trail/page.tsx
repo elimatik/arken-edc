@@ -372,6 +372,16 @@ function buildAuditEvents(dataset: Dataset, studyId: string, baseNow: number): A
     }
   }
 
+  // 7.6 — Randomization performed via the Subject Record button (session-only
+  // randomized_at). The arm reveal is captured separately via the unblindings log.
+  for (const s of dataset.subjects) {
+    if (s.study_id !== studyId || !s.randomized_at) continue;
+    const siteName = s.site_id ? siteById.get(s.site_id)?.name ?? "—" : "—";
+    push({ ts: s.randomized_at, type: "randomization", user: mkUser(s.randomized_by ?? "System", "CRC"), scope: "subject", subjectId: s.id, subjectCode: s.subject_code, siteId: s.site_id ?? null, siteName,
+      formId: null, formName: "Randomization", formPath: "Randomization", fieldId: null, fieldLabel: "", fieldCode: "",
+      oldValue: null, newValue: s.randomization_arm, details: `Subject randomized — ${s.subject_code}`, statusBefore: "Screened", statusAfter: "Randomized" });
+  }
+
   // 8 — Login events (synthetic; surfaced to Admin only — see visibleTo).
   for (const role of ["CRC", "CRA", "DM", "PI"] as const) {
     const u = CAST[role];

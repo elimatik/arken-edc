@@ -3,7 +3,7 @@
 import { useMemo, useState } from "react";
 import type { Vial } from "@/lib/session-store/types";
 import type { Role } from "@/lib/permissions";
-import { buildReconRows, canInv, type InvConfig } from "@/lib/inventory-data";
+import { buildReconRows, canInv, totalDispensed, type InvConfig } from "@/lib/inventory-data";
 
 type Confirm = "pending" | "confirmed" | "discrepancy";
 interface ReconState { status: Confirm; notes: string }
@@ -13,6 +13,13 @@ interface ReconState { status: Confirm; notes: string }
 export function ReconciliationTab({ cfg, vials, role }: { cfg: InvConfig; vials: Vial[]; role: Role }) {
   const canReconcile = canInv("reconcile", role);
   const rows = useMemo(() => buildReconRows(vials), [vials]);
+  // PH-2401 feed: estimated consumed kg per group (delivered − weighback; no weighback
+  // tracked yet, so estimate = total delivered) replaces the "Returned" column.
+  const consumedKg = useMemo(() => {
+    const m: Record<string, number> = {};
+    for (const v of vials) { const g = v.treatmentGroup || "Unknown"; m[g] = (m[g] ?? 0) + totalDispensed(v); }
+    return m;
+  }, [vials]);
   const [state, setState] = useState<Record<string, ReconState>>({});
 
   const get = (g: string): ReconState => state[g] ?? { status: "pending", notes: "" };
@@ -36,7 +43,7 @@ export function ReconciliationTab({ cfg, vials, role }: { cfg: InvConfig; vials:
         <table className="inv-table">
           <thead><tr>
             <th>Treatment group</th><th># Received</th><th># Usable</th><th># Removed</th>
-            <th># {cfg.feed ? "Delivered" : "Dispensed"}</th><th># Returned</th><th>Variance</th><th>Auto status</th><th>Confirmation</th><th>Notes</th>
+            <th># {cfg.feed ? "Delivered" : "Dispensed"}</th><th>{cfg.feed ? "Consumed (est.)" : "# Returned"}</th><th>Variance</th><th>Auto status</th><th>Confirmation</th><th>Notes</th>
           </tr></thead>
           <tbody>
             {rows.map((r) => {
@@ -50,7 +57,7 @@ export function ReconciliationTab({ cfg, vials, role }: { cfg: InvConfig; vials:
                   <td className="inv-mono">{r.usable}</td>
                   <td className="inv-mono" style={{ color: r.removed > 0 ? "var(--amber-700)" : "var(--color-text-secondary)" }}>{r.removed}</td>
                   <td className="inv-mono">{r.dispensed}</td>
-                  <td className="inv-mono">{r.returned}</td>
+                  <td className="inv-mono">{cfg.feed ? `${Math.round((consumedKg[r.group] ?? 0) * 10) / 10} kg` : r.returned}</td>
                   <td className="inv-mono" style={{ fontWeight: "var(--weight-medium)", color: varColor }}>{r.balanced ? "✓ 0" : `${r.variance > 0 ? "⚠ +" : "⚠ "}${r.variance}`}</td>
                   <td><span className={`inv-badge ${badge}`}>{r.status}</span></td>
                   <td>

@@ -25,7 +25,8 @@ export function VialEditPanel({ cfg, hideArms, vial, role, onClose, update }: {
   const [retDate, setRetDate] = useState(TODAY);
   const [retNotes, setRetNotes] = useState("");
   const id = vialDisplayId(vial, hideArms);
-  const canReturn = canInv("return", role);
+  // PH-2401 feed is consumed, never returned to sponsor — no return action.
+  const canReturn = canInv("return", role) && !cfg.feed;
   const canRemove = canInv("remove", role);
 
   function removeUnit() {

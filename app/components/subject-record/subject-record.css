@@ -616,3 +616,35 @@
 
 /* Database Lock banner. */
 .ie-banner.db-locked { background: var(--amber-50); border-color: var(--amber-200); color: var(--amber-700); }
+
+/* ─── Randomization panel (top of Randomization / Pen Demographics form) ─── */
+.rand-block { margin-bottom: var(--space-4); }
+.rand-btn { display: inline-flex; align-items: center; gap: 6px; height: 38px; padding: 0 var(--space-4); font-size: var(--text-sm); font-weight: var(--weight-medium); font-family: var(--font-sans); border-radius: var(--radius-md); border: none; cursor: pointer; }
+.rand-btn.active { background: var(--color-cta-bg); color: #fff; }
+.rand-btn.active:hover { background: var(--color-cta-hover); }
+.rand-btn.disabled { background: var(--slate-50); color: var(--slate-600); border: 1px solid var(--slate-300); cursor: not-allowed; }
+.rand-result { border: 1px solid var(--green-200); background: var(--green-50); border-radius: var(--radius-lg); padding: var(--space-3) var(--space-4); }
+.rand-result-head { font-size: var(--text-sm); font-weight: var(--weight-medium); color: var(--green-600); display: flex; align-items: center; gap: 6px; margin-bottom: var(--space-2); }
+.rand-result-grid { display: grid; grid-template-columns: auto 1fr; gap: 2px var(--space-4); margin: 0; font-size: var(--text-sm); }
+.rand-result-grid dt { color: var(--color-text-tertiary); }
+.rand-result-grid dd { margin: 0; color: var(--color-text-primary); }
+.rand-result-grid dd.mono { font-family: var(--font-mono); }
+.rand-sub { color: var(--color-text-tertiary); font-size: var(--text-xs); }
+.rand-warn { color: var(--amber-700); font-size: var(--text-xs); }
+.rand-arm { margin-top: var(--space-3); padding-top: var(--space-3); border-top: 1px solid var(--green-200); display: flex; align-items: center; gap: var(--space-2); flex-wrap: wrap; }
+.rand-arm-label { font-size: var(--text-sm); color: var(--color-text-tertiary); }
+.rand-arm-blinded { font-family: var(--font-mono); letter-spacing: 2px; color: var(--color-text-secondary); font-size: var(--text-sm); }
+.rand-arm-revealed { display: inline-flex; align-items: center; gap: 4px; background: var(--amber-50); border: 1px solid var(--amber-200); color: var(--amber-700); padding: 2px var(--space-2); border-radius: var(--radius-md); font-size: var(--text-sm); font-weight: var(--weight-medium); }
+.rand-reveal-btn { display: inline-flex; align-items: center; gap: 4px; height: 26px; padding: 0 var(--space-2); font-size: var(--text-xs); font-weight: var(--weight-medium); font-family: var(--font-sans); border: 1px solid var(--amber-200); background: var(--amber-50); color: var(--amber-700); border-radius: var(--radius-md); cursor: pointer; }
+.rand-reveal-btn:hover { background: var(--amber-200); color: #fff; }
+.rand-modal-overlay { position: fixed; inset: 0; background: rgba(14, 18, 28, 0.45); z-index: 300; display: flex; align-items: center; justify-content: center; padding: var(--space-4); }
+.rand-modal { background: var(--color-surface); border: 1px solid var(--color-border); border-radius: var(--radius-lg); width: 440px; max-width: 100%; box-shadow: 0 16px 48px rgba(14, 18, 28, 0.18); padding: var(--space-5); display: flex; flex-direction: column; gap: var(--space-3); }
+.rand-modal-title { font-size: var(--text-lg); font-weight: var(--weight-medium); }
+.rand-modal-body { font-size: var(--text-sm); color: var(--color-text-secondary); }
+.rand-modal-input { height: 36px; padding: 0 var(--space-3); font-size: var(--text-sm); font-family: var(--font-sans); border: 1px solid var(--color-border); border-radius: var(--radius-md); outline: none; }
+.rand-modal-input:focus { border-color: var(--color-focus-ring); }
+.rand-modal-footer { display: flex; justify-content: flex-end; gap: var(--space-2); }
+.rand-mbtn { height: 34px; padding: 0 var(--space-3); font-size: var(--text-sm); font-weight: var(--weight-medium); font-family: var(--font-sans); border: 1px solid var(--color-border); background: var(--color-surface); color: var(--color-text-primary); border-radius: var(--radius-md); cursor: pointer; }
+.rand-mbtn.primary { background: var(--color-cta-bg); color: #fff; border-color: var(--color-cta-bg); }
+.rand-mbtn.danger { background: var(--amber-700); color: #fff; border-color: var(--amber-700); }
+.rand-mbtn:disabled { opacity: 0.5; cursor: not-allowed; }

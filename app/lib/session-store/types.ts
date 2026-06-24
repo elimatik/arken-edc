@@ -95,6 +95,8 @@ export interface SubjectRow {
   override_reason?: string | null; // PI override reason (clears ineligibility, session-only)
   override_by?: string | null; // PI who overrode
   override_at?: string | null; // YYYY-MM-DD of override
+  randomized_at?: string | null; // ISO — set when randomized via the Subject Record button (session-only)
+  randomized_by?: string | null; // who triggered randomization (session-only)
 }
 
 export interface OwnerRow {
