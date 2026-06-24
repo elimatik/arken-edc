@@ -200,7 +200,7 @@ function brAnimals(dataset: Dataset): BrAnimal[] {
     return {
       enrolled: ENROLLED.has(s.status),
       treated: (v.get("test_article")?.length ?? 0) > 0,
-      retreated: (v.get("retreatment_flag") ?? []).includes("Yes") || (v.get("requires_retreatment") ?? []).includes("Yes"),
+      retreated: (v.get("retreatment_date") ?? []).length > 0 || (v.get("requires_retreatment") ?? []).includes("Yes"),
       dead: DEAD.has(s.status),
       peakDart: dartVals.length ? Math.max(...dartVals) : null,
     };

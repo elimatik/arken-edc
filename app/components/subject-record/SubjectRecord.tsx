@@ -54,7 +54,7 @@ const REPEATING_COLUMNS: Record<string, [string, string][]> = {
   "Protocol Deviation": [["deviation_type", "Type"], ["deviation_date", "Date"], ["major_minor", "Major / Minor"], ["description", "Description"]],
   "Mortality & Cull Record": [["event_date", "Date"], ["death_count", "Deaths"], ["cull_count", "Culls"], ["cause_deaths", "Cause"]],
   "Injection Site Reaction": [["observation_date", "Date"], ["injection_site", "Site"], ["grade", "Grade"], ["reaction_present", "Reaction"]],
-  "Re-treatment / Rescue Therapy": [["date", "Date"], ["reason", "Reason"], ["rescue_product", "Product"], ["treatment_failure", "Failure"]],
+  "Re-treatment / Rescue Therapy": [["retreatment_date", "Date"], ["dart_score_retreatment", "DART"], ["retreatment_reason", "Reason"], ["administered_by", "By"]],
   "Sample Collection": [["collection_date", "Date"], ["sample_type", "Type"], ["sample_ids", "Sample IDs"], ["sent_to_lab", "Sent"]],
   "Concomitant Medication Log": [["start_date", "Start"], ["medication", "Medication"], ["dose_route", "Dose / route"], ["indication", "Indication"]],
 };
@@ -707,6 +707,16 @@ export function SubjectRecord({ studyId, subjectId, initialFormId, initialPanelF
       const code = studyRow?.code;
       return code === "PH-2401" ? "v1.0" : code === "BR-2502" ? "v1.0" : code === "CA-0801" ? "v2.1 — DERM-2026-104" : "—";
     }
+    // BR-2502 Treatment Admin / Re-treatment — read-only auto fields.
+    if (field.code === "calculated_dose") {
+      const wf = fields.find((f) => ["body_weight_dosing", "body_weight_retreatment", "weight"].includes(f.code));
+      const w = wf ? Number(fvFor(wf.id)?.value) : NaN;
+      if (!w || Number.isNaN(w)) return "Enter body weight to calculate";
+      const ml = Math.round((w * 2.5 / 100) * 10) / 10;
+      return `${ml} mL (2.5 mg/kg × ${w} kg ÷ 100 mg/mL)`;
+    }
+    if (field.code === "lot_number") return /re-treatment|rescue/i.test(selectedForm?.name ?? "") ? "LOT-BR-002" : "LOT-BR-001";
+    if (field.code === "route" && studyRow?.code === "BR-2502") return "SC injection";
     // GCP feed-additive counter-signature — auto-populated once the verify flag is
     // Yes (the showIf already hides these unless verified): who verified + when.
     if (field.code === "verifier_name") return ndaName;
@@ -1170,7 +1180,15 @@ export function SubjectRecord({ studyId, subjectId, initialFormId, initialPanelF
   const addDaysISO = (iso: string, days: number) => { const d = new Date(iso); if (Number.isNaN(d.getTime())) return null; d.setDate(d.getDate() + days); return d.toISOString().slice(0, 10); };
   const wdLastTx = subjectValueByCode("last_treatment_date");
   const wdDays = subjectValueByCode("withdrawal_period_days");
-  const withdrawalEnd = subjectValueByCode("withdrawal_end_date") || (wdLastTx && wdDays && !Number.isNaN(Number(wdDays)) ? addDaysISO(wdLastTx, Number(wdDays)) : null);
+  // Withdrawal is always measured from the LAST administration: a saved Re-treatment
+  // (retreatment_date) resets the period to that date + 49 days, overriding Day 0.
+  const retreatFieldIds = new Set(dataset.formFields.filter((f) => f.code === "retreatment_date").map((f) => f.id));
+  const subjInstIdsWd = new Set(dataset.formInstances.filter((i) => i.subject_id === subjectId).map((i) => i.id));
+  let lastRetreat: string | null = null;
+  for (const v of dataset.fieldValues) if (subjInstIdsWd.has(v.form_instance_id) && retreatFieldIds.has(v.form_field_id) && v.value) { if (!lastRetreat || v.value > lastRetreat) lastRetreat = v.value; }
+  const withdrawalEnd = lastRetreat
+    ? addDaysISO(lastRetreat, 49)
+    : subjectValueByCode("withdrawal_end_date") || (wdLastTx && wdDays && !Number.isNaN(Number(wdDays)) ? addDaysISO(wdLastTx, Number(wdDays)) : null);
   const periodActive = !!withdrawalEnd && todayISO() < withdrawalEnd;
   const dispField = fields.find((f) => f.code === "disposition");
   const dispositionVal = dispField ? (fvFor(dispField.id)?.value ?? "") : "";

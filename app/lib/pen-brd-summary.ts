@@ -82,9 +82,11 @@ function deriveAnimal(status: string, arm: string | null | undefined, v: Map<str
   const vals = v ?? new Map<string, string[]>();
   const first = (code: string) => vals.get(code)?.[0];
   const treated = (vals.get("test_article")?.length ?? 0) > 0;
-  const retreatFlag = (vals.get("retreatment_flag") ?? []).includes("Yes");
+  // Re-treatment is now a separate form instance (Re-treatment / Rescue Therapy)
+  // rather than a flag — a recorded retreatment_date marks the animal re-treated.
+  const hasRetreatInstance = (vals.get("retreatment_date") ?? []).length > 0;
   const needsRetreat = (vals.get("requires_retreatment") ?? []).includes("Yes");
-  const retreated = retreatFlag || needsRetreat;
+  const retreated = hasRetreatInstance || needsRetreat;
   const dartVals = [...(vals.get("clinical_illness_score") ?? []), ...(vals.get("dart_score") ?? [])]
     .map(Number).filter((n) => !Number.isNaN(n));
   const peakDart = dartVals.length ? Math.max(...dartVals) : null;

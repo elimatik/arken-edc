@@ -116,6 +116,45 @@ export async function hydrateFromSupabase(): Promise<Dataset> {
     SUMMARY_FORM_NAMES.has(f.name) ? { ...f, is_summary: true } : f,
   );
 
+  // ─── BR-2502 Treatment Administration (F005) + Re-treatment (F025) reshape ──
+  // Session-only schema cleanup: F005 → 7 fields (date · test article · lot · body
+  // weight · calculated dose mL · route · administered by); F025 → 10 on-demand
+  // re-treatment fields. Read-only "auto" fields are `calculated` (calcValue) or
+  // autoFromArm. Withdrawal fields are dropped here (the hard-block reads the
+  // Withdrawal Period Confirmation form, not F005).
+  const F005 = "61000005-0000-0000-0000-000000002502";
+  const F025 = "61000019-0000-0000-0000-000000002502";
+  type FF = Dataset["formFields"][number];
+  const ff = (form_id: string, id: string, code: string, label: string, field_type: string, options: string[] | null, unit: string | null, is_required: boolean, sequence: number, validation: FF["validation"]): FF =>
+    ({ id, form_id, code, label, field_type, options, unit, is_required, sequence, validation });
+  const f005Existing = new Map((formFields as FF[]).filter((f) => f.form_id === F005).map((f) => [f.code, f.id]));
+  const id005 = (code: string, fallback: string) => f005Existing.get(code) ?? fallback;
+  const F005_FIELDS: FF[] = [
+    ff(F005, "f005-date_administered", "date_administered", "Date administered", "date", null, null, true, 1, { section: "Administration" }),
+    ff(F005, id005("test_article", "f005-test_article"), "test_article", "Test article", "select", ["T01", "T02", "T03"], null, false, 2, { autoFromArm: true, hint: "Auto-populated from the randomization assignment — cannot be modified.", section: "Drug Information" }),
+    ff(F005, id005("lot_expiry", "f005-lot_number"), "lot_number", "Lot number", "calculated", null, null, false, 3, { readonlyAuto: true, hint: "Auto-assigned from randomization.", section: "Drug Information" }),
+    ff(F005, id005("body_weight_dosing", "f005-body_weight"), "body_weight_dosing", "Body weight at administration", "number", null, "kg", true, 4, { section: "Drug Information", hint: "Weigh the animal immediately before administration. Used to verify the calculated dose." }),
+    ff(F005, "f005-calculated_dose", "calculated_dose", "Calculated dose", "calculated", null, "mL", false, 5, { readonlyAuto: true, section: "Drug Information" }),
+    ff(F005, id005("route", "f005-route"), "route", "Route", "calculated", null, null, false, 6, { readonlyAuto: true, section: "Administration" }),
+    ff(F005, id005("administered_by", "f005-administered_by"), "administered_by", "Administered by", "text", null, null, true, 7, { section: "Administration" }),
+  ];
+  const F025_FIELDS: FF[] = [
+    ff(F025, "f025-retreatment_date", "retreatment_date", "Re-treatment date", "date", null, null, true, 1, null),
+    ff(F025, "f025-dart", "dart_score_retreatment", "DART score at re-treatment decision", "number", null, null, true, 2, { min: 0, max: 3, hint: "Re-treatment indicated if DART ≥ 2 at Day 3 or Day 7." }),
+    ff(F025, "f025-weight", "body_weight_retreatment", "Body weight at re-treatment", "number", null, "kg", true, 3, null),
+    ff(F025, "f025-test_article", "test_article", "Test article", "select", ["T01", "T02", "T03"], null, false, 4, { autoFromArm: true, hint: "Auto-populated from the randomization assignment.", section: "Re-treatment" }),
+    ff(F025, "f025-calculated_dose", "calculated_dose", "Calculated dose", "calculated", null, "mL", false, 5, { readonlyAuto: true, section: "Re-treatment" }),
+    ff(F025, "f025-lot", "lot_number", "Lot number", "calculated", null, null, false, 6, { readonlyAuto: true, hint: "Auto-assigned — may differ from Day 0 if the original lot is depleted.", section: "Re-treatment" }),
+    ff(F025, "f025-route", "route", "Route", "calculated", null, null, false, 7, { readonlyAuto: true, section: "Re-treatment" }),
+    ff(F025, "f025-administered_by", "administered_by", "Administered by", "text", null, null, true, 8, { section: "Re-treatment" }),
+    ff(F025, "f025-reason", "retreatment_reason", "Reason for re-treatment", "select", ["DART ≥ 2 at Day 3", "DART ≥ 2 at Day 7", "Other"], null, true, 9, null),
+    ff(F025, "f025-notes", "notes", "Notes", "textarea", null, null, false, 10, null),
+  ];
+  const reshapedFormFields: FF[] = [
+    ...(formFields as FF[]).filter((f) => f.form_id !== F005 && f.form_id !== F025),
+    ...F005_FIELDS, ...F025_FIELDS,
+  ];
+
   // ─── Seeded SDV state (session-only) ────────────────────────────────────────
   // No interactive SDV has run on a fresh tab, so seed verified records to a target
   // % per site — the CRA/DM dashboard SDV bars + lock-readiness then show real
@@ -292,7 +331,7 @@ export async function hydrateFromSupabase(): Promise<Dataset> {
     subjects: (subjects.data ?? []) as Dataset["subjects"],
     owners: (owners.data ?? []) as Dataset["owners"],
     forms: formsWithFlags,
-    formFields: formFields as Dataset["formFields"],
+    formFields: reshapedFormFields,
     formInstances: formInstances as Dataset["formInstances"],
     fieldValues: fieldValues as Dataset["fieldValues"],
     queries: splitQueries,
