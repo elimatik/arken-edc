@@ -652,6 +652,36 @@ export function SubjectRecord({ studyId, subjectId, initialFormId, initialPanelF
   function renderEntryControl(field: FormFieldRow, instId: string) {
     const v = entryVal(instId, field.id);
     const t = field.field_type;
+    // Re-treatment Log — Lot number: dropdown of real available lots (item 2).
+    if (field.code === "lot_number") {
+      const lots = new Map<string, { lot: string; drug: string; count: number }>();
+      for (const vl of dataset.vials) {
+        if (vl.studyId !== studyId || (vl.status !== "available" && vl.status !== "athome")) continue;
+        const e = lots.get(vl.lotId) ?? { lot: vl.lotId, drug: vl.drugName, count: 0 };
+        e.count++; lots.set(vl.lotId, e);
+      }
+      const opts = Array.from(lots.values());
+      if (!opts.length) return <div style={{ fontSize: "var(--text-xs)", color: "var(--amber-700)", background: "var(--amber-50)", border: "1px solid var(--amber-200)", borderRadius: "var(--radius-md)", padding: "4px 8px" }}>No available lots — contact inventory manager</div>;
+      return (
+        <select className="field-select" value={v} disabled={readOnly} onChange={(e) => setEntryVal(instId, field, e.target.value)}>
+          <option value="">Select lot…</option>
+          {opts.map((l) => <option key={l.lot} value={l.lot}>{l.lot} · {l.drug} · {l.count} vials remaining</option>)}
+        </select>
+      );
+    }
+    // Read-only calculated fields in an entry (Calculated dose — live from the entry's
+    // weight; Route — fixed) (items 3 & 4).
+    if (t === "calculated") {
+      let display = calcValue(field);
+      if (field.code === "calculated_dose") {
+        const wf = fields.find((f) => ["body_weight_retreatment", "body_weight_dosing", "weight"].includes(f.code));
+        const w = wf ? Number(entryVal(instId, wf.id)) : NaN;
+        display = !w || Number.isNaN(w) ? "Enter body weight to calculate" : `${Math.round((w * 2.5 / 100) * 10) / 10} mL (2.5 mg/kg × ${w} kg ÷ 100 mg/mL)`;
+      } else if (field.code === "route") {
+        display = "SC injection";
+      }
+      return <div className="field-calc"><span>{display}</span><span className="field-calc-tag">auto</span></div>;
+    }
     // Auto-generated AE number — read-only display.
     if (field.code === "ae_number") return <input className="field-input" type="text" value={v} disabled readOnly placeholder="Auto-generated" />;
     // Coded (VeDDRA) field — text input + a Look up button (opens the dictionary panel).
@@ -757,13 +787,17 @@ export function SubjectRecord({ studyId, subjectId, initialFormId, initialPanelF
     }
     if (field.code === "temperature_normalized") {
       const day = selectedForm?.name?.match(/Day \d+/)?.[0] ?? "";
-      const t = Number(vitalValueForDay(day, "rectal_temp"));
+      const raw = vitalValueForDay(day, "rectal_temp"); // null/"" until Vital Signs filled
+      if (raw == null || raw === "") return "—";
+      const t = Number(raw);
       if (Number.isNaN(t)) return "—";
       return t < 40 ? "Yes" : "No";
     }
     if (field.code === "requires_retreatment") {
       const day = selectedForm?.name?.match(/Day \d+/)?.[0] ?? "";
-      const cur = Number(vitalValueForDay(day, "clinical_illness_score"));
+      const raw = vitalValueForDay(day, "clinical_illness_score");
+      if (raw == null || raw === "") return "—";
+      const cur = Number(raw);
       if (Number.isNaN(cur)) return "—";
       return cur >= 2 ? "Yes — re-treatment indicated" : "No";
     }

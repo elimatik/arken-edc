@@ -146,7 +146,7 @@ export async function hydrateFromSupabase(): Promise<Dataset> {
     ff(F025, "f025-weight", "body_weight_retreatment", "Body weight at re-treatment", "number", null, "kg", true, 3, null),
     ff(F025, "f025-test_article", "test_article", "Test article", "select", ["T01", "T02", "T03"], null, false, 4, { autoFromArm: true, hint: "Auto-populated from the randomization assignment.", section: "Re-treatment" }),
     ff(F025, "f025-calculated_dose", "calculated_dose", "Calculated dose", "calculated", null, "mL", false, 5, { readonlyAuto: true, section: "Re-treatment" }),
-    ff(F025, "f025-lot", "lot_number", "Lot number", "calculated", null, null, false, 6, { readonlyAuto: true, hint: "Auto-assigned — may differ from Day 0 if the original lot is depleted.", section: "Re-treatment" }),
+    ff(F025, "f025-lot", "lot_number", "Lot number", "select", null, null, false, 6, { hint: "Select from the lots available for this animal's arm.", section: "Re-treatment" }),
     ff(F025, "f025-route", "route", "Route", "calculated", null, null, false, 7, { readonlyAuto: true, section: "Re-treatment" }),
     ff(F025, "f025-administered_by", "administered_by", "Administered by", "text", null, null, true, 8, { section: "Re-treatment" }),
     ff(F025, "f025-reason", "retreatment_reason", "Reason for re-treatment", "select", ["DART ≥ 2 at Day 3", "DART ≥ 2 at Day 7", "Other"], null, true, 9, null),
