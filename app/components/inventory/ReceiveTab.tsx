@@ -232,8 +232,8 @@ export function ReceiveTab({ cfg, studyId, shipments, vials, role, update, intak
                       <td className="inv-mono" style={{ color: "var(--green-600)" }}>{s.usableCount}</td>
                       <td className="inv-mono" style={{ color: quarantined > 0 ? "var(--amber-700)" : "var(--color-text-tertiary)" }}>{quarantined}</td>
                       <td>{s.confirmed
-                        ? <span className="inv-badge inv-badge-available"><i className="ti ti-circle-check"></i> Confirmed</span>
-                        : <span className="inv-badge inv-badge-pending"><i className="ti ti-clock"></i> Pending review</span>}</td>
+                        ? <span className="inv-badge inv-badge-available">Confirmed</span>
+                        : <span className="inv-badge inv-badge-pending">Pending review</span>}</td>
                       <td onClick={(e) => e.stopPropagation()}>
                         <div style={{ display: "flex", justifyContent: "flex-end", gap: 4 }}>
                           {s.confirmed
