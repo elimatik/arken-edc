@@ -150,8 +150,11 @@ export async function hydrateFromSupabase(): Promise<Dataset> {
     ff(F025, "f025-reason", "retreatment_reason", "Reason for re-treatment", "select", ["DART ≥ 2 at Day 3", "DART ≥ 2 at Day 7", "Other"], null, true, 9, null),
     ff(F025, "f025-notes", "notes", "Notes", "textarea", null, null, false, 10, null),
   ];
+  // Fields dropped outright (arm assignment belongs only on the Randomization form):
+  // BR Screening "Randomized arm" + PH Pen Demographics "Treatment arm".
+  const DROP_FIELD_IDS = new Set(["6200000C-0000-0000-0000-000000002502", "6200000E-0000-0000-0000-000000002401"]);
   const reshapedFormFields: FF[] = [
-    ...(formFields as FF[]).filter((f) => f.form_id !== F005 && f.form_id !== F025),
+    ...(formFields as FF[]).filter((f) => f.form_id !== F005 && f.form_id !== F025 && !DROP_FIELD_IDS.has(f.id)),
     ...F005_FIELDS, ...F025_FIELDS,
   ];
 

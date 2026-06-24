@@ -86,7 +86,7 @@ export function RandomizationPanel({ dataset, update, subject, studyId, studyCod
       {/* ── Result block ── */}
       {result && (
         <div className="rand-result">
-          <div className="rand-result-head"><i className="ti ti-circle-check"></i> {penMode ? "Treatment assigned" : "Randomized"}{result.date !== "—" && !penMode ? ` — ${result.date}` : ""}</div>
+          <div className="rand-result-head"><i className="ti ti-circle-check"></i> {penMode || studyCode === "PH-2401" ? "Treatment assigned" : "Randomized"}</div>
           <dl className="rand-result-grid">
             {!penMode && <><dt>Randomization number</dt><dd className="mono">{result.number}</dd></>}
             {studyCode === "CA-0801" && <><dt>Kit assigned</dt><dd className="mono">{result.kit}</dd></>}
@@ -95,6 +95,7 @@ export function RandomizationPanel({ dataset, update, subject, studyId, studyCod
               <dt>Drug</dt><dd>{result.drug}</dd>
               <dt>Calculated dose</dt><dd>{result.dose ?? <span className="rand-warn">Weight required — complete Vital Signs Day 0 first</span>}{result.dose && result.weightKg ? <span className="rand-sub"> (based on {result.weightKg} kg body weight)</span> : null}</dd>
               <dt>Lot assigned</dt><dd className="mono">{result.lot}</dd>
+              <dt>Block</dt><dd>{result.block}</dd>
             </>}
             {studyCode === "PH-2401" && <>
               <dt>Arm</dt><dd>{result.group}</dd>

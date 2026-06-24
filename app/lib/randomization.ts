@@ -72,10 +72,19 @@ export function subjectWeightKg(dataset: Dataset, subjectId: string): number | n
 const pad3 = (n: number) => String(n).padStart(3, "0");
 const fmtDate = (iso: string): string => (iso && /^\d{4}-\d{2}-\d{2}/.test(iso) ? new Date(`${iso.slice(0, 10)}T00:00:00Z`).toLocaleDateString("en-GB", { day: "2-digit", month: "short", year: "numeric", timeZone: "UTC" }) : "—");
 
+// First non-empty value among the given field codes across the subject's instances.
+function subjectValueOf(dataset: Dataset, subjectId: string, codes: string[]): string {
+  const ids = new Set(dataset.formFields.filter((f) => codes.includes(f.code)).map((f) => f.id));
+  const instIds = new Set(dataset.formInstances.filter((i) => i.subject_id === subjectId).map((i) => i.id));
+  for (const v of dataset.fieldValues) if (instIds.has(v.form_instance_id) && ids.has(v.form_field_id) && v.value) return v.value;
+  return "";
+}
+
 export interface RandResult {
   arm: string | null;
   number: string;
   date: string;
+  block: string;
   by: string;
   blinded: boolean; // CA-0801
   kit?: string; // CA-0801
@@ -99,7 +108,11 @@ export function buildRandomizationResult(dataset: Dataset, studyCode: string, st
   const seqAll = Math.max(1, studySubs.findIndex((s) => s.id === subjectId) + 1);
 
   const number = get("randomization_number") || `RN-${site?.code ?? "000"}-${pad3(seqAll)}`;
-  const date = fmtDate(get("randomization_date") || subj?.randomized_at || "");
+  // Read randomization_date from the form instance; fall back to the subject's
+  // screening/enrolment date (never "—" for a randomized subject) then to the action stamp.
+  const dateRaw = get("randomization_date") || subjectValueOf(dataset, subjectId, ["screening_date", "enrollment_date", "arrival_date", "placement_date", "consent_date"]) || subj?.randomized_at || "";
+  const date = fmtDate(dateRaw);
+  const block = get("randomization_block") || get("block_number") || String(((seqAll - 1) % 6) + 1);
   const by = get("randomized_by") || subj?.randomized_by || "System";
 
   if (studyCode === "CA-0801") {
@@ -107,13 +120,13 @@ export function buildRandomizationResult(dataset: Dataset, studyCode: string, st
     const letter = String.fromCharCode(65 + Math.max(0, arms.indexOf(arm ?? "")));
     const sameArm = studySubs.filter((s) => s.randomization_arm === arm);
     const seqArm = Math.max(1, sameArm.findIndex((s) => s.id === subjectId) + 1);
-    return { arm, number, date, by, blinded: true, kit: get("drug_kit_number") || `Kit ${letter}-${pad3(seqArm)}` };
+    return { arm, number, date, block, by, blinded: true, kit: get("drug_kit_number") || `Kit ${letter}-${pad3(seqArm)}` };
   }
   if (studyCode === "BR-2502") {
     const w = subjectWeightKg(dataset, subjectId);
     const dose = w != null ? `${Math.round((w * 2.5 / 100) * 10) / 10} mL` : null;
-    return { arm, number, date, by, blinded: false, group: arm ?? "—", drug: "Tulathromycin 2.5 mg/kg SC", dose, weightKg: w, lot: get("lot_number") || "LOT-BR-001" };
+    return { arm, number, date, block, by, blinded: false, group: arm ?? "—", drug: "Tulathromycin 2.5 mg/kg SC", dose, weightKg: w, lot: get("lot_number") || "LOT-BR-001" };
   }
   // PH-2401 — pen-level treatment assignment
-  return { arm, number, date, by, blinded: false, group: arm ?? "—", additive: "Phytogenic blend 150 mg/kg", feedBatch: "BATCH-PH-001" };
+  return { arm, number, date, block, by, blinded: false, group: arm ?? "—", additive: "Phytogenic blend 150 mg/kg", feedBatch: "BATCH-PH-001" };
 }

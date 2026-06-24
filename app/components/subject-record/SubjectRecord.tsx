@@ -510,10 +510,12 @@ export function SubjectRecord({ studyId, subjectId, initialFormId, initialPanelF
   // portal, so the Subject Record shows an info note and disabled fields.
   const activeForm = dataset.forms.find((f) => f.id === activeFormId);
   const isEproForm = (activeForm?.name ?? "").startsWith("ePRO");
-  // Randomization action lives at the top of the Randomization form (CA/BR); for
-  // PH-2401 it's a read-only assignment block on the Pen Demographics form.
+  // Randomization action / result is the ONLY content of the Randomization form
+  // (CA/BR/PH each have one); the field grid is suppressed there. PH is pen-level
+  // (read-only assignment block, no button).
   const isRandForm = /randomi[sz]ation/i.test(activeForm?.name ?? "");
-  const isPenSetupForm = studyRow?.code === "PH-2401" && /pen demographics/i.test(activeForm?.name ?? "");
+  // BR screening prompt: DART ≥ 2 on the BRD Case Definition form before randomization.
+  const isScreeningForm = studyRow?.code === "BR-2502" && /BRD Case|Screening/i.test(activeForm?.name ?? "");
 
   // Completed / withdrawn subjects are closed: every form is read-only, data-entry
   // actions (Submit/Finalize/Lock, new SDV, new change reasons) are hidden, and a
@@ -1732,9 +1734,25 @@ export function SubjectRecord({ studyId, subjectId, initialFormId, initialPanelF
               Eligibility override — PI {subject.override_by ?? "—"} documented a reason for override on {subject.override_at ?? "—"}. This subject was initially flagged as ineligible.
             </div>
           )}
-          {(isRandForm || isPenSetupForm) && studyRow && (
-            <RandomizationPanel dataset={dataset} update={update} subject={subject} studyId={studyId} studyCode={studyRow.code} role={activeRole} ndaName={ndaName} penMode={isPenSetupForm} />
+          {isRandForm && studyRow && (
+            <RandomizationPanel dataset={dataset} update={update} subject={subject} studyId={studyId} studyCode={studyRow.code} role={activeRole} ndaName={ndaName} penMode={studyRow.code === "PH-2401"} />
           )}
+          {isScreeningForm && subject.status === "screening" && !subject.randomization_arm && (() => {
+            const dartF = fields.find((f) => f.code === "dart_score");
+            const dart = dartF ? Number(fvFor(dartF.id)?.value) : NaN;
+            if (Number.isNaN(dart) || dart < 2) return null;
+            const randFormId = dataset.forms.find((f) => f.study_id === studyId && /randomi[sz]ation/i.test(f.name))?.id;
+            return (
+              <div className="rand-screening-banner" role="status">
+                <i className="ti ti-info-circle"></i>
+                <div>
+                  <div className="rand-screening-title">DART score ≥ 2 — subject eligible for randomization.</div>
+                  <div className="rand-screening-sub">Complete the Randomization &amp; Allocation form to proceed.</div>
+                </div>
+                {randFormId && <button type="button" className="rand-screening-link" onClick={() => setSelectedFormId(randFormId)}>Go to Randomization <i className="ti ti-arrow-right"></i></button>}
+              </div>
+            );
+          })()}
           {/* Withdrawal-period food-safety HARD block (BR-2502 EOS / Withdrawal Confirmation). */}
           {withdrawalBlockBanner && (
             <div className="ie-banner withdrawal-block" role="alert">
@@ -1942,7 +1960,7 @@ export function SubjectRecord({ studyId, subjectId, initialFormId, initialPanelF
                 );
               })()}
             </div>
-          ) : (
+          ) : isRandForm ? null : (
           <div className="field-grid-2">
             {fields.map((field, fIdx) => {
               if (!isFieldVisible(field)) return null; // conditional field (validation.showIf) not met
