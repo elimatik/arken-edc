@@ -228,6 +228,20 @@ export async function hydrateFromSupabase(): Promise<Dataset> {
       { id: "fv-rt-reason", form_instance_id: "fi-retreat-co001", form_field_id: "f025-reason", value: "DART ≥ 2 at Day 7" },
     );
   }
+  // Seed Treatment Admin date + administrator on each BR-2502 F005 instance so the
+  // Dispensing log (derived from forms) + the forms show real data (lot/drug/dose
+  // are derived from the arm at read time). Withdrawal then measures from this date.
+  {
+    const fvArr = fieldValues as Dataset["fieldValues"];
+    const STAFF = ["M. Okafor", "L. Brandt", "P. Castellano", "R. Singh"];
+    fInst.filter((i) => i.form_id === F005 && i.subject_id).forEach((inst, idx) => {
+      if (fvArr.some((v) => v.form_instance_id === inst.id && v.form_field_id === "f005-date_administered")) return;
+      fvArr.push(
+        { id: `fv-ta-date-${inst.id}`, form_instance_id: inst.id, form_field_id: "f005-date_administered", value: "2026-05-15" },
+        { id: `fv-ta-by-${inst.id}`, form_instance_id: inst.id, form_field_id: "f005-administered_by", value: STAFF[idx % STAFF.length] },
+      );
+    });
+  }
 
   // ─── Seeded SDV state (session-only) ────────────────────────────────────────
   // No interactive SDV has run on a fresh tab, so seed verified records to a target

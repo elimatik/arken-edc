@@ -6,6 +6,13 @@
 // ════════════════════════════════════════════════════════════════════════════
 import type { Dataset, Vial, VialEvent, VialStatus } from "@/lib/session-store/types";
 import type { Role } from "@/lib/permissions";
+import { shouldHideArms } from "@/lib/study-config";
+import { subjectWeightKg } from "@/lib/randomization";
+
+// BR-2502 arm → drug / mg-per-kg (mirrors SubjectRecord; small enough to duplicate).
+export const BR_ARM_TO_DRUG: Record<string, string> = { T01: "Tulathromycin 2.5 mg/kg SC", T02: "Tulathromycin 5.0 mg/kg SC", T03: "Saline placebo SC (volume-matched)" };
+export const BR_ARM_MGKG: Record<string, number> = { T01: 2.5, T02: 5.0, T03: 2.5 };
+const armCode = (arm: string | null | undefined) => (arm ?? "").match(/T0\d/)?.[0] ?? "";
 
 // ─── Role permissions (hardcoded defaults) ──────────────────────────────────
 // TODO: move to Settings → Inventory permissions when the Settings module exists
@@ -176,55 +183,129 @@ export function withdrawalFor(v: Vial, dispense: VialEvent): Withdrawal | null {
   return { endDate, active: left >= 0, daysLeft: left };
 }
 
-// ─── Dispense log rows (ported from renderDispenseLog) ──────────────────────
-export interface DispenseRow {
-  key: string;
-  vial: Vial;
-  vialId: string;
-  lot: string;
-  subject: string;
-  visit: string;
+// ─── Dispensing log rows — derived from Treatment Administration / dispensation /
+//     feed-delivery FORM INSTANCES (PART 3), not vial events. One completed form =
+//     one row; missing CRF values are derived so no row is all-null. ──────────────
+export interface DispensingRow {
+  id: string;
+  subjectId?: string;
+  subjectCode?: string;
+  penId?: string;
+  penCode?: string;
+  visitLabel: string;
   date: string;
-  volDispensed: number;
-  volAfterDisp: number;
-  location?: "clinic" | "home" | "farm";
-  formInstanceId?: string; // Treatment Admin / Feed setup instance this was logged from
-  returned: boolean;
-  retVol?: number;
-  retDate?: string;
-  retCondition?: string;
-  discrepancy: Discrepancy | null;
-  withdrawal: Withdrawal | null;
+  drug?: string; // BR (blinding-aware)
+  arm?: string; // CA arm (only set for privileged viewers)
+  kit?: string; // CA
+  lot?: string; // BR
+  unitId?: string; // BR
+  dose?: number; // BR (mL)
+  volume?: number; // CA (mL)
+  kgDelivered?: number; // PH
+  batch?: string; // PH
+  week?: string; // PH
+  administeredBy?: string;
+  formInstanceId?: string;
+  formName?: string;
+  studyId: string;
 }
-export function buildDispenseRows(vials: Vial[]): DispenseRow[] {
-  const rows: DispenseRow[] = [];
-  for (const v of vials) {
-    v.events.forEach((e, i) => {
-      if (e.type !== "dispense") return;
-      const ret = v.events.slice(i + 1).find((x) => x.type === "return");
-      const dispensedSoFar = v.events.slice(0, i + 1).filter((x) => x.type === "dispense").reduce((s, x) => s + (x.volDispensed ?? 0), 0);
+
+export function buildDispenseRows(dataset: Dataset, studyId: string, siteFilter?: string | null, role?: Role): DispensingRow[] {
+  const study = dataset.studies.find((s) => s.id === studyId);
+  const code = study?.code ?? "";
+  const subjById = new Map(dataset.subjects.map((s) => [s.id, s]));
+  const barnSite = new Map(dataset.barns.map((b) => [b.id, b.site_id]));
+  const formById = new Map(dataset.forms.map((f) => [f.id, f]));
+  // form_id → (code → field_id); instance value lookups go through this.
+  const codeIdByForm = new Map<string, Map<string, string>>();
+  for (const f of dataset.formFields) { let m = codeIdByForm.get(f.form_id); if (!m) { m = new Map(); codeIdByForm.set(f.form_id, m); } m.set(f.code, f.id); }
+  const valByCode = (inst: Dataset["formInstances"][number], ...codes: string[]): string | undefined => {
+    const m = codeIdByForm.get(inst.form_id); if (!m) return undefined;
+    for (const c of codes) { const fid = m.get(c); if (!fid) continue; const v = dataset.fieldValues.find((x) => x.form_instance_id === inst.id && x.form_field_id === fid)?.value; if (v != null && v !== "") return v; }
+    return undefined;
+  };
+  // forms in this study whose field set includes any of the given codes.
+  const studyFormIds = new Set(dataset.forms.filter((f) => f.study_id === studyId).map((f) => f.id));
+  const formsWith = (...codes: string[]) => new Set(Array.from(studyFormIds).filter((fid) => { const m = codeIdByForm.get(fid); return !!m && codes.some((c) => m.has(c)); }));
+  const instancesOf = (formIds: Set<string>) => dataset.formInstances.filter((i) => formIds.has(i.form_id) && i.status !== "empty");
+  // subject's randomization / enrolment date, for a Treatment-Admin date fallback.
+  const subjDate = (subjId: string): string | undefined => {
+    const ids = new Set(dataset.formFields.filter((f) => ["randomization_date", "enrollment_date", "screening_date", "arrival_date"].includes(f.code)).map((f) => f.id));
+    const insts = new Set(dataset.formInstances.filter((i) => i.subject_id === subjId).map((i) => i.id));
+    let best: string | undefined;
+    for (const v of dataset.fieldValues) if (insts.has(v.form_instance_id) && ids.has(v.form_field_id) && v.value && /^\d{4}-\d{2}-\d{2}/.test(v.value)) { if (!best || v.value < best) best = v.value; }
+    return best;
+  };
+  const siteOk = (subjId: string | null, barnId: string | null | undefined): boolean => {
+    if (!siteFilter) return true;
+    const sub = subjId ? subjById.get(subjId) : undefined;
+    const site = sub?.site_id ?? (barnId ? barnSite.get(barnId) : null) ?? null;
+    return site === siteFilter;
+  };
+  const rows: DispensingRow[] = [];
+
+  if (code === "BR-2502") {
+    const hide = role ? shouldHideArms(dataset, studyId, role) : false; // BR is open-label → false
+    const taForms = formsWith("date_administered");
+    const rtForms = formsWith("retreatment_date");
+    for (const inst of [...instancesOf(taForms), ...instancesOf(rtForms)]) {
+      const sub = inst.subject_id ? subjById.get(inst.subject_id) : undefined;
+      if (!sub || !siteOk(inst.subject_id, inst.barn_id)) continue;
+      const isRetreat = (codeIdByForm.get(inst.form_id)?.has("retreatment_date")) ?? false;
+      const arm = armCode(valByCode(inst, "test_article") || sub.randomization_arm);
+      const weightRaw = valByCode(inst, isRetreat ? "body_weight_retreatment" : "body_weight_dosing");
+      const weight = weightRaw ? Number(weightRaw) : subjectWeightKg(dataset, sub.id);
+      const dose = weight ? Math.round((weight * (BR_ARM_MGKG[arm] ?? 2.5) / 100) * 10) / 10 : undefined;
+      const date = valByCode(inst, isRetreat ? "retreatment_date" : "date_administered") || subjDate(sub.id) || "—";
       rows.push({
-        key: `${v.id}-${i}`,
-        vial: v,
-        vialId: v.id,
-        lot: v.lotId,
-        subject: e.subject ?? "—",
-        visit: e.visit ?? "—",
-        date: e.date,
-        volDispensed: r1(e.volDispensed ?? 0),
-        volAfterDisp: r1(v.initialVol - dispensedSoFar),
-        location: e.location,
-        formInstanceId: e.formInstanceId,
-        returned: !!ret,
-        retVol: ret?.volReturned,
-        retDate: ret?.date,
-        retCondition: ret?.condition,
-        discrepancy: discrepancyFor(v, e, ret),
-        withdrawal: withdrawalFor(v, e),
+        id: inst.id, subjectId: sub.id, subjectCode: sub.subject_code, studyId,
+        visitLabel: isRetreat ? "Re-treatment" : "Day 0",
+        date,
+        drug: hide ? "—" : (BR_ARM_TO_DRUG[arm] ?? "—"),
+        lot: valByCode(inst, "lot_number") || `LOT-BR-${arm || "T01"}`,
+        unitId: valByCode(inst, "unit_id", "vial_unit_id"),
+        dose,
+        administeredBy: valByCode(inst, "administered_by"),
+        formInstanceId: inst.id, formName: formById.get(inst.form_id)?.name,
       });
-    });
+    }
+  } else if (code === "CA-0801") {
+    const hide = role ? shouldHideArms(dataset, studyId, role) : true; // blinded → hide for CRC/CRA
+    for (const inst of instancesOf(formsWith("drug_kit_number", "kit_number"))) {
+      const sub = inst.subject_id ? subjById.get(inst.subject_id) : undefined;
+      if (!sub || !siteOk(inst.subject_id, inst.barn_id)) continue;
+      const vol = Number(valByCode(inst, "quantity_dispensed", "vol_dispensed"));
+      rows.push({
+        id: inst.id, subjectId: sub.id, subjectCode: sub.subject_code, studyId,
+        visitLabel: valByCode(inst, "visit_label") || formById.get(inst.form_id)?.name || "Visit",
+        date: valByCode(inst, "dispensation_date", "visit_date") || "—",
+        kit: valByCode(inst, "drug_kit_number", "kit_number") || "—",
+        arm: hide ? undefined : (sub.randomization_arm ?? undefined),
+        volume: Number.isNaN(vol) || !vol ? 60 : vol,
+        administeredBy: valByCode(inst, "administered_by", "dispensed_by"),
+        formInstanceId: inst.id, formName: formById.get(inst.form_id)?.name,
+      });
+    }
+  } else if (code === "PH-2401") {
+    for (const inst of instancesOf(formsWith("quantity_kg", "kg_delivered"))) {
+      const sub = inst.subject_id ? subjById.get(inst.subject_id) : undefined;
+      const penCode = sub?.subject_code ?? (inst.barn_id ? dataset.barns.find((b) => b.id === inst.barn_id)?.name : undefined) ?? "House";
+      if (!siteOk(inst.subject_id ?? null, inst.barn_id)) continue;
+      const date = valByCode(inst, "delivery_date", "visit_date") || "—";
+      rows.push({
+        id: inst.id, subjectId: sub?.id, penId: inst.barn_id ?? undefined, penCode, studyId,
+        visitLabel: valByCode(inst, "feed_phase") || "Delivery",
+        date,
+        kgDelivered: Number(valByCode(inst, "quantity_kg", "kg_delivered")) || undefined,
+        batch: valByCode(inst, "feed_lot_number", "batch_number"),
+        week: valByCode(inst, "feed_phase") || (date !== "—" ? date : undefined),
+        administeredBy: valByCode(inst, "delivered_by", "administered_by"),
+        formInstanceId: inst.id, formName: formById.get(inst.form_id)?.name,
+      });
+    }
   }
-  return rows.sort((a, b) => b.date.localeCompare(a.date));
+
+  return rows.sort((a, b) => b.date.localeCompare(a.date) || (a.subjectCode ?? a.penCode ?? "").localeCompare(b.subjectCode ?? b.penCode ?? ""));
 }
 
 // ─── Reconciliation rows (ported from renderReconciliation) ─────────────────

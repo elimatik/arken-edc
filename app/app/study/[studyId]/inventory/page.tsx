@@ -43,34 +43,20 @@ export default function InventoryPage() {
   const cfg = useMemo(() => invConfig(study.code), [study.code]);
   const hideArms = shouldHideArms(dataset, studyId, activeRole);
 
-  // Resolve a dispense's linked form instance → name + Subject-Record deep-link
-  // (for the Dispense log FORM column). Null when no instance is linked.
-  const formInfo = useMemo(() => {
-    const formById = new Map(dataset.forms.map((f) => [f.id, f]));
-    const instById = new Map(dataset.formInstances.map((i) => [i.id, i]));
-    const subjIdByCode = new Map(dataset.subjects.filter((s) => s.study_id === studyId).map((s) => [s.subject_code, s.id]));
-    return (formInstanceId: string | undefined, subjectCode: string) => {
-      if (!formInstanceId) return null;
-      const inst = instById.get(formInstanceId);
-      const form = inst ? formById.get(inst.form_id) : undefined;
-      const subjId = subjIdByCode.get(subjectCode) ?? inst?.subject_id ?? null;
-      if (!form || !subjId) return null;
-      return { name: form.name, href: `/study/${studyId}/data-entry/${subjId}?form=${formInstanceId}` };
-    };
-  }, [dataset.forms, dataset.formInstances, dataset.subjects, studyId]);
-
   // CRC is auto-scoped to their site (no selector); others use the module selector.
   const effectiveSite = activeRole === "CRC" ? (sites[0]?.id ?? null) : moduleSite;
   const allVials = useMemo(() => studyVials(dataset, studyId), [dataset, studyId]);
   const vials = useMemo(() => vialsForSite(allVials, effectiveSite), [allVials, effectiveSite]);
   const shipments = useMemo(() => studyShipments(dataset, studyId), [dataset, studyId]);
+  // Dispensing log derives from FORM instances (PART 3), not vial events.
+  const dispenseRows = useMemo(() => buildDispenseRows(dataset, studyId, effectiveSite, activeRole), [dataset, studyId, effectiveSite, activeRole]);
 
   const counts = useMemo(() => ({
     receive: shipments.length,
     inventory: vials.length,
-    dispense: buildDispenseRows(vials).length,
+    dispense: dispenseRows.length,
     recon: buildReconRows(vials).length,
-  }), [vials, shipments]);
+  }), [vials, shipments, dispenseRows]);
 
   const detailVial = detailVialId ? allVials.find((v) => v.id === detailVialId) ?? null : null;
   const editVial = editVialId ? allVials.find((v) => v.id === editVialId) ?? null : null;
@@ -121,7 +107,7 @@ export default function InventoryPage() {
 
       {tab === "receive" && <ReceiveTab cfg={cfg} studyId={studyId} shipments={shipments} vials={allVials} role={activeRole} update={update} intakeOpen={intakeOpen} setIntakeOpen={setIntakeOpen} />}
       {tab === "inventory" && <InventoryTab cfg={cfg} hideArms={hideArms} vials={vials} openDetail={setDetailVialId} onEdit={setEditVialId} />}
-      {tab === "dispense" && <DispenseTab cfg={cfg} vials={vials} formInfo={formInfo} />}
+      {tab === "dispense" && <DispenseTab studyId={studyId} studyCode={study.code} cfg={cfg} rows={dispenseRows} siteActive={!!effectiveSite} />}
       {tab === "recon" && <ReconciliationTab cfg={cfg} vials={vials} role={activeRole} />}
 
       {detailVial && <VialDetail cfg={cfg} hideArms={hideArms} vial={detailVial} onClose={() => setDetailVialId(null)} />}
