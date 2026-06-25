@@ -66,8 +66,8 @@ export default function InventoryPage() {
 
   const TABS: { key: Tab; label: string; icon: string; count: number }[] = [
     { key: "receive", label: "Shipments", icon: "truck-delivery", count: counts.receive },
-    { key: "inventory", label: cfg.feed ? "Batches" : "Inventory", icon: "flask", count: counts.inventory },
-    { key: "dispense", label: cfg.feed ? "Delivery log" : "Dispensing log", icon: "droplet", count: counts.dispense },
+    { key: "inventory", label: "Inventory", icon: "flask", count: counts.inventory },
+    { key: "dispense", label: "Dispensing log", icon: "droplet", count: counts.dispense },
     { key: "recon", label: "Reconciliation", icon: "clipboard-check", count: counts.recon },
   ];
 
@@ -108,7 +108,7 @@ export default function InventoryPage() {
       {tab === "receive" && <ReceiveTab cfg={cfg} studyId={studyId} shipments={shipments} vials={allVials} role={activeRole} update={update} intakeOpen={intakeOpen} setIntakeOpen={setIntakeOpen} />}
       {tab === "inventory" && <InventoryTab cfg={cfg} hideArms={hideArms} vials={vials} openDetail={setDetailVialId} onEdit={setEditVialId} />}
       {tab === "dispense" && <DispenseTab studyId={studyId} studyCode={study.code} cfg={cfg} rows={dispenseRows} siteActive={!!effectiveSite} />}
-      {tab === "recon" && <ReconciliationTab cfg={cfg} vials={vials} role={activeRole} />}
+      {tab === "recon" && <ReconciliationTab cfg={cfg} studyCode={study.code} vials={vials} role={activeRole} />}
 
       {detailVial && <VialDetail cfg={cfg} hideArms={hideArms} vial={detailVial} onClose={() => setDetailVialId(null)} />}
       {editVial && <VialEditPanel cfg={cfg} hideArms={hideArms} vial={editVial} role={activeRole} onClose={() => setEditVialId(null)} update={update} />}

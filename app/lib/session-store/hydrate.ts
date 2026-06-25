@@ -224,21 +224,33 @@ export async function hydrateFromSupabase(): Promise<Dataset> {
       { id: "fv-rt-date", form_instance_id: "fi-retreat-co001", form_field_id: "f025-retreatment_date", value: "2026-05-20" },
       { id: "fv-rt-dart", form_instance_id: "fi-retreat-co001", form_field_id: "f025-dart", value: "2" },
       { id: "fv-rt-weight", form_instance_id: "fi-retreat-co001", form_field_id: "f025-weight", value: "192" },
+      { id: "fv-rt-unit", form_instance_id: "fi-retreat-co001", form_field_id: "f025-unit_id", value: "T01-4410" }, // fresh T01 unit for the re-treatment
       { id: "fv-rt-by", form_instance_id: "fi-retreat-co001", form_field_id: "f025-administered_by", value: "M. Okafor" },
       { id: "fv-rt-reason", form_instance_id: "fi-retreat-co001", form_field_id: "f025-reason", value: "DART ≥ 2 at Day 7" },
     );
   }
-  // Seed Treatment Admin date + administrator on each BR-2502 F005 instance so the
-  // Dispensing log (derived from forms) + the forms show real data (lot/drug/dose
-  // are derived from the arm at read time). Withdrawal then measures from this date.
+  // Seed Treatment Admin date + administrator + physical unit/vial ID on each
+  // BR-2502 F005 instance so the Dispensing log (derived from forms) + the forms
+  // show real data (lot/drug/dose are derived from the arm at read time). Each
+  // animal gets its OWN vial from its arm's pool (no reuse) — ids are arm-prefixed
+  // (e.g. T01-4400) so they tie back to the inventory lot for that arm. Withdrawal
+  // then measures from the administration date.
   {
     const fvArr = fieldValues as Dataset["fieldValues"];
     const STAFF = ["M. Okafor", "L. Brandt", "P. Castellano", "R. Singh"];
+    const brSubjById = new Map((subjects.data ?? []).map((s) => [s.id, s]));
+    const armOf = (id: string | null | undefined) =>
+      ((id ? brSubjById.get(id)?.randomization_arm : "") ?? "").match(/T0\d/)?.[0] ?? "T01";
+    const armSeq: Record<string, number> = {}; // per-arm running count → unique vial id
     fInst.filter((i) => i.form_id === F005 && i.subject_id).forEach((inst, idx) => {
       if (fvArr.some((v) => v.form_instance_id === inst.id && v.form_field_id === "f005-date_administered")) return;
+      const arm = armOf(inst.subject_id);
+      const n = (armSeq[arm] = (armSeq[arm] ?? 0) + 1);
+      const unitId = `${arm}-${4400 + (n - 1)}`; // T01-4400, T01-4401, T02-4400, …
       fvArr.push(
         { id: `fv-ta-date-${inst.id}`, form_instance_id: inst.id, form_field_id: "f005-date_administered", value: "2026-05-15" },
         { id: `fv-ta-by-${inst.id}`, form_instance_id: inst.id, form_field_id: "f005-administered_by", value: STAFF[idx % STAFF.length] },
+        { id: `fv-ta-unit-${inst.id}`, form_instance_id: inst.id, form_field_id: "f005-unit_id", value: unitId },
       );
     });
   }

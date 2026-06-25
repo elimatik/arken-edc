@@ -51,7 +51,7 @@ export function invConfig(studyCode: string): InvConfig {
   if (studyCode === "PH-2401")
     return { itemNoun: "batch", itemNounCap: "Batch", idLabel: "Batch ID", unit: "kg", tracksReturns: false, feed: true, blinded: false, accountability: false, withdrawal: false, drugLabel: "Feed additive · Batch / kg tracking · Linked to F3 Feed & Ration Setup" };
   if (studyCode === "CA-0801")
-    return { itemNoun: "vial", itemNounCap: "Vial", idLabel: "Vial ID", unit: "ml", tracksReturns: true, feed: false, blinded: true, accountability: true, withdrawal: false, drugLabel: "Topical / oral · Kit-level + volume accountability · Blinded" };
+    return { itemNoun: "kit", itemNounCap: "Kit", idLabel: "Kit ID", unit: "ml", tracksReturns: true, feed: false, blinded: true, accountability: true, withdrawal: false, drugLabel: "Topical / oral · Kit-level + volume accountability · Blinded" };
   // BR-2502 default
   return { itemNoun: "vial", itemNounCap: "Vial", idLabel: "Vial ID", unit: "ml", tracksReturns: true, feed: false, blinded: false, accountability: false, withdrawal: true, drugLabel: "Injectable antimicrobial · Vial-level tracking · Withdrawal-linked" };
 }
@@ -121,7 +121,11 @@ export function expiryColor(expiry: string, days = 30): string {
 // `hideArms` = shouldHideArms(dataset, studyId, role). Blinded roles see the kit
 // number as the item ID and never the treatment group / drug name.
 export function vialDisplayId(v: Vial, hideArms: boolean): string {
-  return hideArms && v.kitNumber ? v.kitNumber : v.id;
+  // CA-0801 units ARE kits — the kit number is the unit's identity for every role
+  // (it's already arm-free, so no blinding concern); the internal VL-CA-* id is never
+  // surfaced. BR/PH vials have no kit number, so they show their vial / batch id.
+  void hideArms;
+  return v.kitNumber ?? v.id;
 }
 
 // ─── Study-scoped selectors ─────────────────────────────────────────────────

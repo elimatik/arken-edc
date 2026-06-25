@@ -10,9 +10,21 @@ interface ReconState { status: Confirm; notes: string }
 
 // Tab 5 — reconciliation (ported from renderReconciliation). Confirm state is held
 // in the view (UI-level coordinator overlay, not written back to the store).
-export function ReconciliationTab({ cfg, vials, role }: { cfg: InvConfig; vials: Vial[]; role: Role }) {
+export function ReconciliationTab({ cfg, studyCode, vials, role }: { cfg: InvConfig; studyCode: string; vials: Vial[]; role: Role }) {
   const canReconcile = canInv("reconcile", role);
   const rows = useMemo(() => buildReconRows(vials), [vials]);
+  // Arm-name blinding on the Treatment-group column. CA-0801 stores already-neutral
+  // "Treatment A/B" labels (DM/Admin would see real arm names only for unblinded
+  // subjects — none are, so the neutral labels stand). BR-2502 is open-label per
+  // protocol but the entry roles (CRC/CRA) still see operational placeholders here,
+  // matching the Dispensing-log drug mask; DM/Admin see the real T01/T02/T03 codes.
+  const blindArms = studyCode === "CA-0801"
+    ? (role === "CRC" || role === "CRA" || role === "Sponsor")
+    : studyCode === "BR-2502"
+      ? (role === "CRC" || role === "CRA")
+      : false;
+  const BR_BLIND: Record<string, string> = { T01: "Treatment A", T02: "Treatment B", T03: "Treatment C" };
+  const groupLabel = (g: string) => (blindArms && studyCode === "BR-2502" ? (BR_BLIND[g] ?? g) : g);
   // PH-2401 feed: estimated consumed kg per group (delivered − weighback; no weighback
   // tracked yet, so estimate = total delivered) replaces the "Returned" column.
   const consumedKg = useMemo(() => {
@@ -52,7 +64,7 @@ export function ReconciliationTab({ cfg, vials, role }: { cfg: InvConfig; vials:
               const badge = r.balanced ? "inv-badge-available" : r.variance > 0 ? "inv-badge-amber" : "inv-badge-unusable";
               return (
                 <tr key={r.group}>
-                  <td style={{ fontWeight: "var(--weight-medium)" }}>{r.group}</td>
+                  <td style={{ fontWeight: "var(--weight-medium)" }}>{groupLabel(r.group)}</td>
                   <td className="inv-mono">{r.received}</td>
                   <td className="inv-mono">{r.usable}</td>
                   <td className="inv-mono" style={{ color: r.removed > 0 ? "var(--amber-700)" : "var(--color-text-secondary)" }}>{r.removed}</td>

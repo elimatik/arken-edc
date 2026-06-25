@@ -69,7 +69,7 @@ export function DispenseTab({ studyId, studyCode, cfg, rows, siteActive }: {
     ? [{ label: "Subject", key: "subject" }, { label: "Visit", key: "visit" }, { label: "Date", key: "date" }, { label: "Kit", key: "kit" }, { label: "Volume (mL)", key: "volume" }, { label: "Administered by" }, { label: "Form" }]
     : studyCode === "PH-2401"
       ? [{ label: "Pen", key: "pen" }, { label: "Week", key: "week" }, { label: "Date", key: "date" }, { label: "Batch" }, { label: "Delivered (kg)", key: "delivered" }, { label: "Administered by" }, { label: "Form" }]
-      : [{ label: "Subject", key: "subject" }, { label: "Visit", key: "visit" }, { label: "Date", key: "date" }, { label: "Drug", key: "drug" }, { label: "Lot", key: "lot" }, { label: "Unit ID" }, { label: "Dose (mL)", key: "dose" }, { label: "Administered by" }, { label: "Form" }];
+      : [{ label: "Subject", key: "subject" }, { label: "Visit", key: "visit" }, { label: "Date", key: "date" }, { label: "Drug", key: "drug" }, { label: "Lot", key: "lot" }, { label: "Vial ID" }, { label: "Dose (mL)", key: "dose" }, { label: "Administered by" }, { label: "Form" }];
 
   return (
     <>
