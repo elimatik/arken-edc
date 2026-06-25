@@ -123,9 +123,15 @@ export function buildRandomizationResult(dataset: Dataset, studyCode: string, st
     return { arm, number, date, block, by, blinded: true, kit: get("drug_kit_number") || `Kit ${letter}-${pad3(seqArm)}` };
   }
   if (studyCode === "BR-2502") {
+    const armCode = (arm ?? "").match(/T0\d/)?.[0] ?? "T01";
+    const mgkg = armCode === "T02" ? 5.0 : 2.5;
+    const drug = ({ T01: "Tulathromycin 2.5 mg/kg SC", T02: "Tulathromycin 5.0 mg/kg SC", T03: "Saline placebo SC (volume-matched)" } as Record<string, string>)[armCode] ?? "Tulathromycin 2.5 mg/kg SC";
     const w = subjectWeightKg(dataset, subjectId);
-    const dose = w != null ? `${Math.round((w * 2.5 / 100) * 10) / 10} mL` : null;
-    return { arm, number, date, block, by, blinded: false, group: arm ?? "—", drug: "Tulathromycin 2.5 mg/kg SC", dose, weightKg: w, lot: get("lot_number") || "LOT-BR-001" };
+    const ml = w != null ? Math.round((w * mgkg / 100) * 10) / 10 : null;
+    const dose = ml == null ? null : armCode === "T03"
+      ? `${ml} mL (volume-matched to T01 — saline placebo)`
+      : `${ml} mL (${mgkg} mg/kg × ${w} kg ÷ 100 mg/mL)`;
+    return { arm, number, date, block, by, blinded: false, group: arm ?? "—", drug, dose, weightKg: w, lot: get("lot_number") || `LOT-BR-${armCode}` };
   }
   // PH-2401 — pen-level treatment assignment
   return { arm, number, date, block, by, blinded: false, group: arm ?? "—", additive: "Phytogenic blend 150 mg/kg", feedBatch: "BATCH-PH-001" };

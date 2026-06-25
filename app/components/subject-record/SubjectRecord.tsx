@@ -58,10 +58,16 @@ const REPEATING_COLUMNS: Record<string, [string, string][]> = {
   "Sample Collection": [["collection_date", "Date"], ["sample_type", "Type"], ["sample_ids", "Sample IDs"], ["sent_to_lab", "Sent"]],
   "Concomitant Medication Log": [["start_date", "Start"], ["medication", "Medication"], ["dose_route", "Dose / route"], ["indication", "Indication"]],
 };
-// BR-2502 arm → test article (read-only auto) + inventory treatment group (lot filter).
-const BR_ARM_TO_DRUG: Record<string, string> = { T01: "Tulathromycin 2.5 mg/kg SC", T02: "Saline placebo SC", T03: "Tulathromycin 5 mg/kg SC" };
-const BR_ARM_TO_GROUP: Record<string, string> = { T01: "Treatment A", T02: "Control", T03: "Treatment B" };
+// BR-2502 arm → test article (read-only auto) + dose mg/kg. Inventory vials now carry
+// the arm code as treatmentGroup, so the lot/unit filters compare to the arm directly.
+const BR_ARM_TO_DRUG: Record<string, string> = { T01: "Tulathromycin 2.5 mg/kg SC", T02: "Tulathromycin 5.0 mg/kg SC", T03: "Saline placebo SC (volume-matched)" };
+const BR_ARM_MGKG: Record<string, number> = { T01: 2.5, T02: 5.0, T03: 2.5 };
 const brArmCode = (arm: string | null | undefined) => (arm ?? "").match(/T0\d/)?.[0] ?? "";
+// Arm-aware dose label (weight kg → mL at 100 mg/mL).
+function brDoseDisplay(arm: string, weight: number): string {
+  const ml = Math.round((weight * (BR_ARM_MGKG[arm] ?? 2.5) / 100) * 10) / 10;
+  return arm === "T03" ? `${ml} mL (volume-matched to T01 — saline placebo)` : `${ml} mL (${BR_ARM_MGKG[arm] ?? 2.5} mg/kg × ${weight} kg ÷ 100 mg/mL)`;
+}
 // Custom "Add" button label per repeating form (defaults to "Add <name>").
 const REPEATING_ADD_LABEL: Record<string, string> = {
   "Mortality & Cull Record": "Record mortality",
@@ -684,7 +690,7 @@ export function SubjectRecord({ studyId, subjectId, initialFormId, initialPanelF
     // Re-treatment Log — Lot number: dropdown of real available lots, filtered to the
     // arm's treatment group (items 1 & 2).
     if (field.code === "lot_number") {
-      const group = BR_ARM_TO_GROUP[brArmCode(subject?.randomization_arm)];
+      const group = brArmCode(subject?.randomization_arm); // treatmentGroup IS the arm code
       const lots = new Map<string, { lot: string; drug: string; count: number }>();
       for (const vl of dataset.vials) {
         if (vl.studyId !== studyId || (vl.status !== "available" && vl.status !== "athome")) continue;
@@ -710,7 +716,8 @@ export function SubjectRecord({ studyId, subjectId, initialFormId, initialPanelF
       if (!units.length) return brUnitWarn(lot);
       const wf = fields.find((f) => f.code === "body_weight_retreatment");
       const w = wf ? Number(entryVal(instId, wf.id)) : NaN;
-      const dose = !Number.isNaN(w) && w ? Math.round((w * 2.5 / 100) * 10) / 10 : 0;
+      const mgkg = BR_ARM_MGKG[brArmCode(subject?.randomization_arm)] ?? 2.5;
+      const dose = !Number.isNaN(w) && w ? Math.round((w * mgkg / 100) * 10) / 10 : 0;
       return (
         <select className="field-select" value={v} disabled={readOnly} onChange={(e) => { setEntryVal(instId, field, e.target.value); if (e.target.value) dispenseUnitToSubject(e.target.value, "Re-treatment", instId, dose); }}>
           <option value="">Select unit…</option>
@@ -725,7 +732,7 @@ export function SubjectRecord({ studyId, subjectId, initialFormId, initialPanelF
       if (field.code === "calculated_dose") {
         const wf = fields.find((f) => ["body_weight_retreatment", "body_weight_dosing", "weight"].includes(f.code));
         const w = wf ? Number(entryVal(instId, wf.id)) : NaN;
-        display = !w || Number.isNaN(w) ? "Enter body weight to calculate" : `${Math.round((w * 2.5 / 100) * 10) / 10} mL (2.5 mg/kg × ${w} kg ÷ 100 mg/mL)`;
+        display = !w || Number.isNaN(w) ? "Enter body weight to calculate" : brDoseDisplay(brArmCode(subject?.randomization_arm), w);
       } else if (field.code === "route") {
         display = "SC injection";
       }
@@ -806,10 +813,9 @@ export function SubjectRecord({ studyId, subjectId, initialFormId, initialPanelF
       const wf = fields.find((f) => ["body_weight_dosing", "body_weight_retreatment", "weight"].includes(f.code));
       const w = wf ? Number(fvFor(wf.id)?.value) : NaN;
       if (!w || Number.isNaN(w)) return "Enter body weight to calculate";
-      const ml = Math.round((w * 2.5 / 100) * 10) / 10;
-      return `${ml} mL (2.5 mg/kg × ${w} kg ÷ 100 mg/mL)`;
+      return brDoseDisplay(brArmCode(subject?.randomization_arm), w);
     }
-    if (field.code === "lot_number") return /re-treatment|rescue/i.test(selectedForm?.name ?? "") ? "LOT-BR-002" : "LOT-BR-001";
+    if (field.code === "lot_number") return `LOT-BR-${brArmCode(subject?.randomization_arm) || "T01"}`;
     if (field.code === "route" && studyRow?.code === "BR-2502") return "SC injection";
     // BR-2502 Screening — eligibility temperature criterion derived from the temp field.
     if (field.code === "meets_temp_criterion") {
@@ -1397,13 +1403,13 @@ export function SubjectRecord({ studyId, subjectId, initialFormId, initialPanelF
     // Unit / Vial ID (BR-2502 Treatment Admin) — units from the auto-assigned lot,
     // filtered to the animal's arm; selecting one dispenses it to inventory.
     if (field.code === "unit_id" && studyRow?.code === "BR-2502") {
-      const lot = "LOT-BR-001"; // F005 auto-assigned lot (Treatment Admin primary)
-      const armGroup = BR_ARM_TO_GROUP[brArmCode(subject?.randomization_arm)];
-      const units = brAvailableUnits(lot, armGroup);
+      const arm = brArmCode(subject?.randomization_arm) || "T01";
+      const lot = `LOT-BR-${arm}`; // F005 auto-assigned lot = the arm's lot
+      const units = brAvailableUnits(lot, arm);
       if (!units.length) return brUnitWarn(lot);
       const wf = fields.find((f) => f.code === "body_weight_dosing");
       const w = wf ? Number(fvFor(wf.id)?.value) : NaN;
-      const dose = !Number.isNaN(w) && w ? Math.round((w * 2.5 / 100) * 10) / 10 : 0;
+      const dose = !Number.isNaN(w) && w ? Math.round((w * (BR_ARM_MGKG[arm] ?? 2.5) / 100) * 10) / 10 : 0;
       return (
         <select className={`field-select${stateCls}`} value={value} disabled={ro} onChange={(e) => { commit(e.target.value); if (e.target.value && instance) dispenseUnitToSubject(e.target.value, "Day 0", instance.id, dose); }}>
           <option value="">Select unit…</option>

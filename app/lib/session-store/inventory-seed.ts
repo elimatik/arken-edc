@@ -37,64 +37,34 @@ export function buildInventorySeed(
     if (sid) {
       const st = sitesOf("BR-2502");
       const subs = subjectsOf("BR-2502");
-      const site = (i: number) => st[i % Math.max(1, st.length)]?.id ?? null;
-      const sc = (i: number) => subs[i % Math.max(1, subs.length)]?.subject_code ?? `BR-${i + 1}`;
-      const WD = 28; // withdrawal period (days)
-      const base = {
-        studyId: sid, drugName: "BRDVAX-01 (tulathromycin)", concentration: 5, unit: "ml",
-        withdrawalDays: WD,
+      const siteByCode = (code: string) => st.find((s) => s.code === code)?.id ?? st[0]?.id ?? null;
+      const TX = siteByCode("TX"), KS = siteByCode("KS"), CO = siteByCode("CO");
+      const subsOfArm = (arm: string) => subs.filter((s) => s.randomization_arm === arm).map((s) => s.subject_code);
+      // treatmentGroup IS the arm code now (T01/T02/T03) — no bridge map. One lot per
+      // arm; Tulathromycin for T01/T02 (different mg/kg), saline placebo for T03.
+      const ARM: Record<string, { drug: string; vol: number }> = {
+        T01: { drug: "Tulathromycin 100 mg/mL", vol: 7.0 }, // 2.5 mg/kg
+        T02: { drug: "Tulathromycin 100 mg/mL", vol: 14.0 }, // 5.0 mg/kg
+        T03: { drug: "Saline 0.9% NaCl", vol: 7.0 }, // volume-matched to T01
       };
-      const mk = (v: Partial<Vial> & { id: string; lotId: string; treatmentGroup: string; status: Vial["status"]; siteId: string | null; initialVol: number; expiryDate: string; receivedDate: string; events: VialEvent[] }): Vial =>
-        ({ ...base, kitNumber: undefined, expectedDailyDose: undefined, ...v });
-
-      // LOT-BR-001 (5 vials, received 2026-05-08)
-      vials.push(mk({ id: "VL-BR-001", lotId: "LOT-BR-001", treatmentGroup: "Treatment A", status: "depleted", siteId: site(0), initialVol: 10, expiryDate: "2027-04-30", receivedDate: "2026-05-08", events: [
-        { type: "received", date: "2026-05-08", note: "Shipment SHP-BR-001 received intact" },
-        { type: "dispense", date: "2026-05-01", subject: sc(0), visit: "Day 0", volDispensed: 3.5, route: "SC injection", location: "farm", by: "M. Okafor" },
-        { type: "return", date: "2026-05-01", volReturned: 6.5, condition: "Good — multidose vial" },
-        { type: "dispense", date: "2026-05-01", subject: sc(1), visit: "Day 0", volDispensed: 3.4, route: "SC injection", location: "farm", by: "M. Okafor" },
-        { type: "return", date: "2026-05-01", volReturned: 3.1, condition: "Good — multidose vial" },
-        { type: "dispense", date: "2026-05-01", subject: sc(2), visit: "Day 0", volDispensed: 3.1, route: "SC injection", location: "farm", by: "M. Okafor" },
-        { type: "return", date: "2026-05-01", volReturned: 0, condition: "Good — vial emptied" },
-      ] }));
-      vials.push(mk({ id: "VL-BR-002", lotId: "LOT-BR-001", treatmentGroup: "Treatment A", status: "available", siteId: site(1), initialVol: 10, expiryDate: "2027-04-30", receivedDate: "2026-05-08", events: [
-        { type: "received", date: "2026-05-08", note: "Shipment SHP-BR-001 received intact" },
-        { type: "dispense", date: "2026-06-12", subject: sc(3), visit: "Day 0", volDispensed: 3.6, route: "SC injection", location: "farm", by: "L. Brandt" },
-        { type: "return", date: "2026-06-12", volReturned: 6.4, condition: "Good — multidose vial" },
-      ] }));
-      vials.push(mk({ id: "VL-BR-003", lotId: "LOT-BR-001", treatmentGroup: "Treatment B", status: "available", siteId: site(2), initialVol: 10, expiryDate: "2027-04-30", receivedDate: "2026-05-08", events: [
-        { type: "received", date: "2026-05-08", note: "Shipment SHP-BR-001 received intact" },
-        { type: "dispense", date: "2026-06-12", subject: sc(4), visit: "Day 0", volDispensed: 3.5, route: "SC injection", location: "farm", by: "P. Castellano" },
-        { type: "return", date: "2026-06-12", volReturned: 6.5, condition: "Good — multidose vial" },
-        { type: "dispense", date: "2026-06-12", subject: sc(5), visit: "Day 0", volDispensed: 3.4, route: "SC injection", location: "farm", by: "P. Castellano" },
-        { type: "return", date: "2026-06-12", volReturned: 3.1, condition: "Good — multidose vial" },
-      ] }));
-      vials.push(mk({ id: "VL-BR-004", lotId: "LOT-BR-001", treatmentGroup: "Treatment B", status: "athome", siteId: site(3), initialVol: 10, expiryDate: "2027-04-30", receivedDate: "2026-05-08", events: [
-        { type: "received", date: "2026-05-08", note: "Shipment SHP-BR-001 received intact" },
-        { type: "dispense", date: "2026-06-12", subject: sc(6), visit: "Day 0", volDispensed: 3.6, route: "SC injection", location: "farm", by: "R. Singh" },
-      ] }));
-      vials.push(mk({ id: "VL-BR-005", lotId: "LOT-BR-001", treatmentGroup: "Control", status: "removed", siteId: site(0), initialVol: 10, expiryDate: "2027-04-30", receivedDate: "2026-05-08", events: [
-        { type: "received", date: "2026-05-08", note: "Shipment SHP-BR-001 received intact" },
-        { type: "removed", date: "2026-05-12", note: "Seal compromised on inspection — quarantined" },
-      ] }));
-      // LOT-BR-002 (3 vials, received 2026-06-09 — pending shipment SHP-BR-002)
-      vials.push(mk({ id: "VL-BR-006", lotId: "LOT-BR-002", treatmentGroup: "Treatment A", status: "available", siteId: site(1), initialVol: 12, expiryDate: "2027-05-31", receivedDate: "2026-06-09", events: [
-        { type: "received", date: "2026-06-09", note: "Second shipment received" },
-        { type: "dispense", date: "2026-06-12", subject: sc(7), visit: "Day 0", volDispensed: 3.8, route: "SC injection", location: "farm", by: "L. Brandt" },
-        { type: "return", date: "2026-06-12", volReturned: 8.2, condition: "Good — multidose vial" },
-      ] }));
-      vials.push(mk({ id: "VL-BR-007", lotId: "LOT-BR-002", treatmentGroup: "Treatment A", status: "available", siteId: site(2), initialVol: 12, expiryDate: "2027-05-31", receivedDate: "2026-06-09", events: [
-        { type: "received", date: "2026-06-09", note: "Second shipment received" },
-      ] }));
-      vials.push(mk({ id: "VL-BR-008", lotId: "LOT-BR-002", treatmentGroup: "Control", status: "returned", siteId: site(3), initialVol: 12, expiryDate: "2027-05-31", receivedDate: "2026-06-09", events: [
-        { type: "received", date: "2026-06-09", note: "Second shipment received" },
-        { type: "removed", date: "2026-06-11", note: "Over-temperature excursion during transit — unusable" },
-        { type: "returned", date: "2026-06-16", note: "Returned to BioVet Pharma per protocol" },
-      ] }));
-      shipments.push(
-        { id: "SHP-BR-001", studyId: sid, lot: "LOT-BR-001", shipDate: "2026-05-06", receiveDate: "2026-05-08", vialCount: 5, usableCount: 4, confirmed: true },
-        { id: "SHP-BR-002", studyId: sid, lot: "LOT-BR-002", shipDate: "2026-06-07", receiveDate: "2026-06-09", vialCount: 3, usableCount: 2, confirmed: false },
-      );
+      const recvNote = (lot: string) => ({ type: "received" as const, date: "2026-05-08", note: `Shipment SHP-${lot} received intact` });
+      for (const arm of ["T01", "T02", "T03"]) {
+        const cfg = ARM[arm];
+        const lot = `LOT-BR-${arm}`;
+        const codes = subsOfArm(arm);
+        const sc = (i: number) => codes[i % Math.max(1, codes.length)] ?? `BR-${arm}-${i + 1}`;
+        const mk = (n: number, status: Vial["status"], siteId: string | null, events: VialEvent[]): Vial =>
+          ({ studyId: sid, drugName: cfg.drug, concentration: 10, unit: "ml", withdrawalDays: 28, kitNumber: undefined, expectedDailyDose: undefined,
+            id: `VL-BR-${arm}-${String(n).padStart(2, "0")}`, lotId: lot, treatmentGroup: arm, status, siteId, initialVol: 50, expiryDate: "2027-04-30", receivedDate: "2026-05-08", events });
+        const r = recvNote(lot);
+        vials.push(mk(1, "available", TX, [r])); // ready stock
+        vials.push(mk(2, "available", KS, [r]));
+        vials.push(mk(3, "athome", TX, [r, { type: "dispense", date: "2026-06-12", subject: sc(0), visit: "Day 0", volDispensed: cfg.vol, route: "SC injection", location: "farm", by: "M. Okafor" }])); // recent → active withdrawal
+        vials.push(mk(4, "depleted", KS, [r, { type: "dispense", date: "2026-05-20", subject: sc(1), visit: "Day 0", volDispensed: cfg.vol, route: "SC injection", location: "farm", by: "L. Brandt" }, { type: "return", date: "2026-05-20", volReturned: 0, condition: "Single-use — remainder discarded" }]));
+        vials.push(mk(5, "removed", CO, [r, { type: "removed", date: "2026-05-12", note: "Seal compromised on inspection — quarantined (CO feedlot)" }])); // CO low-stock
+        // T03's shipment left pending review (demo); T01/T02 confirmed.
+        shipments.push({ id: `SHP-${lot}`, studyId: sid, lot, shipDate: "2026-05-06", receiveDate: "2026-05-08", vialCount: 5, usableCount: 4, confirmed: arm !== "T03" });
+      }
     }
   }
 
