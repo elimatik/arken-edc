@@ -42,10 +42,10 @@ export function buildInventorySeed(
       const subsOfArm = (arm: string) => subs.filter((s) => s.randomization_arm === arm).map((s) => s.subject_code);
       // treatmentGroup IS the arm code now (T01/T02/T03) — no bridge map. One lot per
       // arm; Tulathromycin for T01/T02 (different mg/kg), saline placebo for T03.
-      const ARM: Record<string, { drug: string; vol: number }> = {
-        T01: { drug: "Tulathromycin 100 mg/mL", vol: 7.0 }, // 2.5 mg/kg
-        T02: { drug: "Tulathromycin 100 mg/mL", vol: 14.0 }, // 5.0 mg/kg
-        T03: { drug: "Saline 0.9% NaCl", vol: 7.0 }, // volume-matched to T01
+      const ARM: Record<string, { drug: string; vol: number; wd?: number }> = {
+        T01: { drug: "Tulathromycin 100 mg/mL", vol: 7.0, wd: 49 }, // 2.5 mg/kg · 49-day withdrawal (label)
+        T02: { drug: "Tulathromycin 100 mg/mL", vol: 14.0, wd: 84 }, // 5.0 mg/kg · 84-day withdrawal (FARAD, extra-label)
+        T03: { drug: "Saline 0.9% NaCl", vol: 7.0, wd: undefined }, // volume-matched to T01 · no withdrawal (placebo)
       };
       const recvNote = (lot: string) => ({ type: "received" as const, date: "2026-05-08", note: `Shipment SHP-${lot} received intact` });
       for (const arm of ["T01", "T02", "T03"]) {
@@ -54,7 +54,7 @@ export function buildInventorySeed(
         const codes = subsOfArm(arm);
         const sc = (i: number) => codes[i % Math.max(1, codes.length)] ?? `BR-${arm}-${i + 1}`;
         const mk = (n: number, status: Vial["status"], siteId: string | null, events: VialEvent[]): Vial =>
-          ({ studyId: sid, drugName: cfg.drug, concentration: 10, unit: "ml", withdrawalDays: 28, kitNumber: undefined, expectedDailyDose: undefined,
+          ({ studyId: sid, drugName: cfg.drug, concentration: 10, unit: "ml", withdrawalDays: cfg.wd, kitNumber: undefined, expectedDailyDose: undefined,
             id: `VL-BR-${arm}-${String(n).padStart(2, "0")}`, lotId: lot, treatmentGroup: arm, status, siteId, initialVol: 50, expiryDate: "2027-04-30", receivedDate: "2026-05-08", events });
         const r = recvNote(lot);
         vials.push(mk(1, "available", TX, [r])); // ready stock

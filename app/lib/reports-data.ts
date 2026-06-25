@@ -760,11 +760,20 @@ export function brWithdrawalBlocks(dataset: Dataset, studyId: string): Withdrawa
   if (study?.code !== "BR-2502") return [];
   const ix = buildSubjectIndex(dataset, studyId);
   const today = todayISO();
+  // Arm-specific withdrawal period: T01 49 d (label), T02 84 d (FARAD extra-label),
+  // T03 saline → none. Measured from the LAST administration (primary or re-treatment).
+  const WD: Record<string, number> = { T01: 49, T02: 84 };
+  const armById = new Map(dataset.subjects.map((s) => [s.id, (s.randomization_arm ?? "").match(/T0\d/)?.[0] ?? ""]));
+  const addDays = (iso: string, d: number) => { const dt = new Date(iso); if (Number.isNaN(dt.getTime())) return null; dt.setDate(dt.getDate() + d); return dt.toISOString().slice(0, 10); };
   const rows: WithdrawalBlockRow[] = [];
   for (const s of ix.subjects) {
+    const days = WD[armById.get(s.id) ?? ""];
+    if (!days) continue; // T03 / unknown → no withdrawal, never blocked
     const m = ix.byCode.get(s.id);
-    const end = first(m, "withdrawal_end_date", "withdrawal_period_end");
-    if (end && /^\d{4}-\d{2}-\d{2}/.test(end) && end >= today) rows.push({ subjectCode: s.subject_code, endDate: end, daysLeft: dayDiff(today, end) });
+    const lastAdmin = [first(m, "date_administered"), first(m, "retreatment_date"), first(m, "last_treatment_date")].filter((x): x is string => !!x && /^\d{4}-\d{2}-\d{2}/.test(x)).sort().pop();
+    const stored = first(m, "withdrawal_end_date", "withdrawal_period_end");
+    const end = lastAdmin ? addDays(lastAdmin, days) : (stored && /^\d{4}-\d{2}-\d{2}/.test(stored) ? stored : null);
+    if (end && end >= today) rows.push({ subjectCode: s.subject_code, endDate: end, daysLeft: dayDiff(today, end) });
   }
   return rows.sort((a, b) => b.daysLeft - a.daysLeft);
 }

@@ -158,6 +158,7 @@ export async function hydrateFromSupabase(): Promise<Dataset> {
   // form + code (robust to any field-ID change) rather than a hardcoded ID.
   const DROP_FIELD_MATCHERS: { form: string; code: string }[] = [
     { form: "61000002-0000-0000-0000-000000002502", code: "randomized_arm" }, // BR Screening / BRD Case Definition
+    { form: "61000002-0000-0000-0000-000000002502", code: "dart_recommended_action" }, // BR Screening — DART action banner (redundant with the randomization prompt)
     { form: "61000002-0000-0000-0000-000000002401", code: "treatment_arm" }, // PH Pen Demographics & Setup
   ];
   const shouldDropField = (f: FF): boolean => {
@@ -186,6 +187,9 @@ export async function hydrateFromSupabase(): Promise<Dataset> {
     for (const code of ["visit_date", "rectal_temp", "heart_rate", "resp_rate"]) { const f = ex.get(code); if (f) vsFields.push({ ...f, sequence: seq++ }); }
     vsFields.push(ff(fid, `${fid}-body_weight`, "body_weight", "Body weight", "number", null, "kg", true, seq++, { vital: "weight", section: "Vital Signs" }));
     const dart = ex.get("clinical_illness_score"); if (dart) vsFields.push({ ...dart, sequence: seq++ });
+    // DART recommended-action banner belongs on Vital Signs (post-enrolment monitoring).
+    const dartAction = ex.get("dart_recommended_action");
+    vsFields.push(dartAction ? { ...dartAction, sequence: seq++ } : ff(fid, `${fid}-dart_action`, "dart_recommended_action", "Recommended action", "calculated", null, null, false, seq++, { readonlyAuto: true, dartSource: "clinical_illness_score" }));
   }
   const crFields: FF[] = [];
   for (const cf of brCrForms) {

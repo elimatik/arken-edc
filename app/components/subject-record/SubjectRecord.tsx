@@ -240,6 +240,38 @@ export function SubjectRecord({ studyId, subjectId, initialFormId, initialPanelF
   useEffect(() => {
     if (!canViewSdv) setModeSdv(false);
   }, [canViewSdv]);
+  // BR-2502 Vital Signs — Day 0: pre-fill from the completed Screening form, but only
+  // while the Day-0 form is still empty (never overwrites CRC-entered data). Editable.
+  useEffect(() => {
+    const study = dataset.studies.find((s) => s.id === studyId);
+    if (study?.code !== "BR-2502" || !selectedFormId) return;
+    const form = dataset.forms.find((f) => f.id === selectedFormId);
+    if (!form || !/Vital Signs\s*[—-]\s*Day 0/i.test(form.name)) return;
+    const vsInst = dataset.formInstances.find((i) => i.subject_id === subjectId && i.form_id === selectedFormId);
+    if (!vsInst) return;
+    const vsByCode = new Map(dataset.formFields.filter((f) => f.form_id === selectedFormId).map((f) => [f.code, f.id]));
+    const vdId = vsByCode.get("visit_date");
+    const cur = vdId ? dataset.fieldValues.find((v) => v.form_instance_id === vsInst.id && v.form_field_id === vdId)?.value : "";
+    if (cur) return; // already has data — don't overwrite
+    const scForm = dataset.forms.find((f) => f.study_id === studyId && /BRD Case|Screening/i.test(f.name));
+    const scInst = scForm ? dataset.formInstances.find((i) => i.subject_id === subjectId && i.form_id === scForm.id) : undefined;
+    if (!scForm || !scInst) return;
+    const scVal = (code: string) => { const fid = dataset.formFields.find((f) => f.form_id === scForm.id && f.code === code)?.id; return fid ? dataset.fieldValues.find((v) => v.form_instance_id === scInst.id && v.form_field_id === fid)?.value : undefined; };
+    const writes: [string, string | null | undefined][] = [
+      ["visit_date", scVal("screening_date") ?? scVal("visit_date")],
+      ["rectal_temp", scVal("screening_temp") ?? scVal("rectal_temp") ?? scVal("temperature")],
+      ["clinical_illness_score", scVal("dart_score") ?? scVal("clinical_illness_score")],
+    ];
+    if (!writes.some(([, val]) => val)) return;
+    update((d) => {
+      for (const [code, val] of writes) {
+        if (!val) continue;
+        const fid = vsByCode.get(code); if (!fid) continue;
+        const ex = d.fieldValues.find((v) => v.form_instance_id === vsInst.id && v.form_field_id === fid);
+        if (ex) { if (!ex.value) ex.value = val; } else d.fieldValues.push({ id: `fv-prefill-${vsInst.id}-${code}`, form_instance_id: vsInst.id, form_field_id: fid, value: val });
+      }
+    });
+  }, [selectedFormId, subjectId, studyId, dataset, update]);
   const canRespond = canQuery(activeRole, "respond");
   const canResolve = canQuery(activeRole, "resolve");
   const canRaise = canQuery(activeRole, "raise");
@@ -1318,16 +1350,26 @@ export function SubjectRecord({ studyId, subjectId, initialFormId, initialPanelF
   // (Withdrawal Period Confirmation form: last treatment + withdrawal-period days).
   const addDaysISO = (iso: string, days: number) => { const d = new Date(iso); if (Number.isNaN(d.getTime())) return null; d.setDate(d.getDate() + days); return d.toISOString().slice(0, 10); };
   const wdLastTx = subjectValueByCode("last_treatment_date");
-  const wdDays = subjectValueByCode("withdrawal_period_days");
-  // Withdrawal is always measured from the LAST administration: a saved Re-treatment
-  // (retreatment_date) resets the period to that date + 49 days, overriding Day 0.
+  // Arm-specific withdrawal: T01 49 d (label), T02 84 d (FARAD extra-label), T03 none.
+  const wdArm = brArmCode(subject?.randomization_arm);
+  const WD_DAYS_BY_ARM: Record<string, number | null> = { T01: 49, T02: 84, T03: null };
+  const wdDaysArm = wdArm in WD_DAYS_BY_ARM ? WD_DAYS_BY_ARM[wdArm] : (Number(subjectValueByCode("withdrawal_period_days")) || null);
+  const WD_FOOTNOTE: Record<string, string> = {
+    T01: "49-day withdrawal per label (Tulathromycin 2.5 mg/kg)",
+    T02: "84-day withdrawal — FARAD-derived (extra-label dose, 5.0 mg/kg exceeds label maximum)",
+    T03: "No withdrawal required (saline placebo)",
+  };
+  const withdrawalFootnote = WD_FOOTNOTE[wdArm] ?? null;
+  // Withdrawal is measured from the LAST administration (primary dose or any
+  // re-treatment), using the arm's period. T03 (saline) has no withdrawal.
   const retreatFieldIds = new Set(dataset.formFields.filter((f) => f.code === "retreatment_date").map((f) => f.id));
   const subjInstIdsWd = new Set(dataset.formInstances.filter((i) => i.subject_id === subjectId).map((i) => i.id));
   let lastRetreat: string | null = null;
   for (const v of dataset.fieldValues) if (subjInstIdsWd.has(v.form_instance_id) && retreatFieldIds.has(v.form_field_id) && v.value) { if (!lastRetreat || v.value > lastRetreat) lastRetreat = v.value; }
-  const withdrawalEnd = lastRetreat
-    ? addDaysISO(lastRetreat, 49)
-    : subjectValueByCode("withdrawal_end_date") || (wdLastTx && wdDays && !Number.isNaN(Number(wdDays)) ? addDaysISO(wdLastTx, Number(wdDays)) : null);
+  const lastAdmin = [lastRetreat, subjectValueByCode("date_administered"), wdLastTx].filter((x): x is string => !!x).sort().pop() ?? null;
+  const withdrawalEnd = wdDaysArm == null
+    ? null
+    : (lastAdmin ? addDaysISO(lastAdmin, wdDaysArm) : (subjectValueByCode("withdrawal_end_date") || null));
   const periodActive = !!withdrawalEnd && todayISO() < withdrawalEnd;
   const dispField = fields.find((f) => f.code === "disposition");
   const dispositionVal = dispField ? (fvFor(dispField.id)?.value ?? "") : "";
@@ -1933,6 +1975,12 @@ export function SubjectRecord({ studyId, subjectId, initialFormId, initialPanelF
               </div>
             );
           })()}
+          {isVitalSignsForm && /Day 0/.test(activeForm?.name ?? "") && (
+            <div className="rand-screening-banner" role="status" style={{ background: "var(--blue-50)", borderColor: "var(--blue-200)" }}>
+              <i className="ti ti-info-circle" style={{ color: "var(--blue-600)" }}></i>
+              <div><div className="rand-screening-title" style={{ color: "var(--blue-600)" }}>Pre-filled from Screening — verify and update if values differ.</div></div>
+            </div>
+          )}
           {/* Withdrawal-period food-safety HARD block (BR-2502 EOS / Withdrawal Confirmation). */}
           {withdrawalBlockBanner && (
             <div className="ie-banner withdrawal-block" role="alert">
@@ -1940,6 +1988,7 @@ export function SubjectRecord({ studyId, subjectId, initialFormId, initialPanelF
               <div>
                 <strong>{withdrawalBlockBanner}</strong>
                 <div style={{ fontWeight: "var(--weight-regular,400)", marginTop: 2 }}>Food-safety hard stop — the CRC cannot override. A Data Manager must record a protocol deviation to release this animal.</div>
+                {withdrawalFootnote && <div style={{ fontWeight: "var(--weight-regular,400)", fontSize: "var(--text-xs)", marginTop: 4, opacity: 0.85 }}>{withdrawalFootnote}</div>}
               </div>
             </div>
           )}
