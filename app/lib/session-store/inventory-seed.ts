@@ -69,6 +69,10 @@ export function buildInventorySeed(
   }
 
   // ─── CA-0801 — blinded topical/oral kits (volume accountability) ──────────
+  // Kit-per-visit model: each subject's kit holds 5 visit-units (V1 Baseline …
+  // V5 End of Study). Earlier visits are dispensed-and-returned (available), the
+  // most recent dispensed visit is out with the subject (athome), upcoming visits
+  // stay available. The Inventory tab groups these by base kit.
   {
     const sid = studyId("CA-0801");
     if (sid) {
@@ -77,50 +81,63 @@ export function buildInventorySeed(
       const site = (i: number) => st[i % Math.max(1, st.length)]?.id ?? null;
       const sc = (i: number) => subs[i % Math.max(1, subs.length)]?.subject_code ?? `CA-${i + 1}`;
       const DOSE = 6; // expectedDailyDose ml/day (0.5 ml/kg × 12 kg)
-      // Arm A = active topical, Arm B = vehicle. Drug names only surface for DM/Admin.
+      const ARK = "ARK-238 1% topical solution", VEH = "Vehicle control (placebo)";
+      const recv: VialEvent = { type: "received", date: "2026-04-10", note: "Kit received — blinded" };
+      const VISITS = [
+        { n: 1, label: "Baseline", date: "2026-04-10" },
+        { n: 2, label: "Follow-Up 1", date: "2026-04-24" },
+        { n: 3, label: "Follow-Up 2", date: "2026-05-08" },
+        { n: 4, label: "Follow-Up 3", date: "2026-06-05" },
+        { n: 5, label: "End of Study", date: "2026-07-03" },
+      ];
       const mk = (id: string, kit: string, group: "Treatment A" | "Treatment B", drug: string, status: Vial["status"], siteIx: number, expiry: string, events: VialEvent[]): Vial =>
         ({ id, studyId: sid, lotId: "LOT-CA-001", kitNumber: kit, drugName: drug, treatmentGroup: group, initialVol: 60, concentration: 1, unit: "ml", expiryDate: expiry, receivedDate: "2026-04-10", status, siteId: site(siteIx), expectedDailyDose: DOSE, events });
 
-      // Three accountability demos (7-day interval, expected use = 6 × 7 = 42 ml):
-      //   clean  ≤5% : used 41.0  → −2.4%
-      //   minor 5-15%: used 45.4  → +8.1%
-      //   major  >15%: used 49.6  → +18.1%
-      const accountability = (sub: string, dispVol: number, retVol: number): VialEvent[] => ([
-        { type: "received", date: "2026-04-10", note: "Kit received — blinded" },
-        { type: "dispense", date: "2026-05-15", subject: sub, visit: "Week 2", volDispensed: dispVol, route: "Topical", location: "home", by: "A. Reyes" },
-        { type: "return", date: "2026-05-22", volReturned: retVol, condition: "Good — seal intact" },
-      ]);
-      vials.push(mk("VL-CA-A01", "Kit A-001", "Treatment A", "ARK-238 1% topical solution", "available", 0, "2027-03-31", accountability(sc(0), 60, 19.0))); // clean
-      vials.push(mk("VL-CA-A02", "Kit A-002", "Treatment A", "ARK-238 1% topical solution", "available", 0, "2027-03-31", accountability(sc(1), 60, 14.6))); // minor (amber)
-      vials.push(mk("VL-CA-A03", "Kit A-003", "Treatment A", "ARK-238 1% topical solution", "available", 1, "2027-03-31", accountability(sc(2), 60, 10.4))); // major (red)
-      vials.push(mk("VL-CA-A04", "Kit A-004", "Treatment A", "ARK-238 1% topical solution", "athome", 1, "2027-03-31", [
-        { type: "received", date: "2026-04-10", note: "Kit received — blinded" },
-        { type: "dispense", date: "2026-06-05", subject: sc(3), visit: "Week 4", volDispensed: 60, route: "Topical", location: "home", by: "A. Reyes" },
-      ]));
-      // Near-expiry kit (within 30 days of 2026-06-23 → triggers the amber nav alert).
-      vials.push(mk("VL-CA-A05", "Kit A-005", "Treatment A", "ARK-238 1% topical solution", "available", 2, "2026-07-12", [
-        { type: "received", date: "2026-04-10", note: "Kit received — blinded" },
-      ]));
-      vials.push(mk("VL-CA-B01", "Kit B-001", "Treatment B", "Vehicle control (placebo)", "available", 0, "2027-03-31", [
-        { type: "received", date: "2026-04-10", note: "Kit received — blinded" },
-      ]));
-      vials.push(mk("VL-CA-B02", "Kit B-002", "Treatment B", "Vehicle control (placebo)", "depleted", 1, "2027-03-31", [
-        { type: "received", date: "2026-04-10", note: "Kit received — blinded" },
-        { type: "dispense", date: "2026-05-15", subject: sc(4), visit: "Week 2", volDispensed: 60, route: "Topical", location: "home", by: "A. Reyes" },
-        { type: "return", date: "2026-05-22", volReturned: 0, condition: "Good — kit emptied" },
-      ]));
-      vials.push(mk("VL-CA-B03", "Kit B-003", "Treatment B", "Vehicle control (placebo)", "available", 1, "2027-03-31", [
-        { type: "received", date: "2026-04-10", note: "Kit received — blinded" },
-      ]));
-      vials.push(mk("VL-CA-B04", "Kit B-004", "Treatment B", "Vehicle control (placebo)", "available", 2, "2027-03-31", [
-        { type: "received", date: "2026-04-10", note: "Kit received — blinded" },
-      ]));
-      vials.push(mk("VL-CA-B05", "Kit B-005", "Treatment B", "Vehicle control (placebo)", "removed", 2, "2027-03-31", [
-        { type: "received", date: "2026-04-10", note: "Kit received — blinded" },
-        { type: "removed", date: "2026-04-15", note: "Tamper seal broken — quarantined" },
-      ]));
+      // Per-kit config (one subject's kit). `done` = visits already dispensed; `acct`
+      // puts a volume-accountability discrepancy on a visit (7-day interval, expected
+      // use 6×7=42 ml → clean/minor/major); `depleted`/`removed` mark one unit.
+      type Special = { acct?: { visit: number; disp: number; ret: number }; depleted?: number; removed?: number };
+      const KITS: { id: string; kit: string; group: "Treatment A" | "Treatment B"; drug: string; sub: number; siteIx: number; expiry: string; done: number; special?: Special }[] = [
+        { id: "VL-CA-A01", kit: "Kit A-001", group: "Treatment A", drug: ARK, sub: 0, siteIx: 0, expiry: "2027-03-31", done: 1, special: { acct: { visit: 2, disp: 60, ret: 19.0 } } }, // clean
+        { id: "VL-CA-A02", kit: "Kit A-002", group: "Treatment A", drug: ARK, sub: 1, siteIx: 0, expiry: "2027-03-31", done: 1, special: { acct: { visit: 2, disp: 60, ret: 14.6 } } }, // minor (amber)
+        { id: "VL-CA-A03", kit: "Kit A-003", group: "Treatment A", drug: ARK, sub: 2, siteIx: 1, expiry: "2027-03-31", done: 1, special: { acct: { visit: 2, disp: 60, ret: 10.4 } } }, // major (red)
+        { id: "VL-CA-A04", kit: "Kit A-004", group: "Treatment A", drug: ARK, sub: 3, siteIx: 1, expiry: "2027-03-31", done: 4 }, // dispensed through Follow-Up 3
+        { id: "VL-CA-A05", kit: "Kit A-005", group: "Treatment A", drug: ARK, sub: 4, siteIx: 2, expiry: "2026-07-12", done: 0 }, // near-expiry → amber nav alert
+        { id: "VL-CA-B01", kit: "Kit B-001", group: "Treatment B", drug: VEH, sub: 5, siteIx: 0, expiry: "2027-03-31", done: 0 },
+        { id: "VL-CA-B02", kit: "Kit B-002", group: "Treatment B", drug: VEH, sub: 6, siteIx: 1, expiry: "2027-03-31", done: 1, special: { depleted: 2 } }, // unit emptied at Follow-Up 1
+        { id: "VL-CA-B03", kit: "Kit B-003", group: "Treatment B", drug: VEH, sub: 7, siteIx: 1, expiry: "2027-03-31", done: 0 },
+        { id: "VL-CA-B04", kit: "Kit B-004", group: "Treatment B", drug: VEH, sub: 8, siteIx: 2, expiry: "2027-03-31", done: 0 },
+        { id: "VL-CA-B05", kit: "Kit B-005", group: "Treatment B", drug: VEH, sub: 9, siteIx: 2, expiry: "2027-03-31", done: 0, special: { removed: 1 } }, // tamper at Baseline
+      ];
+      const disp = (subjCode: string, label: string, date: string, vol: number): VialEvent =>
+        ({ type: "dispense", date, subject: subjCode, visit: label, volDispensed: vol, route: "Topical", location: "home", by: "A. Reyes" });
+      for (const k of KITS) {
+        const subjCode = sc(k.sub);
+        for (const v of VISITS) {
+          const uid = `${k.id}-V${v.n}`, ukit = `${k.kit}-V${v.n}`;
+          let status: Vial["status"] = "available";
+          let events: VialEvent[] = [recv];
+          if (k.special?.removed === v.n) {
+            status = "removed";
+            events = [recv, { type: "removed", date: "2026-04-15", note: "Tamper seal broken — quarantined" }];
+          } else if (k.special?.depleted === v.n) {
+            status = "depleted";
+            events = [recv, disp(subjCode, v.label, v.date, 60), { type: "return", date: "2026-05-22", volReturned: 0, condition: "Good — kit emptied" }];
+          } else if (k.special?.acct?.visit === v.n) {
+            status = "available"; // dispensed then returned — discrepancy shown in the unit lifecycle
+            events = [recv, { type: "dispense", date: "2026-05-15", subject: subjCode, visit: v.label, volDispensed: k.special.acct.disp, route: "Topical", location: "home", by: "A. Reyes" }, { type: "return", date: "2026-05-22", volReturned: k.special.acct.ret, condition: "Good — seal intact" }];
+          } else if (v.n < k.done) {
+            status = "available"; // earlier visit — dispensed and returned at the next visit
+            events = [recv, disp(subjCode, v.label, v.date, 60), { type: "return", date: v.date, volReturned: 6, condition: "Returned at next visit" }];
+          } else if (v.n === k.done) {
+            status = "athome"; // most recent dispensed visit — out with the subject
+            events = [recv, disp(subjCode, v.label, v.date, 60)];
+          }
+          vials.push(mk(uid, ukit, k.group, k.drug, status, k.siteIx, k.expiry, events));
+        }
+      }
       shipments.push(
-        { id: "SHP-CA-001", studyId: sid, lot: "LOT-CA-001", shipDate: "2026-04-08", receiveDate: "2026-04-10", vialCount: 10, usableCount: 9, confirmed: true },
+        { id: "SHP-CA-001", studyId: sid, lot: "LOT-CA-001", shipDate: "2026-04-08", receiveDate: "2026-04-10", vialCount: 50, usableCount: 49, confirmed: true },
         { id: "SHP-CA-002", studyId: sid, lot: "LOT-CA-002", shipDate: "2026-06-08", receiveDate: "2026-06-10", vialCount: 6, usableCount: 6, confirmed: false },
       );
     }

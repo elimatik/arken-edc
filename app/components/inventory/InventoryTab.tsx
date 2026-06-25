@@ -33,14 +33,23 @@ export function InventoryTab({ cfg, hideArms, vials, openDetail, onEdit }: {
 
   const rows = useMemo(() => {
     const q = search.toLowerCase().trim();
-    return vials.filter((v) => {
+    const filtered = vials.filter((v) => {
       if (status && v.status !== status) return false;
       if (group && v.treatmentGroup !== group) return false;
       if (lot && v.lotId !== lot) return false;
       if (q && !v.id.toLowerCase().includes(q) && !v.lotId.toLowerCase().includes(q) && !(v.kitNumber ?? "").toLowerCase().includes(q)) return false;
       return true;
     });
-  }, [vials, status, group, lot, search]);
+    // CA-0801 units carry a -V# visit suffix — group them by base kit, then by visit.
+    if (cfg.itemNoun === "kit") {
+      const parse = (v: Vial): [string, number] => {
+        const m = (v.kitNumber ?? v.id).match(/^(.*)-V(\d+)$/i);
+        return m ? [m[1], Number(m[2])] : [v.kitNumber ?? v.id, 0];
+      };
+      filtered.sort((a, b) => { const [ba, va] = parse(a), [bb, vb] = parse(b); return ba.localeCompare(bb) || va - vb; });
+    }
+    return filtered;
+  }, [vials, status, group, lot, search, cfg.itemNoun]);
 
   const counts = useMemo(() => {
     const c: Record<string, number> = { available: 0, athome: 0, depleted: 0, removed: 0, returned: 0 };
