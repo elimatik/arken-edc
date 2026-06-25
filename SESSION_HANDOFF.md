@@ -35,6 +35,9 @@ Inventory lots `LOT-BR-T01/T02/T03`; **`vial.treatmentGroup` IS the arm code** (
 ### ⚠️ Architecture note — seed source of truth
 The app hydrates from the **live Supabase DB** (`hydrate.ts` fetches it), NOT from `seed.sql`. **`app/supabase/seed.sql` has drifted ~2k lines from `app/supabase/generate-seed.mjs`** (curated by hand), so regenerating produces a huge diff and is NOT done. All demo-data / form-schema changes are **synthesized session-only in `hydrate.ts`** (reshape form fields, drop fields by form+code, seed values/instances) — no `supabase db reset`. To push a change to the live DB you'd need generate-seed.mjs → seed.sql → `db reset`, done deliberately. Caching: a DATA_KEY bump forces re-hydration; if a hydrate change lands without a bump, clear `arken_session_store_*` in Session Storage (console: `Object.keys(sessionStorage).filter(k=>k.startsWith('arken_session_store')).forEach(k=>sessionStorage.removeItem(k));location.reload()`).
 
+### ⚠️ Architecture note — `?form=` deep-link selects by form DEFINITION id
+The `?form=` param selects by **form definition ID** (`inst.form_id`), NOT the form instance ID. `SubjectRecord.tsx:253` matches against `dataset.forms` by `f.id`. Using `instance.id` breaks the deep-link (form panel opens empty) — confirmed fix in commit `f2146eb`. Every other deep-link follows the same pattern (`visits`/`queries`/`sdv` pass `r.formId`). Barn-scoped forms link to `/study/${studyId}/barns/${penId}?form=${formDefId}`.
+
 ### Open items / NEXT UP
 - **PART 2** — CA-0801 kit-per-visit (one fresh kit unit per visit; Kit A-007-V1/V2…; Study Drug Accountability form aligned to inventory).
 - **PART 3** — Dispensing log derived from Treatment Admin / Re-treatment **form instances** instead of vial events (the form→inventory coupling deferred several times). Re-treatment → 2nd dispensing row comes free here.
