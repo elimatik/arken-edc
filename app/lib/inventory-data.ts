@@ -273,11 +273,36 @@ export function buildDispenseRows(dataset: Dataset, studyId: string, siteFilter?
     void role;
     const taForms = formsWith("date_administered");
     const rtForms = formsWith("retreatment_date");
+    // The VIAL ID is the system-of-record inventory id, NOT the form's unit_id value:
+    // each arm's dispensing instances map, in a stable order (Day 0 before re-treatment,
+    // by subject), onto that arm's inventory vial ids (VL-BR-T0x-NN). Computed over ALL
+    // instances so a given animal's vial id is stable regardless of the site filter.
+    const vialsByArm = new Map<string, string[]>();
+    for (const v of dataset.vials) {
+      if (v.studyId !== studyId) continue;
+      const a = armCode(v.treatmentGroup ?? "");
+      if (!a) continue;
+      const list = vialsByArm.get(a) ?? []; list.push(v.id); vialsByArm.set(a, list);
+    }
+    vialsByArm.forEach((list) => list.sort());
+    const brItems: { inst: Dataset["formInstances"][number]; sub: Dataset["subjects"][number]; isRetreat: boolean; arm: string }[] = [];
     for (const inst of [...instancesOf(taForms), ...instancesOf(rtForms)]) {
       const sub = inst.subject_id ? subjById.get(inst.subject_id) : undefined;
-      if (!sub || !siteOk(inst.subject_id, inst.barn_id)) continue;
+      if (!sub) continue;
       const isRetreat = (codeIdByForm.get(inst.form_id)?.has("retreatment_date")) ?? false;
       const arm = armCode(valByCode(inst, "test_article") || sub.randomization_arm);
+      brItems.push({ inst, sub, isRetreat, arm });
+    }
+    brItems.sort((a, b) => a.arm.localeCompare(b.arm) || (Number(a.isRetreat) - Number(b.isRetreat)) || a.sub.subject_code.localeCompare(b.sub.subject_code));
+    const vialIdByInst = new Map<string, string>();
+    const armUsed: Record<string, number> = {};
+    for (const x of brItems) {
+      const list = vialsByArm.get(x.arm) ?? [];
+      const i = armUsed[x.arm] ?? 0; armUsed[x.arm] = i + 1;
+      if (list[i]) vialIdByInst.set(x.inst.id, list[i]);
+    }
+    for (const { inst, sub, isRetreat, arm } of brItems) {
+      if (!siteOk(inst.subject_id, inst.barn_id)) continue;
       const weightRaw = valByCode(inst, isRetreat ? "body_weight_retreatment" : "body_weight_dosing");
       const weight = weightRaw ? Number(weightRaw) : subjectWeightKg(dataset, sub.id);
       const dose = weight ? Math.abs(Math.round((weight * (BR_ARM_MGKG[arm] ?? 2.5) / 100) * 10) / 10) : undefined;
@@ -291,7 +316,7 @@ export function buildDispenseRows(dataset: Dataset, studyId: string, siteFilter?
         date,
         drug: BR_ARM_TO_DRUG[arm] ?? "—",
         lot: lotVal && lotVal.startsWith("LOT-BR-") ? lotVal : `LOT-BR-${arm || "T01"}`,
-        unitId: valByCode(inst, "unit_id", "vial_unit_id"),
+        unitId: vialIdByInst.get(inst.id) ?? valByCode(inst, "unit_id", "vial_unit_id"),
         dose,
         administeredBy: valByCode(inst, "administered_by"),
         formInstanceId: inst.id, formDefId: inst.form_id, formName: formById.get(inst.form_id)?.name,
@@ -299,6 +324,19 @@ export function buildDispenseRows(dataset: Dataset, studyId: string, siteFilter?
     }
   } else if (code === "CA-0801") {
     const hide = role ? shouldHideArms(dataset, studyId, role) : true; // blinded → hide for CRC/CRA
+    // The KIT ID derives from the inventory seed (system of record), not the form's
+    // drug_kit_number value: the inventory base kits (A-001 … B-005), assigned to
+    // subjects in subject-code order — mirrors the seed's positional kit assignment.
+    // The per-visit unit suffix (V1…V5) then comes from the visit.
+    const caBaseKits = Array.from(new Set(
+      dataset.vials.filter((v) => v.studyId === studyId)
+        .map((v) => (v.kitNumber ?? "").replace(/^Kit\s*/i, "").replace(/-V\d+$/i, ""))
+        .filter(Boolean),
+    )).sort();
+    const caKitBySubject = new Map<string, string>();
+    dataset.subjects.filter((s) => s.study_id === studyId)
+      .slice().sort((a, b) => a.subject_code.localeCompare(b.subject_code))
+      .forEach((s, i) => { if (caBaseKits[i]) caKitBySubject.set(s.id, caBaseKits[i]); });
     for (const inst of instancesOf(formsWith("drug_kit_number", "kit_number"))) {
       const sub = inst.subject_id ? subjById.get(inst.subject_id) : undefined;
       if (!sub || !siteOk(inst.subject_id, inst.barn_id)) continue;
@@ -308,12 +346,16 @@ export function buildDispenseRows(dataset: Dataset, studyId: string, siteFilter?
       const form = formById.get(inst.form_id);
       const parentName = form?.parent_form_id ? formById.get(form.parent_form_id)?.name : undefined;
       const visitLabel = valByCode(inst, "visit_label") || parentName || form?.name || "Visit";
-      const rawKit = valByCode(inst, "drug_kit_number", "kit_number") || "—";
+      const suffix = caVisitSuffix(visitLabel);
+      const baseKit = caKitBySubject.get(sub.id);
+      const kit = baseKit
+        ? (suffix ? `${baseKit}-${suffix}` : baseKit)
+        : withKitSuffix(valByCode(inst, "drug_kit_number", "kit_number") || "—", suffix);
       rows.push({
         id: inst.id, subjectId: sub.id, subjectCode: sub.subject_code, studyId,
         visitLabel,
         date: valByCode(inst, "dispensation_date", "visit_date") || "—",
-        kit: withKitSuffix(rawKit, caVisitSuffix(visitLabel)),
+        kit,
         arm: hide ? undefined : (sub.randomization_arm ?? undefined),
         volume: Number.isNaN(vol) || !vol ? 60 : vol,
         administeredBy: valByCode(inst, "administered_by", "dispensed_by"),
@@ -321,17 +363,41 @@ export function buildDispenseRows(dataset: Dataset, studyId: string, siteFilter?
       });
     }
   } else if (code === "PH-2401") {
-    for (const inst of instancesOf(formsWith("quantity_kg", "kg_delivered"))) {
+    // The BATCH column shows the inventory batch id (BATCH-PH-00x), not the feed lot
+    // number from the delivery form. The Feed Delivery Log is barn-scoped (no pen/arm
+    // link), so map it via the inventory batch's dispense events (subject = pen code)
+    // → the pen arm → batch treatment group → and finally a stable feed-lot→batch
+    // mapping (distinct lots in sorted order onto the sorted inventory batch ids), so
+    // every row resolves to a system-of-record batch id.
+    const phBatchIds = dataset.vials.filter((v) => v.studyId === studyId).map((v) => v.id).sort();
+    const batchByPen = new Map<string, string>();
+    const batchByGroup = new Map<string, string>();
+    for (const v of dataset.vials) {
+      if (v.studyId !== studyId) continue;
+      if (v.treatmentGroup) batchByGroup.set(v.treatmentGroup, v.id);
+      for (const e of v.events) if (e.type === "dispense" && e.subject) batchByPen.set(e.subject, v.id);
+    }
+    const phInsts = instancesOf(formsWith("quantity_kg", "kg_delivered"));
+    const lots = Array.from(new Set(phInsts.map((i) => valByCode(i, "feed_lot_number", "batch_number")).filter((l): l is string => !!l))).sort();
+    const lotToBatch = new Map<string, string>();
+    lots.forEach((lot, i) => { if (phBatchIds.length) lotToBatch.set(lot, phBatchIds[i % phBatchIds.length]); });
+    for (const inst of phInsts) {
       const sub = inst.subject_id ? subjById.get(inst.subject_id) : undefined;
       const penCode = sub?.subject_code ?? (inst.barn_id ? dataset.barns.find((b) => b.id === inst.barn_id)?.name : undefined) ?? "House";
       if (!siteOk(inst.subject_id ?? null, inst.barn_id)) continue;
       const date = valByCode(inst, "delivery_date", "visit_date") || "—";
+      const lot = valByCode(inst, "feed_lot_number", "batch_number");
+      const batch = batchByPen.get(penCode)
+        ?? (sub?.randomization_arm ? batchByGroup.get(sub.randomization_arm) : undefined)
+        ?? (lot ? lotToBatch.get(lot) : undefined)
+        ?? phBatchIds[0]
+        ?? lot;
       rows.push({
         id: inst.id, subjectId: sub?.id, penId: inst.barn_id ?? undefined, penCode, studyId,
         visitLabel: valByCode(inst, "feed_phase") || "Delivery",
         date,
         kgDelivered: Number(valByCode(inst, "quantity_kg", "kg_delivered")) || undefined,
-        batch: valByCode(inst, "feed_lot_number", "batch_number"),
+        batch,
         week: valByCode(inst, "feed_phase") || (date !== "—" ? date : undefined),
         administeredBy: valByCode(inst, "delivered_by", "administered_by"),
         formInstanceId: inst.id, formDefId: inst.form_id, formName: formById.get(inst.form_id)?.name,
