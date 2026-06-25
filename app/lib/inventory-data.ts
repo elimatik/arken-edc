@@ -205,7 +205,8 @@ export interface DispensingRow {
   batch?: string; // PH
   week?: string; // PH
   administeredBy?: string;
-  formInstanceId?: string;
+  formInstanceId?: string; // the instance (row identity)
+  formDefId?: string; // the FORM DEFINITION id — what ?form= on the Subject Record selects
   formName?: string;
   studyId: string;
 }
@@ -245,7 +246,9 @@ export function buildDispenseRows(dataset: Dataset, studyId: string, siteFilter?
   const rows: DispensingRow[] = [];
 
   if (code === "BR-2502") {
-    const hide = role ? shouldHideArms(dataset, studyId, role) : false; // BR is open-label → false
+    // BR is open-label so shouldHideArms() is false — but the dispensing log still
+    // masks the drug name for the entry roles (CRC/CRA): they see "Study drug".
+    const hideDrug = role === "CRC" || role === "CRA";
     const taForms = formsWith("date_administered");
     const rtForms = formsWith("retreatment_date");
     for (const inst of [...instancesOf(taForms), ...instancesOf(rtForms)]) {
@@ -257,16 +260,19 @@ export function buildDispenseRows(dataset: Dataset, studyId: string, siteFilter?
       const weight = weightRaw ? Number(weightRaw) : subjectWeightKg(dataset, sub.id);
       const dose = weight ? Math.round((weight * (BR_ARM_MGKG[arm] ?? 2.5) / 100) * 10) / 10 : undefined;
       const date = valByCode(inst, isRetreat ? "retreatment_date" : "date_administered") || subjDate(sub.id) || "—";
+      // Lot is always LOT-BR-<arm>: F005's lot_number reuses the old lot_expiry field
+      // (stale "T01-4400/…" value), so only trust a stored value if it's the LOT-BR- form.
+      const lotVal = valByCode(inst, "lot_number");
       rows.push({
         id: inst.id, subjectId: sub.id, subjectCode: sub.subject_code, studyId,
         visitLabel: isRetreat ? "Re-treatment" : "Day 0",
         date,
-        drug: hide ? "—" : (BR_ARM_TO_DRUG[arm] ?? "—"),
-        lot: valByCode(inst, "lot_number") || `LOT-BR-${arm || "T01"}`,
+        drug: hideDrug ? "Study drug" : (BR_ARM_TO_DRUG[arm] ?? "—"),
+        lot: lotVal && lotVal.startsWith("LOT-BR-") ? lotVal : `LOT-BR-${arm || "T01"}`,
         unitId: valByCode(inst, "unit_id", "vial_unit_id"),
         dose,
         administeredBy: valByCode(inst, "administered_by"),
-        formInstanceId: inst.id, formName: formById.get(inst.form_id)?.name,
+        formInstanceId: inst.id, formDefId: inst.form_id, formName: formById.get(inst.form_id)?.name,
       });
     }
   } else if (code === "CA-0801") {
@@ -283,7 +289,7 @@ export function buildDispenseRows(dataset: Dataset, studyId: string, siteFilter?
         arm: hide ? undefined : (sub.randomization_arm ?? undefined),
         volume: Number.isNaN(vol) || !vol ? 60 : vol,
         administeredBy: valByCode(inst, "administered_by", "dispensed_by"),
-        formInstanceId: inst.id, formName: formById.get(inst.form_id)?.name,
+        formInstanceId: inst.id, formDefId: inst.form_id, formName: formById.get(inst.form_id)?.name,
       });
     }
   } else if (code === "PH-2401") {
@@ -300,7 +306,7 @@ export function buildDispenseRows(dataset: Dataset, studyId: string, siteFilter?
         batch: valByCode(inst, "feed_lot_number", "batch_number"),
         week: valByCode(inst, "feed_phase") || (date !== "—" ? date : undefined),
         administeredBy: valByCode(inst, "delivered_by", "administered_by"),
-        formInstanceId: inst.id, formName: formById.get(inst.form_id)?.name,
+        formInstanceId: inst.id, formDefId: inst.form_id, formName: formById.get(inst.form_id)?.name,
       });
     }
   }
