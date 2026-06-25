@@ -215,6 +215,25 @@ export interface DispensingRow {
   studyId: string;
 }
 
+// CA-0801 kit-per-visit suffix: each visit dispenses a fresh unit within the kit
+// (Baseline→V1, Follow-Up 1→V2, …, Follow-Up 4 / End of Study→V5). Derived from the
+// visit name (the accountability forms are all "Study Drug Accountability", so the
+// visit comes from the parent visit form). Returns undefined for an unknown visit.
+export function caVisitSuffix(visitName: string | undefined): string | undefined {
+  const v = (visitName ?? "").toLowerCase();
+  if (v.includes("baseline")) return "V1";
+  const m = v.match(/follow[\s-]*up\s*(\d)/);
+  if (m) return `V${Number(m[1]) + 1}`;
+  if (v.includes("end of study") || v.includes("eos")) return "V5";
+  return undefined;
+}
+// Append the visit suffix to a kit number, idempotently (strips any existing -V#).
+function withKitSuffix(kit: string, suffix: string | undefined): string {
+  if (!kit || kit === "—") return kit || "—";
+  const base = kit.replace(/-V\d+$/i, "");
+  return suffix ? `${base}-${suffix}` : base;
+}
+
 export function buildDispenseRows(dataset: Dataset, studyId: string, siteFilter?: string | null, role?: Role): DispensingRow[] {
   const study = dataset.studies.find((s) => s.id === studyId);
   const code = study?.code ?? "";
@@ -284,15 +303,21 @@ export function buildDispenseRows(dataset: Dataset, studyId: string, siteFilter?
       const sub = inst.subject_id ? subjById.get(inst.subject_id) : undefined;
       if (!sub || !siteOk(inst.subject_id, inst.barn_id)) continue;
       const vol = Number(valByCode(inst, "quantity_dispensed", "vol_dispensed"));
+      // Visit comes from the parent visit form (the accountability forms share one
+      // generic name); the kit number then gets that visit's unit suffix (V1…V5).
+      const form = formById.get(inst.form_id);
+      const parentName = form?.parent_form_id ? formById.get(form.parent_form_id)?.name : undefined;
+      const visitLabel = valByCode(inst, "visit_label") || parentName || form?.name || "Visit";
+      const rawKit = valByCode(inst, "drug_kit_number", "kit_number") || "—";
       rows.push({
         id: inst.id, subjectId: sub.id, subjectCode: sub.subject_code, studyId,
-        visitLabel: valByCode(inst, "visit_label") || formById.get(inst.form_id)?.name || "Visit",
+        visitLabel,
         date: valByCode(inst, "dispensation_date", "visit_date") || "—",
-        kit: valByCode(inst, "drug_kit_number", "kit_number") || "—",
+        kit: withKitSuffix(rawKit, caVisitSuffix(visitLabel)),
         arm: hide ? undefined : (sub.randomization_arm ?? undefined),
         volume: Number.isNaN(vol) || !vol ? 60 : vol,
         administeredBy: valByCode(inst, "administered_by", "dispensed_by"),
-        formInstanceId: inst.id, formDefId: inst.form_id, formName: formById.get(inst.form_id)?.name,
+        formInstanceId: inst.id, formDefId: inst.form_id, formName: form?.name,
       });
     }
   } else if (code === "PH-2401") {

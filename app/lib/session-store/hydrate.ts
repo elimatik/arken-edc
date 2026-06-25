@@ -270,6 +270,37 @@ export async function hydrateFromSupabase(): Promise<Dataset> {
     });
   }
 
+  // ─── CA-0801 kit-per-visit: suffix the dispensed kit number ─────────────────
+  // Each visit dispenses a fresh unit within the kit (Baseline→V1 … Follow-Up 3→V4).
+  // Append that suffix to the drug_kit_number value on each Study Drug Dispensation /
+  // Accountability instance so the form (and the derived Dispensing log) show the
+  // physical unit used. Form ids are lowercased (Supabase returns UUIDs lowercase).
+  {
+    const SUFFIX_BY_FORM: Record<string, string> = {
+      "6100000e-0000-0000-0000-000000000801": "V1", // F014 Study Drug Dispensation (Baseline)
+      "61000014-0000-0000-0000-000000000801": "V2", // F020 Study Drug Accountability (Follow-Up 1)
+      "6100001c-0000-0000-0000-000000000801": "V3", // F028 Study Drug Accountability (Follow-Up 2)
+      "61000024-0000-0000-0000-000000000801": "V4", // F036 Study Drug Accountability (Follow-Up 3)
+    };
+    const kitFieldByForm = new Map<string, string>(); // form_id → drug_kit_number field id
+    for (const f of reshapedFormFields) {
+      const fid = (f.form_id ?? "").toLowerCase();
+      if (SUFFIX_BY_FORM[fid] && f.code === "drug_kit_number") kitFieldByForm.set(fid, f.id);
+    }
+    const kfv = fieldValues as Dataset["fieldValues"];
+    for (const inst of formInstances as Dataset["formInstances"]) {
+      const fid = (inst.form_id ?? "").toLowerCase();
+      const suffix = SUFFIX_BY_FORM[fid];
+      const kitFieldId = kitFieldByForm.get(fid);
+      if (!suffix || !kitFieldId) continue;
+      const fv = kfv.find((v) => v.form_instance_id === inst.id && v.form_field_id === kitFieldId);
+      if (fv && fv.value) {
+        const base = fv.value.replace(/-V\d+$/i, "");
+        fv.value = `${base}-${suffix}`;
+      }
+    }
+  }
+
   // ─── Seeded SDV state (session-only) ────────────────────────────────────────
   // No interactive SDV has run on a fresh tab, so seed verified records to a target
   // % per site — the CRA/DM dashboard SDV bars + lock-readiness then show real
