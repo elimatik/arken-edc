@@ -112,7 +112,7 @@ export function DispenseTab({ studyId, studyCode, cfg, rows, siteActive }: {
                 <td>{r.drug ?? "—"}</td>
                 <td>{mono(r.lot ?? "—")}</td>
                 <td>{mono(r.unitId ?? "—")}</td>
-                <td className="inv-mono" style={{ color: "var(--red-600)" }}>{r.dose != null ? `−${r.dose} ml` : "—"}</td>
+                <td>{mono(r.dose != null ? `${r.dose} ml` : "—")}</td>
                 <td className="inv-muted">{r.administeredBy ?? "—"}</td>
                 <td style={{ fontSize: "var(--text-xs)" }}>{formCell(r)}</td>
               </tr>

@@ -261,7 +261,7 @@ export function buildDispenseRows(dataset: Dataset, studyId: string, siteFilter?
       const arm = armCode(valByCode(inst, "test_article") || sub.randomization_arm);
       const weightRaw = valByCode(inst, isRetreat ? "body_weight_retreatment" : "body_weight_dosing");
       const weight = weightRaw ? Number(weightRaw) : subjectWeightKg(dataset, sub.id);
-      const dose = weight ? Math.round((weight * (BR_ARM_MGKG[arm] ?? 2.5) / 100) * 10) / 10 : undefined;
+      const dose = weight ? Math.abs(Math.round((weight * (BR_ARM_MGKG[arm] ?? 2.5) / 100) * 10) / 10) : undefined;
       const date = valByCode(inst, isRetreat ? "retreatment_date" : "date_administered") || subjDate(sub.id) || "—";
       // Lot is always LOT-BR-<arm>: F005's lot_number reuses the old lot_expiry field
       // (stale "T01-4400/…" value), so only trust a stored value if it's the LOT-BR- form.
