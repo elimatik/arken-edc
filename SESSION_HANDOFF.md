@@ -1,6 +1,48 @@
 # Arken EDC — Session Handoff
 **Paste this entire file at the start of a new conversation.**
-Last updated: 2026-06-23 | **Coding / VeDDRA module COMPLETE** (the write path) — Reports + SDV + Coding all done. Session key **v41** (`arken_session_store_v41`). **NEXT UP: Inventory module** (drug accountability/dispensing) or the portfolio site.
+Last updated: 2026-06-25 | **DATA_KEY = `arken_session_store_v51`** (authoritative — check `lib/session-store/SessionStore.tsx:13`). Modules done: SDV · Reports · AI chat (Arken Insights) · Inventory · Coding/VeDDRA · Randomization forms · BR-2502 form cleanup · arm-aware withdrawal · inventory re-keyed to T01/T02/T03. **NEXT UP: PART 2 (CA kit-per-visit), PART 3 (dispensing log from Treatment Admin forms), Settings, Notifications, Profile + Invoices, portfolio site.**
+
+---
+
+## 🗓️ Session of 2026-06-23 → 06-25 — what changed
+
+**DATA_KEY: `arken_session_store_v51`** (bump on dataset-shape / demo-data / seeded-form-schema change). Recent bumps: v42 Inventory tables · v43 Randomization action (`randomized_at`/`randomized_by` on subjects) · v44 BR Treatment-Admin (F005) + Re-treatment (F025) reshape · v45 dropped BR-Screening "Randomized arm" + PH Pen-Demographics "Treatment arm" · v46–v49 BR Vital Signs / Clinical Response reshape (now matched **by form name**, not hardcoded IDs) · v50 BR inventory re-seeded to real arms · v51 arm-specific withdrawal.
+
+**AI chat (Arken Insights)** — hybrid: instant keyword matcher (`lib/ai-responses.ts`) → Anthropic API fallback for free-form questions (`lib/ai-context.ts` builds a role-scoped study summary; `app/api/ai/route.ts` is a server proxy holding `ANTHROPIC_API_KEY` from `.env.local`, 503 + offline message if unset). Opened from the **topbar ✨ button** as a 400px right-side slide-in (the floating pill was removed). Inventory/dispensing/expiry questions return live data. **The global topbar "All Sites" dropdown was retired** — Inventory now owns its own site selector in its header; other not-yet-migrated screens default to All Sites (`ShellContext.selectedSiteId` is kept null).
+
+**Inventory module** — see the milestone section below; the big later change was re-keying BR inventory to the real arms (see 3-arm note).
+
+**Randomization** — a `RandomizationPanel` (green result block) is injected at the top of the Randomization form (CA/BR/PH); the form's field grid is suppressed there (panel-only). Eligibility-gated button (CRC/Admin) → confirm modal → assigns a balanced arm, writes `assigned_arm`/`randomization_date`/`randomized_by` onto the form instance + `randomized_at` on the subject (audit derives "Subject randomized"). CA blinded arm has a DM/Admin "Reveal" (writes the `unblindings` log). `lib/randomization.ts` holds eligibility / assignment / result helpers + `subjectWeightKg` (priority: Animal Demographics `arrival_weight` → Vital Signs → Treatment-Admin weight). Screening shows a **DART ≥ 2 randomization prompt** (BRD Case Definition form only); a **re-treatment prompt** fires on Vital Signs / Clinical Response Day 3+ when DART ≥ 2 (amber banner, "Go to Re-treatment →").
+
+**BR-2502 form cleanup (all via hydrate reshape — session-only, no Supabase reset):**
+- Treatment Administration (F005) → 8 fields: date · test article (auto-from-arm) · lot (auto `LOT-BR-<arm>`) · **Unit/Vial ID** (dropdown → dispenses the unit to inventory) · body weight · calculated dose (arm-aware) · route (SC) · administered by.
+- Re-treatment Log (F025) → renamed from "Re-treatment / Rescue Therapy", repeating table in Safety & Events (AE/ConMed pattern). 10 fields incl. read-only Test article (auto), Lot **dropdown** (filtered to arm), cascading **Unit/Vial ID** dropdown, calculated dose, route. One entry seeded on BR-2502-CO-001. Withdrawal resets to re-treatment_date + arm days.
+- Vital Signs (5 forms) → 6 fields (visit date · rectal temp · heart rate · resp rate · body weight · DART); Day 0 **auto-fills** visit_date/rectal_temp/DART from the Screening form (only while empty, editable, hint banner).
+- Clinical Response (5 forms) → 7 fields: visit date · DART at this visit (read-only, from same-day Vital Signs) · response vs baseline · temperature normalized · treatment success interim · requires re-treatment · assessor. The three derived chips show "—" until that day's Vital Signs is filled.
+- DART recommended-action banner: removed from Screening AND Vital Signs (redundant with the re-treatment banner).
+- `randomized_arm` removed from BR Screening at the **source** (`generate-seed.mjs`) + dropped at runtime in `hydrate.ts` (by form+code, with a `console.warn`); `seed.sql:780` + its 12 orphaned value rows hand-removed.
+
+**Arm-aware withdrawal** — `BR_WD_DAYS = { T01: 49, T02: 84, T03: null }`. The EOS hard-block, the Withdrawal Period Confirmation form fields (`withdrawal_period_days` AUTO, `withdrawal_end_date`, `eligible_for_shipment`), `reports-data.brWithdrawalBlocks`, and the inventory vial `withdrawalDays` all use it. T03 (saline) is never blocked. Measured from the last administration (primary or re-treatment).
+
+### BR-2502 is a 3-ARM trial (T01 / T02 / T03)
+| Arm | Drug | Dose | Withdrawal |
+|-----|------|------|-----------|
+| **T01** | Tulathromycin 100 mg/mL | 2.5 mg/kg SC (`weight × 2.5 ÷ 100` mL) | **49 days** (label) |
+| **T02** | Tulathromycin 100 mg/mL | 5.0 mg/kg SC (`weight × 5.0 ÷ 100` mL) | **84 days** (FARAD — extra-label dose) |
+| **T03** | Saline 0.9% placebo | volume-matched to T01 | **none** |
+Inventory lots `LOT-BR-T01/T02/T03`; **`vial.treatmentGroup` IS the arm code** (no Treatment A/B/Control bridge). Maps live in `SubjectRecord.tsx` (`BR_ARM_TO_DRUG`, `BR_ARM_MGKG`, `BR_WD_DAYS`) and `lib/randomization.ts`. Demo subjects e.g. BR-2502-CO-001 = T01, CO-002 = T02, CO-003 = T03.
+
+### ⚠️ Architecture note — seed source of truth
+The app hydrates from the **live Supabase DB** (`hydrate.ts` fetches it), NOT from `seed.sql`. **`app/supabase/seed.sql` has drifted ~2k lines from `app/supabase/generate-seed.mjs`** (curated by hand), so regenerating produces a huge diff and is NOT done. All demo-data / form-schema changes are **synthesized session-only in `hydrate.ts`** (reshape form fields, drop fields by form+code, seed values/instances) — no `supabase db reset`. To push a change to the live DB you'd need generate-seed.mjs → seed.sql → `db reset`, done deliberately. Caching: a DATA_KEY bump forces re-hydration; if a hydrate change lands without a bump, clear `arken_session_store_*` in Session Storage (console: `Object.keys(sessionStorage).filter(k=>k.startsWith('arken_session_store')).forEach(k=>sessionStorage.removeItem(k));location.reload()`).
+
+### Open items / NEXT UP
+- **PART 2** — CA-0801 kit-per-visit (one fresh kit unit per visit; Kit A-007-V1/V2…; Study Drug Accountability form aligned to inventory).
+- **PART 3** — Dispensing log derived from Treatment Admin / Re-treatment **form instances** instead of vial events (the form→inventory coupling deferred several times). Re-treatment → 2nd dispensing row comes free here.
+- **Settings module** — currently a stub. Port the randomization section (method/blocks/blinding/stratification, treatment groups, list management) + move the hardcoded `INVENTORY_PERMISSIONS` here.
+- **Notifications**, **Profile + Invoices**, **portfolio site**.
+
+### 🔀 Repo note
+A repo fork is planned once the portfolio is complete: **`elimatik/arken-edc` → `elimatik/arken-edc-production`**.
 
 ---
 
@@ -10,7 +52,7 @@ Last updated: 2026-06-23 | **Coding / VeDDRA module COMPLETE** (the write path) 
 
 **Inventory module — COMPLETE** (`/study/[studyId]/inventory`, CRC/CRA/DM/Admin; PI+Sponsor redirect). Ported from `24-inventory.html`. Tabs: Shipments (default) · Inventory · Dispense log · Reconciliation; vial lifecycle + per-unit edit open as right-hand slide-ins. Session-only `vials` + `shipments` tables (seeded in `lib/session-store/inventory-seed.ts`); helpers/derivations in `lib/inventory-data.ts`. Study-specific: BR-2502 withdrawal, CA-0801 blinded kits + volume accountability, PH-2401 batch/kg. **Inventory role permissions are hardcoded in `INVENTORY_PERMISSIONS` (lib/inventory-data.ts) — MOVE TO Settings → Inventory permissions when the Settings module is built.** (receive: CRC/Admin · confirm: CRA/DM/Admin · return: CRC/CRA/Admin · remove: Admin · dispense: CRC/Admin · reconcile: CRA/DM/Admin.) AI chat (Arken Insights) is now opened from the topbar ✨ button as a right-side slide-in (no floating pill). **Future enhancement — drug location tracking (transfer events, a Location column, inter-site transfer chain) is scoped out for now.** The `VialEvent` architecture already supports arbitrary event types, so this can be added later without data restructuring. (The existing `location` field on dispense events — clinic/home/farm — and the derived "At home" status badge stay; they were in the prototype and need no new logic.)
 
-**DATA_KEY: `arken_session_store_v42`** (authoritative; the older "v34/v35" notes below are superseded). Bump on dataset-shape OR demo-data change. v42 adds the session-only `vials` + `shipments` Inventory tables. v41 adds the session-only `codingTasks` worklist. v40 history: v40 'excluded' VeDDRA seed (saline-flush ConMed + BR non-serious AE) + `serious` flag on seeded AEs · v39 VeDDRA code/status on seeded SAEs · v38 ethics/IACUC config + ConMed VeDDRA/washout/type + protocol deviations · v37 study-level enrolment targets pinned (CA 60 / BR 12 / PH 2) + SAE reporting-timeline seed (`saeReports`) · v36 seeded ConMeds · v35 seeded SDV verified records per site.
+**DATA_KEY history (SUPERSEDED — current is `arken_session_store_v51`; see the session section at the top).** v42 added the session-only `vials` + `shipments` Inventory tables. v41 added the session-only `codingTasks` worklist. v40 history: v40 'excluded' VeDDRA seed (saline-flush ConMed + BR non-serious AE) + `serious` flag on seeded AEs · v39 VeDDRA code/status on seeded SAEs · v38 ethics/IACUC config + ConMed VeDDRA/washout/type + protocol deviations · v37 study-level enrolment targets pinned (CA 60 / BR 12 / PH 2) + SAE reporting-timeline seed (`saeReports`) · v36 seeded ConMeds · v35 seeded SDV verified records per site.
 
 **SDV module** (`/study/[studyId]/sdv`) — worklist (one row per form instance: subject · visit · form · site · SDV status · progress · queries) with tabs/filters/sort; the Queries column shows a count only (no flag icon). Clicking a row deep-links to the Subject Record with SDV mode active (`?form=&sdv=true`) — CRA verifies field-by-field; DM gets a read-only view. No separate form view.
 
