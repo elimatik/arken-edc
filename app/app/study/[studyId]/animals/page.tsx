@@ -8,6 +8,7 @@ import { useStudyLocked, LOCK_TOOLTIP } from "@/lib/use-study-locked";
 import { housingTerms, animalsLabel } from "@/lib/terminology";
 import { canQuery } from "@/lib/permissions";
 import { studyHasBatch } from "@/lib/batch-entry";
+import { shouldHideArmForSubject } from "@/lib/study-config";
 import { useTableSort } from "@/lib/useTableSort";
 import { SortTh } from "@/components/common/SortTh";
 import "./animals.css";
@@ -184,7 +185,9 @@ export default function AnimalsPage() {
         subjectId: s.id,
         code: s.subject_code,
         status: s.status,
-        arm: s.randomization_arm ?? "",
+        // Blinded studies: hide the real arm per the viewer's role + this subject's
+        // unblinding state (CRC/CRA/PI/Sponsor always; DM/Admin until unblinded).
+        arm: shouldHideArmForSubject(dataset, studyId, activeRole, s.id) ? "Blinded" : (s.randomization_arm ?? ""),
         siteName: site?.name ?? "—",
         barnName: barn?.name ?? "",
         penName: pen?.name ?? "",
@@ -202,7 +205,7 @@ export default function AnimalsPage() {
         ineligible: !!s.ineligible,
       };
     });
-  }, [ready, studyRow, dataset, studyId]);
+  }, [ready, studyRow, dataset, studyId, activeRole]);
 
   // ─── Adaptive columns (per study type) ─────────────────────────────────────
   const columns = useMemo<ColumnDef[]>(() => {

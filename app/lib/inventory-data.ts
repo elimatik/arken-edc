@@ -250,9 +250,8 @@ export function buildDispenseRows(dataset: Dataset, studyId: string, siteFilter?
   const rows: DispensingRow[] = [];
 
   if (code === "BR-2502") {
-    // BR is open-label so shouldHideArms() is false — but the dispensing log still
-    // masks the drug name for the entry roles (CRC/CRA): they see "Study drug".
-    const hideDrug = role === "CRC" || role === "CRA";
+    // BR-2502 is open-label — every role sees the real drug name. (No blinding mask.)
+    void role;
     const taForms = formsWith("date_administered");
     const rtForms = formsWith("retreatment_date");
     for (const inst of [...instancesOf(taForms), ...instancesOf(rtForms)]) {
@@ -271,7 +270,7 @@ export function buildDispenseRows(dataset: Dataset, studyId: string, siteFilter?
         id: inst.id, subjectId: sub.id, subjectCode: sub.subject_code, studyId,
         visitLabel: isRetreat ? "Re-treatment" : "Day 0",
         date,
-        drug: hideDrug ? "Study drug" : (BR_ARM_TO_DRUG[arm] ?? "—"),
+        drug: BR_ARM_TO_DRUG[arm] ?? "—",
         lot: lotVal && lotVal.startsWith("LOT-BR-") ? lotVal : `LOT-BR-${arm || "T01"}`,
         unitId: valByCode(inst, "unit_id", "vial_unit_id"),
         dose,

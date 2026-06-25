@@ -744,13 +744,17 @@ export function SubjectRecord({ studyId, subjectId, initialFormId, initialPanelF
         </select>
       );
     }
-    // Re-treatment Log — Unit / Vial ID: cascades from the selected lot.
+    // Re-treatment Log — Unit / Vial ID: cascades from the selected lot. If a unit
+    // is already recorded (e.g. seeded "T01-4410"), show it as the selected option —
+    // it's the administered vial, not in the available pool, and may pre-date a lot
+    // selection — so don't fall back to the "Select a lot first" / placeholder state.
     if (field.code === "unit_id") {
       const lotF = fields.find((f) => f.code === "lot_number");
       const lot = lotF ? entryVal(instId, lotF.id) : "";
-      if (!lot) return <select className="field-select" value="" disabled><option>Select a lot first</option></select>;
-      const units = brAvailableUnits(lot);
-      if (!units.length) return brUnitWarn(lot);
+      const units = lot ? brAvailableUnits(lot) : [];
+      const hasCurrent = !!v && !units.some((u) => u.id === v);
+      if (!lot && !v) return <select className="field-select" value="" disabled><option>Select a lot first</option></select>;
+      if (lot && !units.length && !v) return brUnitWarn(lot);
       const wf = fields.find((f) => f.code === "body_weight_retreatment");
       const w = wf ? Number(entryVal(instId, wf.id)) : NaN;
       const mgkg = BR_ARM_MGKG[brArmCode(subject?.randomization_arm)] ?? 2.5;
@@ -758,6 +762,7 @@ export function SubjectRecord({ studyId, subjectId, initialFormId, initialPanelF
       return (
         <select className="field-select" value={v} disabled={readOnly} onChange={(e) => { setEntryVal(instId, field, e.target.value); if (e.target.value) dispenseUnitToSubject(e.target.value, "Re-treatment", instId, dose); }}>
           <option value="">Select unit…</option>
+          {hasCurrent && <option value={v}>{v} · administered</option>}
           {units.map((u) => <option key={u.id} value={u.id}>{u.id} · {u.initialVol} {u.unit} remaining · Available</option>)}
         </select>
       );
@@ -1469,13 +1474,18 @@ export function SubjectRecord({ studyId, subjectId, initialFormId, initialPanelF
       const arm = brArmCode(subject?.randomization_arm) || "T01";
       const lot = `LOT-BR-${arm}`; // F005 auto-assigned lot = the arm's lot
       const units = brAvailableUnits(lot, arm);
-      if (!units.length) return brUnitWarn(lot);
+      // An already-recorded unit (e.g. seeded "T01-4400") is the administered vial —
+      // it's no longer in the "available" pool, so surface it as the selected option
+      // rather than falling back to the placeholder.
+      const hasCurrent = !!value && !units.some((u) => u.id === value);
+      if (!units.length && !value) return brUnitWarn(lot);
       const wf = fields.find((f) => f.code === "body_weight_dosing");
       const w = wf ? Number(fvFor(wf.id)?.value) : NaN;
       const dose = !Number.isNaN(w) && w ? Math.round((w * (BR_ARM_MGKG[arm] ?? 2.5) / 100) * 10) / 10 : 0;
       return (
         <select className={`field-select${stateCls}`} value={value} disabled={ro} onChange={(e) => { commit(e.target.value); if (e.target.value && instance) dispenseUnitToSubject(e.target.value, "Day 0", instance.id, dose); }}>
           <option value="">Select unit…</option>
+          {hasCurrent && <option value={value}>{value} · administered</option>}
           {units.map((u) => <option key={u.id} value={u.id}>{u.id} · {u.initialVol} {u.unit} remaining · Available</option>)}
         </select>
       );
