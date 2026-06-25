@@ -215,19 +215,34 @@ export async function hydrateFromSupabase(): Promise<Dataset> {
     ...F005_FIELDS, ...F025_FIELDS, ...vsFields, ...crFields,
   ];
 
-  // Seed one Re-treatment Log entry on BR-2502-CO-001 so the demo table isn't empty.
-  const CO001 = "340A0000-0000-0000-0000-000000002502";
+  // Seed the BR-2502 CO-001 Re-treatment Log entry. The live DB already has an F025
+  // instance for CO-001 (retreat:true), but its values are keyed to the ORIGINAL F025
+  // fields, which the reshape above replaced — so they're orphaned and the repeating
+  // table + Dispensing log render blanks. Re-seed values onto that SAME instance using
+  // the NEW reshaped field ids (the codes the table/log read: retreatment_date,
+  // lot_number, unit_id, body_weight_retreatment, administered_by, retreatment_reason).
+  // Supabase lowercases UUIDs, so match the subject id case-insensitively; fall back to
+  // a synthetic instance only if the real one is absent.
+  const CO001 = "340a0000-0000-0000-0000-000000002502";
   const fInst = formInstances as Dataset["formInstances"];
-  if ((subjects.data ?? []).some((s) => s.id === CO001) && !fInst.some((i) => i.id === "fi-retreat-co001")) {
-    fInst.push({ id: "fi-retreat-co001", form_id: F025, subject_id: CO001, status: "in_work" });
-    (fieldValues as Dataset["fieldValues"]).push(
-      { id: "fv-rt-date", form_instance_id: "fi-retreat-co001", form_field_id: "f025-retreatment_date", value: "2026-05-20" },
-      { id: "fv-rt-dart", form_instance_id: "fi-retreat-co001", form_field_id: "f025-dart", value: "2" },
-      { id: "fv-rt-weight", form_instance_id: "fi-retreat-co001", form_field_id: "f025-weight", value: "192" },
-      { id: "fv-rt-unit", form_instance_id: "fi-retreat-co001", form_field_id: "f025-unit_id", value: "T01-4410" }, // fresh T01 unit for the re-treatment
-      { id: "fv-rt-by", form_instance_id: "fi-retreat-co001", form_field_id: "f025-administered_by", value: "M. Okafor" },
-      { id: "fv-rt-reason", form_instance_id: "fi-retreat-co001", form_field_id: "f025-reason", value: "DART ≥ 2 at Day 7" },
-    );
+  const rtFv = fieldValues as Dataset["fieldValues"];
+  let coRetreat = fInst.find((i) => i.form_id === F025 && (i.subject_id ?? "").toLowerCase() === CO001);
+  if (!coRetreat && (subjects.data ?? []).some((s) => (s.id ?? "").toLowerCase() === CO001)) {
+    coRetreat = { id: "fi-retreat-co001", form_id: F025, subject_id: CO001, status: "in_work" };
+    fInst.push(coRetreat);
+  }
+  if (coRetreat) {
+    const iid = coRetreat.id;
+    const seedRt = (fieldId: string, value: string) => {
+      if (!rtFv.some((v) => v.form_instance_id === iid && v.form_field_id === fieldId))
+        rtFv.push({ id: `fv-rt-${iid}-${fieldId}`, form_instance_id: iid, form_field_id: fieldId, value });
+    };
+    seedRt("f025-retreatment_date", "2026-05-20");
+    seedRt("f025-lot", "LOT-BR-T01");
+    seedRt("f025-unit_id", "T01-4410"); // fresh T01 unit for the re-treatment
+    seedRt("f025-weight", "192");
+    seedRt("f025-administered_by", "M. Okafor");
+    seedRt("f025-reason", "DART ≥ 2 at Day 7");
   }
   // Seed Treatment Admin date + administrator + physical unit/vial ID on each
   // BR-2502 F005 instance so the Dispensing log (derived from forms) + the forms
