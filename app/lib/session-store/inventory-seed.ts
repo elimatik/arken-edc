@@ -108,6 +108,12 @@ export function buildInventorySeed(
         { id: "VL-CA-B03", kit: "Kit B-003", group: "Treatment B", drug: VEH, sub: 7, siteIx: 1, expiry: "2027-03-31", done: 0 },
         { id: "VL-CA-B04", kit: "Kit B-004", group: "Treatment B", drug: VEH, sub: 8, siteIx: 2, expiry: "2027-03-31", done: 0 },
         { id: "VL-CA-B05", kit: "Kit B-005", group: "Treatment B", drug: VEH, sub: 9, siteIx: 2, expiry: "2027-03-31", done: 0, special: { removed: 1 } }, // tamper at Baseline
+        // One kit per remaining CA subject so the Dispensing log never falls back to a
+        // KIT-NNNN form value. Named after B-005 so the sorted base-kit order still lines
+        // up positionally with the subjects (subject-code order ↔ kit-sort order).
+        { id: "VL-CA-B06", kit: "Kit B-006", group: "Treatment B", drug: VEH, sub: 10, siteIx: 0, expiry: "2027-03-31", done: 5 }, // completed dog
+        { id: "VL-CA-B07", kit: "Kit B-007", group: "Treatment A", drug: ARK, sub: 11, siteIx: 1, expiry: "2027-03-31", done: 3 }, // active dog
+        { id: "VL-CA-B08", kit: "Kit B-008", group: "Treatment B", drug: VEH, sub: 12, siteIx: 2, expiry: "2027-03-31", done: 5 }, // completed dog
       ];
       const disp = (subjCode: string, label: string, date: string, vol: number): VialEvent =>
         ({ type: "dispense", date, subject: subjCode, visit: label, volDispensed: vol, route: "Topical", location: "home", by: "A. Reyes" });
@@ -137,7 +143,7 @@ export function buildInventorySeed(
         }
       }
       shipments.push(
-        { id: "SHP-CA-001", studyId: sid, lot: "LOT-CA-001", shipDate: "2026-04-08", receiveDate: "2026-04-10", vialCount: 50, usableCount: 49, confirmed: true },
+        { id: "SHP-CA-001", studyId: sid, lot: "LOT-CA-001", shipDate: "2026-04-08", receiveDate: "2026-04-10", vialCount: 65, usableCount: 64, confirmed: true },
         { id: "SHP-CA-002", studyId: sid, lot: "LOT-CA-002", shipDate: "2026-06-08", receiveDate: "2026-06-10", vialCount: 6, usableCount: 6, confirmed: false },
       );
     }

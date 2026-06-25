@@ -227,13 +227,6 @@ export function caVisitSuffix(visitName: string | undefined): string | undefined
   if (v.includes("end of study") || v.includes("eos")) return "V5";
   return undefined;
 }
-// Append the visit suffix to a kit number, idempotently (strips any existing -V#).
-function withKitSuffix(kit: string, suffix: string | undefined): string {
-  if (!kit || kit === "—") return kit || "—";
-  const base = kit.replace(/-V\d+$/i, "");
-  return suffix ? `${base}-${suffix}` : base;
-}
-
 export function buildDispenseRows(dataset: Dataset, studyId: string, siteFilter?: string | null, role?: Role): DispensingRow[] {
   const study = dataset.studies.find((s) => s.id === studyId);
   const code = study?.code ?? "";
@@ -348,9 +341,9 @@ export function buildDispenseRows(dataset: Dataset, studyId: string, siteFilter?
       const visitLabel = valByCode(inst, "visit_label") || parentName || form?.name || "Visit";
       const suffix = caVisitSuffix(visitLabel);
       const baseKit = caKitBySubject.get(sub.id);
-      const kit = baseKit
-        ? (suffix ? `${baseKit}-${suffix}` : baseKit)
-        : withKitSuffix(valByCode(inst, "drug_kit_number", "kit_number") || "—", suffix);
+      // No fallback to the form's KIT-NNNN value — the inventory seed assigns a kit to
+      // every CA subject, so an unmapped subject shows "—" rather than a mismatched id.
+      const kit = baseKit ? (suffix ? `${baseKit}-${suffix}` : baseKit) : "—";
       rows.push({
         id: inst.id, subjectId: sub.id, subjectCode: sub.subject_code, studyId,
         visitLabel,
