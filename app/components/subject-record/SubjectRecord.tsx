@@ -13,6 +13,7 @@ import { subjectAeList } from "@/lib/reports-data";
 import { codingIndex, codedDisplay, normalizeTerm } from "@/lib/coding-data";
 import { LOCK_TOOLTIP } from "@/lib/use-study-locked";
 import { RandomizationPanel } from "./RandomizationPanel";
+import { subjectWeightKg } from "@/lib/randomization";
 import type { Dataset, FormFieldRow } from "@/lib/session-store/types";
 import "./subject-record.css";
 
@@ -63,6 +64,10 @@ const REPEATING_COLUMNS: Record<string, [string, string][]> = {
 const BR_ARM_TO_DRUG: Record<string, string> = { T01: "Tulathromycin 2.5 mg/kg SC", T02: "Tulathromycin 5.0 mg/kg SC", T03: "Saline placebo SC (volume-matched)" };
 const BR_ARM_MGKG: Record<string, number> = { T01: 2.5, T02: 5.0, T03: 2.5 };
 const brArmCode = (arm: string | null | undefined) => (arm ?? "").match(/T0\d/)?.[0] ?? "";
+// Arm-specific withdrawal period (days): T01 49 (label), T02 84 (FARAD), T03 none.
+const BR_WD_DAYS: Record<string, number | null> = { T01: 49, T02: 84, T03: null };
+const brAddDays = (iso: string, d: number): string | null => { const dt = new Date(iso); if (Number.isNaN(dt.getTime())) return null; dt.setDate(dt.getDate() + d); return dt.toISOString().slice(0, 10); };
+const brFmtDate = (iso: string): string => (/^\d{4}-\d{2}-\d{2}/.test(iso) ? new Date(iso.slice(0, 10) + "T00:00:00Z").toLocaleDateString("en-GB", { day: "2-digit", month: "short", year: "numeric", timeZone: "UTC" }) : "—");
 // Arm-aware dose label (weight kg → mL at 100 mg/mL).
 function brDoseDisplay(arm: string, weight: number): string {
   const ml = Math.round((weight * (BR_ARM_MGKG[arm] ?? 2.5) / 100) * 10) / 10;
@@ -843,11 +848,23 @@ export function SubjectRecord({ studyId, subjectId, initialFormId, initialPanelF
     // BR-2502 Treatment Admin / Re-treatment — read-only auto fields.
     if (field.code === "calculated_dose") {
       const wf = fields.find((f) => ["body_weight_dosing", "body_weight_retreatment", "weight"].includes(f.code));
-      const w = wf ? Number(fvFor(wf.id)?.value) : NaN;
+      let w = wf ? Number(fvFor(wf.id)?.value) : NaN;
+      if (!w || Number.isNaN(w)) w = subjectWeightKg(dataset, subjectId) ?? NaN; // fallback: Demographics → Vital Signs
       if (!w || Number.isNaN(w)) return "Enter body weight to calculate";
       return brDoseDisplay(brArmCode(subject?.randomization_arm), w);
     }
     if (field.code === "lot_number") return `LOT-BR-${brArmCode(subject?.randomization_arm) || "T01"}`;
+    // Withdrawal Period Confirmation — arm-aware end date + shipment clearance.
+    if ((field.code === "withdrawal_end_date" || field.code === "eligible_for_shipment") && studyRow?.code === "BR-2502") {
+      const days = BR_WD_DAYS[brArmCode(subject?.randomization_arm)];
+      if (days == null) return field.code === "eligible_for_shipment" ? "No withdrawal — eligible immediately" : "N/A — no withdrawal required";
+      const ltdF = fields.find((f) => f.code === "last_treatment_date");
+      const ltd = ltdF ? fvFor(ltdF.id)?.value : undefined;
+      if (!ltd) return "—";
+      const end = brAddDays(ltd, days);
+      if (!end) return "—";
+      return field.code === "eligible_for_shipment" ? `${brFmtDate(end)} (cleared for slaughter)` : brFmtDate(end);
+    }
     if (field.code === "route" && studyRow?.code === "BR-2502") return "SC injection";
     // BR-2502 Screening — eligibility temperature criterion derived from the temp field.
     if (field.code === "meets_temp_criterion") {
@@ -1352,8 +1369,7 @@ export function SubjectRecord({ studyId, subjectId, initialFormId, initialPanelF
   const wdLastTx = subjectValueByCode("last_treatment_date");
   // Arm-specific withdrawal: T01 49 d (label), T02 84 d (FARAD extra-label), T03 none.
   const wdArm = brArmCode(subject?.randomization_arm);
-  const WD_DAYS_BY_ARM: Record<string, number | null> = { T01: 49, T02: 84, T03: null };
-  const wdDaysArm = wdArm in WD_DAYS_BY_ARM ? WD_DAYS_BY_ARM[wdArm] : (Number(subjectValueByCode("withdrawal_period_days")) || null);
+  const wdDaysArm = wdArm in BR_WD_DAYS ? BR_WD_DAYS[wdArm] : (Number(subjectValueByCode("withdrawal_period_days")) || null);
   const WD_FOOTNOTE: Record<string, string> = {
     T01: "49-day withdrawal per label (Tulathromycin 2.5 mg/kg)",
     T02: "84-day withdrawal — FARAD-derived (extra-label dose, 5.0 mg/kg exceeds label maximum)",
@@ -1441,6 +1457,11 @@ export function SubjectRecord({ studyId, subjectId, initialFormId, initialPanelF
           ))}
         </select>
       );
+    }
+    // Product withdrawal period (BR-2502 Withdrawal Confirmation) — read-only, arm-aware.
+    if (field.code === "withdrawal_period_days" && studyRow?.code === "BR-2502") {
+      const days = BR_WD_DAYS[brArmCode(subject?.randomization_arm)];
+      return <div className="field-calc auto-field"><span>{days == null ? "N/A — no withdrawal required" : `${days} days`}</span><span className="field-calc-tag">AUTO</span></div>;
     }
     // Unit / Vial ID (BR-2502 Treatment Admin) — units from the auto-assigned lot,
     // filtered to the animal's arm; selecting one dispenses it to inventory.
@@ -2197,6 +2218,7 @@ export function SubjectRecord({ studyId, subjectId, initialFormId, initialPanelF
               if (field.validation?.cadesiSub) return null;
               // DART "Recommended action" — coloured info banner (blue 0–1, amber 2, red 3).
               if (field.code === "dart_recommended_action") {
+                if (isVitalSignsForm) return null; // redundant with the re-treatment banner on Vital Signs
                 const txt = calcValue(field);
                 if (txt === "—") return null; // no score entered yet
                 const src = field.validation?.dartSource ? fields.find((x) => x.code === field.validation?.dartSource) : undefined;

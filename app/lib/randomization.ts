@@ -57,14 +57,20 @@ export function assignArm(dataset: Dataset, studyId: string): string {
   return pool[min];
 }
 
-// BR dose basis — subject's seeded body weight (kg), or null.
+// BR dose basis — subject's body weight (kg), in priority order: Animal Demographics
+// (arrival weight) first, then Vital Signs / Treatment Admin weights.
 export function subjectWeightKg(dataset: Dataset, subjectId: string): number | null {
-  const weightFieldIds = new Set(dataset.formFields.filter((f) => f.code === "weight" || f.code === "body_weight_dosing").map((f) => f.id));
+  const CODES = ["arrival_weight", "initial_weight", "weight_kg", "body_weight", "body_weight_dosing", "weight"];
   const instIds = new Set(dataset.formInstances.filter((i) => i.subject_id === subjectId).map((i) => i.id));
-  for (const v of dataset.fieldValues) {
-    if (!instIds.has(v.form_instance_id) || !weightFieldIds.has(v.form_field_id)) continue;
-    const n = parseFloat(v.value ?? "");
-    if (!Number.isNaN(n) && n > 0) return n;
+  const idsByCode = new Map<string, Set<string>>();
+  for (const f of dataset.formFields) if (CODES.includes(f.code)) { let s = idsByCode.get(f.code); if (!s) { s = new Set(); idsByCode.set(f.code, s); } s.add(f.id); }
+  for (const code of CODES) {
+    const ids = idsByCode.get(code); if (!ids) continue;
+    for (const v of dataset.fieldValues) {
+      if (!instIds.has(v.form_instance_id) || !ids.has(v.form_field_id)) continue;
+      const n = parseFloat(v.value ?? "");
+      if (!Number.isNaN(n) && n > 0) return n;
+    }
   }
   return null;
 }

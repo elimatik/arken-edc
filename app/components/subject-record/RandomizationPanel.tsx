@@ -93,7 +93,7 @@ export function RandomizationPanel({ dataset, update, subject, studyId, studyCod
             {studyCode === "BR-2502" && <>
               <dt>Treatment group</dt><dd>{result.group}</dd>
               <dt>Drug</dt><dd>{result.drug}</dd>
-              <dt>Calculated dose</dt><dd>{result.dose ?? <span className="rand-warn">Weight required — complete Vital Signs Day 0 first</span>}</dd>
+              <dt>Calculated dose</dt><dd>{result.dose ?? <span className="rand-warn">Weight required — complete Animal Demographics first</span>}</dd>
               <dt>Lot assigned</dt><dd className="mono">{result.lot}</dd>
               <dt>Block</dt><dd>{result.block}</dd>
             </>}
