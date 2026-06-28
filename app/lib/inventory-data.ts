@@ -14,20 +14,12 @@ export const BR_ARM_TO_DRUG: Record<string, string> = { T01: "Tulathromycin 2.5 
 export const BR_ARM_MGKG: Record<string, number> = { T01: 2.5, T02: 5.0, T03: 2.5 };
 const armCode = (arm: string | null | undefined) => (arm ?? "").match(/T0\d/)?.[0] ?? "";
 
-// ─── Role permissions (hardcoded defaults) ──────────────────────────────────
-// TODO: move to Settings → Inventory permissions when the Settings module exists
-// (flagged in SESSION_HANDOFF). Segregation of duties: the role that physically
-// receives a shipment does not confirm its own receipt.
-export type InvAction = "receive" | "confirm" | "return" | "remove" | "dispense" | "reconcile";
-export const INVENTORY_PERMISSIONS: Record<InvAction, Role[]> = {
-  receive: ["CRC", "Admin"],
-  confirm: ["CRA", "DM", "Admin"],
-  return: ["CRC", "CRA", "Admin"],
-  remove: ["Admin"],
-  dispense: ["CRC", "Admin"],
-  reconcile: ["CRA", "DM", "Admin"],
-};
-export const canInv = (action: InvAction, role: Role): boolean => INVENTORY_PERMISSIONS[action].includes(role);
+// ─── Role permissions ───────────────────────────────────────────────────────
+// The permission matrix now lives in the shared store (lib/inventory-permissions),
+// editable from Settings → Inventory; re-exported here so existing call sites
+// (`import { canInv } from "@/lib/inventory-data"`) keep working.
+export type { InvAction } from "@/lib/inventory-permissions";
+export { canInv } from "@/lib/inventory-permissions";
 
 const todayISO = () => new Date().toISOString().slice(0, 10);
 const dayDiff = (a: string, b: string) => Math.round((Date.parse(b) - Date.parse(a)) / 86400000);

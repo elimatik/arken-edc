@@ -13,6 +13,9 @@
 import { useEffect, useMemo, useState } from "react";
 import { useShell } from "@/components/shell/ShellContext";
 import { useStudySession } from "@/lib/session-store/SessionStore";
+import type { Dataset } from "@/lib/session-store/types";
+import type { Role } from "@/lib/permissions";
+import { INV_ACTIONS, INV_ROLES, useInventoryPermissions, setInvPermission } from "@/lib/inventory-permissions";
 import "./settings.css";
 
 type Method = "blocked" | "simple" | "stratified" | "minimization";
@@ -60,6 +63,188 @@ function randConfig(code: string): RandConfig {
       { code: "T02", name: "T02 Phytogenic additive", detail: "Phytogenic blend", ratio: 1, arm: "T02 Phytogenic", lot: "BATCH-PH-001", color: "#1A6B47" },
     ],
   };
+}
+
+// ─── Inventory section config (ported from 25-settings.html section-inventory) ──
+const NOTIFY_ROLES: Role[] = ["CRC", "CRA", "DM", "PI", "Admin"];
+const CONDITION_OPTIONS = ["Intact / sealed", "Partially used — good condition", "Partially used — compromised", "Damaged", "Expired", "Unknown"];
+const OUTCOME_OPTIONS: { value: string; label: string; cls: string }[] = [
+  { value: "restock_full", label: "Restock (full)", cls: "set-badge-green" },
+  { value: "restock_partial", label: "Restock (partial)", cls: "set-badge-blue" },
+  { value: "destroy", label: "Destroy", cls: "set-badge-red" },
+  { value: "quarantine", label: "Quarantine", cls: "set-badge-amber" },
+];
+const DEFAULT_COND_MAP: Record<string, string> = {
+  "Intact / sealed": "restock_full", "Partially used — good condition": "restock_partial",
+  "Partially used — compromised": "quarantine", "Damaged": "destroy", "Expired": "destroy", "Unknown": "quarantine",
+};
+
+// Per-study dispense-trigger mapping (which form fields log a dispensing event).
+function dispenseTrigger(code: string, dataset: Dataset, studyId: string) {
+  const studyFormIds = new Set(dataset.forms.filter((f) => f.study_id === studyId).map((f) => f.id));
+  const formWithField = (fieldCode: string) => {
+    const ff = dataset.formFields.find((x) => studyFormIds.has(x.form_id) && x.code === fieldCode);
+    return ff ? dataset.forms.find((fm) => fm.id === ff.form_id)?.name : undefined;
+  };
+  if (code === "CA-0801") return { form: formWithField("drug_kit_number") ?? "Study Drug Dispensation", unit: "kit_number", vol: "vol_dispensed", date: "visit_date" };
+  if (code === "PH-2401") return { form: formWithField("quantity_kg") ?? "Feed Delivery Log", unit: "—", vol: "kg_delivered", date: "delivery_date" };
+  return { form: formWithField("date_administered") ?? "Treatment Administration", unit: "unit_id", vol: "calculated_dose", date: "date_administered" };
+}
+
+function Sel({ value, opts, onChange }: { value: string; opts: string[]; onChange: (v: string) => void }) {
+  const list = opts.includes(value) ? opts : [value, ...opts];
+  return <select className="set-select" style={{ width: "100%" }} value={value} onChange={(e) => onChange(e.target.value)}>{list.map((o) => <option key={o} value={o}>{o}</option>)}</select>;
+}
+function Toggle({ on, onToggle }: { on: boolean; onToggle: () => void }) {
+  return <label className="set-toggle" style={{ flexShrink: 0, marginTop: 2 }}><input type="checkbox" checked={on} onChange={onToggle} /><span className="set-toggle-slider"></span></label>;
+}
+
+function InventorySection({ studyCode, studyId, studyForms, dataset, onToast }: { studyCode: string; studyId: string; studyForms: { id: string; name: string }[]; dataset: Dataset; onToast: (m: string) => void }) {
+  const trig = useMemo(() => dispenseTrigger(studyCode, dataset, studyId), [studyCode, dataset, studyId]);
+  const [dispForm, setDispForm] = useState(trig.form);
+  const [unitField, setUnitField] = useState(trig.unit);
+  const [volField, setVolField] = useState(trig.vol);
+  const [dateField, setDateField] = useState(trig.date);
+  useEffect(() => { setDispForm(trig.form); setUnitField(trig.unit); setVolField(trig.vol); setDateField(trig.date); }, [trig]);
+
+  // Rules
+  const [requireUnitId, setRequireUnitId] = useState(true);
+  const [lowStockOn, setLowStockOn] = useState(true);
+  const [lowThreshold, setLowThreshold] = useState("3");
+  const [notify, setNotify] = useState<Set<Role>>(new Set(NOTIFY_ROLES));
+  const [autoDeplete, setAutoDeplete] = useState(true);
+  const [partialOn, setPartialOn] = useState(true);
+  const [minReturnVol, setMinReturnVol] = useState("0.5");
+  const [condMap, setCondMap] = useState<Record<string, string>>({ ...DEFAULT_COND_MAP });
+
+  // Permissions (shared store — edits here drive the live Inventory module).
+  const perms = useInventoryPermissions();
+
+  const formNames = studyForms.map((f) => f.name);
+
+  return (
+    <>
+      <div className="section-header">
+        <h1 className="set-section-title">Inventory</h1>
+        <p className="section-desc">Connect study forms to inventory events, configure rules and access permissions for {studyCode}</p>
+      </div>
+
+      {/* ── Card 1: Dispense trigger ── */}
+      <div className="settings-card">
+        <div className="settings-card-header"><div><div className="settings-card-title">Dispense trigger</div><div className="settings-card-desc">Which form fields log a dispensing event</div></div></div>
+        <div className="settings-card-body">
+          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "var(--space-4)", marginBottom: "var(--space-4)" }}>
+            <div className="set-field"><div className="set-field-label">Dispensing form</div><Sel value={dispForm} opts={formNames} onChange={(v) => { setDispForm(v); onToast("Dispensing form updated"); }} /></div>
+            <div className="set-field"><div className="set-field-label">Unit ID field</div><Sel value={unitField} opts={["unit_id", "kit_number", "vial_unit_id", "—"]} onChange={(v) => { setUnitField(v); onToast("Unit ID field updated"); }} /><div style={{ fontSize: "var(--text-xs)", color: "var(--color-text-tertiary)", marginTop: 4 }}>Identifies the specific unit being dispensed</div></div>
+          </div>
+          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "var(--space-4)" }}>
+            <div className="set-field"><div className="set-field-label">Volume field</div><Sel value={volField} opts={["calculated_dose", "vol_dispensed", "kg_delivered", "quantity_dispensed"]} onChange={(v) => { setVolField(v); onToast("Volume field updated"); }} /></div>
+            <div className="set-field"><div className="set-field-label">Dispensing date field</div><Sel value={dateField} opts={["date_administered", "visit_date", "delivery_date", "dispensation_date"]} onChange={(v) => { setDateField(v); onToast("Dispensing date field updated"); }} /></div>
+          </div>
+        </div>
+      </div>
+
+      {/* ── Card 2: Inventory rules ── */}
+      <div className="settings-card">
+        <div className="settings-card-header"><div><div className="settings-card-title">Inventory rules</div><div className="settings-card-desc">Dispense, return and stock-alert behaviour</div></div></div>
+        <div className="settings-card-body">
+          {/* Require unit ID */}
+          <div className="settings-row" style={{ alignItems: "flex-start" }}>
+            <Toggle on={requireUnitId} onToggle={() => { setRequireUnitId(!requireUnitId); onToast("Setting saved"); }} />
+            <div style={{ flex: 1 }}><div className="settings-row-label">Require unit ID on dispense</div><div className="settings-row-desc">Block form submission if no unit ID is recorded</div></div>
+          </div>
+          {/* Low stock */}
+          <div className="settings-row" style={{ alignItems: "flex-start", flexDirection: "column", gap: "var(--space-3)" }}>
+            <div style={{ display: "flex", alignItems: "flex-start", gap: "var(--space-3)", width: "100%" }}>
+              <Toggle on={lowStockOn} onToggle={() => { setLowStockOn(!lowStockOn); onToast("Setting saved"); }} />
+              <div style={{ flex: 1 }}><div className="settings-row-label">Alert on low stock</div><div className="settings-row-desc">Trigger a notification when available units fall below threshold</div></div>
+            </div>
+            {lowStockOn && (
+              <div style={{ marginLeft: 52, padding: "var(--space-4)", background: "var(--color-page-bg)", border: "1px solid var(--color-border)", borderRadius: "var(--radius-md)", display: "grid", gridTemplateColumns: "auto 1fr", gap: "var(--space-4)", alignItems: "start" }}>
+                <div className="set-field"><div className="set-field-label">Threshold</div><input className="set-input" type="number" min={1} value={lowThreshold} style={{ width: 72, fontFamily: "var(--font-mono)" }} onChange={(e) => setLowThreshold(e.target.value)} onBlur={() => onToast("Low stock threshold saved")} /></div>
+                <div className="set-field"><div className="set-field-label">Notify roles</div>
+                  <div style={{ display: "flex", flexWrap: "wrap", gap: "var(--space-3)", marginTop: 2 }}>
+                    {NOTIFY_ROLES.map((r) => (
+                      <label key={r} style={{ display: "inline-flex", alignItems: "center", gap: 5, fontSize: "var(--text-sm)", cursor: "pointer" }}>
+                        <input type="checkbox" className="set-cb" checked={notify.has(r)} onChange={(e) => { const next = new Set(notify); if (e.target.checked) next.add(r); else next.delete(r); setNotify(next); onToast("Notify roles updated"); }} /> {r}
+                      </label>
+                    ))}
+                  </div>
+                </div>
+              </div>
+            )}
+          </div>
+          {/* Auto-deplete */}
+          <div className="settings-row" style={{ alignItems: "flex-start" }}>
+            <Toggle on={autoDeplete} onToggle={() => { setAutoDeplete(!autoDeplete); onToast("Setting saved"); }} />
+            <div style={{ flex: 1 }}><div className="settings-row-label">Auto-deplete on zero return</div><div className="settings-row-desc">Mark unit as depleted when 0 ml is returned</div></div>
+          </div>
+          {/* Partial returns */}
+          <div className="settings-row" style={{ alignItems: "flex-start", flexDirection: "column", gap: "var(--space-3)" }}>
+            <div style={{ display: "flex", alignItems: "flex-start", gap: "var(--space-3)", width: "100%" }}>
+              <Toggle on={partialOn} onToggle={() => { setPartialOn(!partialOn); onToast("Setting saved"); }} />
+              <div style={{ flex: 1 }}><div className="settings-row-label">Allow partial unit returns</div><div className="settings-row-desc">Returned units re-enter stock based on the condition recorded on the return form</div></div>
+            </div>
+            {partialOn && (
+              <div style={{ marginLeft: 52, padding: "var(--space-4)", background: "var(--color-page-bg)", border: "1px solid var(--color-border)", borderRadius: "var(--radius-md)", display: "flex", flexDirection: "column", gap: "var(--space-4)" }}>
+                <div>
+                  <div className="set-field-label" style={{ marginBottom: "var(--space-2)" }}>Condition field on return form</div>
+                  <div style={{ display: "flex", alignItems: "center", gap: "var(--space-2)", fontSize: "var(--text-sm)" }}>
+                    <span className="set-badge set-badge-blue" style={{ fontFamily: "var(--font-mono)" }}>unit_condition</span>
+                    <span style={{ fontSize: "var(--text-xs)", color: "var(--color-text-tertiary)" }}>linked from the return form&apos;s condition field</span>
+                  </div>
+                </div>
+                <div>
+                  <div style={{ fontSize: "var(--text-xs)", fontWeight: 500, textTransform: "uppercase", letterSpacing: "var(--tracking-caps)", color: "var(--color-text-tertiary)", marginBottom: "var(--space-2)" }}>Condition options → stock outcome</div>
+                  <div style={{ display: "flex", flexDirection: "column" }}>
+                    {CONDITION_OPTIONS.map((opt) => (
+                      <div key={opt} style={{ display: "flex", alignItems: "center", gap: "var(--space-3)", padding: "var(--space-2) 0", borderBottom: "1px solid var(--color-border-subtle)" }}>
+                        <span style={{ flex: 1, fontSize: "var(--text-sm)" }}>{opt}</span>
+                        <span style={{ fontSize: "var(--text-xs)", color: "var(--color-text-tertiary)" }}>→</span>
+                        <div style={{ display: "flex", gap: 4 }}>
+                          {OUTCOME_OPTIONS.map((o) => (
+                            <button key={o.value} type="button" className={`set-outcome-btn${condMap[opt] === o.value ? ` active ${o.cls}` : ""}`} onClick={() => { setCondMap({ ...condMap, [opt]: o.value }); onToast("Condition mapping updated"); }}>{o.label}</button>
+                          ))}
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+                <div className="set-field"><div className="set-field-label">Minimum returnable volume</div>
+                  <div style={{ display: "flex", alignItems: "center", gap: "var(--space-2)" }}>
+                    <input className="set-input" type="number" min={0} step={0.1} value={minReturnVol} style={{ width: 72, fontFamily: "var(--font-mono)" }} onChange={(e) => setMinReturnVol(e.target.value)} onBlur={() => onToast("Min returnable volume saved")} />
+                    <span style={{ fontSize: "var(--text-sm)", color: "var(--color-text-secondary)" }}>ml — below this the unit is marked depleted regardless of condition</span>
+                  </div>
+                </div>
+              </div>
+            )}
+          </div>
+        </div>
+      </div>
+
+      {/* ── Card 3: Inventory permissions ── */}
+      <div className="settings-card">
+        <div className="settings-card-header"><div><div className="settings-card-title">Inventory permissions</div><div className="settings-card-desc">Which roles may perform each inventory action — the live source of truth for the Inventory module</div></div></div>
+        <div className="settings-card-body" style={{ overflowX: "auto" }}>
+          <table className="perm-matrix" style={{ minWidth: 560, width: "100%" }}>
+            <thead><tr><th>Action</th>{INV_ROLES.map((r) => <th key={r}>{r}</th>)}</tr></thead>
+            <tbody>
+              {INV_ACTIONS.map((a) => (
+                <tr key={a.key}>
+                  <td>{a.label}</td>
+                  {INV_ROLES.map((r) => (
+                    <td key={r}>
+                      <input type="checkbox" className="perm-cb" checked={perms[a.key].includes(r)} onChange={(e) => { setInvPermission(a.key, r, e.target.checked); onToast(`${r} ${e.target.checked ? "granted" : "removed"}: ${a.label}`); }} />
+                    </td>
+                  ))}
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </>
+  );
 }
 
 export default function StudySettingsPage() {
@@ -301,6 +486,8 @@ export default function StudySettingsPage() {
               </div>
             </div>
           </>
+        ) : section === "inventory" ? (
+          <InventorySection studyCode={study.code} studyId={study.id} studyForms={studyForms} dataset={dataset} onToast={setToast} />
         ) : (
           <>
             <div className="section-header">

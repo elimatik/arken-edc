@@ -14,6 +14,7 @@ import { codingIndex, codedDisplay, normalizeTerm } from "@/lib/coding-data";
 import { LOCK_TOOLTIP } from "@/lib/use-study-locked";
 import { RandomizationPanel } from "./RandomizationPanel";
 import { subjectWeightKg } from "@/lib/randomization";
+import { canInv } from "@/lib/inventory-data";
 import type { Dataset, FormFieldRow } from "@/lib/session-store/types";
 import "./subject-record.css";
 
@@ -749,6 +750,8 @@ export function SubjectRecord({ studyId, subjectId, initialFormId, initialPanelF
     // it's the administered vial, not in the available pool, and may pre-date a lot
     // selection — so don't fall back to the "Select a lot first" / placeholder state.
     if (field.code === "unit_id") {
+      // Dispensing is gated by the inventory permission matrix (Settings → Inventory).
+      if (!canInv("dispense", activeRole)) return <select className="field-select" value="" disabled><option>Dispensing not permitted for your role</option></select>;
       const lotF = fields.find((f) => f.code === "lot_number");
       const lot = lotF ? entryVal(instId, lotF.id) : "";
       // Only this animal's arm's units (settings: randomization ↔ inventory link).
@@ -1472,6 +1475,8 @@ export function SubjectRecord({ studyId, subjectId, initialFormId, initialPanelF
     // Unit / Vial ID (BR-2502 Treatment Admin) — units from the auto-assigned lot,
     // filtered to the animal's arm; selecting one dispenses it to inventory.
     if (field.code === "unit_id" && studyRow?.code === "BR-2502") {
+      // Dispensing is gated by the inventory permission matrix (Settings → Inventory).
+      if (!canInv("dispense", activeRole)) return <div className="field-calc auto-field"><span style={{ color: "var(--color-text-tertiary)" }}>Dispensing not permitted for your role</span></div>;
       const arm = brArmCode(subject?.randomization_arm) || "T01";
       const lot = `LOT-BR-${arm}`; // F005 auto-assigned lot = the arm's lot
       const units = brAvailableUnits(lot, arm);
