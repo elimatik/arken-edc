@@ -751,7 +751,8 @@ export function SubjectRecord({ studyId, subjectId, initialFormId, initialPanelF
     if (field.code === "unit_id") {
       const lotF = fields.find((f) => f.code === "lot_number");
       const lot = lotF ? entryVal(instId, lotF.id) : "";
-      const units = lot ? brAvailableUnits(lot) : [];
+      // Only this animal's arm's units (settings: randomization ↔ inventory link).
+      const units = lot ? brAvailableUnits(lot, brArmCode(subject?.randomization_arm) || undefined) : [];
       const hasCurrent = !!v && !units.some((u) => u.id === v);
       if (!lot && !v) return <select className="field-select" value="" disabled><option>Select a lot first</option></select>;
       if (lot && !units.length && !v) return brUnitWarn(lot);

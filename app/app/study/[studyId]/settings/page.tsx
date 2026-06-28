@@ -1,49 +1,272 @@
 "use client";
 
-import { useShell } from "@/components/shell/ShellContext";
+// ════════════════════════════════════════════════════════════════════════════
+// Study Settings — two-column layout (ported from 25-settings.html). Left: a
+// 200px settings nav; right: scrollable content. Only the Randomization section
+// is built; the rest show a "Coming soon" placeholder. Randomization reads the
+// study's real config (method/blocking/blinding/stratification + treatment
+// groups with their inventory lot links) and live enrolled counts from the
+// session store. Display-only for the portfolio — edits surface autosave toasts
+// but are not persisted.
+// ════════════════════════════════════════════════════════════════════════════
 
-// Study Settings — placeholder. Reached after creating a new (empty) study;
-// only Admin can configure it. The full configuration flow (sites/hierarchy,
-// eCRF templates, roles, randomization) is not built yet.
+import { useEffect, useMemo, useState } from "react";
+import { useShell } from "@/components/shell/ShellContext";
+import { useStudySession } from "@/lib/session-store/SessionStore";
+import "./settings.css";
+
+type Method = "blocked" | "simple" | "stratified" | "minimization";
+interface Group { code: string; name: string; detail?: string; ratio: number; arm: string; lot: string; blindedLabel?: string; color: string }
+interface RandConfig { method: Method; blockSize: string; blinding: string; stratScope: "site" | "study"; stratFactors: string[]; groups: Group[] }
+
+const NAV = [
+  { key: "randomization", label: "Randomization", icon: "arrows-shuffle" },
+  { key: "inventory", label: "Inventory", icon: "flask" },
+  { key: "formperm", label: "Form permissions", icon: "forms" },
+  { key: "roles", label: "Roles", icon: "shield-check" },
+  { key: "preferences", label: "Study preferences", icon: "adjustments" },
+  { key: "audit", label: "Audit & Signatures", icon: "writing" },
+  { key: "billing", label: "Billing", icon: "receipt-2" },
+  { key: "notifications", label: "Notifications", icon: "bell" },
+] as const;
+
+// Per-study randomization configuration (the real protocol design).
+function randConfig(code: string): RandConfig {
+  if (code === "BR-2502") return {
+    method: "blocked", blockSize: "6", blinding: "Open-label (no blinding)", stratScope: "site", stratFactors: ["Site / Feedlot"],
+    groups: [
+      { code: "T01", name: "Tulathromycin 2.5 mg/kg", ratio: 1, arm: "T01", lot: "LOT-BR-T01", color: "#1760A8" },
+      { code: "T02", name: "Tulathromycin 5.0 mg/kg", ratio: 1, arm: "T02", lot: "LOT-BR-T02", color: "#1A6B47" },
+      { code: "T03", name: "Saline placebo", ratio: 1, arm: "T03", lot: "LOT-BR-T03", color: "#6D7480" },
+    ],
+  };
+  if (code === "CA-0801") return {
+    method: "blocked", blockSize: "4", blinding: "Double-blind", stratScope: "site", stratFactors: ["Site", "Disease severity (CADESI-04)"],
+    groups: [
+      { code: "A", name: "Treatment A", detail: "DermAlliv™ Active", ratio: 1, arm: "DermAlliv™ Active", lot: "LOT-CA-001", blindedLabel: "Treatment A", color: "#1760A8" },
+      { code: "B", name: "Treatment B", detail: "Placebo", ratio: 1, arm: "Placebo", lot: "LOT-CA-001", blindedLabel: "Treatment B", color: "#6D7480" },
+    ],
+  };
+  // PH-2401 — simple, open-label, no stratification
+  return {
+    method: "simple", blockSize: "6", blinding: "Open-label (no blinding)", stratScope: "study", stratFactors: [],
+    groups: [
+      { code: "T01", name: "T01 Control", detail: "Basal feed", ratio: 1, arm: "T01 Control", lot: "BATCH-PH-002", color: "#6D7480" },
+      { code: "T02", name: "T02 Phytogenic additive", detail: "Phytogenic blend", ratio: 1, arm: "T02 Phytogenic", lot: "BATCH-PH-001", color: "#1A6B47" },
+    ],
+  };
+}
+
 export default function StudySettingsPage() {
   const { study } = useShell();
+  const { dataset } = useStudySession();
+  const cfg = useMemo(() => randConfig(study.code), [study.code]);
+
+  const [section, setSection] = useState<string>("randomization");
+  const [method, setMethod] = useState<Method>(cfg.method);
+  const [blockSize, setBlockSize] = useState(cfg.blockSize);
+  const [blinding, setBlinding] = useState(cfg.blinding);
+  const [stratScope, setStratScope] = useState<"site" | "study">(cfg.stratScope);
+  const [factors, setFactors] = useState<string[]>(cfg.stratFactors);
+  const [addingFactor, setAddingFactor] = useState(false);
+  const [newFactor, setNewFactor] = useState("");
+  const [toast, setToast] = useState<string | null>(null);
+
+  // Reset to the active study's config when the study changes.
+  useEffect(() => {
+    setMethod(cfg.method); setBlockSize(cfg.blockSize); setBlinding(cfg.blinding);
+    setStratScope(cfg.stratScope); setFactors(cfg.stratFactors); setSection("randomization");
+  }, [cfg]);
+  useEffect(() => {
+    if (!toast) return;
+    const t = setTimeout(() => setToast(null), 2200);
+    return () => clearTimeout(t);
+  }, [toast]);
+
+  const enrolled = (g: Group) => dataset.subjects.filter((s) => s.study_id === study.id && s.randomization_arm === g.arm).length;
+  const ratioTotal = cfg.groups.reduce((s, g) => s + g.ratio, 0);
+  const showBlock = method === "blocked" || method === "stratified";
+  const blockWarn = showBlock && blockSize !== "variable" && Number(blockSize) % ratioTotal !== 0;
 
   return (
-    <div style={{ padding: "var(--space-8)", maxWidth: 720, margin: "0 auto" }}>
-      <div style={{ fontSize: "var(--text-xs)", fontWeight: "var(--weight-medium)", textTransform: "uppercase", letterSpacing: "var(--tracking-caps)", color: "var(--color-text-tertiary)", marginBottom: "var(--space-2)" }}>
-        Study settings
-      </div>
-      <h1 style={{ fontSize: "var(--text-3xl)", fontWeight: "var(--weight-medium)", color: "var(--color-text-primary)", marginBottom: "var(--space-2)" }}>
-        {study.name}
-      </h1>
-      <div style={{ fontFamily: "var(--font-mono)", fontSize: "var(--text-sm)", color: "var(--color-text-tertiary)", marginBottom: "var(--space-6)" }}>
-        {study.code}
+    <div className="settings-wrap">
+      {/* Nav sidebar */}
+      <nav className="settings-nav" aria-label="Settings sections">
+        <div className="settings-nav-title">Configuration</div>
+        {NAV.map((n) => (
+          <button key={n.key} className={`settings-nav-item${section === n.key ? " active" : ""}`} onClick={() => setSection(n.key)} type="button">
+            <i className={`ti ti-${n.icon}`} aria-hidden="true"></i> {n.label}
+          </button>
+        ))}
+      </nav>
+
+      {/* Content */}
+      <div className="settings-content">
+        {section === "randomization" ? (
+          <>
+            <div className="section-header">
+              <h1 className="section-title">Randomization</h1>
+              <p className="section-desc">Treatment group configuration, blinding, and assignment rules for {study.code}</p>
+            </div>
+
+            {/* ── Card 1: Randomization settings ── */}
+            <div className="settings-card">
+              <div className="settings-card-header"><div><div className="settings-card-title">Randomization settings</div></div></div>
+              <div className="settings-card-body">
+                <div className="settings-row">
+                  <div><div className="settings-row-label">Randomization method</div><div className="settings-row-desc">How subjects are assigned to treatment groups</div></div>
+                  <div className="settings-row-value">
+                    <select className="set-select" style={{ maxWidth: 280 }} value={method} onChange={(e) => { setMethod(e.target.value as Method); setToast("Method updated"); }}>
+                      <option value="blocked">Blocked randomization</option>
+                      <option value="simple">Simple randomization</option>
+                      <option value="stratified">Stratified randomization</option>
+                      <option value="minimization">Minimization</option>
+                    </select>
+                  </div>
+                </div>
+
+                {showBlock && (
+                  <div className="settings-row">
+                    <div><div className="settings-row-label">Block size</div><div className="settings-row-desc">Number of subjects per randomization block</div></div>
+                    <div className="settings-row-value" style={{ display: "flex", alignItems: "center", gap: "var(--space-2)" }}>
+                      <select className="set-select" style={{ maxWidth: 120 }} value={blockSize} onChange={(e) => { setBlockSize(e.target.value); setToast("Block size updated"); }}>
+                        <option value="4">4</option><option value="6">6</option><option value="8">8</option><option value="variable">Variable</option>
+                      </select>
+                      {blockWarn && (
+                        <span style={{ display: "inline-flex", alignItems: "center", gap: 4, fontSize: "var(--text-xs)", color: "var(--amber-700)" }}>
+                          <i className="ti ti-alert-triangle" style={{ fontSize: 13 }}></i>
+                          Block size {blockSize} is not a multiple of ratio total {ratioTotal}.
+                        </span>
+                      )}
+                    </div>
+                  </div>
+                )}
+
+                <div className="settings-row">
+                  <div><div className="settings-row-label">Blinding</div><div className="settings-row-desc">Who knows the treatment assignment</div></div>
+                  <div className="settings-row-value">
+                    <select className="set-select" style={{ maxWidth: 200 }} value={blinding} onChange={(e) => { setBlinding(e.target.value); setToast("Blinding updated"); }}>
+                      <option>Open-label (no blinding)</option><option>Single-blind</option><option>Double-blind</option>
+                    </select>
+                  </div>
+                </div>
+
+                {/* Stratification factors */}
+                <div style={{ padding: "var(--space-3) 0" }}>
+                  <div style={{ marginBottom: "var(--space-3)" }}>
+                    <div className="settings-row-label">Stratification factors</div>
+                    <div className="settings-row-desc">{method === "stratified" ? "Required — define the variables used to form strata." : "Variables used to balance groups at randomization"}</div>
+                  </div>
+                  <div style={{ display: "flex", alignItems: "center", gap: "var(--space-2)", marginBottom: "var(--space-3)" }}>
+                    <button className={`strat-scope-btn${stratScope === "site" ? " active" : ""}`} type="button" onClick={() => { setStratScope("site"); setToast("Stratification scope updated"); }}><i className="ti ti-building-hospital" style={{ fontSize: 13 }}></i> Per site</button>
+                    <button className={`strat-scope-btn${stratScope === "study" ? " active" : ""}`} type="button" onClick={() => { setStratScope("study"); setToast("Stratification scope updated"); }}><i className="ti ti-flask" style={{ fontSize: 13 }}></i> Across study</button>
+                    <span style={{ fontSize: "var(--text-xs)", color: "var(--color-text-tertiary)", marginLeft: 4 }}>{stratScope === "site" ? "Randomization balanced separately within each site" : "Randomization balanced across the whole study"}</span>
+                  </div>
+                  <div style={{ display: "flex", flexDirection: "column", gap: "var(--space-2)", marginBottom: "var(--space-3)" }}>
+                    {factors.map((f) => (
+                      <div className="strat-factor-card" key={f}>
+                        <i className="ti ti-stack-2" style={{ fontSize: 14, color: "var(--color-text-tertiary)" }}></i>
+                        <span style={{ flex: 1, fontSize: "var(--text-sm)" }}>{f}</span>
+                        <button className="set-btn-icon" title="Remove factor" type="button" onClick={() => { setFactors(factors.filter((x) => x !== f)); setToast("Factor removed"); }}><i className="ti ti-trash"></i></button>
+                      </div>
+                    ))}
+                    {factors.length === 0 && (method === "stratified" || method === "minimization") && (
+                      <div style={{ fontSize: "var(--text-xs)", color: "var(--amber-700)" }}><i className="ti ti-alert-triangle" style={{ fontSize: 11 }}></i> At least one stratification factor is required for this method.</div>
+                    )}
+                  </div>
+                  {addingFactor ? (
+                    <div style={{ display: "flex", gap: "var(--space-2)" }}>
+                      <input autoFocus className="set-select" style={{ maxWidth: 240, appearance: "auto", backgroundImage: "none", paddingRight: "var(--space-3)" }} placeholder="Factor name…" value={newFactor}
+                        onChange={(e) => setNewFactor(e.target.value)} onKeyDown={(e) => { if (e.key === "Enter" && newFactor.trim()) { setFactors([...factors, newFactor.trim()]); setNewFactor(""); setAddingFactor(false); setToast("Factor added"); } if (e.key === "Escape") { setAddingFactor(false); setNewFactor(""); } }} />
+                      <button className="set-btn-secondary" type="button" onClick={() => { if (newFactor.trim()) { setFactors([...factors, newFactor.trim()]); setToast("Factor added"); } setNewFactor(""); setAddingFactor(false); }}>Add</button>
+                      <button className="set-btn-icon" type="button" onClick={() => { setAddingFactor(false); setNewFactor(""); }}><i className="ti ti-x"></i></button>
+                    </div>
+                  ) : (
+                    <button className="set-btn-secondary" style={{ height: 28, fontSize: "var(--text-xs)" }} type="button" onClick={() => setAddingFactor(true)}><i className="ti ti-plus"></i> Add factor</button>
+                  )}
+                </div>
+
+                {method === "minimization" && (
+                  <div className="set-info-banner" style={{ marginTop: "var(--space-2)" }}>
+                    <i className="ti ti-info-circle" style={{ fontSize: 16, color: "var(--slate-600)", flexShrink: 0, marginTop: 1 }}></i>
+                    <div><div style={{ fontWeight: 500, marginBottom: 2 }}>Dynamic assignment — no randomization list required</div>
+                      <div style={{ fontSize: "var(--text-xs)", color: "var(--color-text-tertiary)" }}>Minimization assigns each new subject to the group that minimises imbalance across stratification factors at that moment.</div></div>
+                  </div>
+                )}
+                {method === "simple" && (
+                  <div className="set-amber-banner" style={{ marginTop: "var(--space-2)" }}>
+                    <i className="ti ti-alert-triangle" style={{ fontSize: 14, flexShrink: 0, marginTop: 1 }}></i>
+                    <span>Simple randomization is not recommended for studies with fewer than 100 subjects.</span>
+                  </div>
+                )}
+              </div>
+            </div>
+
+            {/* ── Card 2: Treatment groups ── */}
+            <div className="settings-card">
+              <div className="settings-card-header">
+                <div><div className="settings-card-title">Treatment groups</div><div className="settings-card-desc">Groups, allocation ratio, enrolment, and the inventory lot each is linked to</div></div>
+                <button className="set-btn-secondary" type="button" onClick={() => setToast("Group management locked after first enrollment.")}><i className="ti ti-plus"></i> Add group</button>
+              </div>
+              <div className="settings-card-body">
+                {/* Allocation ratio bar */}
+                <div style={{ marginBottom: "var(--space-4)" }}>
+                  <div style={{ fontSize: "var(--text-xs)", color: "var(--color-text-tertiary)" }}>Allocation ratio · {cfg.groups.map((g) => g.ratio).join(":")}</div>
+                  <div className="ratio-bar">{cfg.groups.map((g) => <div key={g.code} className="ratio-fill" style={{ width: `${Math.round((g.ratio / ratioTotal) * 100)}%`, background: g.color, opacity: 0.85 }} />)}</div>
+                </div>
+                {/* Group rows */}
+                {cfg.groups.map((g) => (
+                  <div className="group-row" key={g.code}>
+                    <div className="group-color-dot" style={{ background: g.color }} />
+                    <div style={{ flex: 1, minWidth: 0 }}>
+                      <div style={{ fontSize: "var(--text-sm)", fontWeight: 500 }}>{g.name}{g.detail ? <span style={{ color: "var(--color-text-tertiary)", fontWeight: 400 }}> · {g.detail}</span> : null}</div>
+                      <div style={{ fontSize: "var(--text-xs)", color: "var(--color-text-tertiary)", fontFamily: "var(--font-mono)" }}>{g.code}{g.blindedLabel ? ` · Blinded label: ${g.blindedLabel}` : ""}</div>
+                    </div>
+                    <div style={{ fontSize: "var(--text-xs)", color: "var(--color-text-secondary)", textAlign: "center", minWidth: 70 }}>Ratio<br /><span style={{ fontFamily: "var(--font-mono)", fontSize: "var(--text-sm)" }}>{g.ratio}</span></div>
+                    <div style={{ fontSize: "var(--text-xs)", color: "var(--color-text-secondary)", textAlign: "center", minWidth: 70 }}>Enrolled<br /><span style={{ fontFamily: "var(--font-mono)", fontSize: "var(--text-sm)" }}>{enrolled(g)}</span></div>
+                    <div style={{ minWidth: 130, textAlign: "right" }}><span className="group-lot" title="Linked inventory lot">{g.lot}</span></div>
+                  </div>
+                ))}
+              </div>
+            </div>
+
+            {/* ── Card 3: Randomization list ── */}
+            <div className="settings-card">
+              <div className="settings-card-header">
+                <div><div className="settings-card-title">Randomization list</div><div className="settings-card-desc">Upload or generate the randomization schedule</div></div>
+                {method !== "minimization" && <button className="set-btn-primary" type="button" onClick={() => setToast("Randomization list locked. Assignments cannot be changed without a protocol amendment.")}><i className="ti ti-lock"></i> Lock randomization</button>}
+              </div>
+              <div className="settings-card-body">
+                {method === "minimization" ? (
+                  <div className="set-note"><i className="ti ti-info-circle" style={{ fontSize: 13, marginRight: 4 }}></i> Minimization uses real-time dynamic assignment — no randomization list is needed.</div>
+                ) : (
+                  <>
+                    <div style={{ display: "flex", gap: "var(--space-3)", marginBottom: "var(--space-3)" }}>
+                      <button className="set-btn-secondary" type="button" onClick={() => setToast("CSV upload is disabled in the demo.")}><i className="ti ti-file-type-csv"></i> Upload list (CSV)</button>
+                      <button className="set-btn-secondary" type="button" onClick={() => setToast("Randomization list generated (demo).")}><i className="ti ti-refresh"></i> Generate list</button>
+                    </div>
+                    <div className="set-note"><i className="ti ti-info-circle" style={{ fontSize: 12, marginRight: 4 }}></i> Randomization list will be locked before first enrollment. Once locked, assignments cannot be changed without a protocol amendment.</div>
+                  </>
+                )}
+              </div>
+            </div>
+          </>
+        ) : (
+          <>
+            <div className="section-header">
+              <h1 className="section-title">{NAV.find((n) => n.key === section)?.label}</h1>
+              <p className="section-desc">Study configuration for {study.code}</p>
+            </div>
+            <div className="set-coming-soon">
+              <i className={`ti ti-${NAV.find((n) => n.key === section)?.icon ?? "settings"}`} style={{ fontSize: 32, color: "var(--color-text-placeholder)" }} aria-hidden="true"></i>
+              <div style={{ fontSize: "var(--text-lg)", fontWeight: 500, color: "var(--color-text-secondary)" }}>Coming soon</div>
+              <div style={{ fontSize: "var(--text-sm)", maxWidth: 440, lineHeight: 1.5 }}>This settings section isn’t built yet. The Randomization section is the first live area.</div>
+            </div>
+          </>
+        )}
       </div>
 
-      <div
-        style={{
-          display: "flex",
-          flexDirection: "column",
-          alignItems: "center",
-          gap: "var(--space-3)",
-          textAlign: "center",
-          padding: "var(--space-8)",
-          background: "var(--color-surface)",
-          border: "1px dashed var(--color-border)",
-          borderRadius: "var(--radius-lg)",
-          color: "var(--color-text-tertiary)",
-        }}
-      >
-        <i className="ti ti-settings" style={{ fontSize: "32px", color: "var(--color-text-placeholder)" }} aria-hidden="true"></i>
-        <div style={{ fontSize: "var(--text-lg)", fontWeight: "var(--weight-medium)", color: "var(--color-text-secondary)" }}>
-          Study configuration coming soon
-        </div>
-        <div style={{ fontSize: "var(--text-sm)", maxWidth: 440, lineHeight: 1.5 }}>
-          This study is empty — no sites, barns, pens, or subjects yet. From here an
-          <strong> Admin</strong> will set up the site hierarchy, eCRF form templates,
-          roles, and randomization before data entry begins.
-        </div>
-      </div>
+      {toast && <div className="set-toast" role="status">{toast}</div>}
     </div>
   );
 }
