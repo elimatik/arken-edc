@@ -2,12 +2,12 @@
 
 // ════════════════════════════════════════════════════════════════════════════
 // Study Settings — two-column layout (ported from 25-settings.html). Left: a
-// 200px settings nav; right: scrollable content. Only the Randomization section
-// is built; the rest show a "Coming soon" placeholder. Randomization reads the
-// study's real config (method/blocking/blinding/stratification + treatment
-// groups with their inventory lot links) and live enrolled counts from the
-// session store. Display-only for the portfolio — edits surface autosave toasts
-// but are not persisted.
+// 200px settings nav grouped into Study / Access / Protocol / System; right:
+// scrollable content. Only the Randomization section is built; the rest show a
+// "Coming soon" placeholder. Randomization reads the study's real config
+// (method/blocking/blinding/stratification + treatment groups with their
+// inventory lot links) and live enrolled counts from the session store.
+// Display-only for the portfolio — edits surface autosave toasts, not persisted.
 // ════════════════════════════════════════════════════════════════════════════
 
 import { useEffect, useMemo, useState } from "react";
@@ -17,23 +17,24 @@ import "./settings.css";
 
 type Method = "blocked" | "simple" | "stratified" | "minimization";
 interface Group { code: string; name: string; detail?: string; ratio: number; arm: string; lot: string; blindedLabel?: string; color: string }
-interface RandConfig { method: Method; blockSize: string; blinding: string; stratScope: "site" | "study"; stratFactors: string[]; groups: Group[] }
+interface StratFactor { key: string; name: string; source: "site" | "form"; form?: string; field?: string; levels: string[] }
+interface RandConfig { method: Method; blockSize: string; blinding: string; stratScope: "site" | "study"; stratFactors: StratFactor[]; groups: Group[] }
 
-const NAV = [
-  { key: "randomization", label: "Randomization", icon: "arrows-shuffle" },
-  { key: "inventory", label: "Inventory", icon: "flask" },
-  { key: "formperm", label: "Form permissions", icon: "forms" },
-  { key: "roles", label: "Roles", icon: "shield-check" },
-  { key: "preferences", label: "Study preferences", icon: "adjustments" },
-  { key: "audit", label: "Audit & Signatures", icon: "writing" },
-  { key: "billing", label: "Billing", icon: "receipt-2" },
-  { key: "notifications", label: "Notifications", icon: "bell" },
-] as const;
+// Grouped nav (ported from 25-settings.html). Only Randomization is live.
+interface NavItem { key: string; label: string; icon: string }
+const NAV_GROUPS: { title: string; items: NavItem[] }[] = [
+  { title: "Study", items: [{ key: "study", label: "Study settings", icon: "clipboard-list" }, { key: "preferences", label: "Study preferences", icon: "adjustments" }] },
+  { title: "Access", items: [{ key: "roles", label: "Roles", icon: "shield-check" }, { key: "formperm", label: "Form permissions", icon: "forms" }] },
+  { title: "Protocol", items: [{ key: "randomization", label: "Randomization", icon: "arrows-shuffle" }] },
+  { title: "System", items: [{ key: "inventory", label: "Inventory", icon: "flask" }, { key: "audit", label: "Audit & Signatures", icon: "writing" }, { key: "billing", label: "Billing", icon: "receipt-2" }] },
+];
+const NAV_ITEMS: NavItem[] = NAV_GROUPS.flatMap((g) => g.items);
 
 // Per-study randomization configuration (the real protocol design).
 function randConfig(code: string): RandConfig {
   if (code === "BR-2502") return {
-    method: "blocked", blockSize: "6", blinding: "Open-label (no blinding)", stratScope: "site", stratFactors: ["Site / Feedlot"],
+    method: "blocked", blockSize: "6", blinding: "Open-label (no blinding)", stratScope: "site",
+    stratFactors: [{ key: "sf-site", name: "Site", source: "site", levels: [] }],
     groups: [
       { code: "T01", name: "Tulathromycin 2.5 mg/kg", ratio: 1, arm: "T01", lot: "LOT-BR-T01", color: "#1760A8" },
       { code: "T02", name: "Tulathromycin 5.0 mg/kg", ratio: 1, arm: "T02", lot: "LOT-BR-T02", color: "#1A6B47" },
@@ -41,7 +42,11 @@ function randConfig(code: string): RandConfig {
     ],
   };
   if (code === "CA-0801") return {
-    method: "blocked", blockSize: "4", blinding: "Double-blind", stratScope: "site", stratFactors: ["Site", "Disease severity (CADESI-04)"],
+    method: "blocked", blockSize: "4", blinding: "Double-blind", stratScope: "site",
+    stratFactors: [
+      { key: "sf-site", name: "Site", source: "site", levels: [] },
+      { key: "sf-sev", name: "Disease severity", source: "form", form: "Screening", field: "CADESI score", levels: ["Mild <25", "Moderate 25–60", "Severe >60"] },
+    ],
     groups: [
       { code: "A", name: "Treatment A", detail: "DermAlliv™ Active", ratio: 1, arm: "DermAlliv™ Active", lot: "LOT-CA-001", blindedLabel: "Treatment A", color: "#1760A8" },
       { code: "B", name: "Treatment B", detail: "Placebo", ratio: 1, arm: "Placebo", lot: "LOT-CA-001", blindedLabel: "Treatment B", color: "#6D7480" },
@@ -67,10 +72,25 @@ export default function StudySettingsPage() {
   const [blockSize, setBlockSize] = useState(cfg.blockSize);
   const [blinding, setBlinding] = useState(cfg.blinding);
   const [stratScope, setStratScope] = useState<"site" | "study">(cfg.stratScope);
-  const [factors, setFactors] = useState<string[]>(cfg.stratFactors);
-  const [addingFactor, setAddingFactor] = useState(false);
-  const [newFactor, setNewFactor] = useState("");
+  const [factors, setFactors] = useState<StratFactor[]>(cfg.stratFactors);
   const [toast, setToast] = useState<string | null>(null);
+
+  // Real forms for the active study, for the Add-factor modal's Form/Field selects.
+  const studyForms = useMemo(
+    () => dataset.forms.filter((f) => f.study_id === study.id && f.scope !== "barn").slice().sort((a, b) => a.sequence - b.sequence),
+    [dataset.forms, study.id],
+  );
+
+  // Add/Edit-factor modal state.
+  const [modalOpen, setModalOpen] = useState(false);
+  const [editKey, setEditKey] = useState<string | null>(null);
+  const [sfName, setSfName] = useState("");
+  const [sfSource, setSfSource] = useState<"site" | "form">("site");
+  const [sfForm, setSfForm] = useState("");
+  const [sfField, setSfField] = useState("");
+  const [sfLevels, setSfLevels] = useState<string[]>([]);
+  const selForm = studyForms.find((f) => f.name === sfForm);
+  const fieldOpts = selForm ? dataset.formFields.filter((f) => f.form_id === selForm.id) : [];
 
   // Reset to the active study's config when the study changes.
   useEffect(() => {
@@ -88,15 +108,42 @@ export default function StudySettingsPage() {
   const showBlock = method === "blocked" || method === "stratified";
   const blockWarn = showBlock && blockSize !== "variable" && Number(blockSize) % ratioTotal !== 0;
 
+  function openAddModal() {
+    setEditKey(null); setSfName(""); setSfSource("site");
+    setSfForm(studyForms[0]?.name ?? ""); setSfField(""); setSfLevels([]);
+    setModalOpen(true);
+  }
+  function openEditModal(f: StratFactor) {
+    setEditKey(f.key); setSfName(f.name); setSfSource(f.source);
+    setSfForm(f.form ?? studyForms[0]?.name ?? ""); setSfField(f.field ?? ""); setSfLevels(f.levels.slice());
+    setModalOpen(true);
+  }
+  function saveFactor() {
+    if (!sfName.trim()) { setToast("Factor name is required"); return; }
+    if (sfSource === "form" && !sfField) { setToast("Please select a field"); return; }
+    const levels = sfSource === "site" ? [] : sfLevels.filter((l) => l.trim() !== "");
+    const next: StratFactor = { key: editKey ?? `sf-${Date.now()}`, name: sfName.trim(), source: sfSource, form: sfSource === "form" ? sfForm : undefined, field: sfSource === "form" ? sfField : undefined, levels };
+    setFactors((prev) => editKey ? prev.map((f) => (f.key === editKey ? next : f)) : [...prev, next]);
+    setToast(editKey ? "Factor updated" : "Factor added");
+    setModalOpen(false);
+  }
+  const factorDetail = (f: StratFactor) => f.source === "site"
+    ? "Built-in — uses the study's site list"
+    : `${f.form} → ${f.field || "—"}${f.levels.length ? ` (${f.levels.join(" / ")})` : ""}`;
+
   return (
     <div className="settings-wrap">
-      {/* Nav sidebar */}
+      {/* Nav sidebar — grouped */}
       <nav className="settings-nav" aria-label="Settings sections">
-        <div className="settings-nav-title">Configuration</div>
-        {NAV.map((n) => (
-          <button key={n.key} className={`settings-nav-item${section === n.key ? " active" : ""}`} onClick={() => setSection(n.key)} type="button">
-            <i className={`ti ti-${n.icon}`} aria-hidden="true"></i> {n.label}
-          </button>
+        {NAV_GROUPS.map((grp, gi) => (
+          <div key={grp.title}>
+            <div className="settings-nav-title" style={gi > 0 ? { marginTop: "var(--space-4)" } : undefined}>{grp.title}</div>
+            {grp.items.map((n) => (
+              <button key={n.key} className={`settings-nav-item${section === n.key ? " active" : ""}`} onClick={() => setSection(n.key)} type="button">
+                <i className={`ti ti-${n.icon}`} aria-hidden="true"></i> {n.label}
+              </button>
+            ))}
+          </div>
         ))}
       </nav>
 
@@ -105,7 +152,7 @@ export default function StudySettingsPage() {
         {section === "randomization" ? (
           <>
             <div className="section-header">
-              <h1 className="section-title">Randomization</h1>
+              <h1 className="set-section-title">Randomization</h1>
               <p className="section-desc">Treatment group configuration, blinding, and assignment rules for {study.code}</p>
             </div>
 
@@ -164,26 +211,29 @@ export default function StudySettingsPage() {
                   </div>
                   <div style={{ display: "flex", flexDirection: "column", gap: "var(--space-2)", marginBottom: "var(--space-3)" }}>
                     {factors.map((f) => (
-                      <div className="strat-factor-card" key={f}>
-                        <i className="ti ti-stack-2" style={{ fontSize: 14, color: "var(--color-text-tertiary)" }}></i>
-                        <span style={{ flex: 1, fontSize: "var(--text-sm)" }}>{f}</span>
-                        <button className="set-btn-icon" title="Remove factor" type="button" onClick={() => { setFactors(factors.filter((x) => x !== f)); setToast("Factor removed"); }}><i className="ti ti-trash"></i></button>
+                      <div className="strat-factor-card" key={f.key}>
+                        <i className="ti ti-grip-vertical" style={{ fontSize: 14, color: "var(--color-text-placeholder)", cursor: "grab", flexShrink: 0 }}></i>
+                        <div style={{ flex: 1, minWidth: 0 }}>
+                          <div style={{ display: "flex", alignItems: "center", gap: "var(--space-2)", marginBottom: 3 }}>
+                            <span style={{ fontSize: "var(--text-sm)", fontWeight: 500 }}>{f.name}</span>
+                            <span className={`set-badge ${f.source === "site" ? "set-badge-slate" : "set-badge-blue"}`}>{f.source === "site" ? "Site" : "Form field"}</span>
+                          </div>
+                          <div style={{ fontSize: "var(--text-xs)", color: "var(--color-text-tertiary)" }}>{factorDetail(f)}</div>
+                        </div>
+                        <div style={{ display: "flex", alignItems: "center", gap: 2, flexShrink: 0 }}>
+                          <button className="set-btn-icon" title="Edit factor" type="button" onClick={() => openEditModal(f)}><i className="ti ti-pencil" style={{ fontSize: 13 }}></i></button>
+                          <button className="set-btn-icon" title="Remove factor" type="button" onClick={() => { setFactors(factors.filter((x) => x.key !== f.key)); setToast("Factor removed"); }}><i className="ti ti-trash" style={{ fontSize: 13 }}></i></button>
+                        </div>
                       </div>
                     ))}
                     {factors.length === 0 && (method === "stratified" || method === "minimization") && (
                       <div style={{ fontSize: "var(--text-xs)", color: "var(--amber-700)" }}><i className="ti ti-alert-triangle" style={{ fontSize: 11 }}></i> At least one stratification factor is required for this method.</div>
                     )}
+                    {factors.length === 0 && method !== "stratified" && method !== "minimization" && (
+                      <div style={{ fontSize: "var(--text-sm)", color: "var(--color-text-placeholder)" }}>No stratification factors defined.</div>
+                    )}
                   </div>
-                  {addingFactor ? (
-                    <div style={{ display: "flex", gap: "var(--space-2)" }}>
-                      <input autoFocus className="set-select" style={{ maxWidth: 240, appearance: "auto", backgroundImage: "none", paddingRight: "var(--space-3)" }} placeholder="Factor name…" value={newFactor}
-                        onChange={(e) => setNewFactor(e.target.value)} onKeyDown={(e) => { if (e.key === "Enter" && newFactor.trim()) { setFactors([...factors, newFactor.trim()]); setNewFactor(""); setAddingFactor(false); setToast("Factor added"); } if (e.key === "Escape") { setAddingFactor(false); setNewFactor(""); } }} />
-                      <button className="set-btn-secondary" type="button" onClick={() => { if (newFactor.trim()) { setFactors([...factors, newFactor.trim()]); setToast("Factor added"); } setNewFactor(""); setAddingFactor(false); }}>Add</button>
-                      <button className="set-btn-icon" type="button" onClick={() => { setAddingFactor(false); setNewFactor(""); }}><i className="ti ti-x"></i></button>
-                    </div>
-                  ) : (
-                    <button className="set-btn-secondary" style={{ height: 28, fontSize: "var(--text-xs)" }} type="button" onClick={() => setAddingFactor(true)}><i className="ti ti-plus"></i> Add factor</button>
-                  )}
+                  <button className="set-btn-secondary" style={{ height: 28, fontSize: "var(--text-xs)" }} type="button" onClick={openAddModal}><i className="ti ti-plus"></i> Add factor</button>
                 </div>
 
                 {method === "minimization" && (
@@ -254,17 +304,83 @@ export default function StudySettingsPage() {
         ) : (
           <>
             <div className="section-header">
-              <h1 className="section-title">{NAV.find((n) => n.key === section)?.label}</h1>
+              <h1 className="set-section-title">{NAV_ITEMS.find((n) => n.key === section)?.label}</h1>
               <p className="section-desc">Study configuration for {study.code}</p>
             </div>
             <div className="set-coming-soon">
-              <i className={`ti ti-${NAV.find((n) => n.key === section)?.icon ?? "settings"}`} style={{ fontSize: 32, color: "var(--color-text-placeholder)" }} aria-hidden="true"></i>
+              <i className={`ti ti-${NAV_ITEMS.find((n) => n.key === section)?.icon ?? "settings"}`} style={{ fontSize: 32, color: "var(--color-text-placeholder)" }} aria-hidden="true"></i>
               <div style={{ fontSize: "var(--text-lg)", fontWeight: 500, color: "var(--color-text-secondary)" }}>Coming soon</div>
               <div style={{ fontSize: "var(--text-sm)", maxWidth: 440, lineHeight: 1.5 }}>This settings section isn’t built yet. The Randomization section is the first live area.</div>
             </div>
           </>
         )}
       </div>
+
+      {/* ── Add / Edit stratification factor modal ── */}
+      {modalOpen && (
+        <div className="set-modal-overlay" onClick={(e) => { if (e.target === e.currentTarget) setModalOpen(false); }}>
+          <div className="set-modal" role="dialog" aria-modal="true">
+            <div className="set-modal-header">
+              <div><div className="set-modal-title">{editKey ? "Edit stratification factor" : "Add stratification factor"}</div>
+                <div style={{ fontSize: "var(--text-xs)", color: "var(--color-text-tertiary)", marginTop: 2 }}>Define a variable used to balance treatment groups</div></div>
+              <button className="set-modal-close" type="button" onClick={() => setModalOpen(false)}><i className="ti ti-x"></i></button>
+            </div>
+            <div className="set-modal-body">
+              <div className="set-field">
+                <div className="set-field-label">Factor name</div>
+                <input className="set-input" placeholder="e.g. Sex, Age class, Breed, Disease severity" value={sfName} onChange={(e) => setSfName(e.target.value)} />
+              </div>
+              <div className="set-field">
+                <div className="set-field-label">Source</div>
+                <select className="set-select" value={sfSource} onChange={(e) => { const v = e.target.value as "site" | "form"; setSfSource(v); if (v === "form" && !sfForm) setSfForm(studyForms[0]?.name ?? ""); }}>
+                  <option value="site">Site — balance by site</option>
+                  <option value="form">Form field — pull value from a CRF field</option>
+                </select>
+                <div style={{ fontSize: "var(--text-xs)", color: "var(--color-text-tertiary)", marginTop: 4 }}>{sfSource === "site" ? "Site is always available — no form mapping needed." : "Select the form and field that holds this value."}</div>
+              </div>
+
+              {sfSource === "form" && (
+                <>
+                  <div className="set-field">
+                    <div className="set-field-label">Form</div>
+                    <select className="set-select" value={sfForm} onChange={(e) => { setSfForm(e.target.value); setSfField(""); }}>
+                      {studyForms.map((f) => <option key={f.id} value={f.name}>{f.name}</option>)}
+                    </select>
+                  </div>
+                  <div className="set-field">
+                    <div className="set-field-label">Field</div>
+                    <select className="set-select" value={sfField} onChange={(e) => setSfField(e.target.value)}>
+                      <option value="">— select a field —</option>
+                      {fieldOpts.map((f) => { const lbl = f.label || f.code; return <option key={f.id} value={lbl}>{lbl}</option>; })}
+                    </select>
+                  </div>
+                  <div style={{ borderTop: "1px solid var(--color-border-subtle)", paddingTop: "var(--space-4)" }}>
+                    <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: "var(--space-2)" }}>
+                      <div><div style={{ fontSize: "var(--text-sm)", fontWeight: 500 }}>Levels</div><div style={{ fontSize: "var(--text-xs)", color: "var(--color-text-tertiary)", marginTop: 2 }}>Define the categories subjects are sorted into</div></div>
+                      <button className="set-btn-secondary" style={{ height: 28, fontSize: "var(--text-xs)" }} type="button" onClick={() => setSfLevels([...sfLevels, ""])}><i className="ti ti-plus"></i> Add level</button>
+                    </div>
+                    <div style={{ display: "flex", flexDirection: "column", gap: "var(--space-1)" }}>
+                      {sfLevels.length === 0 ? (
+                        <div className="set-level-empty">No levels yet</div>
+                      ) : sfLevels.map((lv, i) => (
+                        <div key={i} style={{ display: "flex", alignItems: "center", gap: "var(--space-2)" }}>
+                          <i className="ti ti-grip-vertical" style={{ fontSize: 13, color: "var(--color-text-placeholder)", cursor: "grab", flexShrink: 0 }}></i>
+                          <input className="set-input" style={{ height: 32 }} value={lv} placeholder="e.g. <200 kg" onChange={(e) => setSfLevels(sfLevels.map((x, j) => (j === i ? e.target.value : x)))} />
+                          <button className="set-btn-icon" type="button" onClick={() => setSfLevels(sfLevels.filter((_, j) => j !== i))}><i className="ti ti-x" style={{ fontSize: 13 }}></i></button>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                </>
+              )}
+            </div>
+            <div className="set-modal-footer">
+              <button className="set-btn-secondary" type="button" onClick={() => setModalOpen(false)}>Cancel</button>
+              <button className="set-btn-primary" type="button" onClick={saveFactor}><i className="ti ti-check"></i> {editKey ? "Save factor" : "Add factor"}</button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {toast && <div className="set-toast" role="status">{toast}</div>}
     </div>
