@@ -35,7 +35,10 @@ export default function BarnRecordPage() {
   const [editingBio, setEditingBio] = useState(false);
   const { sort, toggle } = useTableSort(null);
 
-  const tab = sp.get("tab") === "forms" ? "forms" : "overview";
+  // A ?form= deep-link (e.g. from the Dispensing log) opens the Forms tab with that
+  // form selected; otherwise honour ?tab=, defaulting to Overview.
+  const formParam = sp.get("form") ?? undefined;
+  const tab = sp.get("tab") === "forms" || formParam ? "forms" : "overview";
   const setTab = (t: "overview" | "forms") => router.replace(`/study/${studyId}/barns/${barnId}?tab=${t}`);
 
   const barn = dataset.barns.find((b) => b.id === barnId);
@@ -296,7 +299,7 @@ export default function BarnRecordPage() {
           </div>
         </div>
       ) : (
-        <ScopedFormFlow studyId={studyId} scope="barn" scopeId={barnId} exclude={["Equipment Calibration Log"]}
+        <ScopedFormFlow studyId={studyId} scope="barn" scopeId={barnId} exclude={["Equipment Calibration Log"]} initialFormId={formParam}
           topNote={{ "Daily Environmental Log": "Single-point environmental monitoring — assumes uniform conditions across all pens in this house." }} />
       )}
     </div>

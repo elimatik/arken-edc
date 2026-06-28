@@ -474,7 +474,7 @@ function ScopedFormView({ studyId, scope, scopeId, form, modeQueries, modeSdv, s
 }
 
 // ─── Forms tab: Subject-Record-style sidebar + the selected form's content ────
-export function ScopedFormFlow({ studyId, scope, scopeId, exclude = [], topNote }: { studyId: string; scope: Scope; scopeId: string; exclude?: string[]; topNote?: Record<string, string> }) {
+export function ScopedFormFlow({ studyId, scope, scopeId, exclude = [], topNote, initialFormId }: { studyId: string; scope: Scope; scopeId: string; exclude?: string[]; topNote?: Record<string, string>; initialFormId?: string }) {
   const s = useScoped(studyId, scope, scopeId);
   const { dataset } = s;
   const { activeRole } = useShell();
@@ -482,7 +482,8 @@ export function ScopedFormFlow({ studyId, scope, scopeId, exclude = [], topNote 
   const forms = dataset.forms
     .filter((f) => f.study_id === studyId && f.scope === scope && !exclude.includes(f.name))
     .slice().sort((a, b) => a.sequence - b.sequence);
-  const [selId, setSelId] = useState<string | null>(null);
+  // ?form= deep-link selects by form DEFINITION id (same as the Subject Record).
+  const [selId, setSelId] = useState<string | null>(initialFormId ?? null);
   // Remarks modes live at the record level (like the Subject Record) so the sidebar
   // SDV shields and the active form's panel share one state.
   const [modeQueries, setModeQueries] = useState(false);
