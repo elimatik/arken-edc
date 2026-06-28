@@ -45,7 +45,7 @@ function randConfig(code: string): RandConfig {
     method: "blocked", blockSize: "4", blinding: "Double-blind", stratScope: "site",
     stratFactors: [
       { key: "sf-site", name: "Site", source: "site", levels: [] },
-      { key: "sf-sev", name: "Disease severity", source: "form", form: "Screening", field: "CADESI score", levels: ["Mild <25", "Moderate 25–60", "Severe >60"] },
+      { key: "sf-sev", name: "Disease severity", source: "form", form: "Baseline Dermatology Assessment", field: "CADESI-04 score", levels: ["Mild <25", "Moderate 25–60", "Severe >60"] },
     ],
     groups: [
       { code: "A", name: "Treatment A", detail: "DermAlliv™ Active", ratio: 1, arm: "DermAlliv™ Active", lot: "LOT-CA-001", blindedLabel: "Treatment A", color: "#1760A8" },
