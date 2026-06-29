@@ -13,7 +13,7 @@ import { subjectAeList } from "@/lib/reports-data";
 import { codingIndex, codedDisplay, normalizeTerm } from "@/lib/coding-data";
 import { LOCK_TOOLTIP } from "@/lib/use-study-locked";
 import { RandomizationPanel } from "./RandomizationPanel";
-import { subjectWeightKg } from "@/lib/randomization";
+import { subjectWeightKg, findRandForm } from "@/lib/randomization";
 import { canInv } from "@/lib/inventory-data";
 import { shouldHideArmForSubject } from "@/lib/study-config";
 import type { Dataset, FormFieldRow, Vial, VialStatus } from "@/lib/session-store/types";
@@ -2121,7 +2121,10 @@ export function SubjectRecord({ studyId, subjectId, initialFormId, initialPanelF
             const dartF = fields.find((f) => f.code === "dart_score");
             const dart = dartF ? Number(fvFor(dartF.id)?.value) : NaN;
             if (Number.isNaN(dart) || dart < 2) return null;
-            const randFormId = dataset.forms.find((f) => f.study_id === studyId && /randomi[sz]ation/i.test(f.name))?.id;
+            // Use findRandForm — the naive /randomization/ regex also matches the
+            // "Enrollment & Randomization" visit-group container (F001), which isn't a
+            // selectable leaf; findRandForm returns the real CRF carrying assigned_arm (F004).
+            const randFormId = findRandForm(dataset, studyId)?.id;
             return (
               <div className="rand-screening-banner" role="status">
                 <i className="ti ti-info-circle"></i>
@@ -2129,7 +2132,7 @@ export function SubjectRecord({ studyId, subjectId, initialFormId, initialPanelF
                   <div className="rand-screening-title">DART score ≥ 2 — subject eligible for randomization.</div>
                   <div className="rand-screening-sub">Complete the Randomization &amp; Allocation form to proceed.</div>
                 </div>
-                {randFormId && <button type="button" className="rand-screening-link" onClick={() => setSelectedFormId(randFormId)}>Go to Randomization <i className="ti ti-arrow-right"></i></button>}
+                {randFormId && <button type="button" className="rand-screening-link" onClick={() => { setSelectedFormId(randFormId); router.push(`/study/${studyId}/data-entry/${subjectId}?form=${randFormId}`); }}>Go to Randomization <i className="ti ti-arrow-right"></i></button>}
               </div>
             );
           })()}
