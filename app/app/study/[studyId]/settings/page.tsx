@@ -72,7 +72,7 @@ const CONDITION_OPTIONS = ["Intact / sealed", "Partially used — good condition
 const OUTCOME_OPTIONS: { value: string; label: string; cls: string }[] = [
   { value: "restock_full", label: "Restock (full)", cls: "set-badge-green" },
   { value: "restock_partial", label: "Restock (partial)", cls: "set-badge-blue" },
-  { value: "destroy", label: "Destroy", cls: "set-badge-red" },
+  { value: "destroy", label: "Remove", cls: "set-badge-red" },
   { value: "quarantine", label: "Quarantine", cls: "set-badge-amber" },
 ];
 const DEFAULT_COND_MAP: Record<string, string> = {
