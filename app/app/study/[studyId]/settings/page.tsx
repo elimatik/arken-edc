@@ -16,6 +16,7 @@ import { useStudySession } from "@/lib/session-store/SessionStore";
 import type { Dataset } from "@/lib/session-store/types";
 import type { Role } from "@/lib/permissions";
 import { INV_ACTIONS, INV_ROLES, useInventoryPermissions, setInvPermission } from "@/lib/inventory-permissions";
+import { getStudyTypeConfig } from "@/lib/study-type-config";
 import "./settings.css";
 
 type Method = "blocked" | "simple" | "stratified" | "minimization";
@@ -193,8 +194,7 @@ function ToggleRow({ on, onToggle, label, desc }: { on: boolean; onToggle: () =>
 function InventorySection({ studyCode, studyId, studyForms, dataset, onToast }: { studyCode: string; studyId: string; studyForms: { id: string; name: string }[]; dataset: Dataset; onToast: (m: string) => void }) {
   const trig = useMemo(() => dispenseTrigger(studyCode, dataset, studyId), [studyCode, dataset, studyId]);
   const rtrig = useMemo(() => returnTrigger(studyCode), [studyCode]);
-  // TODO: derive these from the study-type config once Study Settings is built.
-  const showAtHome = studyCode === "CA-0801"; // At-home status: CA only
+  const showAtHome = getStudyTypeConfig(studyCode).hasAtHomeStatus; // At-home status (kit-per-visit)
   const showReturnSponsor = studyCode === "CA-0801" || studyCode === "BR-2502"; // CA + BR (PH feed is consumed)
 
   const [dispForm, setDispForm] = useState(trig.form);
@@ -382,6 +382,7 @@ function InventorySection({ studyCode, studyId, studyForms, dataset, onToast }: 
 // inputs reset to the active study when the topbar study switches.
 function StudySettingsSection({ studyCode, onToast }: { studyCode: string; onToast: (m: string) => void }) {
   const meta = studyMeta(studyCode);
+  const cfg = getStudyTypeConfig(studyCode);
   // Card 1 — Study information: committed values + edit drafts (Cancel reverts).
   const [editInfo, setEditInfo] = useState(false);
   const [title, setTitle] = useState(meta.title);
@@ -395,6 +396,7 @@ function StudySettingsSection({ studyCode, onToast }: { studyCode: string; onToa
 
   // Card 3 — Study type + hierarchy.
   const [activeType, setActiveType] = useState<StudyTypeKey>(meta.type);
+  const [allowAdditions, setAllowAdditions] = useState(cfg.allowMidStudyAdditions);
   const [hierarchy, setHierarchy] = useState<HLevel[]>(() => studyHierarchy(studyCode));
   function pickType(t: StudyTypeKey) { setActiveType(t); setHierarchy(HIERARCHY_PRESETS[t].map((l) => ({ ...l }))); onToast("Study type updated — hierarchy reset"); }
   function setLevelName(i: number, val: string) { setHierarchy((h) => h.map((l, j) => (j === i ? { ...l, value: val } : l))); onToast("Hierarchy updated"); }
@@ -457,11 +459,11 @@ function StudySettingsSection({ studyCode, onToast }: { studyCode: string; onToa
         <div className="settings-card-body">
           <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: "var(--space-4)", marginBottom: "var(--space-4)" }}>
             <div className="set-field"><div className="set-field-label">Study start</div><input className="set-input" defaultValue={meta.protoStart} onBlur={() => onToast("Study start saved")} /></div>
-            <div className="set-field"><div className="set-field-label">Enrollment close</div><input className="set-input" defaultValue={meta.protoEnroll} onBlur={() => onToast("Enrollment close saved")} /></div>
+            <div className="set-field"><div className="set-field-label">{cfg.enrollmentCloseLabel}</div><input className="set-input" defaultValue={meta.protoEnroll} onBlur={() => onToast(`${cfg.enrollmentCloseLabel} saved`)} /></div>
             <div className="set-field"><div className="set-field-label">Study end (planned)</div><input className="set-input" defaultValue={meta.protoEnd} onBlur={() => onToast("Study end saved")} /></div>
           </div>
           <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "var(--space-4)" }}>
-            <div className="set-field"><div className="set-field-label">Target enrollment</div><input className="set-input" type="number" defaultValue={meta.protoTarget.replace(/\D.*$/, "") || meta.protoTarget} onBlur={() => onToast("Target enrollment saved")} /></div>
+            <div className="set-field"><div className="set-field-label">{cfg.enrollmentLabel}</div><input className="set-input" type="number" defaultValue={meta.protoTarget.replace(/\D.*$/, "") || meta.protoTarget} onBlur={() => onToast(`${cfg.enrollmentLabel} saved`)} /></div>
             <div className="set-field"><div className="set-field-label">Protocol version</div><div style={{ display: "flex", alignItems: "center", gap: "var(--space-2)" }}><input className="set-input" defaultValue={meta.protoVersion} onBlur={() => onToast("Protocol version saved")} /><button className="set-btn-icon" type="button" title="Download protocol document" style={{ flexShrink: 0, width: 32, height: 36, border: "1px solid var(--color-border)" }}><i className="ti ti-download" style={{ fontSize: 15 }}></i></button></div></div>
           </div>
         </div>
@@ -481,6 +483,26 @@ function StudySettingsSection({ studyCode, onToast }: { studyCode: string; onToa
               </div>
             </div>
           </div>
+          {/* Study design — read-only, derived from the study-type config */}
+          <div className="settings-row">
+            <div><div className="settings-row-label">Enrollment model</div><div className="settings-row-desc">How subjects join the study</div></div>
+            <div className="settings-row-value" style={{ fontSize: "var(--text-sm)" }}>{cfg.enrollmentModel === "fixed_group" ? "Fixed group setup (pen / group-level)" : cfg.enrollmentModel === "single_cohort" ? "Single cohort" : "Rolling individual enrollment"}</div>
+          </div>
+          <div className="settings-row">
+            <div><div className="settings-row-label">Subject unit</div><div className="settings-row-desc">The experimental unit of analysis</div></div>
+            <div className="settings-row-value" style={{ fontSize: "var(--text-sm)", textTransform: "capitalize" }}>{cfg.subjectUnitPlural}</div>
+          </div>
+          <div className="settings-row">
+            <div><div className="settings-row-label">Allow mid-study additions</div>{!allowAdditions && <div className="settings-row-desc">Pen/group structure is locked after study initiation</div>}</div>
+            <div className="settings-row-value" style={{ display: "flex", justifyContent: "flex-end" }}>
+              <label className="set-toggle"><input type="checkbox" checked={allowAdditions} onChange={() => { setAllowAdditions(!allowAdditions); onToast("Setting saved"); }} /><span className="set-toggle-slider"></span></label>
+            </div>
+          </div>
+          <div className="settings-row" style={{ paddingBottom: "var(--space-4)" }}>
+            <div><div className="settings-row-label">Structure locked at</div></div>
+            <div className="settings-row-value"><span className="set-badge set-badge-slate">{cfg.structureLockedAt === "initiation" ? "At study initiation" : cfg.structureLockedAt === "first_enrollment" ? "At first enrollment" : "Manual"}</span></div>
+          </div>
+
           <div>
             <div style={{ fontSize: "var(--text-xs)", fontWeight: 500, textTransform: "uppercase", letterSpacing: "var(--tracking-caps)", color: "var(--color-text-tertiary)", marginBottom: "var(--space-3)" }}>Hierarchy levels <span style={{ fontWeight: 400, textTransform: "none", color: "var(--color-text-placeholder)" }}>(top = study, fixed)</span></div>
             {hierarchy.map((level, i) => {
@@ -498,7 +520,9 @@ function StudySettingsSection({ studyCode, onToast }: { studyCode: string; onToa
                 </div>
               );
             })}
-            <button className="set-btn-secondary" style={{ height: 28, fontSize: "var(--text-xs)", marginTop: "var(--space-3)" }} type="button" onClick={addLevel}><i className="ti ti-plus"></i> Add level</button>
+            {allowAdditions
+              ? <button className="set-btn-secondary" style={{ height: 28, fontSize: "var(--text-xs)", marginTop: "var(--space-3)" }} type="button" onClick={addLevel}><i className="ti ti-plus"></i> Add level</button>
+              : <div className="set-note" style={{ marginTop: "var(--space-3)" }}><i className="ti ti-lock" style={{ fontSize: 12, marginRight: 4 }}></i> Hierarchy is locked — this study's structure is fixed at initiation. Contact your Data Manager to request a protocol amendment.</div>}
           </div>
         </div>
       </div>
@@ -526,6 +550,9 @@ export default function StudySettingsPage() {
   const { study } = useShell();
   const { dataset } = useStudySession();
   const cfg = useMemo(() => randConfig(study.code), [study.code]);
+  const typeCfg = getStudyTypeConfig(study.code); // study-type design flags (rand unit, timing)
+  const isGroupRand = typeCfg.randomizationUnit === "group";
+  const atSetup = typeCfg.groupAssignmentTiming === "at_setup";
 
   const [section, setSection] = useState<string>("randomization");
   const [method, setMethod] = useState<Method>(cfg.method);
@@ -634,6 +661,27 @@ export default function StudySettingsPage() {
                   </div>
                 </div>
 
+                <div className="settings-row">
+                  <div><div className="settings-row-label">Randomization unit</div><div className="settings-row-desc">The unit assigned to a treatment group</div></div>
+                  <div className="settings-row-value">
+                    <select className="set-select" style={{ maxWidth: 200 }} value={isGroupRand ? "group" : "individual"} onChange={() => setToast("Randomization unit updated")}>
+                      <option value="individual">Individual subject</option>
+                      <option value="group">Group / pen</option>
+                    </select>
+                  </div>
+                </div>
+
+                <div className="settings-row">
+                  <div><div className="settings-row-label">Group assignment timing</div><div className="settings-row-desc">When treatment arms are assigned</div></div>
+                  <div className="settings-row-value">
+                    <select className="set-select" style={{ maxWidth: 200 }} value={typeCfg.groupAssignmentTiming} onChange={() => setToast("Group assignment timing updated")}>
+                      <option value="at_enrollment">At enrollment</option>
+                      <option value="at_setup">At study setup</option>
+                      <option value="predetermined">Predetermined</option>
+                    </select>
+                  </div>
+                </div>
+
                 {showBlock && (
                   <div className="settings-row">
                     <div><div className="settings-row-label">Block size</div><div className="settings-row-desc">Number of subjects per randomization block</div></div>
@@ -708,7 +756,9 @@ export default function StudySettingsPage() {
                 {method === "simple" && (
                   <div className="set-amber-banner" style={{ marginTop: "var(--space-2)" }}>
                     <i className="ti ti-alert-triangle" style={{ fontSize: 14, flexShrink: 0, marginTop: 1 }}></i>
-                    <span>Simple randomization is not recommended for studies with fewer than 100 subjects.</span>
+                    <span>{isGroupRand
+                      ? "Simple randomization with fewer than 20 experimental units may result in imbalance. Consider stratifying by house/barn."
+                      : "Simple randomization is not recommended for studies with fewer than 100 subjects."}</span>
                   </div>
                 )}
               </div>
@@ -718,7 +768,7 @@ export default function StudySettingsPage() {
             <div className="settings-card">
               <div className="settings-card-header">
                 <div><div className="settings-card-title">Treatment groups</div><div className="settings-card-desc">Groups, allocation ratio, enrolment, and the inventory lot each is linked to</div></div>
-                <button className="set-btn-secondary" type="button" onClick={() => setToast("Group management locked after first enrollment.")}><i className="ti ti-plus"></i> Add group</button>
+                <button className="set-btn-secondary" type="button" disabled={atSetup} onClick={() => setToast(atSetup ? "Treatment groups are fixed at study initiation." : "Group management locked after first enrollment.")}><i className="ti ti-plus"></i> Add group</button>
               </div>
               <div className="settings-card-body">
                 {/* Allocation ratio bar */}
@@ -746,16 +796,22 @@ export default function StudySettingsPage() {
             <div className="settings-card">
               <div className="settings-card-header">
                 <div><div className="settings-card-title">Randomization list</div><div className="settings-card-desc">Upload or generate the randomization schedule</div></div>
-                {method !== "minimization" && <button className="set-btn-primary" type="button" onClick={() => setToast("Randomization list locked. Assignments cannot be changed without a protocol amendment.")}><i className="ti ti-lock"></i> Lock randomization</button>}
+                {method !== "minimization" && !atSetup && <button className="set-btn-primary" type="button" onClick={() => setToast("Randomization list locked. Assignments cannot be changed without a protocol amendment.")}><i className="ti ti-lock"></i> Lock randomization</button>}
               </div>
               <div className="settings-card-body">
-                {method === "minimization" ? (
+                {atSetup ? (
+                  <div className="set-info-banner">
+                    <i className="ti ti-info-circle" style={{ fontSize: 16, color: "var(--slate-600)", flexShrink: 0, marginTop: 1 }}></i>
+                    <div><div style={{ fontWeight: 500, marginBottom: 2 }}>Arm assignment is configured at study setup</div>
+                      <div style={{ fontSize: "var(--text-xs)", color: "var(--color-text-tertiary)" }}>Pens are assigned to treatment groups when the pen structure is established.</div></div>
+                  </div>
+                ) : method === "minimization" ? (
                   <div className="set-note"><i className="ti ti-info-circle" style={{ fontSize: 13, marginRight: 4 }}></i> Minimization uses real-time dynamic assignment — no randomization list is needed.</div>
                 ) : (
                   <>
                     <div style={{ display: "flex", gap: "var(--space-3)", marginBottom: "var(--space-3)" }}>
                       <button className="set-btn-secondary" type="button" onClick={() => setToast("CSV upload is disabled in the demo.")}><i className="ti ti-file-type-csv"></i> Upload list (CSV)</button>
-                      <button className="set-btn-secondary" type="button" onClick={() => setToast("Randomization list generated (demo).")}><i className="ti ti-refresh"></i> Generate list</button>
+                      {typeCfg.groupAssignmentTiming !== "predetermined" && <button className="set-btn-secondary" type="button" onClick={() => setToast("Randomization list generated (demo).")}><i className="ti ti-refresh"></i> Generate list</button>}
                     </div>
                     <div className="set-note"><i className="ti ti-info-circle" style={{ fontSize: 12, marginRight: 4 }}></i> Randomization list will be locked before first enrollment. Once locked, assignments cannot be changed without a protocol amendment.</div>
                   </>

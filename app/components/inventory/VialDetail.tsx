@@ -41,8 +41,8 @@ export function VialDetail({ cfg, hideArms, vial, onClose }: {
             <div className="inv-kpi-card" style={{ cursor: "default" }}><div className="inv-kpi-label">Total {cfg.feed ? "delivered" : "dispensed"}</div>
               <div className="inv-kpi-value">{totalDispensed(vial)} {vial.unit}</div>
               <div className="inv-kpi-sub">across {vialUses(vial)} {vialUses(vial) === 1 ? "use" : "uses"}</div></div>
-            {/* "At home" only exists for CA-0801 kits; BR/PH show athome as available. */}
-            {(() => { const ds = cfg.itemNoun !== "kit" && vial.status === "athome" ? "available" : vial.status; return (
+            {/* "At home" only exists for kit-per-visit studies; others show athome as available. */}
+            {(() => { const ds = !cfg.hasAtHomeStatus && vial.status === "athome" ? "available" : vial.status; return (
             <div className="inv-kpi-card" style={{ cursor: "default" }}><div className="inv-kpi-label">Status</div>
               <div style={{ marginTop: 4 }}><span className={`inv-badge ${STATUS_BADGE[ds]}`}>{STATUS_LABELS[ds] ?? ds}</span></div></div>
             ); })()}

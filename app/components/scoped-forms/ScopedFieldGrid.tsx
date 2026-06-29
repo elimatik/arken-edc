@@ -21,6 +21,7 @@ import { canQuery, canSDV } from "@/lib/permissions";
 import { DEMO_USER_ID } from "@/lib/constants";
 import { useNdaName } from "@/lib/use-nda-name";
 import { evaluateField, rangeLabel } from "@/lib/forms/validation";
+import { getStudyTypeConfig } from "@/lib/study-type-config";
 import type { Dataset, FormFieldRow, FormRow } from "@/lib/session-store/types";
 import "@/components/subject-record/subject-record.css";
 
@@ -131,7 +132,8 @@ export function ScopedFieldGrid({ studyId, scope, scopeId, form, instanceId, mod
     // per delivery instance). The Feed Delivery Log is house-scoped with no arm, so the
     // first available batch is drawn down. < 1 kg remaining depletes the batch.
     if (field.code === "quantity_kg" || field.code === "kg_delivered") {
-      const isPh = dataset.studies.find((s) => s.id === studyId)?.code === "PH-2401";
+      const sCode = dataset.studies.find((s) => s.id === studyId)?.code ?? "";
+      const isPh = getStudyTypeConfig(sCode).inventoryTracking === "batch";
       const kg = Number(cur) || 0;
       if (isPh && kg > 0) update((d: Dataset) => {
         const batch = d.vials.find((v) => v.studyId === studyId && v.status === "available");

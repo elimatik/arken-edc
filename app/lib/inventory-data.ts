@@ -7,6 +7,7 @@
 import type { Dataset, Vial, VialEvent, VialStatus } from "@/lib/session-store/types";
 import type { Role } from "@/lib/permissions";
 import { shouldHideArms } from "@/lib/study-config";
+import { getStudyTypeConfig } from "@/lib/study-type-config";
 import { subjectWeightKg } from "@/lib/randomization";
 
 // BR-2502 arm → drug / mg-per-kg (mirrors SubjectRecord; small enough to duplicate).
@@ -39,15 +40,19 @@ export interface InvConfig {
   blinded: boolean; // CA-0801
   accountability: boolean; // CA-0801 volume accountability
   withdrawal: boolean; // BR-2502 withdrawal link
+  hasAtHomeStatus: boolean; // CA-0801 — "At home" (dispensed, not yet returned); from study-type config
   drugLabel: string; // header subtitle
 }
 export function invConfig(studyCode: string): InvConfig {
+  // "At home" status is a study-type property (kit-per-visit dispensing) — read it
+  // from the shared study-type config rather than proxying off itemNoun === "kit".
+  const hasAtHomeStatus = getStudyTypeConfig(studyCode).hasAtHomeStatus;
   if (studyCode === "PH-2401")
-    return { itemNoun: "batch", itemNounCap: "Batch", idLabel: "Batch ID", unit: "kg", tracksReturns: false, feed: true, blinded: false, accountability: false, withdrawal: false, drugLabel: "Feed additive · Batch / kg tracking · Linked to F3 Feed & Ration Setup" };
+    return { itemNoun: "batch", itemNounCap: "Batch", idLabel: "Batch ID", unit: "kg", tracksReturns: false, feed: true, blinded: false, accountability: false, withdrawal: false, hasAtHomeStatus, drugLabel: "Feed additive · Batch / kg tracking · Linked to F3 Feed & Ration Setup" };
   if (studyCode === "CA-0801")
-    return { itemNoun: "kit", itemNounCap: "Kit", idLabel: "Kit ID", unit: "ml", tracksReturns: true, feed: false, blinded: true, accountability: true, withdrawal: false, drugLabel: "Topical / oral · Kit-level + volume accountability · Blinded" };
+    return { itemNoun: "kit", itemNounCap: "Kit", idLabel: "Kit ID", unit: "ml", tracksReturns: true, feed: false, blinded: true, accountability: true, withdrawal: false, hasAtHomeStatus, drugLabel: "Topical / oral · Kit-level + volume accountability · Blinded" };
   // BR-2502 default
-  return { itemNoun: "vial", itemNounCap: "Vial", idLabel: "Vial ID", unit: "ml", tracksReturns: true, feed: false, blinded: false, accountability: false, withdrawal: true, drugLabel: "Injectable antimicrobial · Vial-level tracking · Withdrawal-linked" };
+  return { itemNoun: "vial", itemNounCap: "Vial", idLabel: "Vial ID", unit: "ml", tracksReturns: true, feed: false, blinded: false, accountability: false, withdrawal: true, hasAtHomeStatus, drugLabel: "Injectable antimicrobial · Vial-level tracking · Withdrawal-linked" };
 }
 
 // ─── Per-vial helpers (ported exactly) ──────────────────────────────────────

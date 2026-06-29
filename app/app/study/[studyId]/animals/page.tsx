@@ -9,6 +9,7 @@ import { housingTerms, animalsLabel } from "@/lib/terminology";
 import { canQuery } from "@/lib/permissions";
 import { studyHasBatch } from "@/lib/batch-entry";
 import { shouldHideArmForSubject } from "@/lib/study-config";
+import { getStudyTypeConfig } from "@/lib/study-type-config";
 import { useTableSort } from "@/lib/useTableSort";
 import { SortTh } from "@/components/common/SortTh";
 import "./animals.css";
@@ -117,10 +118,9 @@ export default function AnimalsPage() {
   const terms = housingTerms(studyRow);
   const subjLabel = animalsLabel(studyRow); // "Pens" for livestock_group, else "Animals"
   const subjSingular = subjLabel === "Pens" ? "pen" : "animal";
-  // PH-2401 pen structure is fixed at study initiation — no structural additions
-  // during the study. TODO: derive from study-type config (pen-level feed study)
-  // when Study Settings is built, instead of the code check.
-  const structureLocked = studyRow?.code === "PH-2401";
+  // Fixed-group studies (e.g. PH-2401) lock their pen/house structure at study
+  // initiation — derived from the study-type config, not a hardcoded study code.
+  const structureLocked = !getStudyTypeConfig(studyRow?.code ?? "").allowMidStudyAdditions;
   const canRaise = canQuery(activeRole, "raise");
   // Batch Entry — only studies with batch_eligible forms (BR-2502).
   const hasBatch = ready && studyHasBatch(dataset, studyId);

@@ -4,6 +4,7 @@ import { useMemo } from "react";
 import { useStudySession } from "@/lib/session-store/SessionStore";
 import { useShell } from "@/components/shell/ShellContext";
 import { useTableSort } from "@/lib/useTableSort";
+import { getStudyTypeConfig } from "@/lib/study-type-config";
 import { SortTh } from "@/components/common/SortTh";
 import type { ReportProps } from "@/app/study/[studyId]/reports/page";
 import { Section, Funnel, ExportCsvButton, fmtDate } from "@/components/reports/ReportKit";
@@ -28,8 +29,8 @@ export function EnrollmentDispositionReport({ studyId, aggregate, hideArms }: Re
   const { study } = useShell();
   const { sort, toggle } = useTableSort(null);
   const showArm = !hideArms;
-  // PH-2401 enrolls pens, not individual birds — swap the experimental-unit labels.
-  const isPen = study.code === "PH-2401";
+  // Pen/group studies enrol pens, not individual birds — swap the experimental-unit labels.
+  const isPen = getStudyTypeConfig(study.code).subjectUnit === "pen";
   const unit = isPen ? "Pen" : "Subject";
   const fLabel = (base: string) => (isPen ? `Pens ${base.toLowerCase()}` : base);
 

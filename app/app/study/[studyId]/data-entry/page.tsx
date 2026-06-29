@@ -7,6 +7,7 @@ import { useStudySession } from "@/lib/session-store/SessionStore";
 import { useStudyLocked, LOCK_TOOLTIP } from "@/lib/use-study-locked";
 import { siteEnrolledCount, capLevel, capChipClass, capWarns, ENROLL_TOOLTIP } from "@/lib/enrollment";
 import { hierarchyLevels } from "@/lib/terminology";
+import { getStudyTypeConfig } from "@/lib/study-type-config";
 import { studyHasBatch } from "@/lib/batch-entry";
 import { useTableSort } from "@/lib/useTableSort";
 import { SortTh } from "@/components/common/SortTh";
@@ -369,10 +370,10 @@ export default function DataEntryPage() {
   // ─── Add-record permissions (per level) ─────────────────────────────────────
   const addLevel: "site" | "container" | "subject" =
     childLevel === 0 ? "site" : childLevel === subjectIdx ? "subject" : "container";
-  // PH-2401 pen structure is fixed at study initiation — no structural additions
-  // (pens/houses/sites) during the study. TODO: derive from study-type config
-  // (pen-level feed study) when Study Settings is built, instead of the code check.
-  const structureLocked = studyRow?.code === "PH-2401";
+  // Fixed-group studies (e.g. PH-2401) lock their pen/house structure at study
+  // initiation — no structural additions during the study. Derived from the
+  // study-type config, not a hardcoded study code.
+  const structureLocked = !getStudyTypeConfig(studyRow?.code ?? "").allowMidStudyAdditions;
   const canAdd = !structureLocked && (
     addLevel === "site"
       ? activeRole === "Admin" // Add Site — Admin only

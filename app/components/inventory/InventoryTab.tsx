@@ -30,12 +30,12 @@ export function InventoryTab({ cfg, hideArms, vials, openDetail, onEdit }: {
 
   const lots = useMemo(() => Array.from(new Set(vials.map((v) => v.lotId))).sort(), [vials]);
   const groups = useMemo(() => Array.from(new Set(vials.map((v) => v.treatmentGroup).filter(Boolean))).sort(), [vials]);
-  // "At home" only exists for CA-0801 (kit-per-visit). For BR/PH there is no athome
-  // state — any seeded athome unit shows as available, and the AT HOME KPI is hidden.
-  // TODO: derive from the study-type config when Study Settings is built.
-  const isKit = cfg.itemNoun === "kit";
-  const dispStatus = (v: Vial): string => (!isKit && v.status === "athome" ? "available" : v.status);
-  const kpiMeta = isKit ? KPI_META : KPI_META.filter((k) => k.key !== "athome");
+  // "At home" only exists for studies with kit-per-visit dispensing (CA-0801). For
+  // BR/PH there is no athome state — any seeded athome unit shows as available, and
+  // the AT HOME KPI is hidden. Driven by the study-type config (hasAtHomeStatus).
+  const hasAtHome = cfg.hasAtHomeStatus;
+  const dispStatus = (v: Vial): string => (!hasAtHome && v.status === "athome" ? "available" : v.status);
+  const kpiMeta = hasAtHome ? KPI_META : KPI_META.filter((k) => k.key !== "athome");
 
   const rows = useMemo(() => {
     const q = search.toLowerCase().trim();
@@ -62,7 +62,7 @@ export function InventoryTab({ cfg, hideArms, vials, openDetail, onEdit }: {
     vials.forEach((v) => { const s = dispStatus(v); c[s] = (c[s] ?? 0) + 1; });
     return c;
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [vials, isKit]);
+  }, [vials, hasAtHome]);
   const volAvail = useMemo(() => Math.round(vials.filter((v) => v.status === "available").reduce((s, v) => s + currentVol(v), 0) * 10) / 10, [vials]);
   const drug = vials[0]?.drugName ?? "—";
 

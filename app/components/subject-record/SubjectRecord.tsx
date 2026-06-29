@@ -16,6 +16,7 @@ import { RandomizationPanel } from "./RandomizationPanel";
 import { subjectWeightKg, findRandForm } from "@/lib/randomization";
 import { canInv } from "@/lib/inventory-data";
 import { shouldHideArmForSubject } from "@/lib/study-config";
+import { getStudyTypeConfig } from "@/lib/study-type-config";
 import type { Dataset, FormFieldRow, Vial, VialStatus } from "@/lib/session-store/types";
 import "./subject-record.css";
 
@@ -559,12 +560,14 @@ export function SubjectRecord({ studyId, subjectId, initialFormId, initialPanelF
   // portal, so the Subject Record shows an info note and disabled fields.
   const activeForm = dataset.forms.find((f) => f.id === activeFormId);
   const isEproForm = (activeForm?.name ?? "").startsWith("ePRO");
-  // Randomization action / result is the ONLY content of the CA/BR Randomization form
-  // (the field grid is suppressed there, replaced by the RandomizationPanel). PH-2401
-  // is pen-level / open-label: its "Randomization & Arm Assignment" form renders a
-  // normal field grid (assigned arm, date, block, confirmed by) instead of the panel.
+  // Randomization action / result is the ONLY content of the Randomization form for
+  // individual-randomization studies (the field grid is suppressed there, replaced by
+  // the RandomizationPanel). Group-randomization studies (e.g. PH-2401, pen-level /
+  // open-label) render a normal field grid (assigned arm, date, block, confirmed by)
+  // instead of the panel. Driven by the study-type config (randomizationUnit).
+  const isGroupRand = getStudyTypeConfig(studyRow?.code ?? "").randomizationUnit === "group";
   const isRandForm = /randomi[sz]ation/i.test(activeForm?.name ?? "");
-  const suppressFieldGrid = isRandForm && studyRow?.code !== "PH-2401";
+  const suppressFieldGrid = isRandForm && !isGroupRand;
   // BR screening prompt: DART ≥ 2 on the BRD Case Definition form before randomization.
   const isScreeningForm = studyRow?.code === "BR-2502" && /BRD Case|Screening/i.test(activeForm?.name ?? "");
   const isClinicalResponseForm = studyRow?.code === "BR-2502" && /Clinical Response/i.test(activeForm?.name ?? "");
@@ -2116,7 +2119,7 @@ export function SubjectRecord({ studyId, subjectId, initialFormId, initialPanelF
               Eligibility override — PI {subject.override_by ?? "—"} documented a reason for override on {subject.override_at ?? "—"}. This subject was initially flagged as ineligible.
             </div>
           )}
-          {isRandForm && studyRow && studyRow.code !== "PH-2401" && (
+          {isRandForm && studyRow && !isGroupRand && (
             <RandomizationPanel dataset={dataset} update={update} subject={subject} studyId={studyId} studyCode={studyRow.code} role={activeRole} ndaName={ndaName} penMode={false} />
           )}
           {isScreeningForm && !subject.randomization_arm && (() => {
