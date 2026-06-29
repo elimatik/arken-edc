@@ -71,6 +71,13 @@ Compliance/realism gaps in the inventory + randomization flows (display works; t
 ### 🔀 Repo note
 A repo fork is planned once the portfolio is complete: **`elimatik/arken-edc` → `elimatik/arken-edc-production`**.
 
+### 🏗️ Study Settings — pen structure config (deferred)
+When building the **Study Settings** section, add a **Study Setup** card for PH-2401 (and future pen/group-level studies) where **DM/Admin** configures house/barn/pen structure + arm assignment **before study activation**. Once study status = **Active**, structure is **read-only**. This replaces the Data Entry / Animals **Add pen** flow for this study type.
+
+Also wire a **study status gate** (**Setup → Active → Locked**) to control which features are available at each phase.
+
+Interim implementation in place: the Add pen button + a blue locked-structure banner are gated by `structureLocked = studyRow?.code === "PH-2401"` in both `data-entry/page.tsx` and `animals/page.tsx`. **TODO (marked in both files):** replace the hardcoded code check with the study-type config flag once Settings exists. Related study-type-config TODOs to fold in: the "At home" kit-noun proxy (above) and the hardcoded `INVENTORY_PERMISSIONS` (Inventory milestone note below).
+
 ---
 
 ## ⭐ Current milestone — SDV, Reports, VeDDRA + Coding module (post-Session-69)
