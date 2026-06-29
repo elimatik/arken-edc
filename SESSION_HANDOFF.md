@@ -50,6 +50,20 @@ Three guards: **`isSubjectUnblinded(dataset, subjectId)`** (is this subject in t
 - **Settings module** — currently a stub. Port the randomization section (method/blocks/blinding/stratification, treatment groups, list management) + move the hardcoded `INVENTORY_PERMISSIONS` here.
 - **Notifications**, **Profile + Invoices**, **portfolio site**.
 
+### ⚠️ Clinical accuracy gaps — known issues
+Compliance/realism gaps in the inventory + randomization flows (display works; the underlying clinical model is incomplete):
+- **Reconciliation — drug accountability %**: missing the accountability calc (dispensed + returned + destroyed + remaining ÷ received × 100). A Variance column exists but there's no closing balance or per-lot "balanced / unbalanced" status. Required for 21 CFR Part 11 / VICH GL9 database lock.
+- **BR-2502 withdrawal periods**: passive display only. No active alert when an animal approaches slaughter within the withdrawal window (T01 = 49 d, T02 = 84 d); no per-animal withdrawal end date on the subject record or a dispensing-log flag. Food-safety compliance requirement for livestock antimicrobials.
+- **CA-0801 kit accountability**: no returned volume captured in the dispensing log or reconciliation. Compliance calc (correct volume per visit) and condition-based restock eligibility not implemented.
+- **Randomization list**: Lock button fires a toast only — no audit-trail event, no version label, no connection to actual subject assignments.
+- **Screen-failure kit tracking**: CA-0801 kits pre-assigned to screen failures are not tracked in reconciliation.
+- **Expiry date enforcement**: passive alert only — no block on dispensing expired units in the Treatment Admin dropdown.
+- **PH-2401 reconciliation**: no feed accountability model (delivered kg vs consumed kg vs waste vs balance).
+- **Emergency unblinding**: no formal workflow — no reason capture, no sponsor-notification flag, no SAE-adjacent audit tag.
+- **Return to sponsor**: toggle exists in Settings but no outbound shipment UI in the Inventory module; no destruction-certificate workflow.
+
+**Portfolio priority fixes:** (1) accountability % calc · (2) BR withdrawal end date + dispensing flag · (3) expiry-date block on the unit dropdown.
+
 ### 🔀 Repo note
 A repo fork is planned once the portfolio is complete: **`elimatik/arken-edc` → `elimatik/arken-edc-production`**.
 
