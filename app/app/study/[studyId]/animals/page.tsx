@@ -89,8 +89,27 @@ export default function AnimalsPage() {
   const params = useParams();
   const studyId = String(params.studyId);
   const { study, selectedSiteId, activeRole } = useShell();
-  const { dataset, ready } = useStudySession();
+  const { dataset, ready, update } = useStudySession();
   const locked = useStudyLocked(studyId);
+
+  // Create a new empty subject (session-only) and open its record. The new code
+  // follows the site's existing pattern (e.g. BR-2502-CO-004); falls back to a
+  // study-site-001 code if the site has no subjects yet.
+  function addSubject() {
+    if (locked) return;
+    const siteId = siteFilter || selectedSiteId || dataset.sites.find((s) => s.study_id === studyId)?.id || null;
+    const siteCode = dataset.sites.find((s) => s.id === siteId)?.code ?? "001";
+    const siteSubs = dataset.subjects.filter((s) => s.study_id === studyId && (!siteId || s.site_id === siteId));
+    const parsed = siteSubs.map((s) => s.subject_code.match(/^(.*?)(\d+)$/)).filter((m): m is RegExpMatchArray => !!m);
+    const code = parsed.length
+      ? `${parsed[0][1]}${String(Math.max(...parsed.map((m) => Number(m[2]))) + 1).padStart(parsed[0][2].length, "0")}`
+      : `${study.code}-${siteCode}-001`;
+    const id = crypto.randomUUID();
+    update((d) => {
+      d.subjects.push({ id, study_id: studyId, site_id: siteId, barn_id: null, pen_id: null, owner_id: null, subject_code: code, species: studyRow?.species ?? null, status: "screening", randomization_arm: null });
+    });
+    router.push(`/study/${studyId}/data-entry/${id}`);
+  }
 
   const studyRow = ready ? dataset.studies.find((s) => s.id === studyId) : undefined;
   const studyType = studyRow?.type ?? "livestock_group";
@@ -432,7 +451,7 @@ export default function AnimalsPage() {
                 <i className="ti ti-table"></i> Batch entry
               </button>
             )}
-            <button className="btn-primary" type="button" disabled={locked} title={locked ? LOCK_TOOLTIP : undefined}>
+            <button className="btn-primary" type="button" disabled={locked} title={locked ? LOCK_TOOLTIP : undefined} onClick={addSubject}>
               <i className="ti ti-plus"></i> Add {subjSingular}
             </button>
           </div>

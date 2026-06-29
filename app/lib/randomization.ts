@@ -27,7 +27,12 @@ export function eligibilityVerdict(dataset: Dataset, studyId: string, subjectId:
 }
 
 export function findRandForm(dataset: Dataset, studyId: string) {
-  return dataset.forms.find((f) => f.study_id === studyId && /randomi[sz]ation/i.test(f.name));
+  const forms = dataset.forms.filter((f) => f.study_id === studyId);
+  // The real randomization CRF carries the assigned_arm field (e.g. BR F004
+  // "Randomization & Allocation") — prefer it over the "Enrollment & Randomization"
+  // visit-group container, which also matches the name.
+  const withArm = forms.find((f) => /randomi[sz]ation|allocation/i.test(f.name) && dataset.formFields.some((ff) => ff.form_id === f.id && ff.code === "assigned_arm"));
+  return withArm ?? forms.find((f) => /randomi[sz]ation/i.test(f.name));
 }
 
 // {fieldCode → {fieldId, value}} for the subject's Randomization form instance.

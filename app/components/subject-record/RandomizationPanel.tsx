@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { useRouter } from "next/navigation";
 import type { Dataset, SubjectRow } from "@/lib/session-store/types";
 import type { Role } from "@/lib/permissions";
 import { eligibilityVerdict, assignArm, buildRandomizationResult, findRandForm } from "@/lib/randomization";
@@ -17,6 +18,7 @@ export function RandomizationPanel({ dataset, update, subject, studyId, studyCod
   ndaName: string;
   penMode?: boolean;
 }) {
+  const router = useRouter();
   const [confirmOpen, setConfirmOpen] = useState(false);
   const [revealOpen, setRevealOpen] = useState(false);
   const [revealReason, setRevealReason] = useState("");
@@ -25,6 +27,8 @@ export function RandomizationPanel({ dataset, update, subject, studyId, studyCod
   const verdict = eligibilityVerdict(dataset, studyId, subject.id);
   const eligible = verdict === "eligible" || verdict === "none";
   const canRandomize = role === "CRC" || role === "Admin";
+  // The actual Randomization & Allocation CRF (the ?form= deep-link target).
+  const randForm = findRandForm(dataset, studyId);
   const result = randomized ? buildRandomizationResult(dataset, studyCode, studyId, subject.id) : null;
 
   // CA reveal reuses the session unblindings log (drives the audit trail).
@@ -75,13 +79,22 @@ export function RandomizationPanel({ dataset, update, subject, studyId, studyCod
   return (
     <div className="rand-block">
       {/* ── Action button (CA/BR; not in penMode) ── */}
-      {!penMode && !randomized && (
-        eligible
-          ? canRandomize
-            ? <button className="rand-btn active" type="button" onClick={() => setConfirmOpen(true)}>Randomize subject <i className="ti ti-arrow-right"></i></button>
-            : <button className="rand-btn disabled" type="button" disabled title="Randomization is performed by the site coordinator (CRC)."><i className="ti ti-lock"></i> Randomize subject</button>
-          : <button className="rand-btn disabled" type="button" disabled title="Subject must be declared eligible before randomization. Complete the eligibility assessment first."><i className="ti ti-lock"></i> Randomize subject — eligibility required</button>
-      )}
+      {!penMode && !randomized && (() => {
+        const note = (text: string) => <div style={{ marginTop: "var(--space-2)", fontSize: "var(--text-xs)", color: "var(--amber-700)", display: "flex", alignItems: "center", gap: 4 }}><i className="ti ti-alert-triangle" style={{ fontSize: 12 }}></i>{text}</div>;
+        if (!eligible) {
+          const reason = verdict === "incomplete"
+            ? "Complete all screening forms before randomization."
+            : "Subject is ineligible — a PI override is required before randomization.";
+          return <div><button className="rand-btn disabled" type="button" disabled title={reason}><i className="ti ti-lock"></i> Randomize subject — eligibility required</button>{note(reason)}</div>;
+        }
+        if (!canRandomize) {
+          const reason = "Randomization is performed by the site coordinator (CRC).";
+          return <div><button className="rand-btn disabled" type="button" disabled title={reason}><i className="ti ti-lock"></i> Randomize subject</button>{note(reason)}</div>;
+        }
+        // Eligible: deep-link to the Randomization & Allocation form (highlights it in
+        // the sidebar + renders it) and open the confirm dialog.
+        return <button className="rand-btn active" type="button" onClick={() => { if (randForm) router.push(`/study/${studyId}/data-entry/${subject.id}?form=${randForm.id}`); setConfirmOpen(true); }}>Randomize subject <i className="ti ti-arrow-right"></i></button>;
+      })()}
 
       {/* ── Result block ── */}
       {result && (
