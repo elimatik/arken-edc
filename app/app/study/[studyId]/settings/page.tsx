@@ -186,12 +186,12 @@ function InventorySection({ studyCode, studyId, studyForms, dataset, onToast }: 
       {/* ── Card 2: Return trigger — toggle lives in the header (toggle-header pattern) ── */}
       <div className="settings-card">
         <div className="settings-card-header">
-          <div style={{ flex: 1 }}>
-            <div style={{ display: "flex", alignItems: "center", gap: "var(--space-3)" }}>
-              <label className="set-toggle" style={{ flexShrink: 0 }}><input type="checkbox" checked={logViaForm} onChange={() => { setLogViaForm(!logViaForm); onToast("Setting saved"); }} /><span className="set-toggle-slider"></span></label>
+          <div style={{ display: "flex", alignItems: "flex-start", gap: "var(--space-3)" }}>
+            <label className="set-toggle" style={{ flexShrink: 0, marginTop: 1 }}><input type="checkbox" checked={logViaForm} onChange={() => { setLogViaForm(!logViaForm); onToast("Setting saved"); }} /><span className="set-toggle-slider"></span></label>
+            <div>
               <div className="settings-card-title">Log return via form</div>
+              <div className="settings-card-desc" style={{ marginTop: 2 }}>When enabled, unit returns are recorded through form entries. When disabled, returns are calculated automatically using volume tracking.</div>
             </div>
-            <div className="settings-card-desc" style={{ marginTop: 2 }}>When enabled, unit returns are recorded through form entries. When disabled, returns are calculated automatically using volume tracking.</div>
           </div>
         </div>
         <div className="settings-card-body">
