@@ -16,7 +16,7 @@ import { RandomizationPanel } from "./RandomizationPanel";
 import { subjectWeightKg } from "@/lib/randomization";
 import { canInv } from "@/lib/inventory-data";
 import { shouldHideArmForSubject } from "@/lib/study-config";
-import type { Dataset, FormFieldRow } from "@/lib/session-store/types";
+import type { Dataset, FormFieldRow, Vial, VialStatus } from "@/lib/session-store/types";
 import "./subject-record.css";
 
 interface Props {
@@ -711,11 +711,50 @@ export function SubjectRecord({ studyId, subjectId, initialFormId, initialPanelF
     const i = subs.findIndex((s) => s.id === subjectId);
     return i >= 0 ? bases[i] : undefined;
   }
-  // Available units of this subject's kit (status available) → "A-001-V1" labels.
-  function caAvailableKitUnits(base: string): string[] {
+  // Available units of this subject's kit (status available), as Vials (for expiry).
+  function caAvailableKitUnits(base: string): Vial[] {
     return dataset.vials.filter((v) => v.studyId === studyId && v.status === "available" && caKitBase(v.kitNumber ?? "") === base)
-      .map((v) => (v.kitNumber ?? "").replace(/^Kit\s*/i, "")).sort();
+      .slice().sort((a, b) => (a.kitNumber ?? "").localeCompare(b.kitNumber ?? ""));
   }
+  const caKitLabel = (v: Vial) => (v.kitNumber ?? "").replace(/^Kit\s*/i, "");
+  // CA kit return → inventory write-back. Condition maps to a unit status; "quarantine"
+  // uses the existing "removed" bucket (labelled "quarantined / lost").
+  const CA_RETURN_STATUS: Record<string, VialStatus> = {
+    "Intact / sealed": "available", "Partially used — good condition": "available",
+    "Partially used — compromised": "removed", "Damaged": "depleted", "Expired": "depleted", "Unknown": "removed",
+  };
+  const findCaVial = (d: Dataset, kitId: string) => d.vials.find((x) => x.studyId === studyId && (x.kitNumber ?? "").replace(/^Kit\s*/i, "") === kitId);
+  function caDispenseKit(kitId: string, formInstanceId: string) {
+    const code = subject?.subject_code;
+    if (!code || !kitId) return;
+    update((d) => {
+      const v = findCaVial(d, kitId);
+      if (!v || v.events.some((e) => e.type === "dispense" && e.subject === code && e.formInstanceId === formInstanceId)) return;
+      v.status = "athome";
+      v.events.push({ type: "dispense", date: new Date().toISOString().slice(0, 10), subject: code, location: "home", by: ndaName, formInstanceId, note: `Kit ${kitId} dispensed to ${code}` });
+    });
+  }
+  function caReturnKit(kitId: string, condition: string, formInstanceId: string) {
+    const code = subject?.subject_code;
+    if (!code || !kitId) return;
+    update((d) => {
+      const v = findCaVial(d, kitId);
+      if (!v) return;
+      v.status = CA_RETURN_STATUS[condition] ?? "available";
+      if (v.events.some((e) => e.type === "return" && e.formInstanceId === formInstanceId && (e.note ?? "").includes(kitId))) return;
+      v.events.push({ type: "return", date: new Date().toISOString().slice(0, 10), formInstanceId, condition, note: `Kit ${kitId} returned by ${code} — condition: ${condition || "n/a"}` });
+    });
+  }
+  // Unit expiry state vs today. Seed expiry is "YYYY-MM" or "YYYY-MM-DD".
+  const unitExpiryState = (expiry: string | undefined): "expired" | "soon" | "ok" => {
+    if (!expiry) return "ok";
+    const norm = expiry.length === 7 ? `${expiry}-28` : expiry.slice(0, 10);
+    const today = new Date().toISOString().slice(0, 10);
+    if (norm < today) return "expired";
+    return norm <= new Date(Date.now() + 30 * 86400000).toISOString().slice(0, 10) ? "soon" : "ok";
+  };
+  const expirySuffix = (s: "expired" | "soon" | "ok") => (s === "expired" ? " (Expired)" : s === "soon" ? " (Exp. soon)" : "");
+  const expiredWarn = <div style={{ fontSize: "var(--text-xs)", color: "var(--amber-700)", background: "var(--amber-50)", border: "1px solid var(--amber-200)", borderRadius: "var(--radius-md)", padding: "4px 8px", marginTop: 4 }}>⚠ This unit has expired — dispensing requires a protocol deviation acknowledgment.</div>;
   // Kits dispensed to this subject (across CA drug forms) not yet recorded as returned.
   function caUnreturnedKits(): string[] {
     const drugForms = new Set(dataset.forms.filter((f) => f.study_id === studyId && /Study Drug (Dispensation|Accountability)/i.test(f.name)).map((f) => f.id));
@@ -1519,15 +1558,20 @@ export function SubjectRecord({ studyId, subjectId, initialFormId, initialPanelF
       const wf = fields.find((f) => f.code === "body_weight_dosing");
       const w = wf ? Number(fvFor(wf.id)?.value) : NaN;
       const dose = !Number.isNaN(w) && w ? Math.round((w * (BR_ARM_MGKG[arm] ?? 2.5) / 100) * 10) / 10 : 0;
+      const selVial = value ? units.find((u) => u.id === value) ?? dataset.vials.find((v) => v.id === value) : undefined;
       return (
-        <select className={`field-select${stateCls}`} value={value} disabled={ro} onChange={(e) => { commit(e.target.value); if (e.target.value && instance) dispenseUnitToSubject(e.target.value, "Day 0", instance.id, dose); }}>
-          <option value="">Select unit…</option>
-          {hasCurrent && <option value={value}>{value} · administered</option>}
-          {units.map((u) => <option key={u.id} value={u.id}>{u.id} · {u.initialVol} {u.unit} remaining · Available</option>)}
-        </select>
+        <>
+          <select className={`field-select${stateCls}`} value={value} disabled={ro} onChange={(e) => { commit(e.target.value); if (e.target.value && instance) dispenseUnitToSubject(e.target.value, "Day 0", instance.id, dose); }}>
+            <option value="">Select unit…</option>
+            {hasCurrent && <option value={value}>{value} · administered</option>}
+            {units.map((u) => { const es = unitExpiryState(u.expiryDate); return <option key={u.id} value={u.id} disabled={es === "expired"}>{u.id} · {u.initialVol} {u.unit} remaining · Available{expirySuffix(es)}</option>; })}
+          </select>
+          {selVial && unitExpiryState(selVial.expiryDate) === "expired" && expiredWarn}
+        </>
       );
     }
-    // CA-0801 Dispensed kit number — available units from this subject's arm pool.
+    // CA-0801 Dispensed kit number — available units from this subject's arm pool
+    // (expiry-flagged); selecting one writes the dispense to inventory.
     if (field.code === "dispensed_kit_number" && studyRow?.code === "CA-0801") {
       if (!canInv("dispense", activeRole)) return <div className="field-calc auto-field"><span style={{ color: "var(--color-text-tertiary)" }}>Dispensing not permitted for your role</span></div>;
       const hide = shouldHideArmForSubject(dataset, studyId, activeRole, subjectId);
@@ -1535,17 +1579,22 @@ export function SubjectRecord({ studyId, subjectId, initialFormId, initialPanelF
       const tag = (k: string) => (hide ? k : `${k} · ${arm}`);
       const base = caBaseKitForSubject();
       const units = base ? caAvailableKitUnits(base) : [];
-      const hasCurrent = !!value && !units.includes(value);
+      const hasCurrent = !!value && !units.some((u) => caKitLabel(u) === value);
       if (!units.length && !value) return <select className={`field-select${stateCls}`} value="" disabled><option>No available kit units</option></select>;
+      const selVial = value ? findCaVial(dataset, value) : undefined;
       return (
-        <select className={`field-select${stateCls}`} value={value} disabled={ro} onChange={(e) => commit(e.target.value)}>
-          <option value="">Select kit…</option>
-          {hasCurrent && <option value={value}>{tag(value)} · dispensed</option>}
-          {units.map((u) => <option key={u} value={u}>{tag(u)}</option>)}
-        </select>
+        <>
+          <select className={`field-select${stateCls}`} value={value} disabled={ro} onChange={(e) => { commit(e.target.value); if (e.target.value && instance) caDispenseKit(e.target.value, instance.id); }}>
+            <option value="">Select kit…</option>
+            {hasCurrent && <option value={value}>{tag(value)} · dispensed</option>}
+            {units.map((u) => { const lbl = caKitLabel(u); const es = unitExpiryState(u.expiryDate); return <option key={lbl} value={lbl} disabled={es === "expired"}>{tag(lbl)}{expirySuffix(es)}</option>; })}
+          </select>
+          {selVial && unitExpiryState(selVial.expiryDate) === "expired" && expiredWarn}
+        </>
       );
     }
-    // CA-0801 Returned kit number — kits dispensed to this subject not yet returned.
+    // CA-0801 Returned kit number — kits dispensed to this subject not yet returned;
+    // selecting one writes the return (status from the recorded condition) to inventory.
     if (field.code === "returned_kit_number" && studyRow?.code === "CA-0801") {
       const hide = shouldHideArmForSubject(dataset, studyId, activeRole, subjectId);
       const arm = subject?.randomization_arm ?? "";
@@ -1554,7 +1603,7 @@ export function SubjectRecord({ studyId, subjectId, initialFormId, initialPanelF
       const hasCurrent = !!value && !kits.includes(value);
       if (!kits.length && !value) return <select className={`field-select${stateCls}`} value="" disabled><option>No kits to return</option></select>;
       return (
-        <select className={`field-select${stateCls}`} value={value} disabled={ro} onChange={(e) => commit(e.target.value)}>
+        <select className={`field-select${stateCls}`} value={value} disabled={ro} onChange={(e) => { commit(e.target.value); if (e.target.value && instance) caReturnKit(e.target.value, valByCode("unit_condition_on_return") ?? "", instance.id); }}>
           <option value="">Select kit…</option>
           {hasCurrent && <option value={value}>{tag(value)}</option>}
           {kits.map((k) => <option key={k} value={k}>{tag(k)}</option>)}
@@ -1861,6 +1910,19 @@ export function SubjectRecord({ studyId, subjectId, initialFormId, initialPanelF
                   </span>
                 </>
               )}
+              {studyRow?.code === "BR-2502" && withdrawalEnd && (() => {
+                const days = Math.round((Date.parse(withdrawalEnd) - Date.parse(todayISO())) / 86400000);
+                const color = days < 0 ? "var(--red-600)" : days <= 14 ? "var(--amber-700)" : "var(--green-600)";
+                const bg = days < 0 ? "var(--red-50)" : days <= 14 ? "var(--amber-50)" : "var(--green-50)";
+                return (
+                  <>
+                    <span className="meta-sep">·</span>
+                    <span style={{ display: "inline-flex", alignItems: "center", gap: 3, fontSize: "var(--text-xs)", fontWeight: 500, color, background: bg, border: `1px solid ${color}`, borderRadius: "var(--radius-full)", padding: "1px 8px" }}>
+                      <i className="ti ti-clock-hour-4" style={{ fontSize: 11 }}></i> Withdrawal ends: {withdrawalEnd}
+                    </span>
+                  </>
+                );
+              })()}
             </div>
             <div className="subject-actions">
               <button className={`btn-secondary${timelineOpen ? " active" : ""}`} type="button" onClick={() => setTimelineOpen((o) => !o)} title="Subject timeline" aria-pressed={timelineOpen}>

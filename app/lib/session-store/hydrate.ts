@@ -229,16 +229,16 @@ export async function hydrateFromSupabase(): Promise<Dataset> {
     ff(fid, `${p}-vol_dispensed`, "vol_dispensed", "Vol dispensed", "number", null, "ml", true, 2, { section: DISP }),
     ff(fid, `${p}-visit_date`, "visit_date", "Visit date", "date", null, null, false, 3, { section: VIS, hint: "Pulled from the visit / Physical Examination." }),
   ];
-  // Order groups fields by section (Return → Dispensing → Visit) so the renderer's
-  // section dividers come out contiguous.
+  // Order groups fields by section (Visit → Return → Dispensing) so the renderer's
+  // section dividers come out contiguous, with Visit on top.
   const caAccountability = (fid: string, p: string): FF[] => [
-    ff(fid, `${p}-returned_kit_number`, "returned_kit_number", "Returned kit number", "text", null, null, true, 1, { section: RET }),
-    ff(fid, `${p}-vol_returned`, "vol_returned", "Vol returned", "number", null, "ml", true, 2, { section: RET }),
-    ff(fid, `${p}-vol_used_calc`, "vol_used_calc", "Vol used (calc)", "calculated", null, "ml", false, 3, { readonlyAuto: true, section: RET, hint: "Initial volume − volume returned." }),
-    ff(fid, `${p}-unit_condition_on_return`, "unit_condition_on_return", "Unit condition on return", "select", CA_COND, null, false, 4, { section: RET }),
-    ff(fid, `${p}-dispensed_kit_number`, "dispensed_kit_number", "Dispensed kit number", "text", null, null, true, 5, { section: DISP }),
-    ff(fid, `${p}-vol_dispensed`, "vol_dispensed", "Vol dispensed", "number", null, "ml", true, 6, { section: DISP }),
-    ff(fid, `${p}-visit_date`, "visit_date", "Visit date", "date", null, null, false, 7, { section: VIS }),
+    ff(fid, `${p}-visit_date`, "visit_date", "Visit date", "date", null, null, false, 1, { section: VIS }),
+    ff(fid, `${p}-returned_kit_number`, "returned_kit_number", "Returned kit number", "text", null, null, true, 2, { section: RET }),
+    ff(fid, `${p}-vol_returned`, "vol_returned", "Vol returned", "number", null, "ml", true, 3, { section: RET }),
+    ff(fid, `${p}-vol_used_calc`, "vol_used_calc", "Vol used (calc)", "calculated", null, "ml", false, 4, { readonlyAuto: true, section: RET, hint: "Initial volume − volume returned." }),
+    ff(fid, `${p}-unit_condition_on_return`, "unit_condition_on_return", "Unit condition on return", "select", CA_COND, null, false, 5, { section: RET }),
+    ff(fid, `${p}-dispensed_kit_number`, "dispensed_kit_number", "Dispensed kit number", "text", null, null, true, 6, { section: DISP }),
+    ff(fid, `${p}-vol_dispensed`, "vol_dispensed", "Vol dispensed", "number", null, "ml", true, 7, { section: DISP }),
   ];
   const caReturn = (fid: string, p: string): FF[] => [
     ff(fid, `${p}-returned_kit_number`, "returned_kit_number", "Returned kit number", "text", null, null, true, 1, { section: RET }),

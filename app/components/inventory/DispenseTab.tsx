@@ -63,13 +63,21 @@ export function DispenseTab({ studyId, studyCode, cfg, rows, siteActive }: {
     return <Link href={href} style={{ color: "var(--color-link)", textDecoration: "none" }}>{r.formName ?? "Form"} →</Link>;
   };
   const mono = (v: React.ReactNode) => <span className="inv-mono">{v}</span>;
+  // BR withdrawal-end date, colour-coded: red if past, amber within 14 days, else green.
+  const withdrawalCell = (r: DispensingRow) => {
+    if (!r.withdrawalEnd) return <span className="inv-muted">—</span>;
+    const today = new Date().toISOString().slice(0, 10);
+    const days = Math.round((Date.parse(r.withdrawalEnd) - Date.parse(today)) / 86400000);
+    const color = days < 0 ? "var(--red-600)" : days <= 14 ? "var(--amber-700)" : "var(--green-600)";
+    return <span className="inv-mono" style={{ color, fontSize: 11 }}>{r.withdrawalEnd}</span>;
+  };
 
   // Header config per study: { label, key? } — key present ⇒ sortable.
   const cols: { label: string; key?: string }[] = studyCode === "CA-0801"
     ? [{ label: "Subject", key: "subject" }, { label: "Visit", key: "visit" }, { label: "Date", key: "date" }, { label: "Kit", key: "kit" }, { label: "Volume (mL)", key: "volume" }, { label: "Administered by" }, { label: "Form" }]
     : studyCode === "PH-2401"
       ? [{ label: "Pen", key: "pen" }, { label: "Week", key: "week" }, { label: "Date", key: "date" }, { label: "Batch" }, { label: "Delivered (kg)", key: "delivered" }, { label: "Administered by" }, { label: "Form" }]
-      : [{ label: "Subject", key: "subject" }, { label: "Visit", key: "visit" }, { label: "Date", key: "date" }, { label: "Drug", key: "drug" }, { label: "Lot", key: "lot" }, { label: "Vial ID" }, { label: "Dose (mL)", key: "dose" }, { label: "Administered by" }, { label: "Form" }];
+      : [{ label: "Subject", key: "subject" }, { label: "Visit", key: "visit" }, { label: "Date", key: "date" }, { label: "Drug", key: "drug" }, { label: "Lot", key: "lot" }, { label: "Vial ID" }, { label: "Dose (mL)", key: "dose" }, { label: "Withdrawal end" }, { label: "Administered by" }, { label: "Form" }];
 
   return (
     <>
@@ -113,6 +121,7 @@ export function DispenseTab({ studyId, studyCode, cfg, rows, siteActive }: {
                 <td>{mono(r.lot ?? "—")}</td>
                 <td>{mono(r.unitId ?? "—")}</td>
                 <td>{mono(r.dose != null ? `${r.dose} ml` : "—")}</td>
+                <td>{withdrawalCell(r)}</td>
                 <td className="inv-muted">{r.administeredBy ?? "—"}</td>
                 <td style={{ fontSize: "var(--text-xs)" }}>{formCell(r)}</td>
               </tr>

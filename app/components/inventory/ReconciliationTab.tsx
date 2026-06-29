@@ -39,7 +39,7 @@ export function ReconciliationTab({ cfg, vials, role }: { cfg: InvConfig; vials:
   return (
     <>
       <div className="inv-infobar">
-        <span>Variance = received − dispensed − returned − removed. Balanced when all units are fully accounted for.</span>
+        <span>Accountability % = (dispensed + returned + destroyed) ÷ received × 100. Balanced at ≥ 99.5%.</span>
         {canReconcile && <button className="inv-btn-primary" style={{ marginLeft: "auto" }} onClick={acceptAllBalanced}><i className="ti ti-check"></i> Accept all balanced</button>}
       </div>
 
@@ -47,13 +47,12 @@ export function ReconciliationTab({ cfg, vials, role }: { cfg: InvConfig; vials:
         <table className="inv-table">
           <thead><tr>
             <th>Treatment group</th><th># Received</th><th># Usable</th><th># Removed</th>
-            <th># {cfg.feed ? "Delivered" : "Dispensed"}</th><th>{cfg.feed ? "Consumed (est.)" : "# Returned"}</th><th>Variance</th><th>Auto status</th><th>Confirmation</th><th>Notes</th>
+            <th># {cfg.feed ? "Delivered" : "Dispensed"}</th><th>{cfg.feed ? "Consumed (est.)" : "# Returned"}</th><th>Accountability %</th><th>Auto status</th><th>Confirmation</th><th>Notes</th>
           </tr></thead>
           <tbody>
             {rows.map((r) => {
               const st = get(r.group);
-              const varColor = r.balanced ? "var(--green-600)" : r.variance > 0 ? "var(--amber-700)" : "var(--red-600)";
-              const badge = r.balanced ? "inv-badge-available" : r.variance > 0 ? "inv-badge-amber" : "inv-badge-unusable";
+              const statusBadge = r.status === "Balanced" ? "inv-badge-available" : r.status === "Outstanding" ? "inv-badge-amber" : "inv-badge-unusable";
               return (
                 <tr key={r.group}>
                   <td style={{ fontWeight: "var(--weight-medium)" }}>{r.group}</td>
@@ -62,8 +61,11 @@ export function ReconciliationTab({ cfg, vials, role }: { cfg: InvConfig; vials:
                   <td className="inv-mono" style={{ color: r.removed > 0 ? "var(--amber-700)" : "var(--color-text-secondary)" }}>{r.removed}</td>
                   <td className="inv-mono">{r.dispensed}</td>
                   <td className="inv-mono">{cfg.feed ? `${Math.round((consumedKg[r.group] ?? 0) * 10) / 10} kg` : r.returned}</td>
-                  <td className="inv-mono" style={{ fontWeight: "var(--weight-medium)", color: varColor }}>{r.balanced ? "✓ 0" : `${r.variance > 0 ? "⚠ +" : "⚠ "}${r.variance}`}</td>
-                  <td><span className={`inv-badge ${badge}`}>{r.status}</span></td>
+                  <td style={{ whiteSpace: "nowrap" }}>
+                    <span className="inv-mono" style={{ fontWeight: "var(--weight-medium)", color: r.accounted ? "var(--green-600)" : "var(--amber-700)", marginRight: 6 }}>{r.accountabilityPct}%</span>
+                    <span className={`inv-badge ${r.accounted ? "inv-badge-available" : "inv-badge-amber"}`}>{r.accounted ? "Balanced" : "Outstanding"}</span>
+                  </td>
+                  <td><span className={`inv-badge ${statusBadge}`}>{r.status}</span></td>
                   <td>
                     {canReconcile ? (
                       <select className="inv-recon-select" value={st.status} onChange={(e) => set(r.group, { status: e.target.value as Confirm })}>

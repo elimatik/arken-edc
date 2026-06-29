@@ -214,15 +214,16 @@ function InventorySection({ studyCode, studyId, studyForms, dataset, onToast }: 
                   </div>
                 ))}
               </div>
-              <div style={{ marginTop: "var(--space-4)" }}>
-                <div className="set-field-label" style={{ marginBottom: "var(--space-1)" }}>Minimum returnable volume</div>
-                <div style={{ display: "flex", alignItems: "center", gap: "var(--space-2)" }}>
-                  <input className="set-input" type="number" min={0} step={0.1} value={minReturnVol} style={{ width: 72, fontFamily: "var(--font-mono)" }} onChange={(e) => setMinReturnVol(e.target.value)} onBlur={() => onToast("Min returnable volume saved")} />
-                  <span style={{ fontSize: "var(--text-sm)", color: "var(--color-text-secondary)" }}>ml — below this the unit is marked depleted regardless of condition</span>
-                </div>
-              </div>
             </div>
           )}
+          {/* Minimum returnable volume — always shown, link state aside. */}
+          <div style={{ marginTop: "var(--space-4)" }}>
+            <div className="set-field-label" style={{ marginBottom: "var(--space-1)" }}>Minimum returnable volume</div>
+            <div style={{ display: "flex", alignItems: "center", gap: "var(--space-2)" }}>
+              <input className="set-input" type="number" min={0} step={0.1} value={minReturnVol} style={{ width: 72, fontFamily: "var(--font-mono)" }} onChange={(e) => setMinReturnVol(e.target.value)} onBlur={() => onToast("Min returnable volume saved")} />
+              <span style={{ fontSize: "var(--text-sm)", color: "var(--color-text-secondary)" }}>ml — below this the unit is marked depleted regardless of condition</span>
+            </div>
+          </div>
         </div>
       </div>
       )}

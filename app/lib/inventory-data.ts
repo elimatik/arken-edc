@@ -12,6 +12,8 @@ import { subjectWeightKg } from "@/lib/randomization";
 // BR-2502 arm → drug / mg-per-kg (mirrors SubjectRecord; small enough to duplicate).
 export const BR_ARM_TO_DRUG: Record<string, string> = { T01: "Tulathromycin 2.5 mg/kg SC", T02: "Tulathromycin 5.0 mg/kg SC", T03: "Saline placebo SC (volume-matched)" };
 export const BR_ARM_MGKG: Record<string, number> = { T01: 2.5, T02: 5.0, T03: 2.5 };
+// Withdrawal period (days) by arm: T01 49 (label), T02 84 (FARAD extra-label), T03 none.
+export const BR_WITHDRAWAL_DAYS: Record<string, number | null> = { T01: 49, T02: 84, T03: null };
 const armCode = (arm: string | null | undefined) => (arm ?? "").match(/T0\d/)?.[0] ?? "";
 
 // ─── Role permissions ───────────────────────────────────────────────────────
@@ -196,6 +198,7 @@ export interface DispensingRow {
   lot?: string; // BR
   unitId?: string; // BR
   dose?: number; // BR (mL)
+  withdrawalEnd?: string | null; // BR — withdrawal-period end date (null = no withdrawal, e.g. T03)
   volume?: number; // CA (mL)
   kgDelivered?: number; // PH
   batch?: string; // PH
@@ -295,6 +298,8 @@ export function buildDispenseRows(dataset: Dataset, studyId: string, siteFilter?
       // Lot is always LOT-BR-<arm>: F005's lot_number reuses the old lot_expiry field
       // (stale "T01-4400/…" value), so only trust a stored value if it's the LOT-BR- form.
       const lotVal = valByCode(inst, "lot_number");
+      const wdDays = BR_WITHDRAWAL_DAYS[arm];
+      const withdrawalEnd = wdDays != null && /^\d{4}-\d{2}-\d{2}/.test(date) ? addDays(date, wdDays) : null;
       rows.push({
         id: inst.id, subjectId: sub.id, subjectCode: sub.subject_code, studyId,
         visitLabel: isRetreat ? "Re-treatment" : "Day 0",
@@ -303,6 +308,7 @@ export function buildDispenseRows(dataset: Dataset, studyId: string, siteFilter?
         lot: lotVal && lotVal.startsWith("LOT-BR-") ? lotVal : `LOT-BR-${arm || "T01"}`,
         unitId: vialIdByInst.get(inst.id) ?? valByCode(inst, "unit_id", "vial_unit_id"),
         dose,
+        withdrawalEnd,
         administeredBy: valByCode(inst, "administered_by"),
         formInstanceId: inst.id, formDefId: inst.form_id, formName: formById.get(inst.form_id)?.name,
       });
@@ -404,6 +410,8 @@ export interface ReconRow {
   variance: number;
   status: "Balanced" | "Outstanding" | "Over-counted";
   balanced: boolean;
+  accountabilityPct: number; // (dispensed + returned + removed) / received × 100
+  accounted: boolean; // accountabilityPct >= 99.5 (0.5% rounding tolerance)
 }
 export function buildReconRows(vials: Vial[]): ReconRow[] {
   const groups = Array.from(new Set(vials.map((v) => v.treatmentGroup || "Unknown"))).sort();
@@ -420,6 +428,10 @@ export function buildReconRows(vials: Vial[]): ReconRow[] {
     const variance = received - dispensed - returned - removed;
     const balanced = variance === 0;
     const status: ReconRow["status"] = balanced ? "Balanced" : variance > 0 ? "Outstanding" : "Over-counted";
-    return { group: grp, received, usable, removed, dispensed, returned, variance, status, balanced };
+    // Drug accountability: share of received units accounted for (dispensed + returned
+    // + destroyed/removed). Balanced within a 0.5% rounding tolerance.
+    const accountabilityPct = received ? Math.round(((dispensed + returned + removed) / received) * 1000) / 10 : 0;
+    const accounted = accountabilityPct >= 99.5;
+    return { group: grp, received, usable, removed, dispensed, returned, variance, status, balanced, accountabilityPct, accounted };
   });
 }
