@@ -76,7 +76,7 @@ When building the **Study Settings** section, add a **Study Setup** card for PH-
 
 Also wire a **study status gate** (**Setup → Active → Locked**) to control which features are available at each phase.
 
-Interim implementation in place: the Add pen button + a blue locked-structure banner are gated by `structureLocked = studyRow?.code === "PH-2401"` in both `data-entry/page.tsx` and `animals/page.tsx`. **TODO (marked in both files):** replace the hardcoded code check with the study-type config flag once Settings exists. Related study-type-config TODOs to fold in: the "At home" kit-noun proxy (above) and the hardcoded `INVENTORY_PERMISSIONS` (Inventory milestone note below).
+Interim implementation in place (commit `e110a4c`): the Add pen button + a blue locked-structure banner are gated by `structureLocked = studyRow?.code === "PH-2401"` in both `data-entry/page.tsx` and `animals/page.tsx`. **TODO (marked in both files):** replace the hardcoded code check with the study-type config flag once Settings exists. Related study-type-config TODOs to fold in: the "At home" kit-noun proxy (above) and the hardcoded `INVENTORY_PERMISSIONS` (Inventory milestone note below).
 
 ---
 
