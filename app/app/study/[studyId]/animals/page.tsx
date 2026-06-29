@@ -117,6 +117,10 @@ export default function AnimalsPage() {
   const terms = housingTerms(studyRow);
   const subjLabel = animalsLabel(studyRow); // "Pens" for livestock_group, else "Animals"
   const subjSingular = subjLabel === "Pens" ? "pen" : "animal";
+  // PH-2401 pen structure is fixed at study initiation — no structural additions
+  // during the study. TODO: derive from study-type config (pen-level feed study)
+  // when Study Settings is built, instead of the code check.
+  const structureLocked = studyRow?.code === "PH-2401";
   const canRaise = canQuery(activeRole, "raise");
   // Batch Entry — only studies with batch_eligible forms (BR-2502).
   const hasBatch = ready && studyHasBatch(dataset, studyId);
@@ -451,12 +455,21 @@ export default function AnimalsPage() {
                 <i className="ti ti-table"></i> Batch entry
               </button>
             )}
-            <button className="btn-primary" type="button" disabled={locked} title={locked ? LOCK_TOOLTIP : undefined} onClick={addSubject}>
-              <i className="ti ti-plus"></i> Add {subjSingular}
-            </button>
+            {!structureLocked && (
+              <button className="btn-primary" type="button" disabled={locked} title={locked ? LOCK_TOOLTIP : undefined} onClick={addSubject}>
+                <i className="ti ti-plus"></i> Add {subjSingular}
+              </button>
+            )}
           </div>
         </div>
       </div>
+
+      {structureLocked && (
+        <div role="status" style={{ display: "flex", gap: "var(--space-2)", alignItems: "center", padding: "var(--space-3) var(--space-4)", margin: "0 0 var(--space-3)", borderRadius: "var(--radius-md)", border: "1px solid var(--blue-200)", background: "var(--blue-50)", color: "var(--blue-600)", fontSize: "var(--text-xs)" }}>
+          <i className="ti ti-lock"></i>
+          <span>Pen structure is locked after study initiation. To modify the pen setup, contact your Data Manager to request a protocol amendment.</span>
+        </div>
+      )}
 
       {/* Stat strip */}
       <div className="an-stat-strip">
