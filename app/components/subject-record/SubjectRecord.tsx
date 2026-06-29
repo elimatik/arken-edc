@@ -559,10 +559,12 @@ export function SubjectRecord({ studyId, subjectId, initialFormId, initialPanelF
   // portal, so the Subject Record shows an info note and disabled fields.
   const activeForm = dataset.forms.find((f) => f.id === activeFormId);
   const isEproForm = (activeForm?.name ?? "").startsWith("ePRO");
-  // Randomization action / result is the ONLY content of the Randomization form
-  // (CA/BR/PH each have one); the field grid is suppressed there. PH is pen-level
-  // (read-only assignment block, no button).
+  // Randomization action / result is the ONLY content of the CA/BR Randomization form
+  // (the field grid is suppressed there, replaced by the RandomizationPanel). PH-2401
+  // is pen-level / open-label: its "Randomization & Arm Assignment" form renders a
+  // normal field grid (assigned arm, date, block, confirmed by) instead of the panel.
   const isRandForm = /randomi[sz]ation/i.test(activeForm?.name ?? "");
+  const suppressFieldGrid = isRandForm && studyRow?.code !== "PH-2401";
   // BR screening prompt: DART ≥ 2 on the BRD Case Definition form before randomization.
   const isScreeningForm = studyRow?.code === "BR-2502" && /BRD Case|Screening/i.test(activeForm?.name ?? "");
   const isClinicalResponseForm = studyRow?.code === "BR-2502" && /Clinical Response/i.test(activeForm?.name ?? "");
@@ -2114,8 +2116,8 @@ export function SubjectRecord({ studyId, subjectId, initialFormId, initialPanelF
               Eligibility override — PI {subject.override_by ?? "—"} documented a reason for override on {subject.override_at ?? "—"}. This subject was initially flagged as ineligible.
             </div>
           )}
-          {isRandForm && studyRow && (
-            <RandomizationPanel dataset={dataset} update={update} subject={subject} studyId={studyId} studyCode={studyRow.code} role={activeRole} ndaName={ndaName} penMode={studyRow.code === "PH-2401"} />
+          {isRandForm && studyRow && studyRow.code !== "PH-2401" && (
+            <RandomizationPanel dataset={dataset} update={update} subject={subject} studyId={studyId} studyCode={studyRow.code} role={activeRole} ndaName={ndaName} penMode={false} />
           )}
           {isScreeningForm && !subject.randomization_arm && (() => {
             const dartF = fields.find((f) => f.code === "dart_score");
@@ -2371,7 +2373,7 @@ export function SubjectRecord({ studyId, subjectId, initialFormId, initialPanelF
                 );
               })()}
             </div>
-          ) : isRandForm ? null : (
+          ) : suppressFieldGrid ? null : (
           <div className="field-grid-2">
             {fields.map((field, fIdx) => {
               if (!isFieldVisible(field)) return null; // conditional field (validation.showIf) not met
@@ -2489,7 +2491,14 @@ export function SubjectRecord({ studyId, subjectId, initialFormId, initialPanelF
               const section = sectionForIdx(fIdx);
               const showSection = !!section && section !== sectionForIdx(fIdx - 1);
               const fv = fvFor(field.id);
-              const value = fv?.value ?? "";
+              let value = fv?.value ?? "";
+              // PH Pen Demographics: prefill House / barn from the pen's barn context
+              // (set when the pen was created via Data Entry → Site → Barn → Add pen).
+              // Created from the top-level pen list, barn_id is null → field stays empty
+              // for manual selection.
+              if (!value && field.code === "house_barn" && subject.barn_id) {
+                value = dataset.barns.find((b) => b.id === subject.barn_id)?.name ?? "";
+              }
               const ec = editCheckFor(fv?.id); // open auto edit-check (orange alert)
               const dispQ = fieldQueryFor(fv?.id); // any query: open | responded | resolved
               const raised = dispQ?.status === "open"; // an open query tints the field amber (edit checks use the orange indicator)

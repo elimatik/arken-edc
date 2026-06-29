@@ -253,10 +253,25 @@ export async function hydrateFromSupabase(): Promise<Dataset> {
     ...caReturn(CA_F046, "f046"),
   ];
 
-  const RESHAPED_FORM_IDS = new Set([F005, F025, CA_F014, CA_F020, CA_F028, CA_F036, CA_F046, ...brVsForms.map((f) => f.id), ...brCrForms.map((f) => f.id)]);
+  // ─── PH-2401 Randomization & Arm Assignment (F003) — rebuild field set ───────
+  // The live DB's F003 drifted to an empty shell (no fields render). Rebuild it here
+  // (robust to DB drift, like the BR/CA reshapes above). PH randomization is open-label
+  // and pen-level: the assigned arm is auto-populated from the pen's randomization_arm.
+  const PH_F003 = "61000003-0000-0000-0000-000000002401";
+  const PH_F003_FIELDS: FF[] = [
+    ff(PH_F003, "f003-randomization_date", "randomization_date", "Randomization date", "date", null, null, true, 1, { section: "Randomization" }),
+    ff(PH_F003, "f003-randomization_method", "randomization_method", "Randomization method", "select", ["Computer-generated list", "Envelope", "Other"], null, false, 2, { section: "Randomization" }),
+    ff(PH_F003, "f003-block_number", "block_number", "Block number", "number", null, null, false, 3, { section: "Randomization" }),
+    ff(PH_F003, "f003-assigned_arm", "assigned_arm", "Assigned arm", "select", ["T01 Control", "T02 Phytogenic"], null, true, 4, { section: "Randomization", hint: "Auto-populated from the pen's randomization assignment." }),
+    ff(PH_F003, "f003-test_article_lot", "test_article_lot", "Test article lot number", "text", null, null, false, 5, { section: "Randomization" }),
+    ff(PH_F003, "f003-additive_inclusion_rate", "additive_inclusion_rate", "Additive inclusion rate", "number", null, "%", false, 6, { section: "Randomization" }),
+    ff(PH_F003, "f003-randomized_by", "randomized_by", "Confirmed by", "text", null, null, false, 7, { section: "Randomization" }),
+  ];
+
+  const RESHAPED_FORM_IDS = new Set([F005, F025, CA_F014, CA_F020, CA_F028, CA_F036, CA_F046, PH_F003, ...brVsForms.map((f) => f.id), ...brCrForms.map((f) => f.id)]);
   const reshapedFormFields: FF[] = [
     ...(formFields as FF[]).filter((f) => !RESHAPED_FORM_IDS.has((f.form_id ?? "").toLowerCase()) && !RESHAPED_FORM_IDS.has(f.form_id) && !shouldDropField(f)),
-    ...F005_FIELDS, ...F025_FIELDS, ...vsFields, ...crFields, ...CA_FIELDS,
+    ...F005_FIELDS, ...F025_FIELDS, ...vsFields, ...crFields, ...CA_FIELDS, ...PH_F003_FIELDS,
   ];
 
   // Seed the BR-2502 CO-001 Re-treatment Log entry. The live DB already has an F025
@@ -367,6 +382,36 @@ export async function hydrateFromSupabase(): Promise<Dataset> {
           }
         }
       }
+    }
+  }
+
+  // ─── PH-2401 Randomization & Arm Assignment values ──────────────────────────
+  // Ensure each randomized pen has an F003 instance and seed its assignment from the
+  // pen's randomization_arm (open-label, pen-level). Un-randomized pens are left blank.
+  {
+    const phId = (studies.data ?? []).find((s) => s.code === "PH-2401")?.id;
+    if (phId) {
+      const phPens = (subjects.data ?? []).filter((s) => s.study_id === phId);
+      const fvArr = fieldValues as Dataset["fieldValues"];
+      phPens.forEach((pen, idx) => {
+        const arm = pen.randomization_arm;
+        if (!arm) return; // un-randomized pen → form stays blank for manual entry
+        let inst = fInst.find((i) => (i.form_id ?? "").toLowerCase() === PH_F003 && i.subject_id === pen.id);
+        if (!inst) { inst = { id: `fi-ph-rand-${pen.id}`, form_id: PH_F003, subject_id: pen.id, status: "in_work" }; fInst.push(inst); }
+        const iid = inst.id;
+        const seed = (suffix: string, fieldId: string, value: string) => {
+          if (!fvArr.some((v) => v.form_instance_id === iid && v.form_field_id === fieldId))
+            fvArr.push({ id: `fv-ph-rand-${iid}-${suffix}`, form_instance_id: iid, form_field_id: fieldId, value });
+        };
+        const isPhyto = arm.startsWith("T02");
+        seed("date", "f003-randomization_date", "2026-02-10");
+        seed("method", "f003-randomization_method", "Computer-generated list");
+        seed("block", "f003-block_number", String((idx % 5) + 1));
+        seed("arm", "f003-assigned_arm", arm);
+        seed("lot", "f003-test_article_lot", isPhyto ? "LOT-PHY-0.05" : "LOT-CTRL-00");
+        seed("rate", "f003-additive_inclusion_rate", isPhyto ? "0.05" : "0");
+        seed("by", "f003-randomized_by", "S. Mwangi");
+      });
     }
   }
 
