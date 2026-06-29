@@ -26,8 +26,10 @@ export function VialEditPanel({ cfg, hideArms, vial, role, onClose, update }: {
   const [retNotes, setRetNotes] = useState("");
   const id = vialDisplayId(vial, hideArms);
   // PH-2401 feed is consumed, never returned to sponsor — no return action.
-  const canReturn = canInv("return", role) && !cfg.feed;
-  const canRemove = canInv("remove", role);
+  // Return-to-sponsor / restock is gated on confirm_return (PI / PM / Admin);
+  // removing a unit is the destroy / write-off action (DM / Admin).
+  const canReturn = canInv("confirm_return", role) && !cfg.feed;
+  const canRemove = canInv("destroy", role);
 
   function removeUnit() {
     if (!reason.trim()) return;
@@ -69,7 +71,7 @@ export function VialEditPanel({ cfg, hideArms, vial, role, onClose, update }: {
             <>
               {canReturn && <button className="inv-btn-purple" onClick={() => setMode("return")}><i className="ti ti-truck-delivery"></i> Mark as returned to sponsor</button>}
               {canRemove && <button className="inv-btn-danger" onClick={() => setMode("remove")}><i className="ti ti-trash"></i> Remove unit</button>}
-              {!canRemove && <div className="inv-hint">Removing a unit is an Administrator action.</div>}
+              {!canRemove && <div className="inv-hint">Removing a unit is a DM / Administrator action.</div>}
               {!canReturn && !canRemove && <div className="inv-hint">Your role has no edit actions for this unit.</div>}
             </>
           )}

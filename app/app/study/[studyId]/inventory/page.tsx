@@ -1,7 +1,7 @@
 "use client";
 
 // Inventory — drug-supply tracking (ported from 24-inventory.html). CRC / CRA / DM
-// / Admin only; PI + Sponsor redirect to the dashboard. Tabs: Shipments (default),
+// roles with View permission (CRC/CRA/PI/DM/Admin); Sponsor redirects. Tabs: Shipments (default),
 // Inventory, Dispense log, Reconciliation. The vial lifecycle and per-unit edit
 // open as right-hand slide-in panels (no separate tab).
 import { useEffect, useMemo, useState } from "react";
@@ -29,7 +29,9 @@ export default function InventoryPage() {
   const { study, sites, activeRole } = useShell();
   const { dataset, ready, update } = useStudySession();
 
-  const allowed = ["CRC", "CRA", "DM", "Admin"].includes(activeRole);
+  // Access is driven by the live permission matrix (Settings → Inventory): any role
+  // with "View stock levels" may open the module (CRC/CRA/PI/DM/Admin by default).
+  const allowed = canInv("view", activeRole);
   useEffect(() => { if (ready && !allowed) router.replace(`/study/${studyId}`); }, [ready, allowed, router, studyId]);
 
   const [tab, setTab] = useState<Tab>("receive");
@@ -92,7 +94,7 @@ export default function InventoryPage() {
             {sites.map((s) => <option key={s.id} value={s.id}>{s.name}</option>)}
           </select>
           <button className="inv-btn-secondary"><i className="ti ti-download"></i> Export log</button>
-          {tab === "receive" && canInv("receive", activeRole) && <button className="inv-btn-primary" onClick={() => setIntakeOpen(true)}><i className="ti ti-truck-delivery"></i> Receive shipment</button>}
+          {tab === "receive" && canInv("log_shipment", activeRole) && <button className="inv-btn-primary" onClick={() => setIntakeOpen(true)}><i className="ti ti-truck-delivery"></i> Receive shipment</button>}
         </div>
       </div>
 

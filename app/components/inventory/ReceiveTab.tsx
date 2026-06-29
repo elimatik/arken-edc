@@ -32,7 +32,7 @@ export function ReceiveTab({ cfg, studyId, shipments, vials, role, update, intak
   intakeOpen: boolean;
   setIntakeOpen: (v: boolean) => void;
 }) {
-  const canConfirm = canInv("confirm", role);
+  const canConfirm = canInv("confirm_units", role);
   const [review, setReview] = useState<Review | null>(null);
   const [shipDate, setShipDate] = useState("");
   const [recvDate, setRecvDate] = useState("");
@@ -208,7 +208,7 @@ export function ReceiveTab({ cfg, studyId, shipments, vials, role, update, intak
           <div className="inv-empty-icon"><i className="ti ti-truck-delivery"></i></div>
           <div style={{ textAlign: "center" }}>
             <div style={{ fontSize: "var(--text-base)", fontWeight: "var(--weight-medium)" }}>No shipments yet</div>
-            <div style={{ fontSize: "var(--text-sm)", color: "var(--color-text-tertiary)" }}>{canInv("receive", role) ? "Use “Receive shipment” in the header to record your first shipment." : "No shipments have been recorded for this study."}</div>
+            <div style={{ fontSize: "var(--text-sm)", color: "var(--color-text-tertiary)" }}>{canInv("log_shipment", role) ? "Use “Receive shipment” in the header to record your first shipment." : "No shipments have been recorded for this study."}</div>
           </div>
         </div>
       ) : (

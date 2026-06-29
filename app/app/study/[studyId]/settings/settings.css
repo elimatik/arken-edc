@@ -96,12 +96,12 @@
 .set-badge-amber { background: var(--amber-50); color: var(--amber-700); border: 1px solid var(--amber-200); }
 
 /* ─── Inventory section: toggles, condition-outcome buttons, permission matrix ── */
-.set-toggle { position: relative; width: 40px; height: 22px; flex-shrink: 0; display: inline-block; }
+.set-toggle { position: relative; width: 32px; height: 20px; flex-shrink: 0; display: inline-block; }
 .set-toggle input { opacity: 0; width: 0; height: 0; }
 .set-toggle-slider { position: absolute; inset: 0; background: var(--color-border); border-radius: var(--radius-full); cursor: pointer; transition: background var(--duration-fast); }
-.set-toggle-slider::before { content: ""; position: absolute; width: 16px; height: 16px; left: 3px; top: 3px; background: #fff; border-radius: 50%; transition: transform var(--duration-fast); }
+.set-toggle-slider::before { content: ""; position: absolute; width: 14px; height: 14px; left: 3px; top: 3px; background: #fff; border-radius: 50%; transition: transform var(--duration-fast); }
 .set-toggle input:checked + .set-toggle-slider { background: var(--blue-600); }
-.set-toggle input:checked + .set-toggle-slider::before { transform: translateX(18px); }
+.set-toggle input:checked + .set-toggle-slider::before { transform: translateX(12px); }
 .set-cb { width: 14px; height: 14px; accent-color: var(--blue-600); cursor: pointer; }
 
 .set-outcome-btn { height: 26px; padding: 0 var(--space-2); font-size: 11px; font-weight: 500; font-family: var(--font-sans); border: 1px solid var(--color-border); border-radius: var(--radius-sm); background: var(--color-surface); color: var(--color-text-tertiary); cursor: pointer; white-space: nowrap; }
