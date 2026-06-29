@@ -61,8 +61,10 @@ Compliance/realism gaps in the inventory + randomization flows (display works; t
 - **PH-2401 reconciliation**: no feed accountability model (delivered kg vs consumed kg vs waste vs balance).
 - **Emergency unblinding**: no formal workflow — no reason capture, no sponsor-notification flag, no SAE-adjacent audit tag.
 - **Return to sponsor**: toggle exists in Settings but no outbound shipment UI in the Inventory module; no destruction-certificate workflow.
+- **No true `quarantine` vial status**: CA kit-return condition "Partially used — compromised" + "Unknown" currently map to `removed` (the "quarantined / lost" bucket). For production, add `quarantine` as a `VialStatus` value + its badge/label maps (`STATUS_LABELS`/`STATUS_BADGE` in `inventory-data.ts`).
+- **No expired seed unit**: all CA/BR inventory units are future-dated, so the expiry block (disabled "(Expired)" option + protocol-deviation warning) is implemented but only triggers on a past-dated unit; only "(Exp. soon)" currently shows (Kit A-005). Seeding an expired unit to demo the block requires a DATA_KEY bump.
 
-**Portfolio priority fixes:** (1) accountability % calc · (2) BR withdrawal end date + dispensing flag · (3) expiry-date block on the unit dropdown.
+**Portfolio priority fixes** (✅ all implemented as of commit `12cf47b`): (1) accountability % calc · (2) BR withdrawal end date + dispensing flag · (3) expiry-date block on the unit dropdown.
 
 ### 🔀 Repo note
 A repo fork is planned once the portfolio is complete: **`elimatik/arken-edc` → `elimatik/arken-edc-production`**.
