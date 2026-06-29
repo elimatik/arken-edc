@@ -394,11 +394,35 @@ function StudySettingsSection({ studyCode, onToast }: { studyCode: string; onToa
   function startEdit() { setDTitle(title); setDSponsor(sponsor); setDInd(ind); setEditInfo(true); }
   function saveInfo() { setTitle(dTitle); setSponsor(dSponsor); setInd(dInd); setEditInfo(false); onToast("Study information saved"); }
 
-  // Card 3 — Study type + hierarchy.
+  // Card 3a/3b — Study type, design fields (editable, initialized from the study-type
+  // config defaults; overrides are component-local / display-only), and hierarchy.
   const [activeType, setActiveType] = useState<StudyTypeKey>(meta.type);
+  const [enrollModel, setEnrollModel] = useState<string>(cfg.enrollmentModel);
+  const [subjectUnit, setSubjectUnit] = useState<string>(cfg.subjectUnit);
+  const [structureLockedAt, setStructureLockedAt] = useState<string>(cfg.structureLockedAt);
   const [allowAdditions, setAllowAdditions] = useState(cfg.allowMidStudyAdditions);
   const [hierarchy, setHierarchy] = useState<HLevel[]>(() => studyHierarchy(studyCode));
-  function pickType(t: StudyTypeKey) { setActiveType(t); setHierarchy(HIERARCHY_PRESETS[t].map((l) => ({ ...l }))); onToast("Study type updated — hierarchy reset"); }
+  // Sensible design defaults per study type — applied when a type is (re)selected.
+  const TYPE_DESIGN_DEFAULTS: Record<StudyTypeKey, { enrollModel: string; subjectUnit: string; structureLockedAt: string; allow: boolean }> = {
+    livestock: { enrollModel: "rolling", subjectUnit: "animal", structureLockedAt: "first_enrollment", allow: true },
+    companion: { enrollModel: "rolling", subjectUnit: "animal", structureLockedAt: "first_enrollment", allow: true },
+    aquatic: { enrollModel: "rolling", subjectUnit: "tank", structureLockedAt: "first_enrollment", allow: true },
+    custom: { enrollModel: "rolling", subjectUnit: "animal", structureLockedAt: "manual", allow: true },
+  };
+  function pickType(t: StudyTypeKey) {
+    setActiveType(t);
+    const d = TYPE_DESIGN_DEFAULTS[t];
+    setEnrollModel(d.enrollModel); setSubjectUnit(d.subjectUnit); setStructureLockedAt(d.structureLockedAt); setAllowAdditions(d.allow);
+    setHierarchy(HIERARCHY_PRESETS[t].map((l) => ({ ...l })));
+    onToast("Study type updated — design & hierarchy pre-filled");
+  }
+  // Enrollment model auto-sets mid-study additions (Fixed group / Single cohort → OFF,
+  // Rolling → ON); still manually overridable via the toggle.
+  function changeEnrollModel(v: string) {
+    setEnrollModel(v);
+    setAllowAdditions(v === "rolling");
+    onToast("Enrollment model updated");
+  }
   function setLevelName(i: number, val: string) { setHierarchy((h) => h.map((l, j) => (j === i ? { ...l, value: val } : l))); onToast("Hierarchy updated"); }
   function removeLevel(i: number) { setHierarchy((h) => (h[i].fixed || h[i].isSubject ? h : h.filter((_, j) => j !== i))); onToast("Level removed"); }
   function addLevel() {
@@ -469,12 +493,12 @@ function StudySettingsSection({ studyCode, onToast }: { studyCode: string; onToa
         </div>
       </div>
 
-      {/* ── Card 3: Study type & subject hierarchy ── */}
+      {/* ── Card 3a: Study type & design ── */}
       <div className="settings-card">
-        <div className="settings-card-header"><div><div className="settings-card-title">Study type &amp; subject hierarchy</div><div className="settings-card-desc">Study type pre-fills the hierarchy — you can rename each level</div></div></div>
+        <div className="settings-card-header"><div><div className="settings-card-title">Study type &amp; design</div><div className="settings-card-desc">Study type pre-fills sensible defaults — all fields are overridable</div></div></div>
         <div className="settings-card-body">
-          <div className="settings-row" style={{ paddingBottom: "var(--space-4)" }}>
-            <div><div className="settings-row-label">Study type</div><div className="settings-row-desc">Pre-fills the hierarchy below</div></div>
+          <div className="settings-row">
+            <div><div className="settings-row-label">Study type</div><div className="settings-row-desc">Pre-fills the design + hierarchy below</div></div>
             <div className="settings-row-value">
               <div style={{ display: "flex", gap: "var(--space-2)", flexWrap: "wrap" }}>
                 {TYPES.map((t) => (
@@ -483,28 +507,54 @@ function StudySettingsSection({ studyCode, onToast }: { studyCode: string; onToa
               </div>
             </div>
           </div>
-          {/* Study design — read-only, derived from the study-type config */}
           <div className="settings-row">
             <div><div className="settings-row-label">Enrollment model</div><div className="settings-row-desc">How subjects join the study</div></div>
-            <div className="settings-row-value" style={{ fontSize: "var(--text-sm)" }}>{cfg.enrollmentModel === "fixed_group" ? "Fixed group setup (pen / group-level)" : cfg.enrollmentModel === "single_cohort" ? "Single cohort" : "Rolling individual enrollment"}</div>
+            <div className="settings-row-value">
+              <select className="set-select" style={{ maxWidth: 260 }} value={enrollModel} onChange={(e) => changeEnrollModel(e.target.value)}>
+                <option value="rolling">Rolling individual enrollment</option>
+                <option value="fixed_group">Fixed group setup</option>
+                <option value="single_cohort">Single cohort placement</option>
+              </select>
+            </div>
           </div>
           <div className="settings-row">
             <div><div className="settings-row-label">Subject unit</div><div className="settings-row-desc">The experimental unit of analysis</div></div>
-            <div className="settings-row-value" style={{ fontSize: "var(--text-sm)", textTransform: "capitalize" }}>{cfg.subjectUnitPlural}</div>
-          </div>
-          <div className="settings-row">
-            <div><div className="settings-row-label">Allow mid-study additions</div>{!allowAdditions && <div className="settings-row-desc">Pen/group structure is locked after study initiation</div>}</div>
-            <div className="settings-row-value" style={{ display: "flex", justifyContent: "flex-end" }}>
-              <label className="set-toggle"><input type="checkbox" checked={allowAdditions} onChange={() => { setAllowAdditions(!allowAdditions); onToast("Setting saved"); }} /><span className="set-toggle-slider"></span></label>
+            <div className="settings-row-value" style={{ display: "flex", flexDirection: "column", alignItems: "flex-end", gap: 4 }}>
+              <select className="set-select" style={{ maxWidth: 200 }} value={subjectUnit} onChange={(e) => { setSubjectUnit(e.target.value); onToast("Subject unit updated"); }}>
+                <option value="animal">Animal</option>
+                <option value="pen">Pen</option>
+                <option value="tank">Tank</option>
+                <option value="cage">Cage</option>
+                <option value="hive">Hive</option>
+              </select>
+              <div style={{ fontSize: "var(--text-xs)", color: "var(--color-text-tertiary)", textAlign: "right", maxWidth: 320 }}>If your randomization unit differs from your subject unit (e.g. cluster randomization), configure it separately in Randomization settings.</div>
             </div>
           </div>
-          <div className="settings-row" style={{ paddingBottom: "var(--space-4)" }}>
-            <div><div className="settings-row-label">Structure locked at</div></div>
-            <div className="settings-row-value"><span className="set-badge set-badge-slate">{cfg.structureLockedAt === "initiation" ? "At study initiation" : cfg.structureLockedAt === "first_enrollment" ? "At first enrollment" : "Manual"}</span></div>
+          <ToggleRow
+            on={allowAdditions}
+            onToggle={() => { setAllowAdditions(!allowAdditions); onToast("Setting saved"); }}
+            label="Allow mid-study additions"
+            desc={allowAdditions ? "New subjects / units can be added while the study is active" : "Structure is locked after study initiation"}
+          />
+          <div className="settings-row">
+            <div><div className="settings-row-label">Structure locked at</div><div className="settings-row-desc">When the subject structure becomes read-only</div></div>
+            <div className="settings-row-value">
+              <select className="set-select" style={{ maxWidth: 200 }} value={structureLockedAt} onChange={(e) => { setStructureLockedAt(e.target.value); onToast("Structure lock updated"); }}>
+                <option value="initiation">At study initiation</option>
+                <option value="first_enrollment">At first enrollment</option>
+                <option value="manual">Manual lock</option>
+              </select>
+            </div>
           </div>
+        </div>
+      </div>
 
+      {/* ── Card 3b: Subject hierarchy ── */}
+      <div className="settings-card">
+        <div className="settings-card-header"><div><div className="settings-card-title">Subject hierarchy</div><div className="settings-card-desc">Study type pre-fills the hierarchy — you can rename each level</div></div></div>
+        <div className="settings-card-body">
           <div>
-            <div style={{ fontSize: "var(--text-xs)", fontWeight: 500, textTransform: "uppercase", letterSpacing: "var(--tracking-caps)", color: "var(--color-text-tertiary)", marginBottom: "var(--space-3)" }}>Hierarchy levels <span style={{ fontWeight: 400, textTransform: "none", color: "var(--color-text-placeholder)" }}>(top = study, fixed)</span></div>
+            <div style={{ fontSize: "var(--text-xs)", fontWeight: 500, textTransform: "uppercase", letterSpacing: "var(--tracking-caps)", color: "var(--color-text-tertiary)", marginTop: "var(--space-3)", marginBottom: "var(--space-3)" }}>Hierarchy levels <span style={{ fontWeight: 400, textTransform: "none", color: "var(--color-text-placeholder)" }}>(top = study, fixed)</span></div>
             {hierarchy.map((level, i) => {
               const opts = Array.from(new Set([...level.options, ...ALL_LEVEL_OPTIONS]));
               return (
@@ -522,7 +572,7 @@ function StudySettingsSection({ studyCode, onToast }: { studyCode: string; onToa
             })}
             {allowAdditions
               ? <button className="set-btn-secondary" style={{ height: 28, fontSize: "var(--text-xs)", marginTop: "var(--space-3)" }} type="button" onClick={addLevel}><i className="ti ti-plus"></i> Add level</button>
-              : <div className="set-note" style={{ marginTop: "var(--space-3)" }}><i className="ti ti-lock" style={{ fontSize: 12, marginRight: 4 }}></i> Hierarchy is locked — this study's structure is fixed at initiation. Contact your Data Manager to request a protocol amendment.</div>}
+              : <div className="set-note" style={{ marginTop: "var(--space-3)" }}><i className="ti ti-lock" style={{ fontSize: 12, marginRight: 4 }}></i> Structure is locked. Hierarchy levels cannot be modified once the study is active.</div>}
           </div>
         </div>
       </div>
