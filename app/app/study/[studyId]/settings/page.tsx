@@ -183,54 +183,58 @@ function InventorySection({ studyCode, studyId, studyForms, dataset, onToast }: 
         </div>
       </div>
 
-      {/* ── Card 2: Return trigger ── */}
+      {/* ── Card 2: Return trigger — toggle lives in the header (toggle-header pattern) ── */}
       <div className="settings-card">
-        <div className="settings-card-header"><div><div className="settings-card-title">Return trigger</div><div className="settings-card-desc">Which form fields log a drug return event</div></div></div>
+        <div className="settings-card-header">
+          <div style={{ flex: 1 }}>
+            <div style={{ display: "flex", alignItems: "center", gap: "var(--space-3)" }}>
+              <label className="set-toggle" style={{ flexShrink: 0 }}><input type="checkbox" checked={logViaForm} onChange={() => { setLogViaForm(!logViaForm); onToast("Setting saved"); }} /><span className="set-toggle-slider"></span></label>
+              <div className="settings-card-title">Log return via form</div>
+            </div>
+            <div className="settings-card-desc" style={{ marginTop: 2 }}>When enabled, unit returns are recorded through form entries. When disabled, returns are calculated automatically using volume tracking.</div>
+          </div>
+        </div>
         <div className="settings-card-body">
-          <ToggleRow on={logViaForm} onToggle={() => { setLogViaForm(!logViaForm); onToast("Setting saved"); }} label="Log return via form" desc="When enabled, unit returns are recorded through form entries. When disabled, returns are calculated automatically using volume tracking." />
-          {/* Divider after the toggle row (always). Content below it depends on state. */}
-          <div style={{ marginTop: "var(--space-1)", paddingTop: "var(--space-4)", borderTop: "1px solid var(--color-border-subtle)" }}>
-            {logViaForm && (
-              <>
-                <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "var(--space-4)", marginBottom: "var(--space-4)" }}>
-                  <div className="set-field"><div className="set-field-label">Return form</div><Sel value={retForm} opts={[...formNames, "—"]} onChange={(v) => { setRetForm(v); onToast("Return form updated"); }} /></div>
-                  <div className="set-field"><div className="set-field-label">Unit ID field</div><Sel value={retUnit} opts={["returned_kit_number", "unit_id", "vial_unit_id", "—"]} onChange={(v) => { setRetUnit(v); onToast("Return unit ID field updated"); }} /></div>
-                </div>
-                <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "var(--space-4)" }}>
-                  <div className="set-field"><div className="set-field-label">Return date field</div><Sel value={retDate} opts={["visit_date", "date_of_return", "collection_date", "—"]} onChange={(v) => { setRetDate(v); onToast("Return date field updated"); }} /></div>
-                  <div className="set-field"><div className="set-field-label">Condition field</div><Sel value={retCond} opts={["unit_condition_on_return", "physical_condition", "integrity_status", "—"]} onChange={(v) => { setRetCond(v); onToast("Condition field updated"); }} /><div style={{ fontSize: "var(--text-xs)", color: "var(--color-text-tertiary)", marginTop: 4 }}>Used to determine if returned units re-enter stock</div></div>
-                </div>
-                <div style={{ marginTop: "var(--space-4)" }}>
-                  <div className="set-field-label" style={{ marginBottom: "var(--space-2)" }}>Condition field on return form</div>
-                  {conditionChip}
-                </div>
-                {retCond !== "—" && (
-                  <div style={{ marginTop: "var(--space-4)" }}>
-                    <div style={{ fontSize: "var(--text-xs)", fontWeight: 500, textTransform: "uppercase", letterSpacing: "var(--tracking-caps)", color: "var(--color-text-tertiary)", marginBottom: "var(--space-2)" }}>Condition options → stock outcome</div>
-                    <div style={{ display: "flex", flexDirection: "column" }}>
-                      {CONDITION_OPTIONS.map((opt) => (
-                        <div key={opt} style={{ display: "flex", alignItems: "center", gap: "var(--space-3)", padding: "var(--space-2) 0", borderBottom: "1px solid var(--color-border-subtle)" }}>
-                          <span style={{ flex: 1, fontSize: "var(--text-sm)" }}>{opt}</span>
-                          <span style={{ fontSize: "var(--text-xs)", color: "var(--color-text-tertiary)" }}>→</span>
-                          <div style={{ display: "flex", gap: 4 }}>
-                            {OUTCOME_OPTIONS.map((o) => (
-                              <button key={o.value} type="button" className={`set-outcome-btn${condMap[opt] === o.value ? ` active ${o.cls}` : ""}`} onClick={() => { setCondMap({ ...condMap, [opt]: o.value }); onToast("Condition mapping updated"); }}>{o.label}</button>
-                            ))}
-                          </div>
-                        </div>
-                      ))}
-                    </div>
-                  </div>
-                )}
-              </>
-            )}
-            {/* Minimum returnable volume — always shown (applies to calc-based returns too). */}
-            <div style={{ marginTop: logViaForm ? "var(--space-4)" : 0 }}>
-              <div className="set-field-label" style={{ marginBottom: "var(--space-1)" }}>Minimum returnable volume</div>
-              <div style={{ display: "flex", alignItems: "center", gap: "var(--space-2)" }}>
-                <input className="set-input" type="number" min={0} step={0.1} value={minReturnVol} style={{ width: 72, fontFamily: "var(--font-mono)" }} onChange={(e) => setMinReturnVol(e.target.value)} onBlur={() => onToast("Min returnable volume saved")} />
-                <span style={{ fontSize: "var(--text-sm)", color: "var(--color-text-secondary)" }}>ml — below this the unit is marked depleted regardless of condition</span>
+          {logViaForm && (
+            <>
+              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "var(--space-4)", marginBottom: "var(--space-4)" }}>
+                <div className="set-field"><div className="set-field-label">Return form</div><Sel value={retForm} opts={[...formNames, "—"]} onChange={(v) => { setRetForm(v); onToast("Return form updated"); }} /></div>
+                <div className="set-field"><div className="set-field-label">Unit ID field</div><Sel value={retUnit} opts={["returned_kit_number", "unit_id", "vial_unit_id", "—"]} onChange={(v) => { setRetUnit(v); onToast("Return unit ID field updated"); }} /></div>
               </div>
+              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "var(--space-4)" }}>
+                <div className="set-field"><div className="set-field-label">Return date field</div><Sel value={retDate} opts={["visit_date", "date_of_return", "collection_date", "—"]} onChange={(v) => { setRetDate(v); onToast("Return date field updated"); }} /></div>
+                <div className="set-field"><div className="set-field-label">Condition field</div><Sel value={retCond} opts={["unit_condition_on_return", "physical_condition", "integrity_status", "—"]} onChange={(v) => { setRetCond(v); onToast("Condition field updated"); }} /><div style={{ fontSize: "var(--text-xs)", color: "var(--color-text-tertiary)", marginTop: 4 }}>Used to determine if returned units re-enter stock</div></div>
+              </div>
+              <div style={{ marginTop: "var(--space-4)" }}>
+                <div className="set-field-label" style={{ marginBottom: "var(--space-2)" }}>Condition field on return form</div>
+                {conditionChip}
+              </div>
+              {retCond !== "—" && (
+                <div style={{ marginTop: "var(--space-4)" }}>
+                  <div style={{ fontSize: "var(--text-xs)", fontWeight: 500, textTransform: "uppercase", letterSpacing: "var(--tracking-caps)", color: "var(--color-text-tertiary)", marginBottom: "var(--space-2)" }}>Condition options → stock outcome</div>
+                  <div style={{ display: "flex", flexDirection: "column" }}>
+                    {CONDITION_OPTIONS.map((opt) => (
+                      <div key={opt} style={{ display: "flex", alignItems: "center", gap: "var(--space-3)", padding: "var(--space-2) 0", borderBottom: "1px solid var(--color-border-subtle)" }}>
+                        <span style={{ flex: 1, fontSize: "var(--text-sm)" }}>{opt}</span>
+                        <span style={{ fontSize: "var(--text-xs)", color: "var(--color-text-tertiary)" }}>→</span>
+                        <div style={{ display: "flex", gap: 4 }}>
+                          {OUTCOME_OPTIONS.map((o) => (
+                            <button key={o.value} type="button" className={`set-outcome-btn${condMap[opt] === o.value ? ` active ${o.cls}` : ""}`} onClick={() => { setCondMap({ ...condMap, [opt]: o.value }); onToast("Condition mapping updated"); }}>{o.label}</button>
+                          ))}
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+            </>
+          )}
+          {/* Minimum returnable volume — always shown (applies to calc-based returns too). */}
+          <div style={{ marginTop: logViaForm ? "var(--space-4)" : 0 }}>
+            <div className="set-field-label" style={{ marginBottom: "var(--space-1)" }}>Minimum returnable volume</div>
+            <div style={{ display: "flex", alignItems: "center", gap: "var(--space-2)" }}>
+              <input className="set-input" type="number" min={0} step={0.1} value={minReturnVol} style={{ width: 72, fontFamily: "var(--font-mono)" }} onChange={(e) => setMinReturnVol(e.target.value)} onBlur={() => onToast("Min returnable volume saved")} />
+              <span style={{ fontSize: "var(--text-sm)", color: "var(--color-text-secondary)" }}>ml — below this the unit is marked depleted regardless of condition</span>
             </div>
           </div>
         </div>
