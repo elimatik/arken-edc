@@ -115,9 +115,9 @@ function ToggleRow({ on, onToggle, label, desc }: { on: boolean; onToggle: () =>
 function InventorySection({ studyCode, studyId, studyForms, dataset, onToast }: { studyCode: string; studyId: string; studyForms: { id: string; name: string }[]; dataset: Dataset; onToast: (m: string) => void }) {
   const trig = useMemo(() => dispenseTrigger(studyCode, dataset, studyId), [studyCode, dataset, studyId]);
   const rtrig = useMemo(() => returnTrigger(studyCode), [studyCode]);
-  const showReturn = studyCode === "CA-0801"; // Return trigger only applies to CA-0801
+  // TODO: derive these from the study-type config once Study Settings is built.
   const showAtHome = studyCode === "CA-0801"; // At-home status: CA only
-  const showReturnSponsor = studyCode === "CA-0801" || studyCode === "BR-2502"; // CA + BR
+  const showReturnSponsor = studyCode === "CA-0801" || studyCode === "BR-2502"; // CA + BR (PH feed is consumed)
 
   const [dispForm, setDispForm] = useState(trig.form);
   const [unitField, setUnitField] = useState(trig.unit);
@@ -137,11 +137,13 @@ function InventorySection({ studyCode, studyId, studyForms, dataset, onToast }: 
   const [minReturnVol, setMinReturnVol] = useState("0.5");
   const [atHome, setAtHome] = useState(true);
   const [returnSponsor, setReturnSponsor] = useState(true);
+  // Log returns via a CRF form — default ON for CA, OFF for BR/PH (calc-based).
+  const [logViaForm, setLogViaForm] = useState(studyCode === "CA-0801");
 
   // Reset every study-scoped control when the active study changes.
   useEffect(() => { setDispForm(trig.form); setUnitField(trig.unit); setVolField(trig.vol); setDateField(trig.date); }, [trig]);
   useEffect(() => { setRetForm(rtrig.form); setRetUnit(rtrig.unit); setRetDate(rtrig.date); setRetCond(rtrig.condition); setCondMap({ ...DEFAULT_COND_MAP }); }, [rtrig]);
-  useEffect(() => { setAtHome(true); setReturnSponsor(true); }, [studyCode]);
+  useEffect(() => { setAtHome(true); setReturnSponsor(true); setLogViaForm(studyCode === "CA-0801"); }, [studyCode]);
 
   // Permissions (shared store — edits here drive the live Inventory module).
   const perms = useInventoryPermissions();
@@ -182,41 +184,45 @@ function InventorySection({ studyCode, studyId, studyForms, dataset, onToast }: 
       </div>
 
       {/* ── Card 2: Return trigger ── */}
-      {showReturn && (
       <div className="settings-card">
         <div className="settings-card-header"><div><div className="settings-card-title">Return trigger</div><div className="settings-card-desc">Which form fields log a drug return event</div></div></div>
         <div className="settings-card-body">
-          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "var(--space-4)", marginBottom: "var(--space-4)" }}>
-            <div className="set-field"><div className="set-field-label">Return form</div><Sel value={retForm} opts={[...formNames, "—"]} onChange={(v) => { setRetForm(v); onToast("Return form updated"); }} /></div>
-            <div className="set-field"><div className="set-field-label">Unit ID field</div><Sel value={retUnit} opts={["returned_kit_number", "unit_id", "vial_unit_id", "—"]} onChange={(v) => { setRetUnit(v); onToast("Return unit ID field updated"); }} /></div>
-          </div>
-          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "var(--space-4)" }}>
-            <div className="set-field"><div className="set-field-label">Return date field</div><Sel value={retDate} opts={["visit_date", "date_of_return", "collection_date", "—"]} onChange={(v) => { setRetDate(v); onToast("Return date field updated"); }} /></div>
-            <div className="set-field"><div className="set-field-label">Condition field</div><Sel value={retCond} opts={["unit_condition_on_return", "physical_condition", "integrity_status", "—"]} onChange={(v) => { setRetCond(v); onToast("Condition field updated"); }} /><div style={{ fontSize: "var(--text-xs)", color: "var(--color-text-tertiary)", marginTop: 4 }}>Used to determine if returned units re-enter stock</div></div>
-          </div>
-          <div style={{ marginTop: "var(--space-4)", paddingTop: "var(--space-4)", borderTop: "1px solid var(--color-border-subtle)" }}>
-            <div className="set-field-label" style={{ marginBottom: "var(--space-2)" }}>Condition field on return form</div>
-            {conditionChip}
-          </div>
-          {retCond !== "—" && (
-            <div style={{ marginTop: "var(--space-4)" }}>
-              <div style={{ fontSize: "var(--text-xs)", fontWeight: 500, textTransform: "uppercase", letterSpacing: "var(--tracking-caps)", color: "var(--color-text-tertiary)", marginBottom: "var(--space-2)" }}>Condition options → stock outcome</div>
-              <div style={{ display: "flex", flexDirection: "column" }}>
-                {CONDITION_OPTIONS.map((opt) => (
-                  <div key={opt} style={{ display: "flex", alignItems: "center", gap: "var(--space-3)", padding: "var(--space-2) 0", borderBottom: "1px solid var(--color-border-subtle)" }}>
-                    <span style={{ flex: 1, fontSize: "var(--text-sm)" }}>{opt}</span>
-                    <span style={{ fontSize: "var(--text-xs)", color: "var(--color-text-tertiary)" }}>→</span>
-                    <div style={{ display: "flex", gap: 4 }}>
-                      {OUTCOME_OPTIONS.map((o) => (
-                        <button key={o.value} type="button" className={`set-outcome-btn${condMap[opt] === o.value ? ` active ${o.cls}` : ""}`} onClick={() => { setCondMap({ ...condMap, [opt]: o.value }); onToast("Condition mapping updated"); }}>{o.label}</button>
-                      ))}
-                    </div>
-                  </div>
-                ))}
+          <ToggleRow on={logViaForm} onToggle={() => { setLogViaForm(!logViaForm); onToast("Setting saved"); }} label="Log return via form" desc="Returns are recorded on a CRF return form" />
+          {logViaForm && (
+            <div style={{ paddingTop: "var(--space-3)", marginTop: "var(--space-1)", borderTop: "1px solid var(--color-border-subtle)" }}>
+              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "var(--space-4)", marginBottom: "var(--space-4)" }}>
+                <div className="set-field"><div className="set-field-label">Return form</div><Sel value={retForm} opts={[...formNames, "—"]} onChange={(v) => { setRetForm(v); onToast("Return form updated"); }} /></div>
+                <div className="set-field"><div className="set-field-label">Unit ID field</div><Sel value={retUnit} opts={["returned_kit_number", "unit_id", "vial_unit_id", "—"]} onChange={(v) => { setRetUnit(v); onToast("Return unit ID field updated"); }} /></div>
               </div>
+              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "var(--space-4)" }}>
+                <div className="set-field"><div className="set-field-label">Return date field</div><Sel value={retDate} opts={["visit_date", "date_of_return", "collection_date", "—"]} onChange={(v) => { setRetDate(v); onToast("Return date field updated"); }} /></div>
+                <div className="set-field"><div className="set-field-label">Condition field</div><Sel value={retCond} opts={["unit_condition_on_return", "physical_condition", "integrity_status", "—"]} onChange={(v) => { setRetCond(v); onToast("Condition field updated"); }} /><div style={{ fontSize: "var(--text-xs)", color: "var(--color-text-tertiary)", marginTop: 4 }}>Used to determine if returned units re-enter stock</div></div>
+              </div>
+              <div style={{ marginTop: "var(--space-4)", paddingTop: "var(--space-4)", borderTop: "1px solid var(--color-border-subtle)" }}>
+                <div className="set-field-label" style={{ marginBottom: "var(--space-2)" }}>Condition field on return form</div>
+                {conditionChip}
+              </div>
+              {retCond !== "—" && (
+                <div style={{ marginTop: "var(--space-4)" }}>
+                  <div style={{ fontSize: "var(--text-xs)", fontWeight: 500, textTransform: "uppercase", letterSpacing: "var(--tracking-caps)", color: "var(--color-text-tertiary)", marginBottom: "var(--space-2)" }}>Condition options → stock outcome</div>
+                  <div style={{ display: "flex", flexDirection: "column" }}>
+                    {CONDITION_OPTIONS.map((opt) => (
+                      <div key={opt} style={{ display: "flex", alignItems: "center", gap: "var(--space-3)", padding: "var(--space-2) 0", borderBottom: "1px solid var(--color-border-subtle)" }}>
+                        <span style={{ flex: 1, fontSize: "var(--text-sm)" }}>{opt}</span>
+                        <span style={{ fontSize: "var(--text-xs)", color: "var(--color-text-tertiary)" }}>→</span>
+                        <div style={{ display: "flex", gap: 4 }}>
+                          {OUTCOME_OPTIONS.map((o) => (
+                            <button key={o.value} type="button" className={`set-outcome-btn${condMap[opt] === o.value ? ` active ${o.cls}` : ""}`} onClick={() => { setCondMap({ ...condMap, [opt]: o.value }); onToast("Condition mapping updated"); }}>{o.label}</button>
+                          ))}
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
             </div>
           )}
-          {/* Minimum returnable volume — always shown, link state aside. */}
+          {/* Minimum returnable volume — always shown (applies to calc-based returns too). */}
           <div style={{ marginTop: "var(--space-4)" }}>
             <div className="set-field-label" style={{ marginBottom: "var(--space-1)" }}>Minimum returnable volume</div>
             <div style={{ display: "flex", alignItems: "center", gap: "var(--space-2)" }}>
@@ -226,7 +232,6 @@ function InventorySection({ studyCode, studyId, studyForms, dataset, onToast }: 
           </div>
         </div>
       </div>
-      )}
 
       {/* ── Card 3: Inventory rules ── */}
       <div className="settings-card">

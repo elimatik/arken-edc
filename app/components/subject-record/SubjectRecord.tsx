@@ -774,15 +774,19 @@ export function SubjectRecord({ studyId, subjectId, initialFormId, initialPanelF
   // On unit selection: dispense it (status → athome + a dispense event, which the
   // audit trail surfaces as "Drug dispensed — [unit] — [subject]"). Idempotent per
   // (unit, subject, form instance) so re-renders don't duplicate.
-  function dispenseUnitToSubject(vialId: string, visit: string, formInstanceId: string, volDispensed: number) {
+  // BR is a multi-use vial model (one vial per animal): a dose leaves the remainder
+  // on the shelf. Calc-based — never "athome". remaining = initial − calculated dose;
+  // < 0.5 ml depletes the unit, otherwise it stays available with the remainder.
+  function dispenseUnitToSubject(vialId: string, visit: string, formInstanceId: string, dose: number) {
     const code = subject?.subject_code;
     if (!code) return;
     update((d) => {
       const v = d.vials.find((x) => x.id === vialId);
       if (!v) return;
       if (v.events.some((e) => e.type === "dispense" && e.subject === code && e.formInstanceId === formInstanceId)) return;
-      v.status = "athome";
-      v.events.push({ type: "dispense", date: new Date().toISOString().slice(0, 10), subject: code, visit, volDispensed: volDispensed || 0, route: "SC injection", location: "farm", by: ndaName, formInstanceId });
+      const remaining = Math.round((v.initialVol - (dose || 0)) * 10) / 10;
+      v.status = remaining < 0.5 ? "depleted" : "available";
+      v.events.push({ type: "dispense", date: new Date().toISOString().slice(0, 10), subject: code, visit, volDispensed: dose || 0, route: "SC injection", location: "farm", by: ndaName, formInstanceId, note: remaining < 0.5 ? `Unit ${vialId} fully used — ${dose}ml dispensed, depleted` : `Unit ${vialId} — ${dose}ml dispensed, ${remaining}ml remaining` });
     });
   }
   const brUnitWarn = (lot: string) => <div style={{ fontSize: "var(--text-xs)", color: "var(--amber-700)", background: "var(--amber-50)", border: "1px solid var(--amber-200)", borderRadius: "var(--radius-md)", padding: "4px 8px" }}>No available units in {lot} — contact inventory manager</div>;

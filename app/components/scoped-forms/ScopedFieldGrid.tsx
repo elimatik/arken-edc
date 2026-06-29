@@ -127,6 +127,21 @@ export function ScopedFieldGrid({ studyId, scope, scopeId, form, instanceId, mod
     const fv = fvFor(field.id); if (!fv) return;
     const cur = fv.value ?? ""; if (cur === snap.value) return;
     update((d: Dataset) => { const f = d.fieldValues.find((v) => v.id === fv.id); if (f) recordTransition(d, f.id, snap.value, cur); });
+    // PH-2401 feed delivery → decrement the batch on kg delivery (calc-based, idempotent
+    // per delivery instance). The Feed Delivery Log is house-scoped with no arm, so the
+    // first available batch is drawn down. < 1 kg remaining depletes the batch.
+    if (field.code === "quantity_kg" || field.code === "kg_delivered") {
+      const isPh = dataset.studies.find((s) => s.id === studyId)?.code === "PH-2401";
+      const kg = Number(cur) || 0;
+      if (isPh && kg > 0) update((d: Dataset) => {
+        const batch = d.vials.find((v) => v.studyId === studyId && v.status === "available");
+        if (!batch || batch.events.some((e) => e.type === "dispense" && e.formInstanceId === instanceId)) return;
+        const used = batch.events.filter((e) => e.type === "dispense").reduce((s, e) => s + (e.volDispensed ?? 0), 0);
+        const remaining = Math.round((batch.initialVol - used - kg) * 10) / 10;
+        if (remaining < 1) batch.status = "depleted";
+        batch.events.push({ type: "dispense", date: new Date().toISOString().slice(0, 10), volDispensed: kg, location: "farm", formInstanceId: instanceId, note: `Batch ${batch.id} — ${kg}kg delivered, ${remaining}kg remaining` });
+      });
+    }
   }
   function evalEditCheck(field: FormFieldRow) {
     if (readOnly) return;

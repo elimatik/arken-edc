@@ -30,11 +30,17 @@ export function InventoryTab({ cfg, hideArms, vials, openDetail, onEdit }: {
 
   const lots = useMemo(() => Array.from(new Set(vials.map((v) => v.lotId))).sort(), [vials]);
   const groups = useMemo(() => Array.from(new Set(vials.map((v) => v.treatmentGroup).filter(Boolean))).sort(), [vials]);
+  // "At home" only exists for CA-0801 (kit-per-visit). For BR/PH there is no athome
+  // state — any seeded athome unit shows as available, and the AT HOME KPI is hidden.
+  // TODO: derive from the study-type config when Study Settings is built.
+  const isKit = cfg.itemNoun === "kit";
+  const dispStatus = (v: Vial): string => (!isKit && v.status === "athome" ? "available" : v.status);
+  const kpiMeta = isKit ? KPI_META : KPI_META.filter((k) => k.key !== "athome");
 
   const rows = useMemo(() => {
     const q = search.toLowerCase().trim();
     const filtered = vials.filter((v) => {
-      if (status && v.status !== status) return false;
+      if (status && dispStatus(v) !== status) return false;
       if (group && v.treatmentGroup !== group) return false;
       if (lot && v.lotId !== lot) return false;
       if (q && !v.id.toLowerCase().includes(q) && !v.lotId.toLowerCase().includes(q) && !(v.kitNumber ?? "").toLowerCase().includes(q)) return false;
@@ -53,16 +59,17 @@ export function InventoryTab({ cfg, hideArms, vials, openDetail, onEdit }: {
 
   const counts = useMemo(() => {
     const c: Record<string, number> = { available: 0, athome: 0, depleted: 0, removed: 0, returned: 0 };
-    vials.forEach((v) => { c[v.status] = (c[v.status] ?? 0) + 1; });
+    vials.forEach((v) => { const s = dispStatus(v); c[s] = (c[s] ?? 0) + 1; });
     return c;
-  }, [vials]);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [vials, isKit]);
   const volAvail = useMemo(() => Math.round(vials.filter((v) => v.status === "available").reduce((s, v) => s + currentVol(v), 0) * 10) / 10, [vials]);
   const drug = vials[0]?.drugName ?? "—";
 
   return (
     <>
       <div className="inv-kpi-row">
-        {KPI_META.map((k) => {
+        {kpiMeta.map((k) => {
           const active = status === k.key;
           const sub = k.key === "available" ? `${volAvail} ${cfg.unit} total` : k.sub;
           return (
@@ -114,7 +121,7 @@ export function InventoryTab({ cfg, hideArms, vials, openDetail, onEdit }: {
                     </div>
                   </td>
                   <td><span className="inv-mono" style={{ fontSize: 11, color: expiryColor(v.expiryDate) }}>{v.expiryDate || "—"}</span></td>
-                  <td><span className={`inv-badge ${STATUS_BADGE[v.status]}`}>{STATUS_LABELS[v.status] ?? v.status}</span></td>
+                  <td><span className={`inv-badge ${STATUS_BADGE[dispStatus(v)]}`}>{STATUS_LABELS[dispStatus(v)] ?? dispStatus(v)}</span></td>
                   <td><span className="inv-mono" style={{ fontSize: 11, color: "var(--color-text-tertiary)" }}>{lastUpdated(v) ?? "—"}</span></td>
                   <td><div style={{ display: "flex", justifyContent: "flex-end", gap: 2 }}>
                     <button className="inv-btn-icon" title="View lifecycle" onClick={(e) => { e.stopPropagation(); openDetail(v.id); }}><i className="ti ti-timeline"></i></button>
