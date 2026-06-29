@@ -187,7 +187,7 @@ function InventorySection({ studyCode, studyId, studyForms, dataset, onToast }: 
       <div className="settings-card">
         <div className="settings-card-header"><div><div className="settings-card-title">Return trigger</div><div className="settings-card-desc">Which form fields log a drug return event</div></div></div>
         <div className="settings-card-body">
-          <ToggleRow on={logViaForm} onToggle={() => { setLogViaForm(!logViaForm); onToast("Setting saved"); }} label="Log return via form" desc="Returns are recorded on a CRF return form" />
+          <ToggleRow on={logViaForm} onToggle={() => { setLogViaForm(!logViaForm); onToast("Setting saved"); }} label="Log return via form" desc="When enabled, unit returns are recorded through form entries. When disabled, returns are calculated automatically using volume tracking." />
           {logViaForm && (
             <div style={{ paddingTop: "var(--space-3)", marginTop: "var(--space-1)", borderTop: "1px solid var(--color-border-subtle)" }}>
               <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "var(--space-4)", marginBottom: "var(--space-4)" }}>
@@ -250,7 +250,8 @@ function InventorySection({ studyCode, studyId, studyForms, dataset, onToast }: 
             <div style={{ display: "grid", gridTemplateColumns: "auto 1fr", gap: "var(--space-5)", alignItems: "start" }}>
               <div className="set-field"><div className="set-field-label">Threshold</div><input className="set-input" type="number" min={1} value={lowThreshold} style={{ width: 72, fontFamily: "var(--font-mono)" }} onChange={(e) => setLowThreshold(e.target.value)} onBlur={() => onToast("Low stock threshold saved")} /></div>
               <div className="set-field"><div className="set-field-label">Notify roles</div>
-                <div style={{ display: "flex", flexWrap: "wrap", gap: "var(--space-4)", marginTop: 2 }}>
+                {/* min-height matches the 36px input so the checkbox row centres against it */}
+                <div style={{ display: "flex", flexWrap: "wrap", alignItems: "center", gap: "var(--space-4)", minHeight: 36 }}>
                   {NOTIFY_ROLES.map((r) => (
                     <label key={r} style={{ display: "inline-flex", alignItems: "center", gap: 5, fontSize: "var(--text-sm)", cursor: "pointer" }}>
                       <input type="checkbox" className="set-cb" checked={notify.has(r)} onChange={(e) => { const next = new Set(notify); if (e.target.checked) next.add(r); else next.delete(r); setNotify(next); onToast("Notify roles updated"); }} /> {r}
