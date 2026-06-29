@@ -369,12 +369,16 @@ export default function DataEntryPage() {
   // ─── Add-record permissions (per level) ─────────────────────────────────────
   const addLevel: "site" | "container" | "subject" =
     childLevel === 0 ? "site" : childLevel === subjectIdx ? "subject" : "container";
-  const canAdd =
+  // PH-2401 pen structure is fixed at study initiation — no structural additions
+  // (pens/houses/sites) during the study. TODO: derive from study-type config
+  // (pen-level feed study) when Study Settings is built, instead of the code check.
+  const structureLocked = studyRow?.code === "PH-2401";
+  const canAdd = !structureLocked && (
     addLevel === "site"
       ? activeRole === "Admin" // Add Site — Admin only
       : addLevel === "subject"
       ? ["CRC", "CRA", "Admin"].includes(activeRole) // Add Animal / Subject
-      : ["CRC", "DM", "Admin"].includes(activeRole); // Add Barn / Pen / Stable / Stall
+      : ["CRC", "DM", "Admin"].includes(activeRole)); // Add Barn / Pen / Stable / Stall
 
   // New empty subject — created in session, opens its Subject Record (like "Add Study").
   function doCreateSubject(site_id: string | null, barn_id: string | null, pen_id: string | null, newPenId: string) {
@@ -537,6 +541,12 @@ export default function DataEntryPage() {
 
       {/* Children table (subjects open their full record on click) */}
       <>
+          {structureLocked && (
+            <div role="status" style={{ display: "flex", gap: "var(--space-2)", alignItems: "center", padding: "var(--space-3) var(--space-4)", margin: "0 0 var(--space-3)", borderRadius: "var(--radius-md)", border: "1px solid var(--blue-200)", background: "var(--blue-50)", color: "var(--blue-600)", fontSize: "var(--text-xs)" }}>
+              <i className="ti ti-lock"></i>
+              <span>Pen structure is locked after study initiation. To modify the pen setup, contact your Data Manager to request a protocol amendment.</span>
+            </div>
+          )}
           {sivIncomplete && (
             <div role="status" style={{ display: "flex", gap: "var(--space-2)", alignItems: "center", padding: "var(--space-3) var(--space-4)", margin: "0 0 var(--space-3)", borderRadius: "var(--radius-md)", border: "1px solid var(--amber-200)", background: "var(--amber-50)", color: "var(--amber-800)", fontSize: "var(--text-sm)" }}>
               <i className="ti ti-alert-triangle"></i>
