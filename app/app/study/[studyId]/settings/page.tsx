@@ -65,6 +65,84 @@ function randConfig(code: string): RandConfig {
   };
 }
 
+// ─── Study settings config (ported from 25-settings.html section-study) ──────
+// Per-study metadata for the four Study-settings cards. Display-only for the
+// portfolio (edits surface autosave toasts, not persisted).
+type StudyTypeKey = "livestock" | "companion" | "aquatic" | "custom";
+interface StudyMeta {
+  title: string; sponsor: string; ind: string; framework: string[];
+  protoStart: string; protoEnroll: string; protoEnd: string; protoTarget: string; protoVersion: string;
+  type: StudyTypeKey;
+  drugName: string; drugFormulation: string; drugDoseUnit: string; drugDoseCalc: string; drugRoute: string;
+}
+function studyMeta(code: string): StudyMeta {
+  if (code === "CA-0801") return {
+    title: "DermAlliv™ Canine Atopic Dermatitis Study", sponsor: "DermAlliv Therapeutics",
+    ind: "NADA-141-YYY · IND-CA-0801-US", framework: ["21 CFR Part 11", "VICH GL42"],
+    protoStart: "2026-01-15", protoEnroll: "2026-04-01", protoEnd: "2026-10-31", protoTarget: "30", protoVersion: "v2.1 — 2026-01-10",
+    type: "companion",
+    drugName: "DermAlliv™ (blinded)", drugFormulation: "Topical / oral", drugDoseUnit: "ml", drugDoseCalc: "60 ml per visit", drugRoute: "Topical application",
+  };
+  if (code === "PH-2401") return {
+    title: "Phytogenic Feed Additive Broiler Growth Performance Trial", sponsor: "PhytoVet Nutrition",
+    ind: "No IND (feed additive)", framework: ["21 CFR Part 11"],
+    protoStart: "2026-04-20", protoEnroll: "N/A (fixed pens)", protoEnd: "2026-07-31", protoTarget: "16 pens", protoVersion: "v1.0 — 2026-04-01",
+    type: "livestock",
+    drugName: "PhytoGrow™ Phytogenic Blend", drugFormulation: "Feed premix", drugDoseUnit: "kg", drugDoseCalc: "500g/tonne inclusion rate", drugRoute: "In-feed",
+  };
+  // BR-2502
+  return {
+    title: "Bovine Respiratory Disease Treatment Trial", sponsor: "BioVet Pharma Inc.",
+    ind: "NADA-141-XXX · IND-BR-2502-US", framework: ["21 CFR Part 11", "VICH GL9"],
+    protoStart: "2026-04-01", protoEnroll: "2026-05-15", protoEnd: "2026-08-31", protoTarget: "36", protoVersion: "v1.0 — 2026-03-01",
+    type: "livestock",
+    drugName: "Tulathromycin", drugFormulation: "Liquid injection", drugDoseUnit: "ml", drugDoseCalc: "weight × arm_dose_factor ÷ 100 mg/mL", drugRoute: "SC injection",
+  };
+}
+
+interface HLevel { fixed: boolean; isSubject: boolean; value: string; options: string[]; optional?: boolean }
+const ALL_LEVEL_OPTIONS = ["Site", "Barn", "Shed", "Paddock", "Feedlot", "Pasture", "Pen", "Stall", "Lot", "Group", "Run", "House", "Clinic ward", "Ward", "Unit", "Department", "Cage", "Kennel", "Room", "Crate", "Tank room", "Tank", "Pond", "Raceway", "Aquarium", "Building", "Wing", "Housing unit", "Animal", "Bovine", "Pig", "Sheep", "Horse", "Dog", "Cat", "Rabbit", "Fish", "Primate", "Patient", "Individual", "Subject"];
+// Default hierarchy per study type — selecting a type button resets to this.
+const HIERARCHY_PRESETS: Record<StudyTypeKey, HLevel[]> = {
+  livestock: [
+    { fixed: true, isSubject: false, value: "Site", options: ["Site"] },
+    { fixed: false, isSubject: false, value: "Barn", options: ["Barn", "Shed", "Paddock", "Feedlot", "Pasture", "Building"] },
+    { fixed: false, isSubject: false, value: "Pen", options: ["Pen", "Stall", "Lot", "Group", "Run", "Cage"] },
+    { fixed: false, isSubject: true, value: "Animal", options: ["Animal", "Bovine", "Pig", "Sheep", "Horse", "Individual"] },
+  ],
+  companion: [
+    { fixed: true, isSubject: false, value: "Site", options: ["Site"] },
+    { fixed: false, isSubject: false, value: "Clinic ward", options: ["Clinic ward", "Ward", "Unit", "Department", "Building"] },
+    { fixed: false, isSubject: false, value: "Cage", options: ["Cage", "Kennel", "Run", "Room", "Crate"], optional: true },
+    { fixed: false, isSubject: true, value: "Pet", options: ["Pet", "Dog", "Cat", "Rabbit", "Patient", "Animal"] },
+  ],
+  aquatic: [
+    { fixed: true, isSubject: false, value: "Site", options: ["Site"] },
+    { fixed: false, isSubject: false, value: "Tank room", options: ["Tank room", "Facility", "Building", "Wing"] },
+    { fixed: false, isSubject: false, value: "Tank", options: ["Tank", "Pond", "Raceway", "Aquarium"] },
+    { fixed: false, isSubject: true, value: "Fish", options: ["Fish", "Animal", "Individual"] },
+  ],
+  custom: [
+    { fixed: true, isSubject: false, value: "Site", options: ["Site"] },
+    { fixed: false, isSubject: false, value: "Building", options: ["Building", "Ward", "Barn", "Room", "Shed", "Tank"] },
+    { fixed: false, isSubject: true, value: "Animal", options: ["Animal", "Subject", "Patient", "Individual", "Fish"] },
+  ],
+};
+// The active study's real hierarchy (initial state before any type re-pick).
+function studyHierarchy(code: string): HLevel[] {
+  if (code === "CA-0801") return [
+    { fixed: true, isSubject: false, value: "Site", options: ["Site"] },
+    { fixed: false, isSubject: true, value: "Animal", options: ["Animal", "Dog", "Cat", "Pet", "Patient", "Individual"] },
+  ];
+  if (code === "PH-2401") return [
+    { fixed: true, isSubject: false, value: "Site", options: ["Site"] },
+    { fixed: false, isSubject: false, value: "House", options: ["House", "Barn", "Shed", "Building"] },
+    { fixed: false, isSubject: true, value: "Pen", options: ["Pen", "Stall", "Lot", "Group", "Run", "Cage"] },
+  ];
+  // BR-2502 — Site → Barn → Pen → Animal (the livestock default)
+  return HIERARCHY_PRESETS.livestock.map((l) => ({ ...l }));
+}
+
 // ─── Inventory section config (ported from 25-settings.html section-inventory) ──
 const NOTIFY_ROLES: Role[] = ["CRC", "CRA", "DM", "PI", "Admin"];
 // Condition options + default stock-outcome mapping (CA-0801 return form).
@@ -299,6 +377,151 @@ function InventorySection({ studyCode, studyId, studyForms, dataset, onToast }: 
   );
 }
 
+// ─── Study settings section (4 cards, ported from 25-settings.html) ──────────
+// Remounted via key={studyCode} by the parent, so all state + uncontrolled
+// inputs reset to the active study when the topbar study switches.
+function StudySettingsSection({ studyCode, onToast }: { studyCode: string; onToast: (m: string) => void }) {
+  const meta = studyMeta(studyCode);
+  // Card 1 — Study information: committed values + edit drafts (Cancel reverts).
+  const [editInfo, setEditInfo] = useState(false);
+  const [title, setTitle] = useState(meta.title);
+  const [sponsor, setSponsor] = useState(meta.sponsor);
+  const [ind, setInd] = useState(meta.ind);
+  const [dTitle, setDTitle] = useState(meta.title);
+  const [dSponsor, setDSponsor] = useState(meta.sponsor);
+  const [dInd, setDInd] = useState(meta.ind);
+  function startEdit() { setDTitle(title); setDSponsor(sponsor); setDInd(ind); setEditInfo(true); }
+  function saveInfo() { setTitle(dTitle); setSponsor(dSponsor); setInd(dInd); setEditInfo(false); onToast("Study information saved"); }
+
+  // Card 3 — Study type + hierarchy.
+  const [activeType, setActiveType] = useState<StudyTypeKey>(meta.type);
+  const [hierarchy, setHierarchy] = useState<HLevel[]>(() => studyHierarchy(studyCode));
+  function pickType(t: StudyTypeKey) { setActiveType(t); setHierarchy(HIERARCHY_PRESETS[t].map((l) => ({ ...l }))); onToast("Study type updated — hierarchy reset"); }
+  function setLevelName(i: number, val: string) { setHierarchy((h) => h.map((l, j) => (j === i ? { ...l, value: val } : l))); onToast("Hierarchy updated"); }
+  function removeLevel(i: number) { setHierarchy((h) => (h[i].fixed || h[i].isSubject ? h : h.filter((_, j) => j !== i))); onToast("Level removed"); }
+  function addLevel() {
+    setHierarchy((h) => {
+      const idx = h.findIndex((l) => l.isSubject);
+      const nl: HLevel = { fixed: false, isSubject: false, value: "Room", options: ALL_LEVEL_OPTIONS };
+      if (idx > -1) { const copy = h.slice(); copy.splice(idx, 0, nl); return copy; }
+      return [...h, nl];
+    });
+    onToast("Level added");
+  }
+
+  const TYPES: { key: StudyTypeKey; label: string; icon: string }[] = [
+    { key: "livestock", label: "Livestock", icon: "cow" },
+    { key: "companion", label: "Companion animal", icon: "paw" },
+    { key: "aquatic", label: "Aquatic", icon: "fish" },
+    { key: "custom", label: "Custom", icon: "settings" },
+  ];
+
+  return (
+    <>
+      <div className="section-header">
+        <h1 className="set-section-title">Study settings</h1>
+        <p className="section-desc">Core protocol configuration for {studyCode}</p>
+      </div>
+
+      {/* ── Card 1: Study information ── */}
+      <div className="settings-card">
+        <div className="settings-card-header">
+          <div><div className="settings-card-title">Study information</div></div>
+          {!editInfo && <button className="set-btn-secondary" type="button" onClick={startEdit}><i className="ti ti-pencil"></i> Edit</button>}
+        </div>
+        <div className="settings-card-body">
+          <div className="settings-row"><div><div className="settings-row-label">Study ID</div></div><div className="settings-row-value"><span style={{ fontFamily: "var(--font-mono)", fontWeight: 500 }}>{studyCode}</span></div></div>
+          <div className="settings-row"><div><div className="settings-row-label">Study title</div></div><div className="settings-row-value">{title}</div></div>
+          <div className="settings-row"><div><div className="settings-row-label">Sponsor</div></div><div className="settings-row-value">{sponsor}</div></div>
+          <div className="settings-row"><div><div className="settings-row-label">IND / NADA number</div></div><div className="settings-row-value"><span style={{ fontFamily: "var(--font-mono)" }}>{ind}</span></div></div>
+          <div className="settings-row"><div><div className="settings-row-label">Regulatory framework</div></div><div className="settings-row-value">{meta.framework.map((f, i) => <span key={f} className="set-badge set-badge-blue" style={i > 0 ? { marginLeft: 4 } : undefined}>{f}</span>)}</div></div>
+          {editInfo && (
+            <div style={{ marginTop: "var(--space-4)", paddingTop: "var(--space-4)", borderTop: "1px solid var(--color-border)" }}>
+              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "var(--space-4)", marginBottom: "var(--space-3)" }}>
+                <div className="set-field"><div className="set-field-label">Study title</div><input className="set-input" value={dTitle} onChange={(e) => setDTitle(e.target.value)} /></div>
+                <div className="set-field"><div className="set-field-label">Sponsor</div><input className="set-input" value={dSponsor} onChange={(e) => setDSponsor(e.target.value)} /></div>
+              </div>
+              <div className="set-field" style={{ marginBottom: "var(--space-3)" }}><div className="set-field-label">IND / NADA number</div><input className="set-input" style={{ fontFamily: "var(--font-mono)" }} value={dInd} onChange={(e) => setDInd(e.target.value)} /></div>
+              <div style={{ display: "flex", gap: "var(--space-2)", justifyContent: "flex-end" }}>
+                <button className="set-btn-secondary" type="button" onClick={() => setEditInfo(false)}>Cancel</button>
+                <button className="set-btn-primary" type="button" onClick={saveInfo}><i className="ti ti-check"></i> Save</button>
+              </div>
+            </div>
+          )}
+        </div>
+      </div>
+
+      {/* ── Card 2: Protocol & timeline ── */}
+      <div className="settings-card">
+        <div className="settings-card-header"><div><div className="settings-card-title">Protocol &amp; timeline</div></div></div>
+        <div className="settings-card-body">
+          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: "var(--space-4)", marginBottom: "var(--space-4)" }}>
+            <div className="set-field"><div className="set-field-label">Study start</div><input className="set-input" defaultValue={meta.protoStart} onBlur={() => onToast("Study start saved")} /></div>
+            <div className="set-field"><div className="set-field-label">Enrollment close</div><input className="set-input" defaultValue={meta.protoEnroll} onBlur={() => onToast("Enrollment close saved")} /></div>
+            <div className="set-field"><div className="set-field-label">Study end (planned)</div><input className="set-input" defaultValue={meta.protoEnd} onBlur={() => onToast("Study end saved")} /></div>
+          </div>
+          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "var(--space-4)" }}>
+            <div className="set-field"><div className="set-field-label">Target enrollment</div><input className="set-input" type="number" defaultValue={meta.protoTarget.replace(/\D.*$/, "") || meta.protoTarget} onBlur={() => onToast("Target enrollment saved")} /></div>
+            <div className="set-field"><div className="set-field-label">Protocol version</div><div style={{ display: "flex", alignItems: "center", gap: "var(--space-2)" }}><input className="set-input" defaultValue={meta.protoVersion} onBlur={() => onToast("Protocol version saved")} /><button className="set-btn-icon" type="button" title="Download protocol document" style={{ flexShrink: 0, width: 32, height: 36, border: "1px solid var(--color-border)" }}><i className="ti ti-download" style={{ fontSize: 15 }}></i></button></div></div>
+          </div>
+        </div>
+      </div>
+
+      {/* ── Card 3: Study type & subject hierarchy ── */}
+      <div className="settings-card">
+        <div className="settings-card-header"><div><div className="settings-card-title">Study type &amp; subject hierarchy</div><div className="settings-card-desc">Study type pre-fills the hierarchy — you can rename each level</div></div></div>
+        <div className="settings-card-body">
+          <div className="settings-row" style={{ paddingBottom: "var(--space-4)" }}>
+            <div><div className="settings-row-label">Study type</div><div className="settings-row-desc">Pre-fills the hierarchy below</div></div>
+            <div className="settings-row-value">
+              <div style={{ display: "flex", gap: "var(--space-2)", flexWrap: "wrap" }}>
+                {TYPES.map((t) => (
+                  <button key={t.key} type="button" className={`study-type-btn${activeType === t.key ? " active" : ""}`} onClick={() => pickType(t.key)}><i className={`ti ti-${t.icon}`} style={{ fontSize: 16 }}></i> {t.label}</button>
+                ))}
+              </div>
+            </div>
+          </div>
+          <div>
+            <div style={{ fontSize: "var(--text-xs)", fontWeight: 500, textTransform: "uppercase", letterSpacing: "var(--tracking-caps)", color: "var(--color-text-tertiary)", marginBottom: "var(--space-3)" }}>Hierarchy levels <span style={{ fontWeight: 400, textTransform: "none", color: "var(--color-text-placeholder)" }}>(top = study, fixed)</span></div>
+            {hierarchy.map((level, i) => {
+              const opts = Array.from(new Set([...level.options, ...ALL_LEVEL_OPTIONS]));
+              return (
+                <div key={i} className="hierarchy-level">
+                  <div className="hier-num">{i + 1}</div>
+                  <div style={{ fontSize: "var(--text-xs)", color: "var(--color-text-tertiary)", minWidth: 56 }}>{level.fixed ? "Fixed" : level.isSubject ? "Subject" : `Level ${i + 1}`}</div>
+                  {level.fixed
+                    ? <span style={{ fontSize: "var(--text-sm)", fontWeight: 500 }}>{level.value}</span>
+                    : <select className="set-select" style={{ minWidth: 160 }} value={level.value} onChange={(e) => setLevelName(i, e.target.value)}>{opts.map((o) => <option key={o} value={o}>{o}</option>)}</select>}
+                  {level.isSubject && <span className="set-badge set-badge-green">Subject level</span>}
+                  {level.optional && <span style={{ fontSize: 10, color: "var(--color-text-placeholder)", fontStyle: "italic" }}>optional</span>}
+                  {!level.fixed && <button className="set-btn-icon" style={{ marginLeft: "auto" }} type="button" title="Remove level" onClick={() => removeLevel(i)}><i className="ti ti-trash" style={{ fontSize: 13 }}></i></button>}
+                </div>
+              );
+            })}
+            <button className="set-btn-secondary" style={{ height: 28, fontSize: "var(--text-xs)", marginTop: "var(--space-3)" }} type="button" onClick={addLevel}><i className="ti ti-plus"></i> Add level</button>
+          </div>
+        </div>
+      </div>
+
+      {/* ── Card 4: Drug & investigational product ── */}
+      <div className="settings-card">
+        <div className="settings-card-header"><div><div className="settings-card-title">Drug &amp; investigational product</div></div></div>
+        <div className="settings-card-body">
+          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "var(--space-4)", marginBottom: "var(--space-4)" }}>
+            <div className="set-field"><div className="set-field-label">Drug name</div><input className="set-input" defaultValue={meta.drugName} onBlur={() => onToast("Drug name saved")} /></div>
+            <div className="set-field"><div className="set-field-label">Formulation</div><input className="set-input" defaultValue={meta.drugFormulation} onBlur={() => onToast("Formulation saved")} /></div>
+          </div>
+          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: "var(--space-4)" }}>
+            <div className="set-field"><div className="set-field-label">Dose unit</div><input className="set-input" defaultValue={meta.drugDoseUnit} onBlur={() => onToast("Dose unit saved")} /></div>
+            <div className="set-field"><div className="set-field-label">Dose calculation</div><input className="set-input" defaultValue={meta.drugDoseCalc} onBlur={() => onToast("Dose calculation saved")} /></div>
+            <div className="set-field"><div className="set-field-label">Route</div><input className="set-input" defaultValue={meta.drugRoute} onBlur={() => onToast("Route saved")} /></div>
+          </div>
+        </div>
+      </div>
+    </>
+  );
+}
+
 export default function StudySettingsPage() {
   const { study } = useShell();
   const { dataset } = useStudySession();
@@ -331,8 +554,10 @@ export default function StudySettingsPage() {
 
   // Reset to the active study's config when the study changes.
   useEffect(() => {
+    // Reset randomization state on study switch; keep the user on their current
+    // settings section (all sections now repopulate from the active study config).
     setMethod(cfg.method); setBlockSize(cfg.blockSize); setBlinding(cfg.blinding);
-    setStratScope(cfg.stratScope); setFactors(cfg.stratFactors); setSection("randomization");
+    setStratScope(cfg.stratScope); setFactors(cfg.stratFactors);
   }, [cfg]);
   useEffect(() => {
     if (!toast) return;
@@ -540,6 +765,8 @@ export default function StudySettingsPage() {
           </>
         ) : section === "inventory" ? (
           <InventorySection studyCode={study.code} studyId={study.id} studyForms={studyForms} dataset={dataset} onToast={setToast} />
+        ) : section === "study" ? (
+          <StudySettingsSection key={study.code} studyCode={study.code} onToast={setToast} />
         ) : (
           <>
             <div className="section-header">
