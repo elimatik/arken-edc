@@ -103,11 +103,21 @@ function Sel({ value, opts, onChange }: { value: string; opts: string[]; onChang
   const list = opts.includes(value) ? opts : [value, ...opts];
   return <select className="set-select" style={{ width: "100%" }} value={value} onChange={(e) => onChange(e.target.value)}>{list.map((o) => <option key={o} value={o}>{o}</option>)}</select>;
 }
+function ToggleRow({ on, onToggle, label, desc }: { on: boolean; onToggle: () => void; label: string; desc: string }) {
+  return (
+    <div style={{ display: "flex", alignItems: "flex-start", gap: "var(--space-3)", padding: "var(--space-3) 0" }}>
+      <label className="set-toggle" style={{ flexShrink: 0, marginTop: 1 }}><input type="checkbox" checked={on} onChange={onToggle} /><span className="set-toggle-slider"></span></label>
+      <div style={{ flex: 1 }}><div className="settings-row-label">{label}</div><div className="settings-row-desc">{desc}</div></div>
+    </div>
+  );
+}
 
 function InventorySection({ studyCode, studyId, studyForms, dataset, onToast }: { studyCode: string; studyId: string; studyForms: { id: string; name: string }[]; dataset: Dataset; onToast: (m: string) => void }) {
   const trig = useMemo(() => dispenseTrigger(studyCode, dataset, studyId), [studyCode, dataset, studyId]);
   const rtrig = useMemo(() => returnTrigger(studyCode), [studyCode]);
   const showReturn = studyCode === "CA-0801"; // Return trigger only applies to CA-0801
+  const showAtHome = studyCode === "CA-0801"; // At-home status: CA only
+  const showReturnSponsor = studyCode === "CA-0801" || studyCode === "BR-2502"; // CA + BR
 
   const [dispForm, setDispForm] = useState(trig.form);
   const [unitField, setUnitField] = useState(trig.unit);
@@ -124,23 +134,30 @@ function InventorySection({ studyCode, studyId, studyForms, dataset, onToast }: 
   const [lowThreshold, setLowThreshold] = useState("3");
   const [notify, setNotify] = useState<Set<Role>>(new Set(NOTIFY_ROLES));
   const [condMap, setCondMap] = useState<Record<string, string>>({ ...DEFAULT_COND_MAP });
+  const [minReturnVol, setMinReturnVol] = useState("0.5");
+  const [atHome, setAtHome] = useState(true);
+  const [returnSponsor, setReturnSponsor] = useState(true);
 
   // Reset every study-scoped control when the active study changes.
   useEffect(() => { setDispForm(trig.form); setUnitField(trig.unit); setVolField(trig.vol); setDateField(trig.date); }, [trig]);
   useEffect(() => { setRetForm(rtrig.form); setRetUnit(rtrig.unit); setRetDate(rtrig.date); setRetCond(rtrig.condition); setCondMap({ ...DEFAULT_COND_MAP }); }, [rtrig]);
+  useEffect(() => { setAtHome(true); setReturnSponsor(true); }, [studyCode]);
 
   // Permissions (shared store — edits here drive the live Inventory module).
   const perms = useInventoryPermissions();
   const formNames = studyForms.map((f) => f.name);
 
-  // The linked condition-field chip (Return trigger card).
+  // The linked condition-field chip (Return trigger card). Unlink clears the field
+  // selection back to "—", which hides the chip + mapping table and shows an empty
+  // state; re-selecting a Condition field restores them.
+  const condLabel = ({ unit_condition_on_return: "Unit condition on return", physical_condition: "Physical condition", integrity_status: "Integrity status" } as Record<string, string>)[retCond] ?? retCond;
   const conditionChip = retCond !== "—" ? (
     <div style={{ display: "flex", alignItems: "center", gap: "var(--space-2)", fontSize: "var(--text-sm)" }}>
-      <span className="set-badge set-badge-blue" style={{ fontFamily: "var(--font-mono)" }}>{rtrig.conditionLabel}</span>
+      <span className="set-badge set-badge-blue" style={{ fontFamily: "var(--font-mono)" }}>{condLabel}</span>
       <span style={{ fontSize: "var(--text-xs)", color: "var(--color-text-tertiary)" }}>linked from Return trigger → Condition field</span>
-      <button className="set-btn-icon" style={{ width: 22, height: 22 }} title="Unlink" type="button" onClick={() => onToast("Condition field unlinked (demo)")}><i className="ti ti-unlink" style={{ fontSize: 12 }}></i></button>
+      <button className="set-btn-icon" style={{ width: 22, height: 22 }} title="Unlink" type="button" onClick={() => { setRetCond("—"); onToast("Condition field unlinked"); }}><i className="ti ti-unlink" style={{ fontSize: 12 }}></i></button>
     </div>
-  ) : <span style={{ fontSize: "var(--text-xs)", color: "var(--color-text-placeholder)" }}>No condition field linked for this study.</span>;
+  ) : <span style={{ fontSize: "var(--text-sm)", color: "var(--color-text-tertiary)" }}>Not linked — go to Return trigger to set a condition field.</span>;
 
   return (
     <>
@@ -197,27 +214,43 @@ function InventorySection({ studyCode, studyId, studyForms, dataset, onToast }: 
                   </div>
                 ))}
               </div>
+              <div style={{ marginTop: "var(--space-4)" }}>
+                <div className="set-field-label" style={{ marginBottom: "var(--space-1)" }}>Minimum returnable volume</div>
+                <div style={{ display: "flex", alignItems: "center", gap: "var(--space-2)" }}>
+                  <input className="set-input" type="number" min={0} step={0.1} value={minReturnVol} style={{ width: 72, fontFamily: "var(--font-mono)" }} onChange={(e) => setMinReturnVol(e.target.value)} onBlur={() => onToast("Min returnable volume saved")} />
+                  <span style={{ fontSize: "var(--text-sm)", color: "var(--color-text-secondary)" }}>ml — below this the unit is marked depleted regardless of condition</span>
+                </div>
+              </div>
             </div>
           )}
         </div>
       </div>
       )}
 
-      {/* ── Card 3: Inventory rules — low stock alerts ── */}
+      {/* ── Card 3: Inventory rules ── */}
       <div className="settings-card">
-        <div className="settings-card-header"><div><div className="settings-card-title">Inventory rules</div><div className="settings-card-desc">Stock-alert behaviour</div></div></div>
+        <div className="settings-card-header"><div><div className="settings-card-title">Inventory rules</div><div className="settings-card-desc">Return mechanics and stock-alert behaviour</div></div></div>
         <div className="settings-card-body">
-          <div className="settings-row-label" style={{ textAlign: "center" }}>Low stock alerts</div>
-          <div className="settings-row-desc" style={{ marginBottom: "var(--space-4)", textAlign: "center" }}>Notify the roles below when available units fall under the threshold</div>
-          <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: "var(--space-4)" }}>
-            <div className="set-field" style={{ alignItems: "center" }}><div className="set-field-label">Threshold</div><input className="set-input" type="number" min={1} value={lowThreshold} style={{ width: 72, fontFamily: "var(--font-mono)", textAlign: "center" }} onChange={(e) => setLowThreshold(e.target.value)} onBlur={() => onToast("Low stock threshold saved")} /></div>
-            <div className="set-field" style={{ alignItems: "center" }}><div className="set-field-label">Notify roles</div>
-              <div style={{ display: "flex", flexWrap: "wrap", justifyContent: "center", gap: "var(--space-4)", marginTop: 2 }}>
-                {NOTIFY_ROLES.map((r) => (
-                  <label key={r} style={{ display: "inline-flex", alignItems: "center", gap: 5, fontSize: "var(--text-sm)", cursor: "pointer" }}>
-                    <input type="checkbox" className="set-cb" checked={notify.has(r)} onChange={(e) => { const next = new Set(notify); if (e.target.checked) next.add(r); else next.delete(r); setNotify(next); onToast("Notify roles updated"); }} /> {r}
-                  </label>
-                ))}
+          {showAtHome && (
+            <ToggleRow on={atHome} onToggle={() => { setAtHome(!atHome); onToast("Setting saved"); }} label="At home status" desc="Unit dispensed but not yet returned — tracked as 'At home' until next visit return" />
+          )}
+          {showReturnSponsor && (
+            <ToggleRow on={returnSponsor} onToggle={() => { setReturnSponsor(!returnSponsor); onToast("Setting saved"); }} label="Return to sponsor" desc="Record units shipped back to sponsor at study close" />
+          )}
+          {/* Low stock alerts — a sub-section, not a toggle */}
+          <div style={{ marginTop: (showAtHome || showReturnSponsor) ? "var(--space-3)" : 0, paddingTop: (showAtHome || showReturnSponsor) ? "var(--space-4)" : 0, borderTop: (showAtHome || showReturnSponsor) ? "1px solid var(--color-border-subtle)" : "none" }}>
+            <div className="settings-row-label">Low stock alerts</div>
+            <div className="settings-row-desc" style={{ marginBottom: "var(--space-3)" }}>Notify the roles below when available units fall under the threshold</div>
+            <div style={{ display: "grid", gridTemplateColumns: "auto 1fr", gap: "var(--space-5)", alignItems: "start" }}>
+              <div className="set-field"><div className="set-field-label">Threshold</div><input className="set-input" type="number" min={1} value={lowThreshold} style={{ width: 72, fontFamily: "var(--font-mono)" }} onChange={(e) => setLowThreshold(e.target.value)} onBlur={() => onToast("Low stock threshold saved")} /></div>
+              <div className="set-field"><div className="set-field-label">Notify roles</div>
+                <div style={{ display: "flex", flexWrap: "wrap", gap: "var(--space-4)", marginTop: 2 }}>
+                  {NOTIFY_ROLES.map((r) => (
+                    <label key={r} style={{ display: "inline-flex", alignItems: "center", gap: 5, fontSize: "var(--text-sm)", cursor: "pointer" }}>
+                      <input type="checkbox" className="set-cb" checked={notify.has(r)} onChange={(e) => { const next = new Set(notify); if (e.target.checked) next.add(r); else next.delete(r); setNotify(next); onToast("Notify roles updated"); }} /> {r}
+                    </label>
+                  ))}
+                </div>
               </div>
             </div>
           </div>

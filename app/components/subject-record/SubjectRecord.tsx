@@ -15,6 +15,7 @@ import { LOCK_TOOLTIP } from "@/lib/use-study-locked";
 import { RandomizationPanel } from "./RandomizationPanel";
 import { subjectWeightKg } from "@/lib/randomization";
 import { canInv } from "@/lib/inventory-data";
+import { shouldHideArmForSubject } from "@/lib/study-config";
 import type { Dataset, FormFieldRow } from "@/lib/session-store/types";
 import "./subject-record.css";
 
@@ -700,6 +701,36 @@ export function SubjectRecord({ studyId, subjectId, initialFormId, initialPanelF
   // Available physical units (vials) of a lot, optionally narrowed to an arm's group.
   function brAvailableUnits(lot: string | null | undefined, armGroup?: string) {
     return dataset.vials.filter((v) => v.studyId === studyId && v.status === "available" && (!lot || v.lotId === lot) && (!armGroup || v.treatmentGroup === armGroup));
+  }
+  // ─── CA-0801 kit dropdown helpers (mirror inventory seed + Dispensing-log map) ──
+  const caKitBase = (kit: string) => kit.replace(/^Kit\s*/i, "").replace(/-V\d+$/i, "");
+  // This subject's assigned base kit — positional (subject-code order ↔ sorted kits).
+  function caBaseKitForSubject(): string | undefined {
+    const bases = Array.from(new Set(dataset.vials.filter((v) => v.studyId === studyId).map((v) => caKitBase(v.kitNumber ?? "")).filter(Boolean))).sort();
+    const subs = dataset.subjects.filter((s) => s.study_id === studyId).slice().sort((a, b) => a.subject_code.localeCompare(b.subject_code));
+    const i = subs.findIndex((s) => s.id === subjectId);
+    return i >= 0 ? bases[i] : undefined;
+  }
+  // Available units of this subject's kit (status available) → "A-001-V1" labels.
+  function caAvailableKitUnits(base: string): string[] {
+    return dataset.vials.filter((v) => v.studyId === studyId && v.status === "available" && caKitBase(v.kitNumber ?? "") === base)
+      .map((v) => (v.kitNumber ?? "").replace(/^Kit\s*/i, "")).sort();
+  }
+  // Kits dispensed to this subject (across CA drug forms) not yet recorded as returned.
+  function caUnreturnedKits(): string[] {
+    const drugForms = new Set(dataset.forms.filter((f) => f.study_id === studyId && /Study Drug (Dispensation|Accountability)/i.test(f.name)).map((f) => f.id));
+    const dispIds = new Set(dataset.formFields.filter((f) => drugForms.has(f.form_id) && f.code === "dispensed_kit_number").map((f) => f.id));
+    const retIds = new Set(dataset.formFields.filter((f) => drugForms.has(f.form_id) && f.code === "returned_kit_number").map((f) => f.id));
+    const instIds = new Set(dataset.formInstances.filter((i) => i.subject_id === subjectId && drugForms.has(i.form_id)).map((i) => i.id));
+    const dispensed = new Set<string>(), returned = new Set<string>();
+    for (const v of dataset.fieldValues) {
+      if (!instIds.has(v.form_instance_id) || !v.value) continue;
+      if (dispIds.has(v.form_field_id)) dispensed.add(v.value);
+      // A return recorded on the CURRENT form shouldn't remove that kit from this
+      // form's own dropdown options (otherwise the recorded value vanishes).
+      if (retIds.has(v.form_field_id) && v.form_instance_id !== instance?.id) returned.add(v.value);
+    }
+    return Array.from(dispensed).filter((k) => !returned.has(k)).sort();
   }
   // On unit selection: dispense it (status → athome + a dispense event, which the
   // audit trail surfaces as "Drug dispensed — [unit] — [subject]"). Idempotent per
@@ -1495,6 +1526,51 @@ export function SubjectRecord({ studyId, subjectId, initialFormId, initialPanelF
           {units.map((u) => <option key={u.id} value={u.id}>{u.id} · {u.initialVol} {u.unit} remaining · Available</option>)}
         </select>
       );
+    }
+    // CA-0801 Dispensed kit number — available units from this subject's arm pool.
+    if (field.code === "dispensed_kit_number" && studyRow?.code === "CA-0801") {
+      if (!canInv("dispense", activeRole)) return <div className="field-calc auto-field"><span style={{ color: "var(--color-text-tertiary)" }}>Dispensing not permitted for your role</span></div>;
+      const hide = shouldHideArmForSubject(dataset, studyId, activeRole, subjectId);
+      const arm = subject?.randomization_arm ?? "";
+      const tag = (k: string) => (hide ? k : `${k} · ${arm}`);
+      const base = caBaseKitForSubject();
+      const units = base ? caAvailableKitUnits(base) : [];
+      const hasCurrent = !!value && !units.includes(value);
+      if (!units.length && !value) return <select className={`field-select${stateCls}`} value="" disabled><option>No available kit units</option></select>;
+      return (
+        <select className={`field-select${stateCls}`} value={value} disabled={ro} onChange={(e) => commit(e.target.value)}>
+          <option value="">Select kit…</option>
+          {hasCurrent && <option value={value}>{tag(value)} · dispensed</option>}
+          {units.map((u) => <option key={u} value={u}>{tag(u)}</option>)}
+        </select>
+      );
+    }
+    // CA-0801 Returned kit number — kits dispensed to this subject not yet returned.
+    if (field.code === "returned_kit_number" && studyRow?.code === "CA-0801") {
+      const hide = shouldHideArmForSubject(dataset, studyId, activeRole, subjectId);
+      const arm = subject?.randomization_arm ?? "";
+      const tag = (k: string) => (hide ? k : `${k} · ${arm}`);
+      const kits = caUnreturnedKits();
+      const hasCurrent = !!value && !kits.includes(value);
+      if (!kits.length && !value) return <select className={`field-select${stateCls}`} value="" disabled><option>No kits to return</option></select>;
+      return (
+        <select className={`field-select${stateCls}`} value={value} disabled={ro} onChange={(e) => commit(e.target.value)}>
+          <option value="">Select kit…</option>
+          {hasCurrent && <option value={value}>{tag(value)}</option>}
+          {kits.map((k) => <option key={k} value={k}>{tag(k)}</option>)}
+        </select>
+      );
+    }
+    // CA-0801 Visit date — inherited (read-only AUTO) from the same visit's Physical
+    // Examination if filled; otherwise editable (falls through to the date input).
+    if (field.code === "visit_date" && studyRow?.code === "CA-0801") {
+      const parent = selectedForm?.parent_form_id;
+      const peForm = parent ? dataset.forms.find((f) => f.parent_form_id === parent && /physical exam/i.test(f.name)) : undefined;
+      const peInst = peForm ? dataset.formInstances.find((i) => i.subject_id === subjectId && i.form_id === peForm.id) : undefined;
+      const peVf = peForm ? dataset.formFields.find((f) => f.form_id === peForm.id && (f.code === "visit_date" || f.code === "exam_date")) : undefined;
+      const peDate = peInst && peVf ? (dataset.fieldValues.find((v) => v.form_instance_id === peInst.id && v.form_field_id === peVf.id)?.value ?? "") : "";
+      if (peDate) return <div className="field-calc auto-field"><span>{peDate}</span><span className="field-calc-tag">AUTO</span></div>;
+      // else fall through to the editable date input below
     }
     // Test article (BR-2502 F4) — auto-populated from the subject's randomization
     // assigned_arm and locked read-only (prevents dispensing errors). If no
