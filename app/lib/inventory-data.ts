@@ -322,10 +322,10 @@ export function buildDispenseRows(dataset: Dataset, studyId: string, siteFilter?
     dataset.subjects.filter((s) => s.study_id === studyId)
       .slice().sort((a, b) => a.subject_code.localeCompare(b.subject_code))
       .forEach((s, i) => { if (caBaseKits[i]) caKitBySubject.set(s.id, caBaseKits[i]); });
-    for (const inst of instancesOf(formsWith("drug_kit_number", "kit_number"))) {
+    for (const inst of instancesOf(formsWith("dispensed_kit_number", "drug_kit_number", "kit_number"))) {
       const sub = inst.subject_id ? subjById.get(inst.subject_id) : undefined;
       if (!sub || !siteOk(inst.subject_id, inst.barn_id)) continue;
-      const vol = Number(valByCode(inst, "quantity_dispensed", "vol_dispensed"));
+      const vol = Number(valByCode(inst, "vol_dispensed", "quantity_dispensed"));
       // Visit comes from the parent visit form (the accountability forms share one
       // generic name); the kit number then gets that visit's unit suffix (V1…V5).
       const form = formById.get(inst.form_id);
@@ -339,7 +339,7 @@ export function buildDispenseRows(dataset: Dataset, studyId: string, siteFilter?
       rows.push({
         id: inst.id, subjectId: sub.id, subjectCode: sub.subject_code, studyId,
         visitLabel,
-        date: valByCode(inst, "dispensation_date", "visit_date") || "—",
+        date: valByCode(inst, "visit_date", "dispensation_date") || "—",
         kit,
         arm: hide ? undefined : (sub.randomization_arm ?? undefined),
         volume: Number.isNaN(vol) || !vol ? 60 : vol,

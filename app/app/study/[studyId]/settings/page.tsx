@@ -67,6 +67,18 @@ function randConfig(code: string): RandConfig {
 
 // ─── Inventory section config (ported from 25-settings.html section-inventory) ──
 const NOTIFY_ROLES: Role[] = ["CRC", "CRA", "DM", "PI", "Admin"];
+// Condition options + default stock-outcome mapping (CA-0801 return form).
+const CONDITION_OPTIONS = ["Intact / sealed", "Partially used — good condition", "Partially used — compromised", "Damaged", "Expired", "Unknown"];
+const OUTCOME_OPTIONS: { value: string; label: string; cls: string }[] = [
+  { value: "restock_full", label: "Restock (full)", cls: "set-badge-green" },
+  { value: "restock_partial", label: "Restock (partial)", cls: "set-badge-blue" },
+  { value: "destroy", label: "Destroy", cls: "set-badge-red" },
+  { value: "quarantine", label: "Quarantine", cls: "set-badge-amber" },
+];
+const DEFAULT_COND_MAP: Record<string, string> = {
+  "Intact / sealed": "restock_full", "Partially used — good condition": "restock_partial",
+  "Partially used — compromised": "quarantine", "Damaged": "destroy", "Expired": "destroy", "Unknown": "quarantine",
+};
 
 // Per-study dispense-trigger mapping (which form fields log a dispensing event).
 function dispenseTrigger(code: string, dataset: Dataset, studyId: string) {
@@ -75,46 +87,27 @@ function dispenseTrigger(code: string, dataset: Dataset, studyId: string) {
     const ff = dataset.formFields.find((x) => studyFormIds.has(x.form_id) && x.code === fieldCode);
     return ff ? dataset.forms.find((fm) => fm.id === ff.form_id)?.name : undefined;
   };
-  if (code === "CA-0801") return { form: formWithField("drug_kit_number") ?? "Study Drug Dispensation", unit: "kit_number", vol: "vol_dispensed", date: "visit_date" };
+  if (code === "CA-0801") return { form: formWithField("dispensed_kit_number") ?? "Study Drug Dispensation", unit: "dispensed_kit_number", vol: "vol_dispensed", date: "visit_date" };
   if (code === "PH-2401") return { form: formWithField("quantity_kg") ?? "Feed Delivery Log", unit: "—", vol: "kg_delivered", date: "delivery_date" };
   return { form: formWithField("date_administered") ?? "Treatment Administration", unit: "unit_id", vol: "calculated_dose", date: "date_administered" };
 }
 
 // Per-study return-trigger mapping (which form fields log a drug-return event).
+// Only CA-0801 logs returns via a form; BR/PH return cards are not shown.
 function returnTrigger(code: string) {
-  if (code === "CA-0801") return { form: "Study Drug Accountability", unit: "kit_number", date: "visit_date", condition: "unit_condition_on_return", conditionLabel: "Unit condition on return" };
-  // BR-2502 returns are calculated (dispensed vs initial); PH feed is consumed.
+  if (code === "CA-0801") return { form: "Study Drug Accountability", unit: "returned_kit_number", date: "visit_date", condition: "unit_condition_on_return", conditionLabel: "Unit condition on return" };
   return { form: "—", unit: "—", date: "—", condition: "—", conditionLabel: "—" };
-}
-
-// Per-study return-tracking defaults (which return mechanics apply).
-function returnTracking(code: string) {
-  if (code === "CA-0801") return { logViaForm: true, showAtHome: true, atHome: true, showReturnSponsor: true, returnSponsor: true };
-  if (code === "BR-2502") return { logViaForm: false, showAtHome: false, atHome: false, showReturnSponsor: true, returnSponsor: true };
-  return { logViaForm: false, showAtHome: false, atHome: false, showReturnSponsor: false, returnSponsor: false }; // PH-2401
 }
 
 function Sel({ value, opts, onChange }: { value: string; opts: string[]; onChange: (v: string) => void }) {
   const list = opts.includes(value) ? opts : [value, ...opts];
   return <select className="set-select" style={{ width: "100%" }} value={value} onChange={(e) => onChange(e.target.value)}>{list.map((o) => <option key={o} value={o}>{o}</option>)}</select>;
 }
-// All inventory-section toggles share one size (32×20) + var(--space-3) gap.
-function ToggleRow({ on, onToggle, label, desc, children }: { on: boolean; onToggle: () => void; label: string; desc?: string; children?: React.ReactNode }) {
-  return (
-    <div className="settings-row" style={{ alignItems: "flex-start", flexDirection: "column", gap: "var(--space-3)" }}>
-      <div style={{ display: "flex", alignItems: "flex-start", gap: "var(--space-3)", width: "100%" }}>
-        <label className="set-toggle" style={{ flexShrink: 0, marginTop: 1 }}><input type="checkbox" checked={on} onChange={onToggle} /><span className="set-toggle-slider"></span></label>
-        <div style={{ flex: 1 }}><div className="settings-row-label">{label}</div>{desc && <div className="settings-row-desc">{desc}</div>}</div>
-      </div>
-      {children}
-    </div>
-  );
-}
 
 function InventorySection({ studyCode, studyId, studyForms, dataset, onToast }: { studyCode: string; studyId: string; studyForms: { id: string; name: string }[]; dataset: Dataset; onToast: (m: string) => void }) {
   const trig = useMemo(() => dispenseTrigger(studyCode, dataset, studyId), [studyCode, dataset, studyId]);
   const rtrig = useMemo(() => returnTrigger(studyCode), [studyCode]);
-  const rtrack = useMemo(() => returnTracking(studyCode), [studyCode]);
+  const showReturn = studyCode === "CA-0801"; // Return trigger only applies to CA-0801
 
   const [dispForm, setDispForm] = useState(trig.form);
   const [unitField, setUnitField] = useState(trig.unit);
@@ -130,25 +123,17 @@ function InventorySection({ studyCode, studyId, studyForms, dataset, onToast }: 
   // Rules
   const [lowThreshold, setLowThreshold] = useState("3");
   const [notify, setNotify] = useState<Set<Role>>(new Set(NOTIFY_ROLES));
-  const [partialOn, setPartialOn] = useState(true);
-  const [minReturnVol, setMinReturnVol] = useState("0.5");
-
-  // Return tracking (study-scoped)
-  const [logViaForm, setLogViaForm] = useState(rtrack.logViaForm);
-  const [atHome, setAtHome] = useState(rtrack.atHome);
-  const [returnSponsor, setReturnSponsor] = useState(rtrack.returnSponsor);
+  const [condMap, setCondMap] = useState<Record<string, string>>({ ...DEFAULT_COND_MAP });
 
   // Reset every study-scoped control when the active study changes.
   useEffect(() => { setDispForm(trig.form); setUnitField(trig.unit); setVolField(trig.vol); setDateField(trig.date); }, [trig]);
-  useEffect(() => { setRetForm(rtrig.form); setRetUnit(rtrig.unit); setRetDate(rtrig.date); setRetCond(rtrig.condition); }, [rtrig]);
-  useEffect(() => { setLogViaForm(rtrack.logViaForm); setAtHome(rtrack.atHome); setReturnSponsor(rtrack.returnSponsor); }, [rtrack]);
+  useEffect(() => { setRetForm(rtrig.form); setRetUnit(rtrig.unit); setRetDate(rtrig.date); setRetCond(rtrig.condition); setCondMap({ ...DEFAULT_COND_MAP }); }, [rtrig]);
 
   // Permissions (shared store — edits here drive the live Inventory module).
   const perms = useInventoryPermissions();
   const formNames = studyForms.map((f) => f.name);
 
-  // The linked condition-field chip — shown in the Return trigger card AND inside
-  // the partial-returns config (same linked field).
+  // The linked condition-field chip (Return trigger card).
   const conditionChip = retCond !== "—" ? (
     <div style={{ display: "flex", alignItems: "center", gap: "var(--space-2)", fontSize: "var(--text-sm)" }}>
       <span className="set-badge set-badge-blue" style={{ fontFamily: "var(--font-mono)" }}>{rtrig.conditionLabel}</span>
@@ -180,79 +165,61 @@ function InventorySection({ studyCode, studyId, studyForms, dataset, onToast }: 
       </div>
 
       {/* ── Card 2: Return trigger ── */}
+      {showReturn && (
       <div className="settings-card">
         <div className="settings-card-header"><div><div className="settings-card-title">Return trigger</div><div className="settings-card-desc">Which form fields log a drug return event</div></div></div>
         <div className="settings-card-body">
           <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "var(--space-4)", marginBottom: "var(--space-4)" }}>
             <div className="set-field"><div className="set-field-label">Return form</div><Sel value={retForm} opts={[...formNames, "—"]} onChange={(v) => { setRetForm(v); onToast("Return form updated"); }} /></div>
-            <div className="set-field"><div className="set-field-label">Unit ID field</div><Sel value={retUnit} opts={["unit_id", "kit_number", "vial_unit_id", "—"]} onChange={(v) => { setRetUnit(v); onToast("Return unit ID field updated"); }} /></div>
+            <div className="set-field"><div className="set-field-label">Unit ID field</div><Sel value={retUnit} opts={["returned_kit_number", "unit_id", "vial_unit_id", "—"]} onChange={(v) => { setRetUnit(v); onToast("Return unit ID field updated"); }} /></div>
           </div>
           <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "var(--space-4)" }}>
-            <div className="set-field"><div className="set-field-label">Return date field</div><Sel value={retDate} opts={["date_of_return", "visit_date", "collection_date", "—"]} onChange={(v) => { setRetDate(v); onToast("Return date field updated"); }} /></div>
+            <div className="set-field"><div className="set-field-label">Return date field</div><Sel value={retDate} opts={["visit_date", "date_of_return", "collection_date", "—"]} onChange={(v) => { setRetDate(v); onToast("Return date field updated"); }} /></div>
             <div className="set-field"><div className="set-field-label">Condition field</div><Sel value={retCond} opts={["unit_condition_on_return", "physical_condition", "integrity_status", "—"]} onChange={(v) => { setRetCond(v); onToast("Condition field updated"); }} /><div style={{ fontSize: "var(--text-xs)", color: "var(--color-text-tertiary)", marginTop: 4 }}>Used to determine if returned units re-enter stock</div></div>
           </div>
           <div style={{ marginTop: "var(--space-4)", paddingTop: "var(--space-4)", borderTop: "1px solid var(--color-border-subtle)" }}>
             <div className="set-field-label" style={{ marginBottom: "var(--space-2)" }}>Condition field on return form</div>
             {conditionChip}
-            <div style={{ fontSize: "var(--text-xs)", color: "var(--color-text-tertiary)", marginTop: "var(--space-3)" }}>Condition values (e.g. Intact / sealed, Partially used — good condition) are retrieved from the form builder once the condition field has been linked.</div>
           </div>
-        </div>
-      </div>
-
-      {/* ── Card 3: Inventory rules ── */}
-      <div className="settings-card">
-        <div className="settings-card-header"><div><div className="settings-card-title">Inventory rules</div><div className="settings-card-desc">Return mechanics and stock-alert behaviour</div></div></div>
-        <div className="settings-card-body">
-          {/* Low stock — always shown (no toggle) */}
-          <div style={{ paddingBottom: "var(--space-4)", borderBottom: "1px solid var(--color-border-subtle)" }}>
-            <div className="settings-row-label">Low stock alerts</div>
-            <div className="settings-row-desc" style={{ marginBottom: "var(--space-3)" }}>Notify the roles below when available units fall under the threshold</div>
-            <div style={{ display: "grid", gridTemplateColumns: "auto 1fr", gap: "var(--space-5)", alignItems: "start" }}>
-              <div className="set-field"><div className="set-field-label">Threshold</div><input className="set-input" type="number" min={1} value={lowThreshold} style={{ width: 72, fontFamily: "var(--font-mono)" }} onChange={(e) => setLowThreshold(e.target.value)} onBlur={() => onToast("Low stock threshold saved")} /></div>
-              <div className="set-field"><div className="set-field-label">Notify roles</div>
-                <div style={{ display: "flex", flexWrap: "wrap", gap: "var(--space-3)", marginTop: 2 }}>
-                  {NOTIFY_ROLES.map((r) => (
-                    <label key={r} style={{ display: "inline-flex", alignItems: "center", gap: 5, fontSize: "var(--text-sm)", cursor: "pointer" }}>
-                      <input type="checkbox" className="set-cb" checked={notify.has(r)} onChange={(e) => { const next = new Set(notify); if (e.target.checked) next.add(r); else next.delete(r); setNotify(next); onToast("Notify roles updated"); }} /> {r}
-                    </label>
-                  ))}
-                </div>
+          {retCond !== "—" && (
+            <div style={{ marginTop: "var(--space-4)" }}>
+              <div style={{ fontSize: "var(--text-xs)", fontWeight: 500, textTransform: "uppercase", letterSpacing: "var(--tracking-caps)", color: "var(--color-text-tertiary)", marginBottom: "var(--space-2)" }}>Condition options → stock outcome</div>
+              <div style={{ display: "flex", flexDirection: "column" }}>
+                {CONDITION_OPTIONS.map((opt) => (
+                  <div key={opt} style={{ display: "flex", alignItems: "center", gap: "var(--space-3)", padding: "var(--space-2) 0", borderBottom: "1px solid var(--color-border-subtle)" }}>
+                    <span style={{ flex: 1, fontSize: "var(--text-sm)" }}>{opt}</span>
+                    <span style={{ fontSize: "var(--text-xs)", color: "var(--color-text-tertiary)" }}>→</span>
+                    <div style={{ display: "flex", gap: 4 }}>
+                      {OUTCOME_OPTIONS.map((o) => (
+                        <button key={o.value} type="button" className={`set-outcome-btn${condMap[opt] === o.value ? ` active ${o.cls}` : ""}`} onClick={() => { setCondMap({ ...condMap, [opt]: o.value }); onToast("Condition mapping updated"); }}>{o.label}</button>
+                      ))}
+                    </div>
+                  </div>
+                ))}
               </div>
             </div>
-          </div>
+          )}
+        </div>
+      </div>
+      )}
 
-          {/* Allow partial unit returns */}
-          <ToggleRow on={partialOn} onToggle={() => { setPartialOn(!partialOn); onToast("Setting saved"); }} label="Allow partial unit returns" desc="Returned units re-enter stock based on the condition recorded on the return form">
-            {partialOn && (
-              <div style={{ marginLeft: 44, padding: "var(--space-4)", background: "var(--color-page-bg)", border: "1px solid var(--color-border)", borderRadius: "var(--radius-md)", display: "flex", flexDirection: "column", gap: "var(--space-4)" }}>
-                <div>
-                  <div className="set-field-label" style={{ marginBottom: "var(--space-2)" }}>Condition field on return form</div>
-                  {conditionChip}
-                </div>
-                <div className="set-field"><div className="set-field-label">Minimum returnable volume</div>
-                  <div style={{ display: "flex", alignItems: "center", gap: "var(--space-2)" }}>
-                    <input className="set-input" type="number" min={0} step={0.1} value={minReturnVol} style={{ width: 72, fontFamily: "var(--font-mono)" }} onChange={(e) => setMinReturnVol(e.target.value)} onBlur={() => onToast("Min returnable volume saved")} />
-                    <span style={{ fontSize: "var(--text-sm)", color: "var(--color-text-secondary)" }}>ml — below this the unit is marked depleted regardless of condition</span>
-                  </div>
-                </div>
+      {/* ── Card 3: Inventory rules — low stock alerts ── */}
+      <div className="settings-card">
+        <div className="settings-card-header"><div><div className="settings-card-title">Inventory rules</div><div className="settings-card-desc">Stock-alert behaviour</div></div></div>
+        <div className="settings-card-body">
+          <div className="settings-row-label" style={{ textAlign: "center" }}>Low stock alerts</div>
+          <div className="settings-row-desc" style={{ marginBottom: "var(--space-4)", textAlign: "center" }}>Notify the roles below when available units fall under the threshold</div>
+          <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: "var(--space-4)" }}>
+            <div className="set-field" style={{ alignItems: "center" }}><div className="set-field-label">Threshold</div><input className="set-input" type="number" min={1} value={lowThreshold} style={{ width: 72, fontFamily: "var(--font-mono)", textAlign: "center" }} onChange={(e) => setLowThreshold(e.target.value)} onBlur={() => onToast("Low stock threshold saved")} /></div>
+            <div className="set-field" style={{ alignItems: "center" }}><div className="set-field-label">Notify roles</div>
+              <div style={{ display: "flex", flexWrap: "wrap", justifyContent: "center", gap: "var(--space-4)", marginTop: 2 }}>
+                {NOTIFY_ROLES.map((r) => (
+                  <label key={r} style={{ display: "inline-flex", alignItems: "center", gap: 5, fontSize: "var(--text-sm)", cursor: "pointer" }}>
+                    <input type="checkbox" className="set-cb" checked={notify.has(r)} onChange={(e) => { const next = new Set(notify); if (e.target.checked) next.add(r); else next.delete(r); setNotify(next); onToast("Notify roles updated"); }} /> {r}
+                  </label>
+                ))}
               </div>
-            )}
-          </ToggleRow>
-
-          {/* Return tracking — study-scoped */}
-          <div style={{ paddingTop: "var(--space-4)" }}>
-            <div className="set-field-label" style={{ marginBottom: "var(--space-1)" }}>Return tracking</div>
-            <ToggleRow on={logViaForm} onToggle={() => { setLogViaForm(!logViaForm); onToast("Setting saved"); }} label="Log return via form" desc="Returns are recorded on a CRF return form">
-              <div style={{ marginLeft: 44, fontSize: "var(--text-xs)", color: "var(--color-text-tertiary)" }}>
-                {logViaForm ? "Return trigger above is active — returns post from the return form." : "Returns calculated from dispensed vs initial volume."}
-              </div>
-            </ToggleRow>
-            {rtrack.showAtHome && (
-              <ToggleRow on={atHome} onToggle={() => { setAtHome(!atHome); onToast("Setting saved"); }} label="At home status" desc="Unit dispensed but not yet returned — tracked as 'At home' until next visit return" />
-            )}
-            {rtrack.showReturnSponsor && (
-              <ToggleRow on={returnSponsor} onToggle={() => { setReturnSponsor(!returnSponsor); onToast("Setting saved"); }} label="Return to sponsor" desc="Record units shipped back to sponsor at study close" />
-            )}
+            </div>
           </div>
         </div>
       </div>

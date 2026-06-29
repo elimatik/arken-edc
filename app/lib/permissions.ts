@@ -5,6 +5,8 @@
 // access here only.
 // ════════════════════════════════════════════════════════════════════════════
 
+import { canInv } from "@/lib/inventory-permissions";
+
 export type Role = "CRC" | "CRA" | "DM" | "PI" | "Sponsor" | "Admin";
 
 export const ROLES: Role[] = ["CRC", "CRA", "DM", "PI", "Sponsor", "Admin"];
@@ -61,10 +63,11 @@ export const NAV_ITEMS: NavItem[] = [
   // Reports is a reporting/oversight surface — CRC (a data-entry role) is excluded.
   { key: "reports", label: "Reports", icon: "chart-bar",
     access: { CRA: open, DM: open, PI: open, Sponsor: { blinded: true }, Admin: open } },
-  // Inventory — drug-supply tracking. CRC dispenses, CRA/DM oversee, Admin manages.
-  // Sponsor is excluded (drug identity is blinded on CA-0801); PI has no supply role.
+  // Inventory — drug-supply tracking. Visibility is derived from the live permission
+  // matrix (canInv "view") in navItemsForRole, not this list; the access entries here
+  // only supply the open/readonly/blinded title hint. Sponsor is excluded.
   { key: "inventory", label: "Inventory", icon: "flask",
-    access: { CRC: open, CRA: open, DM: open, Admin: open } },
+    access: { CRC: open, CRA: open, DM: open, PI: open, Admin: open } },
   // Audit Trail (21 CFR Part 11) — oversight roles only; the CRC who enters data
   // does not review the immutable log of it.
   { key: "audit", label: "Audit Trail", title: "Audit Trail", icon: "clipboard-list",
@@ -77,7 +80,12 @@ export const NAV_ITEMS: NavItem[] = [
 ];
 
 export function navItemsForRole(role: Role): NavItem[] {
-  return NAV_ITEMS.filter((item) => role in item.access);
+  return NAV_ITEMS.filter((item) => {
+    // Inventory visibility tracks the live permission matrix (Settings → Inventory):
+    // any role with "View stock levels" sees it (so PI gains access live).
+    if (item.key === "inventory") return canInv("view", role);
+    return role in item.access;
+  });
 }
 
 // Sub-routes under /study/[studyId] for nav items that have a built screen.

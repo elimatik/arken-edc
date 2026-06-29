@@ -113,9 +113,13 @@ export async function hydrateFromSupabase(): Promise<Dataset> {
   // check `form.is_summary`, not the form name).
   const SUMMARY_FORM_NAMES = new Set(["Production Summary", "Pen BRD Summary"]);
   const F025_ID = "61000019-0000-0000-0000-000000002502";
+  // CA-0801 EOS drug-return form (F046) is the same accountability form type as the
+  // Follow-Up "Study Drug Accountability" forms — rename it to match.
+  const CA_F046_ID = "6100002e-0000-0000-0000-000000000801";
   const formsWithFlags = ((forms.data ?? []) as Dataset["forms"]).map((f) =>
     f.id === F025_ID ? { ...f, name: "Re-treatment Log" } // repeating table in Safety & Events
-      : SUMMARY_FORM_NAMES.has(f.name) ? { ...f, is_summary: true } : f,
+      : (f.id ?? "").toLowerCase() === CA_F046_ID ? { ...f, name: "Study Drug Accountability" }
+        : SUMMARY_FORM_NAMES.has(f.name) ? { ...f, is_summary: true } : f,
   );
 
   // ─── BR-2502 Treatment Administration (F005) + Re-treatment (F025) reshape ──
@@ -209,10 +213,47 @@ export async function hydrateFromSupabase(): Promise<Dataset> {
     ];
     crFields.push(...out.filter((x): x is FF => x !== null));
   }
-  const RESHAPED_FORM_IDS = new Set([F005, F025, ...brVsForms.map((f) => f.id), ...brCrForms.map((f) => f.id)]);
+  // ─── CA-0801 Study Drug Dispensation / Accountability reshape ───────────────
+  // Baseline (F014) dispenses a kit; Follow-Up 1/2/3 (F020/F028/F036) return the
+  // prior kit + dispense the next + record condition; EOS (F046) is a final return.
+  // Field codes drive the Dispensing log + Settings → Inventory triggers.
+  const CA_F014 = "6100000e-0000-0000-0000-000000000801"; // Study Drug Dispensation (Baseline)
+  const CA_F020 = "61000014-0000-0000-0000-000000000801"; // Study Drug Accountability (Follow-Up 1)
+  const CA_F028 = "6100001c-0000-0000-0000-000000000801"; // Study Drug Accountability (Follow-Up 2)
+  const CA_F036 = "61000024-0000-0000-0000-000000000801"; // Study Drug Accountability (Follow-Up 3)
+  const CA_F046 = CA_F046_ID;                              // Study Drug Accountability (End of Study)
+  const CA_COND = ["Intact / sealed", "Partially used — good condition", "Partially used — compromised", "Damaged", "Expired", "Unknown"];
+  const caDispense = (fid: string, p: string): FF[] => [
+    ff(fid, `${p}-dispensed_kit_number`, "dispensed_kit_number", "Dispensed kit number", "text", null, null, true, 1, null),
+    ff(fid, `${p}-vol_dispensed`, "vol_dispensed", "Vol dispensed", "number", null, "ml", true, 2, null),
+    ff(fid, `${p}-visit_date`, "visit_date", "Visit date", "date", null, null, false, 3, { readonlyAuto: true, hint: "Pulled from the visit / Physical Examination." }),
+  ];
+  const caAccountability = (fid: string, p: string): FF[] => [
+    ff(fid, `${p}-returned_kit_number`, "returned_kit_number", "Returned kit number", "text", null, null, true, 1, null),
+    ff(fid, `${p}-vol_returned`, "vol_returned", "Vol returned", "number", null, "ml", true, 2, null),
+    ff(fid, `${p}-vol_used_calc`, "vol_used_calc", "Vol used (calc)", "calculated", null, "ml", false, 3, { readonlyAuto: true, hint: "Initial volume − volume returned." }),
+    ff(fid, `${p}-dispensed_kit_number`, "dispensed_kit_number", "Dispensed kit number", "text", null, null, true, 4, null),
+    ff(fid, `${p}-vol_dispensed`, "vol_dispensed", "Vol dispensed", "number", null, "ml", true, 5, null),
+    ff(fid, `${p}-unit_condition_on_return`, "unit_condition_on_return", "Unit condition on return", "select", CA_COND, null, false, 6, null),
+    ff(fid, `${p}-visit_date`, "visit_date", "Visit date", "date", null, null, false, 7, { readonlyAuto: true }),
+  ];
+  const caReturn = (fid: string, p: string): FF[] => [
+    ff(fid, `${p}-returned_kit_number`, "returned_kit_number", "Returned kit number", "text", null, null, true, 1, null),
+    ff(fid, `${p}-vol_returned`, "vol_returned", "Vol returned", "number", null, "ml", true, 2, null),
+    ff(fid, `${p}-vol_used_calc`, "vol_used_calc", "Vol used (calc)", "calculated", null, "ml", false, 3, { readonlyAuto: true, hint: "Initial volume − volume returned." }),
+  ];
+  const CA_FIELDS: FF[] = [
+    ...caDispense(CA_F014, "f014"),
+    ...caAccountability(CA_F020, "f020"),
+    ...caAccountability(CA_F028, "f028"),
+    ...caAccountability(CA_F036, "f036"),
+    ...caReturn(CA_F046, "f046"),
+  ];
+
+  const RESHAPED_FORM_IDS = new Set([F005, F025, CA_F014, CA_F020, CA_F028, CA_F036, CA_F046, ...brVsForms.map((f) => f.id), ...brCrForms.map((f) => f.id)]);
   const reshapedFormFields: FF[] = [
-    ...(formFields as FF[]).filter((f) => !RESHAPED_FORM_IDS.has(f.form_id) && !shouldDropField(f)),
-    ...F005_FIELDS, ...F025_FIELDS, ...vsFields, ...crFields,
+    ...(formFields as FF[]).filter((f) => !RESHAPED_FORM_IDS.has((f.form_id ?? "").toLowerCase()) && !RESHAPED_FORM_IDS.has(f.form_id) && !shouldDropField(f)),
+    ...F005_FIELDS, ...F025_FIELDS, ...vsFields, ...crFields, ...CA_FIELDS,
   ];
 
   // Seed the BR-2502 CO-001 Re-treatment Log entry. The live DB already has an F025
@@ -270,33 +311,58 @@ export async function hydrateFromSupabase(): Promise<Dataset> {
     });
   }
 
-  // ─── CA-0801 kit-per-visit: suffix the dispensed kit number ─────────────────
-  // Each visit dispenses a fresh unit within the kit (Baseline→V1 … Follow-Up 3→V4).
-  // Append that suffix to the drug_kit_number value on each Study Drug Dispensation /
-  // Accountability instance so the form (and the derived Dispensing log) show the
-  // physical unit used. Form ids are lowercased (Supabase returns UUIDs lowercase).
+  // ─── CA-0801 Study Drug Dispensation / Accountability values ────────────────
+  // The reshape above replaced the CA drug-form fields, orphaning the live DB values.
+  // Re-seed the new field codes on each existing instance for active/completed dogs:
+  // kit numbers carry the per-visit unit suffix (A-001-V1 …), vol_dispensed = 60,
+  // vol_returned is a realistic partial (8–15 ml), vol_used_calc = 60 − returned,
+  // unit_condition mostly "good" with one "Intact / sealed" per study. Base kit per
+  // subject mirrors the inventory seed + Dispensing-log positional assignment.
   {
-    const SUFFIX_BY_FORM: Record<string, string> = {
-      "6100000e-0000-0000-0000-000000000801": "V1", // F014 Study Drug Dispensation (Baseline)
-      "61000014-0000-0000-0000-000000000801": "V2", // F020 Study Drug Accountability (Follow-Up 1)
-      "6100001c-0000-0000-0000-000000000801": "V3", // F028 Study Drug Accountability (Follow-Up 2)
-      "61000024-0000-0000-0000-000000000801": "V4", // F036 Study Drug Accountability (Follow-Up 3)
-    };
-    const kitFieldByForm = new Map<string, string>(); // form_id → drug_kit_number field id
-    for (const f of reshapedFormFields) {
-      const fid = (f.form_id ?? "").toLowerCase();
-      if (SUFFIX_BY_FORM[fid] && f.code === "drug_kit_number") kitFieldByForm.set(fid, f.id);
-    }
-    const kfv = fieldValues as Dataset["fieldValues"];
-    for (const inst of formInstances as Dataset["formInstances"]) {
-      const fid = (inst.form_id ?? "").toLowerCase();
-      const suffix = SUFFIX_BY_FORM[fid];
-      const kitFieldId = kitFieldByForm.get(fid);
-      if (!suffix || !kitFieldId) continue;
-      const fv = kfv.find((v) => v.form_instance_id === inst.id && v.form_field_id === kitFieldId);
-      if (fv && fv.value) {
-        const base = fv.value.replace(/-V\d+$/i, "");
-        fv.value = `${base}-${suffix}`;
+    const caId = (studies.data ?? []).find((s) => s.code === "CA-0801")?.id;
+    if (caId) {
+      const caSubs = (subjects.data ?? []).filter((s) => s.study_id === caId).slice().sort((a, b) => (a.subject_code < b.subject_code ? -1 : 1));
+      const CA_KITS = ["A-001", "A-002", "A-003", "A-004", "A-005", "B-001", "B-002", "B-003", "B-004", "B-005", "B-006", "B-007", "B-008"];
+      const baseKitBy = new Map<string, string>();
+      const idxBy = new Map<string, number>();
+      caSubs.forEach((s, i) => { if (CA_KITS[i]) baseKitBy.set(s.id, CA_KITS[i]); idxBy.set(s.id, i); });
+      const cfv = fieldValues as Dataset["fieldValues"];
+      const seed = (instId: string, fieldId: string, value: string) => {
+        if (!cfv.some((v) => v.form_instance_id === instId && v.form_field_id === fieldId))
+          cfv.push({ id: `fv-ca-${instId}-${fieldId}`, form_instance_id: instId, form_field_id: fieldId, value });
+      };
+      const VISITS = [
+        { form: CA_F014, p: "f014", n: 1, date: "2026-03-09", kind: "dispense" },
+        { form: CA_F020, p: "f020", n: 2, date: "2026-03-23", kind: "acct" },
+        { form: CA_F028, p: "f028", n: 3, date: "2026-04-06", kind: "acct" },
+        { form: CA_F036, p: "f036", n: 4, date: "2026-05-04", kind: "acct" },
+        { form: CA_F046, p: "f046", n: 5, date: "2026-06-01", kind: "return" },
+      ];
+      for (const vm of VISITS) {
+        for (const inst of formInstances as Dataset["formInstances"]) {
+          if ((inst.form_id ?? "").toLowerCase() !== vm.form || !inst.subject_id) continue;
+          const base = baseKitBy.get(inst.subject_id); if (!base) continue;
+          const idx = idxBy.get(inst.subject_id) ?? 0;
+          const ret = 8 + (idx % 8); // 8–15 ml remaining
+          const cond = idx % 6 === 0 ? "Intact / sealed" : "Partially used — good condition";
+          if (vm.kind === "dispense") {
+            seed(inst.id, `${vm.p}-dispensed_kit_number`, `${base}-V${vm.n}`);
+            seed(inst.id, `${vm.p}-vol_dispensed`, "60");
+            seed(inst.id, `${vm.p}-visit_date`, vm.date);
+          } else if (vm.kind === "acct") {
+            seed(inst.id, `${vm.p}-returned_kit_number`, `${base}-V${vm.n - 1}`);
+            seed(inst.id, `${vm.p}-vol_returned`, String(ret));
+            seed(inst.id, `${vm.p}-vol_used_calc`, String(60 - ret));
+            seed(inst.id, `${vm.p}-dispensed_kit_number`, `${base}-V${vm.n}`);
+            seed(inst.id, `${vm.p}-vol_dispensed`, "60");
+            seed(inst.id, `${vm.p}-unit_condition_on_return`, cond);
+            seed(inst.id, `${vm.p}-visit_date`, vm.date);
+          } else { // EOS return
+            seed(inst.id, `${vm.p}-returned_kit_number`, `${base}-V4`);
+            seed(inst.id, `${vm.p}-vol_returned`, String(ret));
+            seed(inst.id, `${vm.p}-vol_used_calc`, String(60 - ret));
+          }
+        }
       }
     }
   }
