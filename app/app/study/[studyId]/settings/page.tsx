@@ -212,18 +212,21 @@ function InventorySection({ studyCode, studyId, studyForms, dataset, onToast }: 
               {retCond !== "—" && (
                 <div style={{ marginTop: "var(--space-4)" }}>
                   <div style={{ fontSize: "var(--text-xs)", fontWeight: 500, textTransform: "uppercase", letterSpacing: "var(--tracking-caps)", color: "var(--color-text-tertiary)", marginBottom: "var(--space-2)" }}>Condition options → stock outcome</div>
-                  <div style={{ display: "flex", flexDirection: "column" }}>
-                    {CONDITION_OPTIONS.map((opt) => (
-                      <div key={opt} style={{ display: "flex", alignItems: "center", gap: "var(--space-3)", padding: "var(--space-2) 0", borderBottom: "1px solid var(--color-border-subtle)" }}>
-                        <span style={{ flex: 1, fontSize: "var(--text-sm)" }}>{opt}</span>
-                        <span style={{ fontSize: "var(--text-xs)", color: "var(--color-text-tertiary)" }}>→</span>
-                        <div style={{ display: "flex", gap: 4 }}>
+                  {/* 3-col grid: label sizes to content (max-content), arrow + buttons follow
+                      immediately — compact, left-leaning, with the buttons aligned across rows. */}
+                  <div style={{ display: "grid", gridTemplateColumns: "max-content max-content max-content", alignItems: "center", columnGap: "var(--space-3)" }}>
+                    {CONDITION_OPTIONS.flatMap((opt, ri) => {
+                      const bb = ri < CONDITION_OPTIONS.length - 1 ? "1px solid var(--color-border-subtle)" : "none";
+                      return [
+                        <span key={`${opt}-l`} style={{ fontSize: "var(--text-sm)", padding: "var(--space-2) 0", borderBottom: bb }}>{opt}</span>,
+                        <span key={`${opt}-a`} style={{ fontSize: "var(--text-xs)", color: "var(--color-text-tertiary)", padding: "var(--space-2) 0", borderBottom: bb }}>→</span>,
+                        <div key={`${opt}-b`} style={{ display: "flex", gap: 4, padding: "var(--space-2) 0", borderBottom: bb }}>
                           {OUTCOME_OPTIONS.map((o) => (
                             <button key={o.value} type="button" className={`set-outcome-btn${condMap[opt] === o.value ? ` active ${o.cls}` : ""}`} onClick={() => { setCondMap({ ...condMap, [opt]: o.value }); onToast("Condition mapping updated"); }}>{o.label}</button>
                           ))}
-                        </div>
-                      </div>
-                    ))}
+                        </div>,
+                      ];
+                    })}
                   </div>
                 </div>
               )}
