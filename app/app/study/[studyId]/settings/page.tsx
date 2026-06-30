@@ -466,21 +466,14 @@ function StudySettingsSection({ studyCode, onToast }: { studyCode: string; onToa
         </div>
         <div className="settings-card-body">
           <div className="settings-row"><div><div className="settings-row-label">Study ID</div></div><div className="settings-row-value"><span style={{ fontFamily: "var(--font-mono)", fontWeight: 500 }}>{studyCode}</span></div></div>
-          <div className="settings-row"><div><div className="settings-row-label">Study title</div></div><div className="settings-row-value">{title}</div></div>
-          <div className="settings-row"><div><div className="settings-row-label">Sponsor</div></div><div className="settings-row-value">{sponsor}</div></div>
-          <div className="settings-row"><div><div className="settings-row-label">IND / NADA number</div></div><div className="settings-row-value"><span style={{ fontFamily: "var(--font-mono)" }}>{ind}</span></div></div>
+          <div className="settings-row"><div><div className="settings-row-label">Study title</div></div><div className="settings-row-value">{editInfo ? <input className="set-input" value={dTitle} onChange={(e) => setDTitle(e.target.value)} /> : title}</div></div>
+          <div className="settings-row"><div><div className="settings-row-label">Sponsor</div></div><div className="settings-row-value">{editInfo ? <input className="set-input" value={dSponsor} onChange={(e) => setDSponsor(e.target.value)} /> : sponsor}</div></div>
+          <div className="settings-row"><div><div className="settings-row-label">IND / NADA number</div></div><div className="settings-row-value">{editInfo ? <input className="set-input" style={{ fontFamily: "var(--font-mono)" }} value={dInd} onChange={(e) => setDInd(e.target.value)} /> : <span style={{ fontFamily: "var(--font-mono)" }}>{ind}</span>}</div></div>
           <div className="settings-row"><div><div className="settings-row-label">Regulatory framework</div></div><div className="settings-row-value">{meta.framework.map((f, i) => <span key={f} className="set-badge set-badge-blue" style={i > 0 ? { marginLeft: 4 } : undefined}>{f}</span>)}</div></div>
           {editInfo && (
-            <div style={{ marginTop: "var(--space-4)", paddingTop: "var(--space-4)", borderTop: "1px solid var(--color-border)" }}>
-              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "var(--space-4)", marginBottom: "var(--space-3)" }}>
-                <div className="set-field"><div className="set-field-label">Study title</div><input className="set-input" value={dTitle} onChange={(e) => setDTitle(e.target.value)} /></div>
-                <div className="set-field"><div className="set-field-label">Sponsor</div><input className="set-input" value={dSponsor} onChange={(e) => setDSponsor(e.target.value)} /></div>
-              </div>
-              <div className="set-field" style={{ marginBottom: "var(--space-3)" }}><div className="set-field-label">IND / NADA number</div><input className="set-input" style={{ fontFamily: "var(--font-mono)" }} value={dInd} onChange={(e) => setDInd(e.target.value)} /></div>
-              <div style={{ display: "flex", gap: "var(--space-2)", justifyContent: "flex-end" }}>
-                <button className="set-btn-secondary" type="button" onClick={() => setEditInfo(false)}>Cancel</button>
-                <button className="set-btn-primary" type="button" onClick={saveInfo}><i className="ti ti-check"></i> Save</button>
-              </div>
+            <div style={{ display: "flex", gap: "var(--space-2)", justifyContent: "flex-end", marginTop: "var(--space-4)" }}>
+              <button className="set-btn-secondary" type="button" onClick={() => setEditInfo(false)}>Cancel</button>
+              <button className="set-btn-primary" type="button" onClick={saveInfo}><i className="ti ti-check"></i> Save</button>
             </div>
           )}
         </div>
@@ -1575,27 +1568,26 @@ function BillingSection({ studyCode, onToast }: { studyCode: string; onToast: (m
         <div className="settings-card-body">
           <div className="settings-row">
             <div><div className="settings-row-label">Holdback percentage</div><div className="settings-row-desc">Withheld until database lock</div></div>
-            <div className="settings-row-value"><span style={{ fontFamily: "var(--font-mono)" }}>{holdback}%</span></div>
+            <div className="settings-row-value">{editTerms
+              ? <div style={{ display: "flex", alignItems: "center", gap: "var(--space-2)" }}><input className="set-input" type="number" min={0} value={dHoldback} style={{ width: 90, fontFamily: "var(--font-mono)" }} onChange={(e) => setDHoldback(e.target.value)} /> %</div>
+              : <span style={{ fontFamily: "var(--font-mono)" }}>{holdback}%</span>}</div>
           </div>
           <div className="settings-row">
             <div><div className="settings-row-label">Payment terms</div></div>
-            <div className="settings-row-value">{terms}</div>
+            <div className="settings-row-value">{editTerms
+              ? <select className="set-select" style={{ maxWidth: 160 }} value={dTerms} onChange={(e) => setDTerms(e.target.value)}><option>Net 30</option><option>Net 45</option><option>Net 60</option></select>
+              : terms}</div>
           </div>
           <div className="settings-row">
             <div><div className="settings-row-label">Study default currency</div></div>
-            <div className="settings-row-value">{currency}</div>
+            <div className="settings-row-value">{editTerms
+              ? <select className="set-select" style={{ maxWidth: 160 }} value={dCurrency} onChange={(e) => setDCurrency(e.target.value)}><option>USD</option><option>CAD</option><option>EUR</option><option>GBP</option></select>
+              : currency}</div>
           </div>
           {editTerms && (
-            <div style={{ marginTop: "var(--space-4)", paddingTop: "var(--space-4)", borderTop: "1px solid var(--color-border)" }}>
-              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: "var(--space-4)", marginBottom: "var(--space-3)" }}>
-                <div className="set-field"><div className="set-field-label">Holdback percentage</div><div style={{ display: "flex", alignItems: "center", gap: "var(--space-2)" }}><input className="set-input" type="number" min={0} value={dHoldback} style={{ fontFamily: "var(--font-mono)" }} onChange={(e) => setDHoldback(e.target.value)} /> %</div></div>
-                <div className="set-field"><div className="set-field-label">Payment terms</div><select className="set-select" value={dTerms} onChange={(e) => setDTerms(e.target.value)}><option>Net 30</option><option>Net 45</option><option>Net 60</option></select></div>
-                <div className="set-field"><div className="set-field-label">Study default currency</div><select className="set-select" value={dCurrency} onChange={(e) => setDCurrency(e.target.value)}><option>USD</option><option>CAD</option><option>EUR</option><option>GBP</option></select></div>
-              </div>
-              <div style={{ display: "flex", gap: "var(--space-2)", justifyContent: "flex-end" }}>
-                <button className="set-btn-secondary" type="button" onClick={() => setEditTerms(false)}>Cancel</button>
-                <button className="set-btn-primary" type="button" onClick={saveTerms}><i className="ti ti-check"></i> Save</button>
-              </div>
+            <div style={{ display: "flex", gap: "var(--space-2)", justifyContent: "flex-end", marginTop: "var(--space-4)" }}>
+              <button className="set-btn-secondary" type="button" onClick={() => setEditTerms(false)}>Cancel</button>
+              <button className="set-btn-primary" type="button" onClick={saveTerms}><i className="ti ti-check"></i> Save</button>
             </div>
           )}
         </div>
