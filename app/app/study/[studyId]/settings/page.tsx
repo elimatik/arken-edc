@@ -792,7 +792,7 @@ const PERM_DESC: Record<Perm, string> = {
   review: "Mark records as reviewed (CRA/DM)", query: "Raise, respond to, and close queries", finalize: "Mark form as final — triggers lock workflow",
 };
 const FP_ROLES: Role[] = ["CRC", "CRA", "PI", "DM", "Admin"];
-// Default permissions per role (applied uniformly across the study's real forms).
+// Default permissions per role for subject-scoped CRFs.
 const ROLE_DEFAULTS: Record<string, Perm[]> = {
   CRC: ["view", "edit", "query"],
   CRA: ["view", "review", "query"],
@@ -800,24 +800,37 @@ const ROLE_DEFAULTS: Record<string, Perm[]> = {
   DM: ["view", "review", "query", "finalize"],
   Admin: ["view", "edit", "sign", "review", "query", "finalize"],
 };
+// Site-scoped forms are monitoring/site-management owned — different default ownership.
+const SITE_ROLE_DEFAULTS: Record<string, Perm[]> = {
+  CRC: ["view"],
+  CRA: ["view", "edit", "review", "query"],
+  PI: ["view", "sign"],
+  DM: ["view", "review", "finalize"],
+  Admin: ["view", "edit", "sign", "review", "query", "finalize"],
+};
+const SITE_SECTION = "Site forms";
+const defaultsFor = (f: FormRowT, role: string): Perm[] => ((f.scope === "site" ? SITE_ROLE_DEFAULTS : ROLE_DEFAULTS)[role] ?? []);
 
-function FormPermissionsSection({ studyId, dataset, onToast }: { studyId: string; dataset: Dataset; onToast: (m: string) => void }) {
-  // Leaf forms (real CRFs) grouped by their section = top-level group-form name.
+function FormPermissionsSection({ studyId, dataset }: { studyId: string; dataset: Dataset }) {
+  // Leaf forms (real CRFs) grouped by their real builder group: a subject form's
+  // section is its top-level group-form name (walk parent_form_id); standalone
+  // site-scoped forms group under a single "Site forms" section.
   const { leaves, sections } = useMemo(() => {
     const all = dataset.forms.filter((f) => f.study_id === studyId && f.scope !== "barn");
     const byId = new Map(all.map((f) => [f.id, f]));
     const parentIds = new Set(all.map((f) => f.parent_form_id).filter(Boolean) as string[]);
     const rootName = (f: FormRowT) => { let cur = f; while (cur.parent_form_id && byId.get(cur.parent_form_id)) cur = byId.get(cur.parent_form_id)!; return cur.name; };
+    const sectionOf = (f: FormRowT) => (f.scope === "site" && !f.parent_form_id ? SITE_SECTION : rootName(f));
     const lv = all.filter((f) => !parentIds.has(f.id) && !f.is_summary).slice().sort((a, b) => a.sequence - b.sequence);
     const order: string[] = []; const map = new Map<string, FormRowT[]>();
-    for (const f of lv) { const sec = rootName(f); if (!map.has(sec)) { map.set(sec, []); order.push(sec); } map.get(sec)!.push(f); }
+    for (const f of lv) { const sec = sectionOf(f); if (!map.has(sec)) { map.set(sec, []); order.push(sec); } map.get(sec)!.push(f); }
     return { leaves: lv, sections: order.map((name) => ({ name, forms: map.get(name)! })) };
   }, [dataset.forms, studyId]);
 
   const key = (fid: string, role: string, p: Perm) => `${fid}|${role}|${p}`;
   const [perms, setPerms] = useState<Set<string>>(() => {
     const s = new Set<string>();
-    for (const f of leaves) for (const role of FP_ROLES) for (const p of ROLE_DEFAULTS[role] ?? []) s.add(key(f.id, role, p));
+    for (const f of leaves) for (const role of FP_ROLES) for (const p of defaultsFor(f, role)) s.add(key(f.id, role, p));
     return s;
   });
   const has = (fid: string, role: string, p: Perm) => perms.has(key(fid, role, p));
@@ -863,7 +876,6 @@ function FormPermissionsSection({ studyId, dataset, onToast }: { studyId: string
         <div style={{ fontSize: "var(--text-xs)", color: "var(--color-text-tertiary)" }}>{fpView === "form" ? "Expand a form to see which roles have access" : "Expand a role to see its permissions across all forms"}</div>
         <div style={{ marginLeft: "auto", display: "flex", gap: "var(--space-2)" }}>
           <button className="set-btn-secondary" style={{ height: 28, fontSize: "var(--text-xs)" }} type="button" onClick={toggleExpandAll}><i className={`ti ti-arrows-${allExpanded ? "minimize" : "maximize"}`}></i> {allExpanded ? "Collapse all" : "Expand all"}</button>
-          <button className="set-btn-secondary" style={{ height: 28, fontSize: "var(--text-xs)" }} type="button" onClick={() => onToast("AI grouping coming soon")}><i className="ti ti-sparkles" style={{ color: "var(--purple-600)" }}></i> Auto-group forms</button>
         </div>
       </div>
 
@@ -1225,7 +1237,7 @@ export default function StudySettingsPage() {
         ) : section === "protocol" ? (
           <ProtocolAmendmentsSection key={study.code} studyCode={study.code} studyId={study.id} dataset={dataset} onToast={setToast} />
         ) : section === "formperm" ? (
-          <FormPermissionsSection key={study.code} studyId={study.id} dataset={dataset} onToast={setToast} />
+          <FormPermissionsSection key={study.code} studyId={study.id} dataset={dataset} />
         ) : (
           <>
             <div className="section-header">
