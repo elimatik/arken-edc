@@ -1450,6 +1450,207 @@ function AuditSignaturesSection({ studyId, dataset, onToast }: { studyId: string
   );
 }
 
+// ─── Billing section (ported from 25-settings.html) ─────────────────────────
+interface FeeEvent { id: string; section: string; name: string; trigger: string; rate: number }
+const BILLING_STD_SECTIONS = ["Enrollment & Screening", "Protocol visits", "Safety events", "Study close-out"];
+const BILLING_COUNTRIES = ["— select country —", "United States", "Canada", "United Kingdom", "Australia", "Germany", "France", "Italy", "Spain", "Netherlands", "Other"];
+function billingSeed(code: string): FeeEvent[] {
+  const raw: [string, string, string, number][] =
+    code === "CA-0801" ? [
+      ["Enrollment & Screening", "Screening visit", "Subject screened", 400],
+      ["Enrollment & Screening", "Enrollment", "Subject enrolled (ICF signed)", 750],
+      ["Enrollment & Screening", "Screen failure", "Screen failure recorded", 150],
+      ["Protocol visits", "Baseline visit", "Baseline forms complete", 900],
+      ["Protocol visits", "Follow-up visit 1", "Follow-up forms complete", 550],
+      ["Protocol visits", "Follow-up visit 2", "Follow-up forms complete", 550],
+      ["Protocol visits", "Follow-up visit 3", "Follow-up forms complete", 550],
+      ["Protocol visits", "Follow-up visit 4", "Follow-up forms complete", 550],
+      ["Protocol visits", "EOS visit", "EOS forms complete", 700],
+      ["Safety events", "SAE report", "SAE form submitted <24h", 1200],
+      ["Study close-out", "Database lock", "Lock confirmed by DM", 2500],
+    ] : code === "PH-2401" ? [
+      ["Enrollment & Screening", "Pen setup", "Pen randomized and confirmed", 300],
+      ["Protocol visits", "Starter phase complete", "Starter feed phase complete", 400],
+      ["Protocol visits", "Grower phase complete", "Grower feed phase complete", 400],
+      ["Protocol visits", "Finisher phase complete", "Finisher feed phase complete", 500],
+      ["Study close-out", "Database lock", "Lock confirmed by DM", 2500],
+    ] : [ // BR-2502
+      ["Enrollment & Screening", "Screening visit", "Subject screened", 450],
+      ["Enrollment & Screening", "Enrollment", "Subject enrolled (ICF signed)", 800],
+      ["Enrollment & Screening", "Screen failure", "Screen failure recorded", 200],
+      ["Protocol visits", "Day 0 — Treatment", "Day 0 forms complete", 950],
+      ["Protocol visits", "Day 28 — Visit", "Day 28 forms complete", 600],
+      ["Protocol visits", "Day 49/84 — Closeout", "Final visit complete", 750],
+      ["Safety events", "SAE report", "SAE form submitted <24h", 1200],
+      ["Study close-out", "Database lock", "Lock confirmed by DM", 2500],
+    ];
+  return raw.map(([section, name, trigger, rate], i) => ({ id: `fee-${i}`, section, name, trigger, rate }));
+}
+
+function BillingSection({ studyCode, onToast }: { studyCode: string; onToast: (m: string) => void }) {
+  const Req = () => <span style={{ color: "var(--red-600)" }}> *</span>;
+  const grid2: CSSProperties = { display: "grid", gridTemplateColumns: "1fr 1fr", gap: "var(--space-4)", marginBottom: "var(--space-4)" };
+
+  // Card 2 — payment terms.
+  const [editTerms, setEditTerms] = useState(false);
+  const [holdback, setHoldback] = useState("10");
+  const [terms, setTerms] = useState("Net 30");
+  const [currency, setCurrency] = useState("USD");
+
+  // Card 3 — fee schedule.
+  const [fees, setFees] = useState<FeeEvent[]>(() => billingSeed(studyCode));
+  const feeSections = useMemo(() => {
+    const order: string[] = []; const map = new Map<string, FeeEvent[]>();
+    for (const e of fees) { if (!map.has(e.section)) { map.set(e.section, []); order.push(e.section); } map.get(e.section)!.push(e); }
+    return order.map((s) => ({ name: s, events: map.get(s)! }));
+  }, [fees]);
+  const updateRate = (id: string, val: string) => setFees((f) => f.map((x) => (x.id === id ? { ...x, rate: Number(val) || 0 } : x)));
+  const sectionOpts = useMemo(() => Array.from(new Set([...BILLING_STD_SECTIONS, ...fees.map((f) => f.section)])), [fees]);
+
+  // Fee modal.
+  const [feeOpen, setFeeOpen] = useState(false);
+  const [editIdx, setEditIdx] = useState<number | null>(null);
+  const [fName, setFName] = useState(""); const [fSection, setFSection] = useState(BILLING_STD_SECTIONS[0]); const [fNewSection, setFNewSection] = useState(""); const [fTrigger, setFTrigger] = useState(""); const [fRate, setFRate] = useState("0");
+  function openFee(idx: number | null) {
+    setEditIdx(idx); setFNewSection("");
+    if (idx == null) { setFName(""); setFSection(sectionOpts[0]); setFTrigger(""); setFRate("0"); }
+    else { const e = fees[idx]; setFName(e.name); setFSection(e.section); setFTrigger(e.trigger); setFRate(String(e.rate)); }
+    setFeeOpen(true);
+  }
+  function saveFee() {
+    const section = fSection === "__new__" ? fNewSection.trim() : fSection;
+    if (!fName.trim() || !section) { onToast("Event name and section are required"); return; }
+    const ev: FeeEvent = { id: editIdx != null ? fees[editIdx].id : `fee-${crypto.randomUUID()}`, section, name: fName.trim(), trigger: fTrigger.trim(), rate: Number(fRate) || 0 };
+    setFees((f) => (editIdx != null ? f.map((x, i) => (i === editIdx ? ev : x)) : [...f, ev]));
+    setFeeOpen(false); onToast("Fee event saved");
+  }
+  function deleteFee() { if (editIdx == null) return; setFees((f) => f.filter((_, i) => i !== editIdx)); setFeeOpen(false); onToast("Fee event deleted"); }
+
+  return (
+    <>
+      <div className="section-header">
+        <h1 className="set-section-title">Billing</h1>
+        <p className="section-desc">Fee schedule and payment configuration for this study</p>
+      </div>
+
+      {/* ── Card 1: Billing information ── */}
+      <div className="settings-card">
+        <div className="settings-card-header"><div><div className="settings-card-title">Billing information</div><div className="settings-card-desc">Invoice recipient details for this study</div></div></div>
+        <div className="settings-card-body">
+          <div style={grid2}>
+            <div className="set-field"><div className="set-field-label">Contact name<Req /></div><input className="set-input" onBlur={() => onToast("Billing information saved")} /></div>
+            <div className="set-field"><div className="set-field-label">Company<Req /></div><input className="set-input" onBlur={() => onToast("Billing information saved")} /></div>
+          </div>
+          <div style={grid2}>
+            <div className="set-field"><div className="set-field-label">ATTN</div><input className="set-input" placeholder="Optional" onBlur={() => onToast("Billing information saved")} /></div>
+            <div className="set-field"><div className="set-field-label">Email<Req /></div><input className="set-input" type="email" onBlur={() => onToast("Billing information saved")} /></div>
+          </div>
+          <div style={grid2}>
+            <div className="set-field"><div className="set-field-label">Phone</div><input className="set-input" type="tel" onBlur={() => onToast("Billing information saved")} /></div>
+            <div className="set-field"><div className="set-field-label">Address<Req /></div><input className="set-input" onBlur={() => onToast("Billing information saved")} /></div>
+          </div>
+          <div style={grid2}>
+            <div className="set-field"><div className="set-field-label">City<Req /></div><input className="set-input" onBlur={() => onToast("Billing information saved")} /></div>
+            <div className="set-field"><div className="set-field-label">State / Province / Region</div><input className="set-input" onBlur={() => onToast("Billing information saved")} /></div>
+          </div>
+          <div style={{ ...grid2, marginBottom: 0 }}>
+            <div className="set-field"><div className="set-field-label">Postal / ZIP code<Req /></div><input className="set-input" style={{ fontFamily: "var(--font-mono)" }} onBlur={() => onToast("Billing information saved")} /></div>
+            <div className="set-field"><div className="set-field-label">Country<Req /></div><select className="set-select" defaultValue={BILLING_COUNTRIES[0]} onChange={() => onToast("Billing information saved")}>{BILLING_COUNTRIES.map((c) => <option key={c} value={c}>{c}</option>)}</select></div>
+          </div>
+        </div>
+      </div>
+
+      {/* ── Card 2: Payment terms ── */}
+      <div className="settings-card">
+        <div className="settings-card-header">
+          <div><div className="settings-card-title">Payment terms</div></div>
+          <button className="set-btn-secondary" type="button" onClick={() => { if (editTerms) onToast("Payment terms saved"); setEditTerms((e) => !e); }}><i className={`ti ti-${editTerms ? "check" : "pencil"}`}></i> {editTerms ? "Done" : "Edit"}</button>
+        </div>
+        <div className="settings-card-body">
+          <div className="settings-row">
+            <div><div className="settings-row-label">Holdback percentage</div><div className="settings-row-desc">Withheld until database lock</div></div>
+            <div className="settings-row-value">{editTerms
+              ? <div style={{ display: "flex", alignItems: "center", gap: "var(--space-2)" }}><input className="set-input" type="number" min={0} value={holdback} style={{ width: 80, fontFamily: "var(--font-mono)" }} onChange={(e) => setHoldback(e.target.value)} /> %</div>
+              : <span style={{ fontFamily: "var(--font-mono)" }}>{holdback}%</span>}</div>
+          </div>
+          <div className="settings-row">
+            <div><div className="settings-row-label">Payment terms</div></div>
+            <div className="settings-row-value">{editTerms
+              ? <select className="set-select" style={{ maxWidth: 160 }} value={terms} onChange={(e) => setTerms(e.target.value)}><option>Net 30</option><option>Net 45</option><option>Net 60</option></select>
+              : <span>{terms}</span>}</div>
+          </div>
+          <div className="settings-row">
+            <div><div className="settings-row-label">Study default currency</div></div>
+            <div className="settings-row-value">{editTerms
+              ? <select className="set-select" style={{ maxWidth: 160 }} value={currency} onChange={(e) => setCurrency(e.target.value)}><option>USD</option><option>CAD</option><option>EUR</option><option>GBP</option></select>
+              : <span>{currency}</span>}</div>
+          </div>
+        </div>
+      </div>
+
+      {/* ── Card 3: Fee schedule ── */}
+      <div className="settings-card">
+        <div className="settings-card-header">
+          <div><div className="settings-card-title">Fee schedule</div><div className="settings-card-desc">Billable events and rates — applies to all site invoices</div></div>
+          <button className="set-btn-secondary" type="button" onClick={() => openFee(null)}><i className="ti ti-plus"></i> Add event</button>
+        </div>
+        <div className="settings-card-body" style={{ overflowX: "auto" }}>
+          <table className="fee-table">
+            <thead><tr><th>Event type</th><th>Trigger</th><th style={{ textAlign: "right" }}>Default rate (USD)</th><th></th></tr></thead>
+            <tbody>
+              {feeSections.map((sec) => (
+                <Fragment key={sec.name}>
+                  <tr className="fee-section"><td colSpan={4}>{sec.name}</td></tr>
+                  {sec.events.map((e) => (
+                    <tr key={e.id}>
+                      <td style={{ fontWeight: 500 }}>{e.name}</td>
+                      <td style={{ color: "var(--color-text-secondary)" }}>{e.trigger}</td>
+                      <td style={{ textAlign: "right" }}><input className="set-input" type="number" value={e.rate} style={{ width: 100, textAlign: "right", fontFamily: "var(--font-mono)", display: "inline-block" }} onChange={(ev) => updateRate(e.id, ev.target.value)} onBlur={() => onToast("Rate saved")} /></td>
+                      <td style={{ textAlign: "right" }}><button className="set-btn-icon" type="button" title="Edit event" onClick={() => openFee(fees.indexOf(e))}><i className="ti ti-pencil" style={{ fontSize: 13 }}></i></button></td>
+                    </tr>
+                  ))}
+                </Fragment>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      {/* ── Fee event modal ── */}
+      {feeOpen && (
+        <div className="set-modal-overlay" onClick={(e) => { if (e.target === e.currentTarget) setFeeOpen(false); }}>
+          <div className="set-modal" role="dialog" aria-modal="true">
+            <div className="set-modal-header">
+              <div><div className="set-modal-title">{editIdx == null ? "Add fee event" : "Edit fee event"}</div><div style={{ fontSize: "var(--text-xs)", color: "var(--color-text-tertiary)", marginTop: 2 }}>Define a billable event and its default rate</div></div>
+              <button className="set-modal-close" type="button" onClick={() => setFeeOpen(false)}><i className="ti ti-x"></i></button>
+            </div>
+            <div className="set-modal-body">
+              <div className="set-field"><div className="set-field-label">Event name</div><input className="set-input" placeholder="e.g. Visit 3 — Day 28" value={fName} onChange={(e) => setFName(e.target.value)} autoFocus /></div>
+              <div className="set-field"><div className="set-field-label">Section</div>
+                <div style={{ display: "flex", gap: "var(--space-2)" }}>
+                  <select className="set-select" style={{ flex: 1 }} value={fSection} onChange={(e) => setFSection(e.target.value)}>{sectionOpts.map((s) => <option key={s} value={s}>{s}</option>)}<option value="__new__">+ New section…</option></select>
+                  {fSection === "__new__" && <input className="set-input" style={{ flex: 1 }} placeholder="Section name" value={fNewSection} onChange={(e) => setFNewSection(e.target.value)} />}
+                </div>
+              </div>
+              <div className="set-field"><div className="set-field-label">Trigger</div><input className="set-input" placeholder="e.g. V3 all forms complete" value={fTrigger} onChange={(e) => setFTrigger(e.target.value)} /></div>
+              <div className="set-field"><div className="set-field-label">Default rate</div>
+                <div style={{ display: "flex", alignItems: "center", gap: "var(--space-2)" }}>$ <input className="set-input" type="number" min={0} step={50} value={fRate} style={{ width: 140, fontFamily: "var(--font-mono)" }} onChange={(e) => setFRate(e.target.value)} /> USD</div>
+              </div>
+            </div>
+            <div className="set-modal-footer" style={{ justifyContent: editIdx == null ? "flex-end" : "space-between" }}>
+              {editIdx != null && <button className="set-btn-secondary" type="button" style={{ color: "var(--red-600)", borderColor: "var(--red-200)" }} onClick={deleteFee}><i className="ti ti-trash"></i> Delete event</button>}
+              <div style={{ display: "flex", gap: "var(--space-2)" }}>
+                <button className="set-btn-secondary" type="button" onClick={() => setFeeOpen(false)}>Cancel</button>
+                <button className="set-btn-primary" type="button" onClick={saveFee}><i className="ti ti-check"></i> Save</button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+    </>
+  );
+}
+
 export default function StudySettingsPage() {
   const { study } = useShell();
   const { dataset } = useStudySession();
@@ -1737,6 +1938,8 @@ export default function StudySettingsPage() {
           <StudyPreferencesSection key={study.code} studyId={study.id} dataset={dataset} onToast={setToast} />
         ) : section === "audit" ? (
           <AuditSignaturesSection key={study.code} studyId={study.id} dataset={dataset} onToast={setToast} />
+        ) : section === "billing" ? (
+          <BillingSection key={study.code} studyCode={study.code} onToast={setToast} />
         ) : (
           <>
             <div className="section-header">
