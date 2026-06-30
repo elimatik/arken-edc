@@ -57,14 +57,6 @@
 .scf-status-pill.due { background: var(--amber-50); border-color: var(--amber-200); color: var(--amber-700); }
 .scf-status-pill.overdue { background: var(--red-50); border-color: var(--red-200); color: var(--red-600); }
 
-/* System form-completion status as a subtle dot (no labeled column — the form's own
-   data field, if any, owns the "Status" header). */
-.scf-dot-col { width: 28px; text-align: center; }
-.scf-status-dot { display: inline-block; width: 9px; height: 9px; border-radius: 50%; background: var(--slate-200); }
-.scf-status-dot.current { background: var(--green-600); }
-.scf-status-dot.due { background: var(--amber-700); }
-.scf-status-dot.empty { background: var(--color-border); }
-
 /* Slide-in entry panel */
 .scf-overlay { position: fixed; inset: 0; background: rgba(15, 23, 42, 0.35); z-index: 40; }
 .scf-panel { position: fixed; top: 0; right: 0; height: 100vh; width: 420px; max-width: 92vw; background: var(--color-surface); border-left: 1px solid var(--color-border); box-shadow: -8px 0 24px rgba(0, 0, 0, 0.12); z-index: 41; display: flex; flex-direction: column; }

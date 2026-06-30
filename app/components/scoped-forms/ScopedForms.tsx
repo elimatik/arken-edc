@@ -356,7 +356,6 @@ function ScopedFormView({ studyId, scope, scopeId, form, modeQueries, modeSdv, s
   }
   function markSdvComplete() { if (!canSdv || readOnly) return; update((d: Dataset) => { for (const t of targetInstances) { const inst = d.formInstances.find((i) => i.id === t.id); if (inst) inst.sdv_complete = true; } }); }
 
-  const statusLabel = (st: string) => (st === "in_work" ? "In-Work" : st === "in_review" ? "In-Review" : STATUS_CAP(st));
 
   // Read-only auto-derived rollup (Pen BRD Summary) — no toolbar / SDV / queries /
   // submit. Flagged on the form row (form.is_summary), not name-matched.
@@ -414,7 +413,7 @@ function ScopedFormView({ studyId, scope, scopeId, form, modeQueries, modeSdv, s
           <div className="scf-empty">No entries yet.</div>
         ) : (
           <table className="scf-table">
-            <thead><tr>{cols.map((c, i) => <th key={i}>{c.label}</th>)}<th>Alerts</th><th className="scf-dot-col" aria-label="Form status"></th></tr></thead>
+            <thead><tr>{cols.map((c, i) => <th key={i}>{c.label}</th>)}<th>Alerts</th></tr></thead>
             <tbody>
               {instances.map((i) => {
                 const ecN = openEcCount(i.id);
@@ -422,9 +421,6 @@ function ScopedFormView({ studyId, scope, scopeId, form, modeQueries, modeSdv, s
                   <tr key={i.id} className="clickable" onClick={() => setEntryInst(i.id)}>
                     {cols.map((c, ci) => { const f = fields.find((x) => x.code === c.code); const raw = c.code ? s.valByCode(i.id, fields, c.code) : ""; const disp = f?.field_type === "multiselect" ? parseMulti(raw).join(", ") : raw; return <td key={ci} className={f?.field_type === "date" ? "mono" : ""}><span className={c.trunc ? "trunc" : ""}>{disp || "—"}</span></td>; })}
                     <td>{ecN > 0 ? <span className="scf-status-pill overdue"><i className="ti ti-alert-circle"></i> {ecN}</span> : <span className="scf-hint">—</span>}</td>
-                    {/* System form-completion status as a subtle dot (the labeled
-                        "Status" column, if any, is the form's OWN data field). */}
-                    <td className="scf-dot-col"><span className={`scf-status-dot ${i.status === "reviewed" || i.status === "finalized" || i.status === "locked" ? "current" : i.status === "empty" ? "empty" : "due"}`} title={statusLabel(i.status)}></span></td>
                   </tr>
                 );
               })}
