@@ -1312,12 +1312,12 @@ function StudyPreferencesSection({ studyId, dataset, onToast }: { studyId: strin
                   <td style={{ ...td, textAlign: "center" }}><input type="checkbox" style={{ accentColor: "var(--blue-600)" }} checked={col.show} disabled={!col.removable} onChange={() => setCols((c) => c.map((x) => (x.id === col.id ? { ...x, show: !x.show } : x)))} /></td>
                   <td style={td}>
                     {col.removable ? (
-                      <div style={{ display: "flex", gap: 4, flexWrap: "wrap" }}>
+                      <div style={{ display: "flex", gap: "var(--space-3)", flexWrap: "wrap" }}>
                         {FP_ROLES.map((role) => {
                           const on = col.hiddenRoles.includes(role);
                           return (
-                            <label key={role} style={{ display: "inline-flex", alignItems: "center", gap: 4, fontSize: 10, cursor: "pointer", padding: "2px 6px", border: "1px solid var(--color-border)", borderRadius: "var(--radius-full)", background: "var(--color-page-bg)" }}>
-                              <input type="checkbox" style={{ width: 10, height: 10, accentColor: "var(--orange-600)" }} checked={on} onChange={() => setCols((c) => c.map((x) => (x.id === col.id ? { ...x, hiddenRoles: toggleArr(x.hiddenRoles, role) } : x)))} /> {role}
+                            <label key={role} style={{ display: "inline-flex", alignItems: "center", gap: 4, fontSize: "var(--text-xs)", cursor: "pointer" }}>
+                              <input type="checkbox" style={{ accentColor: "var(--orange-600)" }} checked={on} onChange={() => setCols((c) => c.map((x) => (x.id === col.id ? { ...x, hiddenRoles: toggleArr(x.hiddenRoles, role) } : x)))} /> {role}
                             </label>
                           );
                         })}
