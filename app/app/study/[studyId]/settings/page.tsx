@@ -1345,6 +1345,111 @@ function StudyPreferencesSection({ studyId, dataset, onToast }: { studyId: strin
   );
 }
 
+// ─── Audit & Signatures section (ported from 25-settings.html + audit-trail card) ─
+// Default e-signature requirement heuristic (no per-form flag exists in the seed):
+// ON for safety (AE/SAE/necropsy), randomization/allocation, dosing/treatment admin,
+// consent, withdrawal, and close-out / disposition forms; OFF for routine assessments.
+const SIG_DEFAULT_RE = /adverse|\bsae\b|serious|randomi[sz]ation|allocation|treatment admin|administration|dosing|drug admin|re-?treatment|consent|\bicf\b|close[- ]?out|end of study|final disposition|withdrawal|necropsy/i;
+const defaultRequiresSig = (name: string) => SIG_DEFAULT_RE.test(name);
+
+function AuditSignaturesSection({ studyId, dataset, onToast }: { studyId: string; dataset: Dataset; onToast: (m: string) => void }) {
+  // Card 1 — Electronic signatures.
+  const [sigMethod, setSigMethod] = useState("Username + password (biometric equivalent)");
+  const [requireMeaning, setRequireMeaning] = useState(true);
+  const [coSignature, setCoSignature] = useState(false);
+
+  // Card 2 — leaf forms grouped by builder section (same as Form permissions).
+  const sections = useMemo(() => {
+    const all = dataset.forms.filter((f) => f.study_id === studyId && f.scope !== "barn");
+    const byId = new Map(all.map((f) => [f.id, f]));
+    const parentIds = new Set(all.map((f) => f.parent_form_id).filter(Boolean) as string[]);
+    const rootName = (f: FormRowT) => { let cur = f; while (cur.parent_form_id && byId.get(cur.parent_form_id)) cur = byId.get(cur.parent_form_id)!; return cur.name; };
+    const sectionOf = (f: FormRowT) => (f.scope === "site" && !f.parent_form_id ? SITE_SECTION : rootName(f));
+    const lv = all.filter((f) => !parentIds.has(f.id) && !f.is_summary).slice().sort((a, b) => a.sequence - b.sequence);
+    const order: string[] = []; const map = new Map<string, FormRowT[]>();
+    for (const f of lv) { const sec = sectionOf(f); if (!map.has(sec)) { map.set(sec, []); order.push(sec); } map.get(sec)!.push(f); }
+    return order.map((name) => ({ name, forms: map.get(name)! }));
+  }, [dataset.forms, studyId]);
+  const [sigForms, setSigForms] = useState<Set<string>>(() => {
+    const s = new Set<string>();
+    for (const sec of sections) for (const f of sec.forms) if (defaultRequiresSig(f.name)) s.add(f.id);
+    return s;
+  });
+  const toggleSig = (id: string) => setSigForms((s) => { const n = new Set(s); if (n.has(id)) n.delete(id); else n.add(id); return n; });
+
+  // Card 3 — Audit trail behaviour.
+  const [reasonSignedLocked, setReasonSignedLocked] = useState(true);
+  const [reasonAllEdits, setReasonAllEdits] = useState(false);
+
+  return (
+    <>
+      <div className="section-header">
+        <h1 className="set-section-title">Audit &amp; Signatures</h1>
+        <p className="section-desc">Configure audit trail behaviour and electronic signature requirements</p>
+      </div>
+
+      {/* ── Card 1: Electronic signatures ── */}
+      <div className="settings-card">
+        <div className="settings-card-header"><div><div className="settings-card-title">Electronic signatures (21 CFR Part 11)</div></div></div>
+        <div className="settings-card-body">
+          <div className="settings-row">
+            <div><div className="settings-row-label">Signature method</div></div>
+            <div className="settings-row-value">
+              <select className="set-select" style={{ maxWidth: 280 }} value={sigMethod} onChange={(e) => { setSigMethod(e.target.value); onToast("Signature method updated"); }}>
+                <option>Username + password (biometric equivalent)</option>
+                <option>Password re-entry</option>
+                <option>PIN</option>
+              </select>
+            </div>
+          </div>
+          <ToggleRow on={requireMeaning} onToggle={() => { setRequireMeaning(!requireMeaning); onToast("Setting saved"); }} label="Require meaning statement" desc={"Signer must select the meaning of their signature (e.g. “I have reviewed and approved”)"} />
+          <ToggleRow on={coSignature} onToggle={() => { setCoSignature(!coSignature); onToast("Setting saved"); }} label="Co-signature" desc="Require a second signer for specific forms" />
+        </div>
+      </div>
+
+      {/* ── Card 2: Signature requirements per form ── */}
+      <div className="settings-card">
+        <div className="settings-card-header"><div><div className="settings-card-title">Signature requirements per form</div><div className="settings-card-desc">Which forms require electronic signature before submission</div></div></div>
+        <div className="settings-card-body">
+          {sections.map((sec) => (
+            <div key={sec.name} style={{ marginBottom: "var(--space-3)" }}>
+              <div className="fp-section-divider">{sec.name}</div>
+              {sec.forms.map((f) => (
+                <div key={f.id} style={{ display: "flex", alignItems: "center", gap: "var(--space-3)", padding: "var(--space-2) 0", borderBottom: "1px solid var(--color-border-subtle)" }}>
+                  <label className="set-toggle" style={{ flexShrink: 0 }}><input type="checkbox" checked={sigForms.has(f.id)} onChange={() => { toggleSig(f.id); onToast("Signature requirement updated"); }} /><span className="set-toggle-slider"></span></label>
+                  <div style={{ fontSize: "var(--text-sm)", fontWeight: 500 }}>{f.name}</div>
+                </div>
+              ))}
+            </div>
+          ))}
+        </div>
+      </div>
+
+      {/* ── Card 3: Audit trail ── */}
+      <div className="settings-card">
+        <div className="settings-card-header"><div><div className="settings-card-title">Audit trail</div><div className="settings-card-desc">21 CFR Part 11 audit trail configuration</div></div></div>
+        <div className="settings-card-body">
+          {/* Row 1 — always on, locked */}
+          <div style={{ display: "flex", alignItems: "flex-start", gap: "var(--space-3)", padding: "var(--space-3) 0", borderBottom: "1px solid var(--color-border-subtle)" }}>
+            <label className="set-toggle" style={{ flexShrink: 0, marginTop: 1, opacity: 0.65, cursor: "not-allowed" }} title="Regulatory requirement — cannot be disabled"><input type="checkbox" checked disabled readOnly /><span className="set-toggle-slider"></span></label>
+            <div style={{ flex: 1 }}>
+              <div className="settings-row-label" style={{ display: "flex", alignItems: "center", gap: 6 }}>Audit trail enabled <i className="ti ti-lock" style={{ fontSize: 12, color: "var(--color-text-tertiary)" }}></i></div>
+              <div className="settings-row-desc">Every field change is logged with timestamp, user, and reason for change. Cannot be disabled.</div>
+            </div>
+          </div>
+          <ToggleRow on={reasonSignedLocked} onToggle={() => { setReasonSignedLocked(!reasonSignedLocked); onToast("Setting saved"); }} label="Reason for change required on edits to signed/locked records" desc="A change reason is captured for any edit after a record is signed or locked." />
+          {/* Row 3 — read-only timestamp format */}
+          <div className="settings-row">
+            <div><div className="settings-row-label">Timestamp format</div><div className="settings-row-desc">Regulatory requirement — not editable</div></div>
+            <div className="settings-row-value"><span className="set-badge set-badge-blue">UTC (Coordinated Universal Time)</span></div>
+          </div>
+          <ToggleRow on={reasonAllEdits} onToggle={() => { setReasonAllEdits(!reasonAllEdits); onToast("Setting saved"); }} label="Require reason for change on all field edits (not just post-signature)" desc="When OFF, reason is only required on edits after signature/lock." />
+        </div>
+      </div>
+    </>
+  );
+}
+
 export default function StudySettingsPage() {
   const { study } = useShell();
   const { dataset } = useStudySession();
@@ -1630,6 +1735,8 @@ export default function StudySettingsPage() {
           <RolesSection key={study.code} onToast={setToast} />
         ) : section === "preferences" ? (
           <StudyPreferencesSection key={study.code} studyId={study.id} dataset={dataset} onToast={setToast} />
+        ) : section === "audit" ? (
+          <AuditSignaturesSection key={study.code} studyId={study.id} dataset={dataset} onToast={setToast} />
         ) : (
           <>
             <div className="section-header">
