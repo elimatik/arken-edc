@@ -979,6 +979,21 @@ const ROLE_SEED: RoleState[] = [
   { key: "Admin", preset: "Admin", name: "Admin", code: "AD", desc: "Administrator — full system access", color: "var(--slate-600)", bg: "var(--slate-50)", tasks: ["data_entry", "monitoring", "study_management", "reporting"], study: ["export_data", "manage_sites", "manage_users", "lock_unlock_study"], allSites: true, readOnly: false, canManage: ["CRC", "CRA", "PI", "DM"] },
 ];
 const toggleArr = (arr: string[], v: string) => (arr.includes(v) ? arr.filter((x) => x !== v) : [...arr, v]);
+// Task → permission cascade (ported from 25-settings.html onTaskChange/buildRoleFromTasks).
+// Checking a task recomputes the role's form-permission defaults + study access as the
+// UNION across all currently-checked tasks (full overwrite, not a partial merge).
+const TASK_FORM_PERMS: Record<string, Partial<Record<Perm, boolean>>> = {
+  data_entry: { view: true, edit: true, query: true },
+  monitoring: { view: true, review: true, query: true },
+  study_management: { view: true, review: true, finalize: true },
+  reporting: { view: true },
+};
+const TASK_STUDY_PERMS: Record<string, Record<string, boolean>> = {
+  data_entry: {},
+  monitoring: { export_data: true },
+  study_management: { export_data: true, manage_sites: true, lock_unlock_study: true },
+  reporting: { export_data: true },
+};
 
 function RolesSection({ onToast }: { onToast: (m: string) => void }) {
   const [roles, setRoles] = useState<RoleState[]>(() => ROLE_SEED.map((r) => ({ ...r })));
@@ -990,6 +1005,15 @@ function RolesSection({ onToast }: { onToast: (m: string) => void }) {
 
   const toggleRow = (k: string) => setExpanded((s) => { const n = new Set(s); if (n.has(k)) n.delete(k); else n.add(k); return n; });
   const patchRole = (key: string, fn: (r: RoleState) => RoleState) => setRoles((rs) => rs.map((r) => (r.key === key ? fn(r) : r)));
+  // Toggling a task cascades to Form permissions (shared store) + Study access — full
+  // recompute as the union of all currently-checked tasks.
+  function onTaskChange(r: RoleState, taskKey: string) {
+    const tasks = toggleArr(r.tasks, taskKey);
+    const formPerms = FORM_PERMS.filter((p) => tasks.some((t) => TASK_FORM_PERMS[t]?.[p]));
+    const study = STUDY_ACCESS.map((s) => s.key).filter((k) => tasks.some((t) => TASK_STUDY_PERMS[t]?.[k]));
+    patchRole(r.key, (x) => ({ ...x, tasks, study }));
+    setFormPermDefaultsFor(r.key, formPerms);
+  }
   const Toggle = ({ on, onChange }: { on: boolean; onChange: () => void }) => (
     <label className="set-toggle" style={{ flexShrink: 0 }}><input type="checkbox" checked={on} onChange={onChange} /><span className="set-toggle-slider"></span></label>
   );
@@ -1056,7 +1080,7 @@ function RolesSection({ onToast }: { onToast: (m: string) => void }) {
                         const on = r.tasks.includes(t.key);
                         return (
                           <label key={t.key} className={`rcs-pill${on ? " checked" : ""}`} style={{ flex: "0 0 auto" }}>
-                            <input type="checkbox" className="perm-cb" checked={on} onChange={() => patchRole(r.key, (x) => ({ ...x, tasks: toggleArr(x.tasks, t.key) }))} />
+                            <input type="checkbox" className="perm-cb" checked={on} onChange={() => onTaskChange(r, t.key)} />
                             <div className="rcs-pill-title">{t.label}</div>
                           </label>
                         );
@@ -1107,10 +1131,10 @@ function RolesSection({ onToast }: { onToast: (m: string) => void }) {
                   <>
                     <hr className="rcs-divider" />
                     <div className="rcs-section-title">User management <span className="rcs-section-hint">Which roles this role can add/edit users for</span></div>
-                    <div style={{ display: "flex", gap: "var(--space-2)", flexWrap: "wrap" }}>
+                    <div style={{ display: "flex", gap: "var(--space-5)", flexWrap: "wrap" }}>
                       {roles.filter((x) => x.key !== r.key).map((x) => {
                         const on = (r.canManage ?? []).includes(x.name);
-                        return <label key={x.key} className={`rcs-chip-pill${on ? " checked" : ""}`}><input type="checkbox" className="perm-cb" checked={on} onChange={() => patchRole(r.key, (cur) => ({ ...cur, canManage: toggleArr(cur.canManage ?? [], x.name) }))} /> {x.name}</label>;
+                        return <label key={x.key} style={{ display: "inline-flex", alignItems: "center", gap: 6, fontSize: "var(--text-sm)", cursor: "pointer" }}><input type="checkbox" className="perm-cb" checked={on} onChange={() => patchRole(r.key, (cur) => ({ ...cur, canManage: toggleArr(cur.canManage ?? [], x.name) }))} /> {x.name}</label>;
                       })}
                     </div>
                   </>
