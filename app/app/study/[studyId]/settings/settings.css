@@ -151,3 +151,8 @@
 .rcs-pill-desc { font-size: 10px; color: var(--color-text-tertiary); }
 .rcs-chip-pill { display: inline-flex; align-items: center; gap: 6px; padding: 4px var(--space-3); border: 1px solid var(--color-border); border-radius: var(--radius-full); font-size: var(--text-sm); cursor: pointer; }
 .rcs-chip-pill.checked { border-color: var(--blue-600); }
+
+/* Study preferences — data-save-mode selectable cards */
+.pref-save-card { flex: 1; min-width: 240px; padding: var(--space-4); border: 2px solid var(--color-border); border-radius: var(--radius-lg); background: var(--color-surface); cursor: pointer; transition: border-color var(--duration-fast, 120ms), background var(--duration-fast, 120ms); }
+.pref-save-card:hover { border-color: var(--blue-200); }
+.pref-save-card.selected { border-color: var(--blue-600); background: var(--blue-50); }

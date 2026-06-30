@@ -10,7 +10,7 @@
 // Display-only for the portfolio — edits surface autosave toasts, not persisted.
 // ════════════════════════════════════════════════════════════════════════════
 
-import { Fragment, useEffect, useMemo, useState } from "react";
+import { Fragment, useEffect, useMemo, useState, type CSSProperties } from "react";
 import { useRouter } from "next/navigation";
 import { useShell } from "@/components/shell/ShellContext";
 import { useStudySession } from "@/lib/session-store/SessionStore";
@@ -1170,6 +1170,181 @@ function RolesSection({ onToast }: { onToast: (m: string) => void }) {
   );
 }
 
+// ─── Study preferences section (ported from 25-settings.html, minus Protocol) ─
+interface SubjectCol { id: string; label: string; show: boolean; removable: boolean; hiddenRoles: string[] }
+const PREF_CHANGE_REASONS = [
+  "Data entry error", "Transcription error from source document", "Protocol deviation correction",
+  "Clarification from investigator", "Lab result correction", "Unit of measure error", "Date/time correction",
+];
+const PREF_QUERY_TEMPLATES = [
+  "Please clarify this value — it appears inconsistent with other records for this subject.",
+  "This value is outside the protocol-defined range. Please confirm or correct.",
+  "Missing data: this field is required for this visit. Please complete.",
+  "Please confirm the date — it appears to conflict with the visit schedule.",
+  "Adverse event severity does not match the narrative description. Please reconcile.",
+];
+const PREF_SUBJECT_COLS: { id: string; label: string; show: boolean; removable: boolean }[] = [
+  { id: "subject_id", label: "Subject ID", show: true, removable: false },
+  { id: "age", label: "Age", show: true, removable: true },
+  { id: "weight", label: "Weight", show: true, removable: true },
+  { id: "status", label: "Status", show: true, removable: true },
+  { id: "group", label: "Group / Arm", show: true, removable: true },
+  { id: "last_visit", label: "Last visit", show: true, removable: true },
+  { id: "forms", label: "Forms", show: false, removable: true },
+  { id: "queries", label: "Queries", show: false, removable: true },
+  { id: "overdue", label: "Overdue", show: false, removable: true },
+];
+const SAVE_MODES: { key: "field" | "form"; title: string; desc: string }[] = [
+  { key: "field", title: "Field-level autosave", desc: "Saves on blur or change. No submit button. Immediate feedback. Reason for change triggered per field." },
+  { key: "form", title: "Form-level submit", desc: "All fields saved together on submit. CRC reviews before committing. Best for longer visit forms." },
+];
+
+function StudyPreferencesSection({ studyId, dataset, onToast }: { studyId: string; dataset: Dataset; onToast: (m: string) => void }) {
+  const [saveMode, setSaveMode] = useState<"field" | "form">("field");
+  const [reasons, setReasons] = useState<string[]>(() => [...PREF_CHANGE_REASONS]);
+  const [templates, setTemplates] = useState<string[]>(() => [...PREF_QUERY_TEMPLATES]);
+  const [cols, setCols] = useState<SubjectCol[]>(() => PREF_SUBJECT_COLS.map((c) => ({ ...c, hiddenRoles: [] })));
+
+  // Card 4 "Add column from form field" — real forms (that carry fields) + their fields.
+  const prefForms = useMemo(() => {
+    const withFields = new Set(dataset.formFields.map((f) => f.form_id));
+    return dataset.forms.filter((f) => f.study_id === studyId && f.scope !== "barn" && withFields.has(f.id)).slice().sort((a, b) => a.sequence - b.sequence);
+  }, [dataset.forms, dataset.formFields, studyId]);
+  const [addLabel, setAddLabel] = useState("");
+  const [addFormId, setAddFormId] = useState(() => prefForms[0]?.id ?? "");
+  const addFields = useMemo(() => dataset.formFields.filter((f) => f.form_id === addFormId).slice().sort((a, b) => a.sequence - b.sequence), [dataset.formFields, addFormId]);
+  const [addFieldId, setAddFieldId] = useState(() => addFields[0]?.id ?? "");
+  function changeForm(fid: string) {
+    setAddFormId(fid);
+    const ff = dataset.formFields.filter((f) => f.form_id === fid).slice().sort((a, b) => a.sequence - b.sequence);
+    setAddFieldId(ff[0]?.id ?? "");
+  }
+  function addColumn() {
+    const form = prefForms.find((f) => f.id === addFormId);
+    const field = addFields.find((f) => f.id === addFieldId);
+    if (!form || !field) { onToast("Select a form and a field"); return; }
+    const label = addLabel.trim() || `${field.label || field.code} (${form.name})`;
+    setCols((c) => [...c, { id: `col-${crypto.randomUUID()}`, label, show: true, removable: true, hiddenRoles: [] }]);
+    setAddLabel("");
+    onToast("Column added");
+  }
+
+  const rowStyle: CSSProperties = { display: "flex", alignItems: "center", gap: "var(--space-3)", padding: "var(--space-2) 0", borderBottom: "1px solid var(--color-border-subtle)" };
+  const th: CSSProperties = { padding: "var(--space-2) var(--space-3)", fontSize: 10, fontWeight: 500, textTransform: "uppercase", letterSpacing: "var(--tracking-caps)", color: "var(--color-text-tertiary)", borderBottom: "1px solid var(--color-border)" };
+  const td: CSSProperties = { padding: "var(--space-2) var(--space-3)", borderBottom: "1px solid var(--color-border-subtle)" };
+
+  return (
+    <>
+      <div className="section-header">
+        <h1 className="set-section-title">Study preferences</h1>
+        <p className="section-desc">Behaviour and display preferences for this study</p>
+      </div>
+
+      {/* ── Card 1: Data save mode ── */}
+      <div className="settings-card">
+        <div className="settings-card-header"><div><div className="settings-card-title">Data save mode</div><div className="settings-card-desc">How form data is saved by coordinators</div></div></div>
+        <div className="settings-card-body">
+          <div style={{ display: "flex", gap: "var(--space-3)", flexWrap: "wrap" }}>
+            {SAVE_MODES.map((m) => (
+              <div key={m.key} className={`pref-save-card${saveMode === m.key ? " selected" : ""}`} onClick={() => { setSaveMode(m.key); onToast("Data save mode updated"); }} role="radio" aria-checked={saveMode === m.key} tabIndex={0}>
+                <div style={{ display: "flex", alignItems: "center", gap: "var(--space-2)", marginBottom: 4 }}>
+                  <i className={`ti ti-${saveMode === m.key ? "circle-check-filled" : "circle"}`} style={{ fontSize: 16, color: saveMode === m.key ? "var(--blue-600)" : "var(--color-text-placeholder)" }}></i>
+                  <span style={{ fontSize: "var(--text-sm)", fontWeight: 600 }}>{m.title}</span>
+                </div>
+                <div style={{ fontSize: "var(--text-xs)", color: "var(--color-text-tertiary)", lineHeight: 1.5 }}>{m.desc}</div>
+              </div>
+            ))}
+          </div>
+        </div>
+      </div>
+
+      {/* ── Card 2: Predefined change reasons ── */}
+      <div className="settings-card">
+        <div className="settings-card-header">
+          <div><div className="settings-card-title">Predefined change reasons</div><div className="settings-card-desc">Coordinators pick from this list when editing previously saved data</div></div>
+          <button className="set-btn-secondary" type="button" onClick={() => setReasons((r) => [...r, "New change reason"])}><i className="ti ti-plus"></i> Add</button>
+        </div>
+        <div className="settings-card-body">
+          {reasons.length === 0 ? <div style={{ fontSize: "var(--text-sm)", color: "var(--color-text-placeholder)" }}>No change reasons defined.</div>
+            : reasons.map((r, i) => (
+              <div key={i} style={rowStyle}>
+                <i className="ti ti-grip-vertical" style={{ fontSize: 14, color: "var(--color-text-placeholder)", cursor: "grab", flexShrink: 0 }}></i>
+                <input className="set-input" style={{ height: 32 }} value={r} onChange={(e) => setReasons((arr) => arr.map((x, j) => (j === i ? e.target.value : x)))} onBlur={() => onToast("Change reason saved")} />
+                <button className="set-btn-icon" type="button" title="Remove" onClick={() => setReasons((arr) => arr.filter((_, j) => j !== i))}><i className="ti ti-trash" style={{ fontSize: 14 }}></i></button>
+              </div>
+            ))}
+        </div>
+      </div>
+
+      {/* ── Card 3: Predefined query templates ── */}
+      <div className="settings-card">
+        <div className="settings-card-header">
+          <div><div className="settings-card-title">Predefined query templates</div><div className="settings-card-desc">Standard query text CRAs and DMs can select when raising queries</div></div>
+          <button className="set-btn-secondary" type="button" onClick={() => setTemplates((t) => [...t, "New query template"])}><i className="ti ti-plus"></i> Add</button>
+        </div>
+        <div className="settings-card-body">
+          {templates.length === 0 ? <div style={{ fontSize: "var(--text-sm)", color: "var(--color-text-placeholder)" }}>No query templates defined.</div>
+            : templates.map((t, i) => (
+              <div key={i} style={rowStyle}>
+                <input className="set-input" style={{ height: 32 }} value={t} onChange={(e) => setTemplates((arr) => arr.map((x, j) => (j === i ? e.target.value : x)))} onBlur={() => onToast("Query template saved")} />
+                <button className="set-btn-icon" type="button" title="Remove" onClick={() => setTemplates((arr) => arr.filter((_, j) => j !== i))}><i className="ti ti-trash" style={{ fontSize: 14 }}></i></button>
+              </div>
+            ))}
+        </div>
+      </div>
+
+      {/* ── Card 4: Subject list columns ── */}
+      <div className="settings-card">
+        <div className="settings-card-header"><div><div className="settings-card-title">Subject list columns</div><div className="settings-card-desc">Choose which columns appear in the subject list table</div></div></div>
+        <div className="settings-card-body">
+          <div style={{ fontSize: "var(--text-xs)", color: "var(--color-text-tertiary)", marginBottom: "var(--space-3)" }}>Subject ID is always shown. Toggle other columns, set role visibility, or add custom columns from form fields.</div>
+          <table style={{ width: "100%", borderCollapse: "collapse", fontSize: "var(--text-sm)" }}>
+            <thead><tr>
+              <th style={{ ...th, textAlign: "left" }}>Column</th>
+              <th style={{ ...th, textAlign: "center" }}>Show</th>
+              <th style={{ ...th, textAlign: "left" }}>Hidden from roles</th>
+              <th style={th}></th>
+            </tr></thead>
+            <tbody>
+              {cols.map((col) => (
+                <tr key={col.id}>
+                  <td style={td}><span style={{ fontWeight: 500 }}>{col.label}</span>{!col.removable && <span style={{ fontSize: 10, color: "var(--color-text-placeholder)", marginLeft: 6 }}>Required</span>}</td>
+                  <td style={{ ...td, textAlign: "center" }}><input type="checkbox" style={{ accentColor: "var(--blue-600)" }} checked={col.show} disabled={!col.removable} onChange={() => setCols((c) => c.map((x) => (x.id === col.id ? { ...x, show: !x.show } : x)))} /></td>
+                  <td style={td}>
+                    {col.removable ? (
+                      <div style={{ display: "flex", gap: 4, flexWrap: "wrap" }}>
+                        {FP_ROLES.map((role) => {
+                          const on = col.hiddenRoles.includes(role);
+                          return (
+                            <label key={role} style={{ display: "inline-flex", alignItems: "center", gap: 4, fontSize: 10, cursor: "pointer", padding: "2px 6px", border: "1px solid var(--color-border)", borderRadius: "var(--radius-full)", background: "var(--color-page-bg)" }}>
+                              <input type="checkbox" style={{ width: 10, height: 10, accentColor: "var(--orange-600)" }} checked={on} onChange={() => setCols((c) => c.map((x) => (x.id === col.id ? { ...x, hiddenRoles: toggleArr(x.hiddenRoles, role) } : x)))} /> {role}
+                            </label>
+                          );
+                        })}
+                      </div>
+                    ) : <span style={{ color: "var(--color-text-placeholder)", fontSize: "var(--text-xs)" }}>—</span>}
+                  </td>
+                  <td style={{ ...td, textAlign: "right" }}>{col.removable && <button className="set-btn-icon" type="button" title="Remove" onClick={() => setCols((c) => c.filter((x) => x.id !== col.id))}><i className="ti ti-trash" style={{ fontSize: 13 }}></i></button>}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+
+          <div style={{ marginTop: "var(--space-4)", paddingTop: "var(--space-3)", borderTop: "1px solid var(--color-border-subtle)" }}>
+            <div style={{ fontSize: "var(--text-xs)", fontWeight: 500, textTransform: "uppercase", letterSpacing: "var(--tracking-caps)", color: "var(--color-text-tertiary)", marginBottom: "var(--space-3)" }}>Add column from form field</div>
+            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr auto", gap: "var(--space-3)", alignItems: "end" }}>
+              <div className="set-field"><div className="set-field-label">Column label</div><input className="set-input" placeholder="e.g. Weight" value={addLabel} onChange={(e) => setAddLabel(e.target.value)} /></div>
+              <div className="set-field"><div className="set-field-label">Form</div><select className="set-select" value={addFormId} onChange={(e) => changeForm(e.target.value)}>{prefForms.map((f) => <option key={f.id} value={f.id}>{f.name}</option>)}</select></div>
+              <div className="set-field"><div className="set-field-label">Field</div><select className="set-select" value={addFieldId} onChange={(e) => setAddFieldId(e.target.value)}>{addFields.map((f) => <option key={f.id} value={f.id}>{f.label || f.code}</option>)}</select></div>
+              <button className="set-btn-secondary" type="button" onClick={addColumn}><i className="ti ti-plus"></i> Add</button>
+            </div>
+          </div>
+        </div>
+      </div>
+    </>
+  );
+}
+
 export default function StudySettingsPage() {
   const { study } = useShell();
   const { dataset } = useStudySession();
@@ -1453,6 +1628,8 @@ export default function StudySettingsPage() {
           <FormPermissionsSection key={study.code} studyId={study.id} dataset={dataset} />
         ) : section === "roles" ? (
           <RolesSection key={study.code} onToast={setToast} />
+        ) : section === "preferences" ? (
+          <StudyPreferencesSection key={study.code} studyId={study.id} dataset={dataset} onToast={setToast} />
         ) : (
           <>
             <div className="section-header">
