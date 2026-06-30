@@ -10,7 +10,7 @@
 // Display-only for the portfolio — edits surface autosave toasts, not persisted.
 // ════════════════════════════════════════════════════════════════════════════
 
-import { useEffect, useMemo, useState } from "react";
+import { Fragment, useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import { useShell } from "@/components/shell/ShellContext";
 import { useStudySession } from "@/lib/session-store/SessionStore";
@@ -781,6 +781,170 @@ function ProtocolAmendmentsSection({ studyCode, studyId, dataset, onToast }: { s
   );
 }
 
+// ─── Form permissions section (ported from 25-settings.html) ─────────────────
+type FormRowT = Dataset["forms"][number];
+type Perm = "view" | "edit" | "sign" | "review" | "query" | "finalize";
+const FORM_PERMS: Perm[] = ["view", "edit", "sign", "review", "query", "finalize"];
+const PERM_LABEL: Record<Perm, string> = { view: "Can view", edit: "Can edit", sign: "Can sign", review: "Can review", query: "Can query", finalize: "Can finalize" };
+const PERM_SHORT: Record<Perm, string> = { view: "View", edit: "Edit", sign: "Sign", review: "Review", query: "Query", finalize: "Finalize" };
+const PERM_DESC: Record<Perm, string> = {
+  view: "Read form data and field values", edit: "Enter and modify field values", sign: "Apply electronic signature (PI level)",
+  review: "Mark records as reviewed (CRA/DM)", query: "Raise, respond to, and close queries", finalize: "Mark form as final — triggers lock workflow",
+};
+const FP_ROLES: Role[] = ["CRC", "CRA", "PI", "DM", "Admin"];
+// Default permissions per role (applied uniformly across the study's real forms).
+const ROLE_DEFAULTS: Record<string, Perm[]> = {
+  CRC: ["view", "edit", "query"],
+  CRA: ["view", "review", "query"],
+  PI: ["view", "edit", "sign", "query"],
+  DM: ["view", "review", "query", "finalize"],
+  Admin: ["view", "edit", "sign", "review", "query", "finalize"],
+};
+
+function FormPermissionsSection({ studyId, dataset, onToast }: { studyId: string; dataset: Dataset; onToast: (m: string) => void }) {
+  // Leaf forms (real CRFs) grouped by their section = top-level group-form name.
+  const { leaves, sections } = useMemo(() => {
+    const all = dataset.forms.filter((f) => f.study_id === studyId && f.scope !== "barn");
+    const byId = new Map(all.map((f) => [f.id, f]));
+    const parentIds = new Set(all.map((f) => f.parent_form_id).filter(Boolean) as string[]);
+    const rootName = (f: FormRowT) => { let cur = f; while (cur.parent_form_id && byId.get(cur.parent_form_id)) cur = byId.get(cur.parent_form_id)!; return cur.name; };
+    const lv = all.filter((f) => !parentIds.has(f.id) && !f.is_summary).slice().sort((a, b) => a.sequence - b.sequence);
+    const order: string[] = []; const map = new Map<string, FormRowT[]>();
+    for (const f of lv) { const sec = rootName(f); if (!map.has(sec)) { map.set(sec, []); order.push(sec); } map.get(sec)!.push(f); }
+    return { leaves: lv, sections: order.map((name) => ({ name, forms: map.get(name)! })) };
+  }, [dataset.forms, studyId]);
+
+  const key = (fid: string, role: string, p: Perm) => `${fid}|${role}|${p}`;
+  const [perms, setPerms] = useState<Set<string>>(() => {
+    const s = new Set<string>();
+    for (const f of leaves) for (const role of FP_ROLES) for (const p of ROLE_DEFAULTS[role] ?? []) s.add(key(f.id, role, p));
+    return s;
+  });
+  const has = (fid: string, role: string, p: Perm) => perms.has(key(fid, role, p));
+  const toggleOne = (fid: string, role: string, p: Perm) => setPerms((s) => { const n = new Set(s); const k = key(fid, role, p); if (n.has(k)) n.delete(k); else n.add(k); return n; });
+  const setColForm = (fid: string, p: Perm, on: boolean) => setPerms((s) => { const n = new Set(s); FP_ROLES.forEach((r) => (on ? n.add(key(fid, r, p)) : n.delete(key(fid, r, p)))); return n; });
+  const setColRole = (role: string, p: Perm, on: boolean) => setPerms((s) => { const n = new Set(s); leaves.forEach((f) => (on ? n.add(key(f.id, role, p)) : n.delete(key(f.id, role, p)))); return n; });
+
+  const [fpView, setFpView] = useState<"form" | "role">("form");
+  const [expanded, setExpanded] = useState<Set<string>>(new Set());
+  const switchView = (v: "form" | "role") => { setFpView(v); setExpanded(new Set()); };
+  const toggleRow = (id: string) => setExpanded((s) => { const n = new Set(s); if (n.has(id)) n.delete(id); else n.add(id); return n; });
+  const rowIds = fpView === "form" ? leaves.map((f) => f.id) : (FP_ROLES as string[]);
+  const allExpanded = rowIds.length > 0 && rowIds.every((id) => expanded.has(id));
+  const toggleExpandAll = () => setExpanded(allExpanded ? new Set() : new Set(rowIds));
+
+  // Column header select-all checkbox (by-form: across roles · by-role: across forms).
+  const colCb = (checked: boolean, onChange: (on: boolean) => void, label: string, desc: string) => (
+    <th key={label} title={desc}>
+      <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 3 }}>
+        <span>{label}</span>
+        <input type="checkbox" className="perm-cb" checked={checked} onChange={(e) => onChange(e.target.checked)} title={`Toggle ${label} for all`} />
+      </div>
+    </th>
+  );
+
+  return (
+    <>
+      <div className="section-header">
+        <h1 className="set-section-title">Form permissions</h1>
+        <p className="section-desc">Control what each role can do on each form</p>
+      </div>
+
+      {/* Toolbar */}
+      <div style={{ display: "flex", alignItems: "center", gap: "var(--space-3)", marginBottom: "var(--space-4)" }}>
+        <div style={{ display: "flex", border: "1px solid var(--color-border)", borderRadius: "var(--radius-md)", overflow: "hidden", flexShrink: 0 }}>
+          {([["form", "By form", "file-text"], ["role", "By role", "users"]] as const).map(([v, label, icon]) => (
+            <button key={v} type="button" onClick={() => switchView(v)}
+              style={{ display: "inline-flex", alignItems: "center", gap: 5, height: 28, padding: "0 var(--space-3)", fontSize: "var(--text-xs)", fontWeight: 500, fontFamily: "var(--font-sans)", border: "none", cursor: "pointer", background: fpView === v ? "var(--color-cta-bg)" : "var(--color-surface)", color: fpView === v ? "#fff" : "var(--color-text-secondary)" }}>
+              <i className={`ti ti-${icon}`} style={{ fontSize: 12 }}></i> {label}
+            </button>
+          ))}
+        </div>
+        <div style={{ fontSize: "var(--text-xs)", color: "var(--color-text-tertiary)" }}>{fpView === "form" ? "Expand a form to see which roles have access" : "Expand a role to see its permissions across all forms"}</div>
+        <div style={{ marginLeft: "auto", display: "flex", gap: "var(--space-2)" }}>
+          <button className="set-btn-secondary" style={{ height: 28, fontSize: "var(--text-xs)" }} type="button" onClick={toggleExpandAll}><i className={`ti ti-arrows-${allExpanded ? "minimize" : "maximize"}`}></i> {allExpanded ? "Collapse all" : "Expand all"}</button>
+          <button className="set-btn-secondary" style={{ height: 28, fontSize: "var(--text-xs)" }} type="button" onClick={() => onToast("AI grouping coming soon")}><i className="ti ti-sparkles" style={{ color: "var(--purple-600)" }}></i> Auto-group forms</button>
+        </div>
+      </div>
+
+      {/* By form */}
+      {fpView === "form" ? (
+        sections.map((sec) => (
+          <div key={sec.name} style={{ marginBottom: "var(--space-4)" }}>
+            <div className="fp-section-divider">{sec.name}</div>
+            {sec.forms.map((f) => {
+              const open = expanded.has(f.id);
+              const anyPerms = FORM_PERMS.filter((p) => FP_ROLES.some((r) => has(f.id, r, p)));
+              return (
+                <div key={f.id} className="settings-card" style={{ marginBottom: "var(--space-2)" }}>
+                  <button type="button" className="fp-row-head" onClick={() => toggleRow(f.id)}>
+                    <i className={`ti ti-chevron-${open ? "down" : "right"}`} style={{ fontSize: 14, color: "var(--color-text-tertiary)" }}></i>
+                    <div style={{ flex: 1, minWidth: 0, textAlign: "left" }}>
+                      <div style={{ fontSize: "var(--text-sm)", fontWeight: 500 }}>{f.name}</div>
+                      <div style={{ fontSize: "var(--text-xs)", color: "var(--color-text-tertiary)" }}>{sec.name}</div>
+                    </div>
+                    <div style={{ display: "flex", gap: 4, flexWrap: "wrap", justifyContent: "flex-end" }}>
+                      {anyPerms.length === 0 ? <span style={{ fontSize: "var(--text-xs)", color: "var(--color-text-placeholder)" }}>No access</span>
+                        : anyPerms.map((p) => <span key={p} className="set-badge set-badge-slate">{PERM_SHORT[p]}</span>)}
+                    </div>
+                  </button>
+                  {open && (
+                    <div style={{ borderTop: "1px solid var(--color-border)", overflowX: "auto" }}>
+                      <table className="perm-matrix">
+                        <thead><tr><th>Role</th>{FORM_PERMS.map((p) => colCb(FP_ROLES.every((r) => has(f.id, r, p)), (on) => setColForm(f.id, p, on), PERM_LABEL[p], PERM_DESC[p]))}</tr></thead>
+                        <tbody>{FP_ROLES.map((r) => (
+                          <tr key={r}><td>{r}</td>{FORM_PERMS.map((p) => <td key={p}><input type="checkbox" className="perm-cb" checked={has(f.id, r, p)} onChange={() => toggleOne(f.id, r, p)} /></td>)}</tr>
+                        ))}</tbody>
+                      </table>
+                    </div>
+                  )}
+                </div>
+              );
+            })}
+          </div>
+        ))
+      ) : (
+        /* By role */
+        FP_ROLES.map((role) => {
+          const open = expanded.has(role);
+          const accessible = leaves.filter((f) => FORM_PERMS.some((p) => has(f.id, role, p))).length;
+          const rolePerms = FORM_PERMS.filter((p) => leaves.some((f) => has(f.id, role, p)));
+          return (
+            <div key={role} className="settings-card" style={{ marginBottom: "var(--space-2)" }}>
+              <button type="button" className="fp-row-head" onClick={() => toggleRow(role)}>
+                <i className={`ti ti-chevron-${open ? "down" : "right"}`} style={{ fontSize: 14, color: "var(--color-text-tertiary)" }}></i>
+                <div style={{ flex: 1, minWidth: 0, textAlign: "left" }}>
+                  <div style={{ fontSize: "var(--text-sm)", fontWeight: 500 }}>{role}</div>
+                  <div style={{ fontSize: "var(--text-xs)", color: "var(--color-text-tertiary)" }}>{accessible} of {leaves.length} forms accessible</div>
+                </div>
+                <div style={{ display: "flex", gap: 4, flexWrap: "wrap", justifyContent: "flex-end" }}>
+                  {rolePerms.length === 0 ? <span style={{ fontSize: "var(--text-xs)", color: "var(--color-text-placeholder)" }}>No access</span>
+                    : rolePerms.map((p) => <span key={p} className="set-badge set-badge-slate">{PERM_SHORT[p]}</span>)}
+                </div>
+              </button>
+              {open && (
+                <div style={{ borderTop: "1px solid var(--color-border)", overflowX: "auto" }}>
+                  <table className="perm-matrix">
+                    <thead><tr><th>Form</th>{FORM_PERMS.map((p) => colCb(leaves.every((f) => has(f.id, role, p)), (on) => setColRole(role, p, on), PERM_LABEL[p], PERM_DESC[p]))}</tr></thead>
+                    <tbody>{sections.map((sec) => (
+                      <Fragment key={sec.name}>
+                        <tr><td colSpan={FORM_PERMS.length + 1} className="fp-matrix-section">{sec.name}</td></tr>
+                        {sec.forms.map((f) => (
+                          <tr key={f.id}><td>{f.name}</td>{FORM_PERMS.map((p) => <td key={p}><input type="checkbox" className="perm-cb" checked={has(f.id, role, p)} onChange={() => toggleOne(f.id, role, p)} /></td>)}</tr>
+                        ))}
+                      </Fragment>
+                    ))}</tbody>
+                  </table>
+                </div>
+              )}
+            </div>
+          );
+        })
+      )}
+    </>
+  );
+}
+
 export default function StudySettingsPage() {
   const { study } = useShell();
   const { dataset } = useStudySession();
@@ -1060,6 +1224,8 @@ export default function StudySettingsPage() {
           <StudySettingsSection key={study.code} studyCode={study.code} onToast={setToast} />
         ) : section === "protocol" ? (
           <ProtocolAmendmentsSection key={study.code} studyCode={study.code} studyId={study.id} dataset={dataset} onToast={setToast} />
+        ) : section === "formperm" ? (
+          <FormPermissionsSection key={study.code} studyId={study.id} dataset={dataset} onToast={setToast} />
         ) : (
           <>
             <div className="section-header">

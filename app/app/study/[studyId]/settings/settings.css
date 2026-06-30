@@ -128,3 +128,9 @@
 .perm-matrix tr:last-child td { border-bottom: none; }
 .perm-matrix tr:hover td { background: var(--color-hover-bg); }
 .perm-cb { width: 14px; height: 14px; accent-color: var(--blue-600); cursor: pointer; }
+
+/* Form permissions — expandable rows + section dividers */
+.fp-section-divider { font-size: var(--text-xs); font-weight: 500; text-transform: uppercase; letter-spacing: var(--tracking-caps); color: var(--color-text-tertiary); padding: 0 0 var(--space-2); margin-bottom: var(--space-2); border-bottom: 1px solid var(--color-border-subtle); }
+.fp-row-head { display: flex; align-items: center; gap: var(--space-3); width: 100%; padding: var(--space-3) var(--space-4); background: none; border: none; cursor: pointer; text-align: left; }
+.fp-row-head:hover { background: var(--color-hover-bg); }
+.perm-matrix td.fp-matrix-section { background: var(--color-page-bg); font-size: 10px; font-weight: 700; text-transform: uppercase; letter-spacing: var(--tracking-caps); color: var(--color-text-secondary); padding: var(--space-2) var(--space-4); }
