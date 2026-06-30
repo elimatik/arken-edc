@@ -29,7 +29,7 @@ interface NavItem { key: string; label: string; icon: string }
 const NAV_GROUPS: { title: string; items: NavItem[] }[] = [
   { title: "Study", items: [{ key: "study", label: "Study settings", icon: "clipboard-list" }, { key: "preferences", label: "Study preferences", icon: "adjustments" }] },
   { title: "Access", items: [{ key: "roles", label: "Roles", icon: "shield-check" }, { key: "formperm", label: "Form permissions", icon: "forms" }] },
-  { title: "Protocol", items: [{ key: "randomization", label: "Randomization", icon: "arrows-shuffle" }] },
+  { title: "Protocol", items: [{ key: "randomization", label: "Randomization", icon: "arrows-shuffle" }, { key: "protocol", label: "Protocol & Amendments", icon: "file-certificate" }] },
   { title: "System", items: [{ key: "inventory", label: "Inventory", icon: "flask" }, { key: "audit", label: "Audit & Signatures", icon: "writing" }, { key: "billing", label: "Billing", icon: "receipt-2" }] },
 ];
 const NAV_ITEMS: NavItem[] = NAV_GROUPS.flatMap((g) => g.items);
@@ -607,6 +607,158 @@ function StudySettingsSection({ studyCode, onToast }: { studyCode: string; onToa
   );
 }
 
+// ─── Protocol & Amendments section (ported from 25-settings.html) ────────────
+interface Amend { id: string; version: string; date: string; summary: string; impact: string; structureChange?: boolean }
+// One seeded study-level amendment per study (per-study data, keyed by code).
+function seedStudyAmendments(code: string): Amend[] {
+  if (code === "CA-0801") return [{ id: "A01", version: "v2.1", date: "2026-01-10", summary: "Added CADESI-04 scoring requirement at all visits", impact: "No impact — ongoing subjects unaffected" }];
+  if (code === "PH-2401") return [{ id: "A01", version: "v1.0", date: "2026-04-01", summary: "Initial protocol approval", impact: "No impact — study initiation" }];
+  return [{ id: "A01", version: "v1.0", date: "2026-03-01", summary: "Initial protocol approval", impact: "No impact — study initiation" }]; // BR-2502
+}
+// A single amendment / addendum row.
+function AmendRow({ a }: { a: Amend }) {
+  return (
+    <div style={{ display: "flex", alignItems: "flex-start", gap: "var(--space-3)", padding: "var(--space-3) 0", borderBottom: "1px solid var(--color-border-subtle)" }}>
+      <span className="set-badge set-badge-purple" style={{ fontFamily: "var(--font-mono)", flexShrink: 0, marginTop: 1 }}>{a.version}</span>
+      <div style={{ flex: 1, minWidth: 0 }}>
+        <div style={{ fontSize: "var(--text-xs)", color: "var(--color-text-tertiary)", fontFamily: "var(--font-mono)", marginBottom: 2 }}>{a.date}</div>
+        <div style={{ fontSize: "var(--text-sm)", color: "var(--color-text-primary)" }}>{a.summary}{a.structureChange && <span className="set-badge set-badge-amber" style={{ marginLeft: 6 }}>Structure change</span>}</div>
+        <div style={{ fontSize: "var(--text-xs)", color: "var(--color-text-tertiary)", marginTop: 3, display: "flex", alignItems: "center", gap: 4 }}><i className="ti ti-info-circle" style={{ fontSize: 11 }}></i>{a.impact}</div>
+      </div>
+    </div>
+  );
+}
+
+function ProtocolAmendmentsSection({ studyCode, studyId, dataset, onToast }: { studyCode: string; studyId: string; dataset: Dataset; onToast: (m: string) => void }) {
+  const meta = studyMeta(studyCode);
+  // Current protocol — read version + effective date from the SAME source as Study
+  // Settings Card 2 (studyMeta.protoVersion, format "v1.0 — 2026-03-01") so they stay in sync.
+  const [vPart, dPart] = meta.protoVersion.split("—").map((s) => s.trim());
+  const protoVersion = vPart || meta.protoVersion;
+  const effectiveDate = dPart || "—";
+
+  const sites = useMemo(() => dataset.sites.filter((s) => s.study_id === studyId).slice().sort((a, b) => a.code.localeCompare(b.code)), [dataset.sites, studyId]);
+  const subjectsBySite = useMemo(() => {
+    const m: Record<string, number> = {};
+    dataset.subjects.filter((s) => s.study_id === studyId).forEach((s) => { if (s.site_id) m[s.site_id] = (m[s.site_id] ?? 0) + 1; });
+    return m;
+  }, [dataset.subjects, studyId]);
+
+  const [amendments, setAmendments] = useState<Amend[]>(() => seedStudyAmendments(studyCode));
+  const [siteAmend, setSiteAmend] = useState<Record<string, Amend[]>>(() =>
+    studyCode === "BR-2502" && sites[0]
+      ? { [sites[0].id]: [{ id: "SA01", version: "v1.0a", date: "2026-04-20", summary: "Site-specific addendum: additional welfare checks for heifer subjects", impact: "No impact — ongoing subjects unaffected" }] }
+      : {});
+  const [expanded, setExpanded] = useState<Record<string, boolean>>(() => (studyCode === "BR-2502" && sites[0] ? { [sites[0].id]: true } : {}));
+
+  // Add-amendment / addendum modal (target = null → study-level; else a site id).
+  const [modalOpen, setModalOpen] = useState(false);
+  const [target, setTarget] = useState<string | null>(null);
+  const [mVer, setMVer] = useState(""); const [mDate, setMDate] = useState(""); const [mSum, setMSum] = useState(""); const [mImpact, setMImpact] = useState(""); const [mStruct, setMStruct] = useState(false);
+  function openModal(siteId: string | null) { setTarget(siteId); setMVer(""); setMDate(""); setMSum(""); setMImpact(""); setMStruct(false); setModalOpen(true); }
+  function saveAmend() {
+    if (!mVer.trim() || !mSum.trim()) { onToast("Version and summary are required"); return; }
+    const a: Amend = { id: `am-${crypto.randomUUID()}`, version: mVer.trim(), date: mDate.trim() || "—", summary: mSum.trim(), impact: mImpact.trim() || "—", structureChange: mStruct };
+    if (target) { const sid = target; setSiteAmend((m) => ({ ...m, [sid]: [...(m[sid] ?? []), a] })); setExpanded((e) => ({ ...e, [sid]: true })); }
+    else setAmendments((p) => [...p, a]);
+    setModalOpen(false);
+    onToast("Amendment saved");
+  }
+
+  return (
+    <>
+      <div className="section-header">
+        <h1 className="set-section-title">Protocol &amp; Amendments</h1>
+        <p className="section-desc">Protocol version, study-level amendments, and site-level addenda for {studyCode}</p>
+      </div>
+
+      {/* ── Card 1: Current protocol ── */}
+      <div className="settings-card">
+        <div className="settings-card-header"><div><div className="settings-card-title">Current protocol</div></div></div>
+        <div className="settings-card-body">
+          <div className="settings-row"><div><div className="settings-row-label">Protocol version</div></div><div className="settings-row-value"><span className="set-badge set-badge-slate" style={{ fontFamily: "var(--font-mono)", fontWeight: 500 }}>{protoVersion}</span></div></div>
+          <div className="settings-row"><div><div className="settings-row-label">Effective date</div></div><div className="settings-row-value"><span style={{ fontFamily: "var(--font-mono)", fontSize: "var(--text-sm)" }}>{effectiveDate}</span></div></div>
+          <div className="settings-row" style={{ borderBottom: "none", paddingBottom: 0 }}>
+            <div><div className="settings-row-label">Protocol document</div><div className="settings-row-desc">Current approved protocol (PDF)</div></div>
+            <div className="settings-row-value"><button className="set-btn-secondary" type="button" onClick={() => onToast("Protocol document download is disabled in the demo.")}><i className="ti ti-download"></i> Download</button></div>
+          </div>
+        </div>
+      </div>
+
+      {/* ── Card 2: Study-level amendments ── */}
+      <div className="settings-card">
+        <div className="settings-card-header">
+          <div><div className="settings-card-title">Study-level amendments</div><div className="settings-card-desc">Protocol amendments applied across the whole study</div></div>
+          <button className="set-btn-secondary" type="button" onClick={() => openModal(null)}><i className="ti ti-plus"></i> Add amendment</button>
+        </div>
+        <div className="settings-card-body">
+          {amendments.length === 0
+            ? <div style={{ fontSize: "var(--text-sm)", color: "var(--color-text-placeholder)" }}>No amendments recorded.</div>
+            : amendments.map((a) => <AmendRow key={a.id} a={a} />)}
+        </div>
+      </div>
+
+      {/* ── Card 3: Site-level addenda ── */}
+      <div className="settings-card">
+        <div className="settings-card-header"><div><div className="settings-card-title">Site-level addenda</div><div className="settings-card-desc">Amendments scoped to a single site</div></div></div>
+        <div className="settings-card-body">
+          {sites.length === 0
+            ? <div style={{ fontSize: "var(--text-sm)", color: "var(--color-text-placeholder)" }}>No sites configured.</div>
+            : sites.map((s) => {
+              const open = !!expanded[s.id];
+              const list = siteAmend[s.id] ?? [];
+              return (
+                <div key={s.id} className="settings-card" style={{ marginBottom: "var(--space-3)" }}>
+                  <div className="settings-card-header">
+                    <div><div className="settings-card-title">{s.name}</div><div className="settings-card-desc">{s.principal_investigator ?? "—"} · {subjectsBySite[s.id] ?? 0} enrolled</div></div>
+                    <button className="set-btn-icon" type="button" title={open ? "Collapse" : "Expand"} onClick={() => setExpanded((e) => ({ ...e, [s.id]: !open }))}><i className={`ti ti-chevron-${open ? "up" : "down"}`} style={{ fontSize: 14 }}></i></button>
+                  </div>
+                  {open && (
+                    <div style={{ borderTop: "1px solid var(--color-border)", padding: "var(--space-4)" }}>
+                      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: "var(--space-3)" }}>
+                        <div style={{ fontSize: "var(--text-xs)", fontWeight: 500, textTransform: "uppercase", letterSpacing: "var(--tracking-caps)", color: "var(--color-text-tertiary)" }}>Addenda for {s.name}</div>
+                        <button className="set-btn-secondary" style={{ height: 28, fontSize: "var(--text-xs)" }} type="button" onClick={() => openModal(s.id)}><i className="ti ti-plus"></i> Add addendum</button>
+                      </div>
+                      {list.length === 0
+                        ? <div style={{ fontSize: "var(--text-sm)", color: "var(--color-text-placeholder)" }}>No site-specific amendments.</div>
+                        : list.map((a) => <AmendRow key={a.id} a={a} />)}
+                    </div>
+                  )}
+                </div>
+              );
+            })}
+        </div>
+      </div>
+
+      {/* ── Add amendment / addendum modal ── */}
+      {modalOpen && (
+        <div className="set-modal-overlay" onClick={(e) => { if (e.target === e.currentTarget) setModalOpen(false); }}>
+          <div className="set-modal" role="dialog" aria-modal="true">
+            <div className="set-modal-header">
+              <div><div className="set-modal-title">{target ? "Add site addendum" : "Add protocol amendment"}</div>
+                <div style={{ fontSize: "var(--text-xs)", color: "var(--color-text-tertiary)", marginTop: 2 }}>{target ? `Scoped to ${sites.find((s) => s.id === target)?.name ?? "this site"}` : "Applied across the whole study"}</div></div>
+              <button className="set-modal-close" type="button" onClick={() => setModalOpen(false)}><i className="ti ti-x"></i></button>
+            </div>
+            <div className="set-modal-body">
+              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "var(--space-3)" }}>
+                <div className="set-field"><div className="set-field-label">Version</div><input className="set-input" style={{ fontFamily: "var(--font-mono)" }} placeholder="e.g. v2.2" value={mVer} onChange={(e) => setMVer(e.target.value)} /></div>
+                <div className="set-field"><div className="set-field-label">Date</div><input className="set-input" placeholder="YYYY-MM-DD" value={mDate} onChange={(e) => setMDate(e.target.value)} /></div>
+              </div>
+              <div className="set-field"><div className="set-field-label">Summary</div><textarea className="set-input" style={{ height: 72, padding: "var(--space-2) var(--space-3)", resize: "vertical" }} placeholder="What changed and why" value={mSum} onChange={(e) => setMSum(e.target.value)} /></div>
+              <div className="set-field"><div className="set-field-label">Impact</div><input className="set-input" placeholder="e.g. No impact — ongoing subjects unaffected" value={mImpact} onChange={(e) => setMImpact(e.target.value)} /></div>
+              <label style={{ display: "flex", alignItems: "center", gap: "var(--space-2)", fontSize: "var(--text-sm)", cursor: "pointer" }}><input type="checkbox" className="set-cb" checked={mStruct} onChange={(e) => setMStruct(e.target.checked)} /> Relates to a hierarchy / structure change</label>
+            </div>
+            <div className="set-modal-footer">
+              <button className="set-btn-secondary" type="button" onClick={() => setModalOpen(false)}>Cancel</button>
+              <button className="set-btn-primary" type="button" onClick={saveAmend}><i className="ti ti-check"></i> Save amendment</button>
+            </div>
+          </div>
+        </div>
+      )}
+    </>
+  );
+}
+
 export default function StudySettingsPage() {
   const { study } = useShell();
   const { dataset } = useStudySession();
@@ -884,6 +1036,8 @@ export default function StudySettingsPage() {
           <InventorySection studyCode={study.code} studyId={study.id} studyForms={studyForms} dataset={dataset} onToast={setToast} />
         ) : section === "study" ? (
           <StudySettingsSection key={study.code} studyCode={study.code} onToast={setToast} />
+        ) : section === "protocol" ? (
+          <ProtocolAmendmentsSection key={study.code} studyCode={study.code} studyId={study.id} dataset={dataset} onToast={setToast} />
         ) : (
           <>
             <div className="section-header">
