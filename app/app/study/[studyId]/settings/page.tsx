@@ -11,6 +11,7 @@
 // ════════════════════════════════════════════════════════════════════════════
 
 import { useEffect, useMemo, useState } from "react";
+import { useRouter } from "next/navigation";
 import { useShell } from "@/components/shell/ShellContext";
 import { useStudySession } from "@/lib/session-store/SessionStore";
 import type { Dataset } from "@/lib/session-store/types";
@@ -630,6 +631,7 @@ function AmendRow({ a }: { a: Amend }) {
 }
 
 function ProtocolAmendmentsSection({ studyCode, studyId, dataset, onToast }: { studyCode: string; studyId: string; dataset: Dataset; onToast: (m: string) => void }) {
+  const router = useRouter();
   const meta = studyMeta(studyCode);
   // Current protocol — read version + effective date from the SAME source as Study
   // Settings Card 2 (studyMeta.protoVersion, format "v1.0 — 2026-03-01") so they stay in sync.
@@ -644,23 +646,43 @@ function ProtocolAmendmentsSection({ studyCode, studyId, dataset, onToast }: { s
     return m;
   }, [dataset.subjects, studyId]);
 
-  const [amendments, setAmendments] = useState<Amend[]>(() => seedStudyAmendments(studyCode));
-  const [siteAmend, setSiteAmend] = useState<Record<string, Amend[]>>(() =>
-    studyCode === "BR-2502" && sites[0]
-      ? { [sites[0].id]: [{ id: "SA01", version: "v1.0a", date: "2026-04-20", summary: "Site-specific addendum: additional welfare checks for heifer subjects", impact: "No impact — ongoing subjects unaffected" }] }
-      : {});
-  const [expanded, setExpanded] = useState<Record<string, boolean>>(() => (studyCode === "BR-2502" && sites[0] ? { [sites[0].id]: true } : {}));
+  // Site-level addenda are a ROLLUP of the site-scoped "Protocol Amendments" CRF —
+  // each form instance at a site is one addendum. Settings is a read-only view of the
+  // real form data (the single source of truth lives on the site record's form).
+  const paForm = useMemo(() => dataset.forms.find((f) => f.study_id === studyId && f.name === "Protocol Amendments"), [dataset.forms, studyId]);
+  const siteAddenda = useMemo(() => {
+    const out: Record<string, Amend[]> = {};
+    if (!paForm) return out;
+    const codeById = new Map(dataset.formFields.filter((f) => f.form_id === paForm.id).map((f) => [f.id, f.code]));
+    const impactOf = (v?: string) => v === "None" ? "No impact — ongoing subjects unaffected" : v === "Newly enrolled only" ? "Affects newly enrolled subjects only" : v === "All" ? "Affects all enrolled subjects" : "—";
+    for (const site of sites) {
+      const rows: Amend[] = [];
+      for (const inst of dataset.formInstances.filter((i) => i.form_id === paForm.id && i.site_id === site.id)) {
+        const byCode: Record<string, string> = {};
+        for (const v of dataset.fieldValues) if (v.form_instance_id === inst.id) { const c = codeById.get(v.form_field_id); if (c) byCode[c] = v.value ?? ""; }
+        if (!byCode.protocol_version && !byCode.amendment_summary) continue; // skip blank instances
+        rows.push({ id: inst.id, version: byCode.protocol_version || "—", date: byCode.amendment_date || "—", summary: byCode.amendment_summary || "—", impact: impactOf(byCode.subjects_affected) });
+      }
+      out[site.id] = rows;
+    }
+    return out;
+  }, [paForm, sites, dataset.formInstances, dataset.fieldValues, dataset.formFields]);
+  const [expanded, setExpanded] = useState<Record<string, boolean>>(() => Object.fromEntries(Object.entries(siteAddenda).filter(([, v]) => v.length).map(([k]) => [k, true])));
+  // "+ Add addendum" deep-links to the site's real Protocol Amendments CRF (entries are
+  // created there via the repeating-table "Add entry" flow, not a parallel store).
+  function addAddendum(siteId: string) {
+    if (paForm) router.push(`/study/${studyId}/sites/${siteId}?form=${paForm.id}`);
+    else onToast("No Protocol Amendments form configured for this study.");
+  }
 
-  // Add-amendment / addendum modal (target = null → study-level; else a site id).
+  // Study-level amendments stay component-state seeded with their own add modal.
+  const [amendments, setAmendments] = useState<Amend[]>(() => seedStudyAmendments(studyCode));
   const [modalOpen, setModalOpen] = useState(false);
-  const [target, setTarget] = useState<string | null>(null);
   const [mVer, setMVer] = useState(""); const [mDate, setMDate] = useState(""); const [mSum, setMSum] = useState(""); const [mImpact, setMImpact] = useState(""); const [mStruct, setMStruct] = useState(false);
-  function openModal(siteId: string | null) { setTarget(siteId); setMVer(""); setMDate(""); setMSum(""); setMImpact(""); setMStruct(false); setModalOpen(true); }
+  function openModal() { setMVer(""); setMDate(""); setMSum(""); setMImpact(""); setMStruct(false); setModalOpen(true); }
   function saveAmend() {
     if (!mVer.trim() || !mSum.trim()) { onToast("Version and summary are required"); return; }
-    const a: Amend = { id: `am-${crypto.randomUUID()}`, version: mVer.trim(), date: mDate.trim() || "—", summary: mSum.trim(), impact: mImpact.trim() || "—", structureChange: mStruct };
-    if (target) { const sid = target; setSiteAmend((m) => ({ ...m, [sid]: [...(m[sid] ?? []), a] })); setExpanded((e) => ({ ...e, [sid]: true })); }
-    else setAmendments((p) => [...p, a]);
+    setAmendments((p) => [...p, { id: `am-${crypto.randomUUID()}`, version: mVer.trim(), date: mDate.trim() || "—", summary: mSum.trim(), impact: mImpact.trim() || "—", structureChange: mStruct }]);
     setModalOpen(false);
     onToast("Amendment saved");
   }
@@ -689,7 +711,7 @@ function ProtocolAmendmentsSection({ studyCode, studyId, dataset, onToast }: { s
       <div className="settings-card">
         <div className="settings-card-header">
           <div><div className="settings-card-title">Study-level amendments</div><div className="settings-card-desc">Protocol amendments applied across the whole study</div></div>
-          <button className="set-btn-secondary" type="button" onClick={() => openModal(null)}><i className="ti ti-plus"></i> Add amendment</button>
+          <button className="set-btn-secondary" type="button" onClick={openModal}><i className="ti ti-plus"></i> Add amendment</button>
         </div>
         <div className="settings-card-body">
           {amendments.length === 0
@@ -706,7 +728,7 @@ function ProtocolAmendmentsSection({ studyCode, studyId, dataset, onToast }: { s
             ? <div style={{ fontSize: "var(--text-sm)", color: "var(--color-text-placeholder)" }}>No sites configured.</div>
             : sites.map((s) => {
               const open = !!expanded[s.id];
-              const list = siteAmend[s.id] ?? [];
+              const list = siteAddenda[s.id] ?? [];
               return (
                 <div key={s.id} className="settings-card" style={{ marginBottom: "var(--space-3)" }}>
                   <div className="settings-card-header">
@@ -717,7 +739,7 @@ function ProtocolAmendmentsSection({ studyCode, studyId, dataset, onToast }: { s
                     <div style={{ borderTop: "1px solid var(--color-border)", padding: "var(--space-4)" }}>
                       <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: "var(--space-3)" }}>
                         <div style={{ fontSize: "var(--text-xs)", fontWeight: 500, textTransform: "uppercase", letterSpacing: "var(--tracking-caps)", color: "var(--color-text-tertiary)" }}>Addenda for {s.name}</div>
-                        <button className="set-btn-secondary" style={{ height: 28, fontSize: "var(--text-xs)" }} type="button" onClick={() => openModal(s.id)}><i className="ti ti-plus"></i> Add addendum</button>
+                        <button className="set-btn-secondary" style={{ height: 28, fontSize: "var(--text-xs)" }} type="button" onClick={() => addAddendum(s.id)}><i className="ti ti-plus"></i> Add addendum</button>
                       </div>
                       {list.length === 0
                         ? <div style={{ fontSize: "var(--text-sm)", color: "var(--color-text-placeholder)" }}>No site-specific amendments.</div>
@@ -735,8 +757,8 @@ function ProtocolAmendmentsSection({ studyCode, studyId, dataset, onToast }: { s
         <div className="set-modal-overlay" onClick={(e) => { if (e.target === e.currentTarget) setModalOpen(false); }}>
           <div className="set-modal" role="dialog" aria-modal="true">
             <div className="set-modal-header">
-              <div><div className="set-modal-title">{target ? "Add site addendum" : "Add protocol amendment"}</div>
-                <div style={{ fontSize: "var(--text-xs)", color: "var(--color-text-tertiary)", marginTop: 2 }}>{target ? `Scoped to ${sites.find((s) => s.id === target)?.name ?? "this site"}` : "Applied across the whole study"}</div></div>
+              <div><div className="set-modal-title">Add protocol amendment</div>
+                <div style={{ fontSize: "var(--text-xs)", color: "var(--color-text-tertiary)", marginTop: 2 }}>Applied across the whole study</div></div>
               <button className="set-modal-close" type="button" onClick={() => setModalOpen(false)}><i className="ti ti-x"></i></button>
             </div>
             <div className="set-modal-body">

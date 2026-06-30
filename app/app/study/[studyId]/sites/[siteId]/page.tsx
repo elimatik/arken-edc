@@ -52,7 +52,10 @@ export default function SiteRecordPage() {
   const { dataset, ready, update } = useStudySession();
   const isAdmin = activeRole === "Admin";
 
-  const tab = sp.get("tab") === "forms" ? "forms" : "overview";
+  // A ?form= deep-link (e.g. from Settings → Protocol & Amendments) opens the Forms
+  // tab with that form pre-selected (by form DEFINITION id), same as the Subject Record.
+  const formParam = sp.get("form");
+  const tab = (sp.get("tab") === "forms" || formParam) ? "forms" : "overview";
   const setTab = (t: "overview" | "forms") => router.replace(`/study/${studyId}/sites/${siteId}?tab=${t}`);
 
   const site = dataset.sites.find((s) => s.id === siteId);
@@ -219,7 +222,7 @@ export default function SiteRecordPage() {
           </div>
         </div>
       ) : (
-        <ScopedFormFlow studyId={studyId} scope="site" scopeId={siteId} exclude={["Continuing Review"]} />
+        <ScopedFormFlow studyId={studyId} scope="site" scopeId={siteId} exclude={["Continuing Review"]} initialFormId={formParam ?? undefined} />
       )}
     </div>
   );

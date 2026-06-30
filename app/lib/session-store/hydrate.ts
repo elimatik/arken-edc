@@ -415,6 +415,34 @@ export async function hydrateFromSupabase(): Promise<Dataset> {
     }
   }
 
+  // ─── BR-2502 Feedlot CO — Protocol Amendments site CRF (one addendum) ───────
+  // The Protocol Amendments form is site-scoped + repeating (one instance per entry).
+  // Seed a single addendum on the Feedlot CO site instance — this is the single source
+  // of truth for the Settings → Protocol & Amendments site-level rollup.
+  {
+    const brId = (studies.data ?? []).find((s) => s.code === "BR-2502")?.id;
+    const coSite = (sites.data ?? []).find((s) => s.study_id === brId && s.code === "CO");
+    const paForm = (forms.data ?? []).find((f) => f.study_id === brId && f.name === "Protocol Amendments");
+    if (brId && coSite && paForm) {
+      const fvArr = fieldValues as Dataset["fieldValues"];
+      let inst = fInst.find((i) => i.form_id === paForm.id && i.site_id === coSite.id);
+      if (!inst) { inst = { id: "fi-pa-co-br2502", form_id: paForm.id, subject_id: null, barn_id: null, site_id: coSite.id, status: "in_work" }; fInst.push(inst); }
+      const iid = inst.id;
+      const fieldIdByCode = new Map((formFields as FF[]).filter((f) => f.form_id === paForm.id).map((f) => [f.code, f.id]));
+      const seed = (code: string, value: string) => {
+        const fid = fieldIdByCode.get(code); if (!fid) return;
+        if (!fvArr.some((v) => v.form_instance_id === iid && v.form_field_id === fid))
+          fvArr.push({ id: `fv-pa-${iid}-${code}`, form_instance_id: iid, form_field_id: fid, value });
+      };
+      seed("protocol_version", "v1.0a");
+      seed("amendment_date", "2026-04-20");
+      seed("amendment_summary", "Site-specific addendum: additional welfare checks for heifer subjects");
+      seed("iec_approval_date", "2026-04-18");
+      seed("subjects_affected", "None");
+      seed("status", "Approved");
+    }
+  }
+
   // ─── Seeded SDV state (session-only) ────────────────────────────────────────
   // No interactive SDV has run on a fresh tab, so seed verified records to a target
   // % per site — the CRA/DM dashboard SDV bars + lock-readiness then show real
