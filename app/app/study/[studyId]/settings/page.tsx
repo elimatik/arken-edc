@@ -1491,11 +1491,17 @@ function BillingSection({ studyCode, onToast }: { studyCode: string; onToast: (m
   const Req = () => <span style={{ color: "var(--red-600)" }}> *</span>;
   const grid2: CSSProperties = { display: "grid", gridTemplateColumns: "1fr 1fr", gap: "var(--space-4)", marginBottom: "var(--space-4)" };
 
-  // Card 2 — payment terms.
+  // Card 2 — payment terms: committed values + edit drafts (Cancel reverts),
+  // mirroring the Study information card's edit pattern.
   const [editTerms, setEditTerms] = useState(false);
   const [holdback, setHoldback] = useState("10");
   const [terms, setTerms] = useState("Net 30");
   const [currency, setCurrency] = useState("USD");
+  const [dHoldback, setDHoldback] = useState("10");
+  const [dTerms, setDTerms] = useState("Net 30");
+  const [dCurrency, setDCurrency] = useState("USD");
+  function startEditTerms() { setDHoldback(holdback); setDTerms(terms); setDCurrency(currency); setEditTerms(true); }
+  function saveTerms() { setHoldback(dHoldback); setTerms(dTerms); setCurrency(dCurrency); setEditTerms(false); onToast("Payment terms saved"); }
 
   // Card 3 — fee schedule.
   const [fees, setFees] = useState<FeeEvent[]>(() => billingSeed(studyCode));
@@ -1564,27 +1570,34 @@ function BillingSection({ studyCode, onToast }: { studyCode: string; onToast: (m
       <div className="settings-card">
         <div className="settings-card-header">
           <div><div className="settings-card-title">Payment terms</div></div>
-          <button className="set-btn-secondary" type="button" onClick={() => { if (editTerms) onToast("Payment terms saved"); setEditTerms((e) => !e); }}><i className={`ti ti-${editTerms ? "check" : "pencil"}`}></i> {editTerms ? "Done" : "Edit"}</button>
+          {!editTerms && <button className="set-btn-secondary" type="button" onClick={startEditTerms}><i className="ti ti-pencil"></i> Edit</button>}
         </div>
         <div className="settings-card-body">
           <div className="settings-row">
             <div><div className="settings-row-label">Holdback percentage</div><div className="settings-row-desc">Withheld until database lock</div></div>
-            <div className="settings-row-value">{editTerms
-              ? <div style={{ display: "flex", alignItems: "center", gap: "var(--space-2)" }}><input className="set-input" type="number" min={0} value={holdback} style={{ width: 80, fontFamily: "var(--font-mono)" }} onChange={(e) => setHoldback(e.target.value)} /> %</div>
-              : <span style={{ fontFamily: "var(--font-mono)" }}>{holdback}%</span>}</div>
+            <div className="settings-row-value"><span style={{ fontFamily: "var(--font-mono)" }}>{holdback}%</span></div>
           </div>
           <div className="settings-row">
             <div><div className="settings-row-label">Payment terms</div></div>
-            <div className="settings-row-value">{editTerms
-              ? <select className="set-select" style={{ maxWidth: 160 }} value={terms} onChange={(e) => setTerms(e.target.value)}><option>Net 30</option><option>Net 45</option><option>Net 60</option></select>
-              : <span>{terms}</span>}</div>
+            <div className="settings-row-value">{terms}</div>
           </div>
           <div className="settings-row">
             <div><div className="settings-row-label">Study default currency</div></div>
-            <div className="settings-row-value">{editTerms
-              ? <select className="set-select" style={{ maxWidth: 160 }} value={currency} onChange={(e) => setCurrency(e.target.value)}><option>USD</option><option>CAD</option><option>EUR</option><option>GBP</option></select>
-              : <span>{currency}</span>}</div>
+            <div className="settings-row-value">{currency}</div>
           </div>
+          {editTerms && (
+            <div style={{ marginTop: "var(--space-4)", paddingTop: "var(--space-4)", borderTop: "1px solid var(--color-border)" }}>
+              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: "var(--space-4)", marginBottom: "var(--space-3)" }}>
+                <div className="set-field"><div className="set-field-label">Holdback percentage</div><div style={{ display: "flex", alignItems: "center", gap: "var(--space-2)" }}><input className="set-input" type="number" min={0} value={dHoldback} style={{ fontFamily: "var(--font-mono)" }} onChange={(e) => setDHoldback(e.target.value)} /> %</div></div>
+                <div className="set-field"><div className="set-field-label">Payment terms</div><select className="set-select" value={dTerms} onChange={(e) => setDTerms(e.target.value)}><option>Net 30</option><option>Net 45</option><option>Net 60</option></select></div>
+                <div className="set-field"><div className="set-field-label">Study default currency</div><select className="set-select" value={dCurrency} onChange={(e) => setDCurrency(e.target.value)}><option>USD</option><option>CAD</option><option>EUR</option><option>GBP</option></select></div>
+              </div>
+              <div style={{ display: "flex", gap: "var(--space-2)", justifyContent: "flex-end" }}>
+                <button className="set-btn-secondary" type="button" onClick={() => setEditTerms(false)}>Cancel</button>
+                <button className="set-btn-primary" type="button" onClick={saveTerms}><i className="ti ti-check"></i> Save</button>
+              </div>
+            </div>
+          )}
         </div>
       </div>
 
