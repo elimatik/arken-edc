@@ -18,6 +18,7 @@ import type { Dataset } from "@/lib/session-store/types";
 import type { Role } from "@/lib/permissions";
 import { INV_ACTIONS, INV_ROLES, useInventoryPermissions, setInvPermission } from "@/lib/inventory-permissions";
 import { getStudyTypeConfig } from "@/lib/study-type-config";
+import { getFormPermDefaults, setFormPermDefault, setFormPermDefaultsFor, rolePresetPerms, useFormPermDefaults } from "@/lib/form-perm-defaults";
 import "./settings.css";
 
 type Method = "blocked" | "simple" | "stratified" | "minimization";
@@ -792,15 +793,9 @@ const PERM_DESC: Record<Perm, string> = {
   review: "Mark records as reviewed (CRA/DM)", query: "Raise, respond to, and close queries", finalize: "Mark form as final — triggers lock workflow",
 };
 const FP_ROLES: Role[] = ["CRC", "CRA", "PI", "DM", "Admin"];
-// Default permissions per role for subject-scoped CRFs.
-const ROLE_DEFAULTS: Record<string, Perm[]> = {
-  CRC: ["view", "edit", "query"],
-  CRA: ["view", "review", "query"],
-  PI: ["view", "edit", "sign", "query"],
-  DM: ["view", "review", "query", "finalize"],
-  Admin: ["view", "edit", "sign", "review", "query", "finalize"],
-};
-// Site-scoped forms are monitoring/site-management owned — different default ownership.
+// Subject-form per-role defaults live in the shared store (lib/form-perm-defaults),
+// edited from Settings → Roles. Site-scoped forms are monitoring/site-management
+// owned — their own default ownership, local to this section.
 const SITE_ROLE_DEFAULTS: Record<string, Perm[]> = {
   CRC: ["view"],
   CRA: ["view", "edit", "review", "query"],
@@ -809,7 +804,6 @@ const SITE_ROLE_DEFAULTS: Record<string, Perm[]> = {
   Admin: ["view", "edit", "sign", "review", "query", "finalize"],
 };
 const SITE_SECTION = "Site forms";
-const defaultsFor = (f: FormRowT, role: string): Perm[] => ((f.scope === "site" ? SITE_ROLE_DEFAULTS : ROLE_DEFAULTS)[role] ?? []);
 
 function FormPermissionsSection({ studyId, dataset }: { studyId: string; dataset: Dataset }) {
   // Leaf forms (real CRFs) grouped by their real builder group: a subject form's
@@ -828,9 +822,17 @@ function FormPermissionsSection({ studyId, dataset }: { studyId: string; dataset
   }, [dataset.forms, studyId]);
 
   const key = (fid: string, role: string, p: Perm) => `${fid}|${role}|${p}`;
+  // Seed the per-form matrix from each role's DEFAULTS: subject forms from the
+  // shared store (editable in Roles → Form permissions), site forms from the
+  // local site-ownership defaults. Re-seeds on each mount, so changes made in the
+  // Roles section are reflected the next time this section is opened.
   const [perms, setPerms] = useState<Set<string>>(() => {
     const s = new Set<string>();
-    for (const f of leaves) for (const role of FP_ROLES) for (const p of defaultsFor(f, role)) s.add(key(f.id, role, p));
+    const rd = getFormPermDefaults();
+    for (const f of leaves) for (const role of FP_ROLES) {
+      const list: Perm[] = f.scope === "site" ? (SITE_ROLE_DEFAULTS[role] ?? []) : FORM_PERMS.filter((p) => rd[role]?.[p]);
+      for (const p of list) s.add(key(f.id, role, p));
+    }
     return s;
   });
   const has = (fid: string, role: string, p: Perm) => perms.has(key(fid, role, p));
@@ -978,12 +980,13 @@ const ROLE_SEED: RoleState[] = [
 ];
 const toggleArr = (arr: string[], v: string) => (arr.includes(v) ? arr.filter((x) => x !== v) : [...arr, v]);
 
-function RolesSection({ onNavigate, onToast }: { onNavigate: (s: string) => void; onToast: (m: string) => void }) {
+function RolesSection({ onToast }: { onToast: (m: string) => void }) {
   const [roles, setRoles] = useState<RoleState[]>(() => ROLE_SEED.map((r) => ({ ...r })));
+  const roleDefaults = useFormPermDefaults(); // shared per-role form-permission defaults
   const [expanded, setExpanded] = useState<Set<string>>(new Set());
   const [modalOpen, setModalOpen] = useState(false);
   const [newName, setNewName] = useState("");
-  const [newPreset, setNewPreset] = useState("CRC");
+  const [newPreset, setNewPreset] = useState("Custom");
 
   const toggleRow = (k: string) => setExpanded((s) => { const n = new Set(s); if (n.has(k)) n.delete(k); else n.add(k); return n; });
   const patchRole = (key: string, fn: (r: RoleState) => RoleState) => setRoles((rs) => rs.map((r) => (r.key === key ? fn(r) : r)));
@@ -993,10 +996,16 @@ function RolesSection({ onNavigate, onToast }: { onNavigate: (s: string) => void
 
   function createRole() {
     if (!newName.trim()) { onToast("Role name is required"); return; }
-    const base = ROLE_SEED.find((r) => r.preset === newPreset) ?? ROLE_SEED[0];
     const key = `role-${newName.trim().toLowerCase().replace(/\s+/g, "-")}-${roles.length}`;
-    setRoles((rs) => [...rs, { ...base, key, preset: base.preset, name: newName.trim(), code: newName.trim().slice(0, 2).toUpperCase(), desc: `Custom role based on ${base.name}`, canManage: null, tasks: [...base.tasks], study: [...base.study] }]);
-    setModalOpen(false); setNewName(""); setNewPreset("CRC");
+    if (newPreset === "Custom") {
+      setRoles((rs) => [...rs, { key, preset: "Custom", name: newName.trim(), code: newName.trim().slice(0, 2).toUpperCase(), desc: "Custom role", color: "var(--slate-600)", bg: "var(--slate-50)", tasks: [], study: [], allSites: false, readOnly: false, canManage: null }]);
+      setFormPermDefaultsFor(key, []); // start blank
+    } else {
+      const base = ROLE_SEED.find((r) => r.preset === newPreset) ?? ROLE_SEED[0];
+      setRoles((rs) => [...rs, { ...base, key, preset: base.preset, name: newName.trim(), code: newName.trim().slice(0, 2).toUpperCase(), desc: `Custom role based on ${base.name}`, canManage: null, tasks: [...base.tasks], study: [...base.study] }]);
+      setFormPermDefaultsFor(key, rolePresetPerms(base.preset)); // clone preset defaults
+    }
+    setModalOpen(false); setNewName(""); setNewPreset("Custom");
     onToast("Role created");
   }
 
@@ -1012,7 +1021,6 @@ function RolesSection({ onNavigate, onToast }: { onNavigate: (s: string) => void
 
       {roles.map((r) => {
         const open = expanded.has(r.key);
-        const fpDefaults = ROLE_DEFAULTS[r.preset] ?? [];
         return (
           <div key={r.key} className="settings-card" style={{ marginBottom: "var(--space-3)" }}>
             <button type="button" className="role-card-head" onClick={() => toggleRow(r.key)}>
@@ -1046,24 +1054,35 @@ function RolesSection({ onNavigate, onToast }: { onNavigate: (s: string) => void
                     <div style={{ display: "flex", gap: "var(--space-2)", flexWrap: "wrap" }}>
                       {ROLE_TASKS.map((t) => {
                         const on = r.tasks.includes(t.key);
-                        return <label key={t.key} className={`rcs-chip-pill${on ? " checked" : ""}`}><input type="checkbox" className="perm-cb" checked={on} onChange={() => patchRole(r.key, (x) => ({ ...x, tasks: toggleArr(x.tasks, t.key) }))} /> {t.label}</label>;
+                        return (
+                          <label key={t.key} className={`rcs-pill${on ? " checked" : ""}`} style={{ flex: "0 0 auto" }}>
+                            <input type="checkbox" className="perm-cb" checked={on} onChange={() => patchRole(r.key, (x) => ({ ...x, tasks: toggleArr(x.tasks, t.key) }))} />
+                            <div className="rcs-pill-title">{t.label}</div>
+                          </label>
+                        );
                       })}
                     </div>
                   </>
                 )}
 
-                {/* Section 3 — Form permissions reference (hidden when read-only) */}
+                {/* Section 3 — Form permissions (full inline default grid; hidden when read-only) */}
                 {!r.readOnly && (
                   <>
                     <hr className="rcs-divider" />
-                    <div className="rcs-section-title">Form permissions</div>
-                    <div style={{ fontSize: "var(--text-sm)", color: "var(--color-text-secondary)", marginBottom: "var(--space-3)" }}>Form permissions are configured per-form in the Form permissions section.</div>
-                    <div style={{ display: "flex", alignItems: "center", gap: "var(--space-3)", flexWrap: "wrap" }}>
-                      <div style={{ display: "flex", gap: 4, flexWrap: "wrap" }}>
-                        {fpDefaults.length === 0 ? <span style={{ fontSize: "var(--text-xs)", color: "var(--color-text-placeholder)" }}>No default access</span>
-                          : fpDefaults.map((p) => <span key={p} className="set-badge set-badge-slate">{PERM_SHORT[p]}</span>)}
-                      </div>
-                      <button className="set-btn-secondary" style={{ height: 28, fontSize: "var(--text-xs)" }} type="button" onClick={() => onNavigate("formperm")}>Go to Form permissions <i className="ti ti-arrow-right"></i></button>
+                    <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: "var(--space-3)" }}>
+                      <div className="rcs-section-title" style={{ marginBottom: 0 }}>Form permissions <span className="rcs-section-hint">Applied to all forms by default · customise per-form in Form permissions</span></div>
+                      <button className="set-btn-secondary" style={{ height: 28, fontSize: "var(--text-xs)" }} type="button" onClick={() => setFormPermDefaultsFor(r.key, rolePresetPerms(r.preset))}><i className="ti ti-refresh" style={{ fontSize: 11 }}></i> Reset</button>
+                    </div>
+                    <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: "var(--space-2)" }}>
+                      {FORM_PERMS.map((p) => {
+                        const on = !!roleDefaults[r.key]?.[p];
+                        return (
+                          <label key={p} className={`rcs-pill${on ? " checked" : ""}`}>
+                            <input type="checkbox" className="perm-cb" checked={on} onChange={() => setFormPermDefault(r.key, p, !on)} />
+                            <div><div className="rcs-pill-title">{PERM_LABEL[p]}</div><div className="rcs-pill-desc">{PERM_DESC[p]}</div></div>
+                          </label>
+                        );
+                      })}
                     </div>
                   </>
                 )}
@@ -1113,7 +1132,7 @@ function RolesSection({ onNavigate, onToast }: { onNavigate: (s: string) => void
             <div className="set-modal-body">
               <div className="set-field"><div className="set-field-label">Role name</div><input className="set-input" placeholder="e.g. Sub-Investigator" value={newName} onChange={(e) => setNewName(e.target.value)} autoFocus /></div>
               <div className="set-field"><div className="set-field-label">Based on</div>
-                <select className="set-select" value={newPreset} onChange={(e) => setNewPreset(e.target.value)}>{ROLE_SEED.map((r) => <option key={r.preset} value={r.preset}>{r.name}</option>)}</select>
+                <select className="set-select" value={newPreset} onChange={(e) => setNewPreset(e.target.value)}><option value="Custom">Custom (start blank)</option>{ROLE_SEED.map((r) => <option key={r.preset} value={r.preset}>{r.name}</option>)}</select>
               </div>
             </div>
             <div className="set-modal-footer">
@@ -1409,7 +1428,7 @@ export default function StudySettingsPage() {
         ) : section === "formperm" ? (
           <FormPermissionsSection key={study.code} studyId={study.id} dataset={dataset} />
         ) : section === "roles" ? (
-          <RolesSection key={study.code} onNavigate={setSection} onToast={setToast} />
+          <RolesSection key={study.code} onToast={setToast} />
         ) : (
           <>
             <div className="section-header">
