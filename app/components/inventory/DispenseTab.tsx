@@ -4,15 +4,14 @@ import { useMemo, useState } from "react";
 import Link from "next/link";
 import { useTableSort, sortDirMul, type SortState } from "@/lib/useTableSort";
 import { SortTh } from "@/components/common/SortTh";
-import type { DispensingRow, InvConfig } from "@/lib/inventory-data";
+import type { DispensingRow } from "@/lib/inventory-data";
 
 // Dispensing log — derived from Treatment Administration / dispensation / feed-delivery
 // FORM instances (one form = one row). Read-only; the FORM column deep-links to the
 // originating form on the Subject (or barn) Record. Sortable + searchable.
-export function DispenseTab({ studyId, studyCode, cfg, rows, siteActive }: {
+export function DispenseTab({ studyId, studyCode, rows, siteActive }: {
   studyId: string;
   studyCode: string;
-  cfg: InvConfig;
   rows: DispensingRow[];
   siteActive: boolean;
 }) {

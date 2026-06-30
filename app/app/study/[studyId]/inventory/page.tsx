@@ -109,7 +109,7 @@ export default function InventoryPage() {
 
       {tab === "receive" && <ReceiveTab cfg={cfg} studyId={studyId} shipments={shipments} vials={allVials} role={activeRole} update={update} intakeOpen={intakeOpen} setIntakeOpen={setIntakeOpen} />}
       {tab === "inventory" && <InventoryTab cfg={cfg} hideArms={hideArms} vials={vials} openDetail={setDetailVialId} onEdit={setEditVialId} />}
-      {tab === "dispense" && <DispenseTab studyId={studyId} studyCode={study.code} cfg={cfg} rows={dispenseRows} siteActive={!!effectiveSite} />}
+      {tab === "dispense" && <DispenseTab studyId={studyId} studyCode={study.code} rows={dispenseRows} siteActive={!!effectiveSite} />}
       {tab === "recon" && <ReconciliationTab cfg={cfg} vials={vials} role={activeRole} />}
 
       {detailVial && <VialDetail cfg={cfg} hideArms={hideArms} vial={detailVial} onClose={() => setDetailVialId(null)} />}

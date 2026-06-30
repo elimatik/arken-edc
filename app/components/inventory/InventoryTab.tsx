@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useCallback, useMemo, useState } from "react";
 import type { Vial } from "@/lib/session-store/types";
 import {
   currentVol, volFill, expiryColor, vialDisplayId, lastUpdated, STATUS_LABELS, STATUS_BADGE,
@@ -34,7 +34,7 @@ export function InventoryTab({ cfg, hideArms, vials, openDetail, onEdit }: {
   // BR/PH there is no athome state — any seeded athome unit shows as available, and
   // the AT HOME KPI is hidden. Driven by the study-type config (hasAtHomeStatus).
   const hasAtHome = cfg.hasAtHomeStatus;
-  const dispStatus = (v: Vial): string => (!hasAtHome && v.status === "athome" ? "available" : v.status);
+  const dispStatus = useCallback((v: Vial): string => (!hasAtHome && v.status === "athome" ? "available" : v.status), [hasAtHome]);
   const kpiMeta = hasAtHome ? KPI_META : KPI_META.filter((k) => k.key !== "athome");
 
   const rows = useMemo(() => {
@@ -55,14 +55,13 @@ export function InventoryTab({ cfg, hideArms, vials, openDetail, onEdit }: {
       filtered.sort((a, b) => { const [ba, va] = parse(a), [bb, vb] = parse(b); return ba.localeCompare(bb) || va - vb; });
     }
     return filtered;
-  }, [vials, status, group, lot, search, cfg.itemNoun]);
+  }, [vials, status, group, lot, search, cfg.itemNoun, dispStatus]);
 
   const counts = useMemo(() => {
     const c: Record<string, number> = { available: 0, athome: 0, depleted: 0, removed: 0, returned: 0 };
     vials.forEach((v) => { const s = dispStatus(v); c[s] = (c[s] ?? 0) + 1; });
     return c;
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [vials, hasAtHome]);
+  }, [vials, dispStatus]);
   const volAvail = useMemo(() => Math.round(vials.filter((v) => v.status === "available").reduce((s, v) => s + currentVol(v), 0) * 10) / 10, [vials]);
   const drug = vials[0]?.drugName ?? "—";
 
