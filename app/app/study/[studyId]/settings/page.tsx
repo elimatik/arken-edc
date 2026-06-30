@@ -416,11 +416,18 @@ function StudySettingsSection({ studyCode, onToast }: { studyCode: string; onToa
     setHierarchy(HIERARCHY_PRESETS[t].map((l) => ({ ...l })));
     onToast("Study type updated — design & hierarchy pre-filled");
   }
+  // Additions ⇄ structure-lock invariant: OFF locks the structure "at study
+  // initiation" (and the select is read-only); ON defaults the lock to "at first
+  // enrollment" (then editable between first-enrollment / manual).
+  function applyAdditions(on: boolean) {
+    setAllowAdditions(on);
+    setStructureLockedAt(on ? "first_enrollment" : "initiation");
+  }
   // Enrollment model auto-sets mid-study additions (Fixed group / Single cohort → OFF,
   // Rolling → ON); still manually overridable via the toggle.
   function changeEnrollModel(v: string) {
     setEnrollModel(v);
-    setAllowAdditions(v === "rolling");
+    applyAdditions(v === "rolling");
     onToast("Enrollment model updated");
   }
   function setLevelName(i: number, val: string) { setHierarchy((h) => h.map((l, j) => (j === i ? { ...l, value: val } : l))); onToast("Hierarchy updated"); }
@@ -517,9 +524,9 @@ function StudySettingsSection({ studyCode, onToast }: { studyCode: string; onToa
               </select>
             </div>
           </div>
-          <div className="settings-row">
+          <div className="settings-row" style={{ borderBottom: "none", paddingBottom: 0 }}>
             <div><div className="settings-row-label">Subject unit</div><div className="settings-row-desc">The experimental unit of analysis</div></div>
-            <div className="settings-row-value" style={{ display: "flex", flexDirection: "column", alignItems: "flex-end", gap: 4 }}>
+            <div className="settings-row-value">
               <select className="set-select" style={{ maxWidth: 200 }} value={subjectUnit} onChange={(e) => { setSubjectUnit(e.target.value); onToast("Subject unit updated"); }}>
                 <option value="animal">Animal</option>
                 <option value="pen">Pen</option>
@@ -527,25 +534,29 @@ function StudySettingsSection({ studyCode, onToast }: { studyCode: string; onToa
                 <option value="cage">Cage</option>
                 <option value="hive">Hive</option>
               </select>
-              <div style={{ fontSize: "var(--text-xs)", color: "var(--color-text-tertiary)", textAlign: "right", maxWidth: 320 }}>If your randomization unit differs from your subject unit (e.g. cluster randomization), configure it separately in Randomization settings.</div>
             </div>
           </div>
+          <div style={{ fontSize: "var(--text-xs)", color: "var(--color-text-tertiary)", paddingBottom: "var(--space-3)", borderBottom: "1px solid var(--color-border-subtle)" }}>If your randomization unit differs from your subject unit (e.g. cluster randomization), configure it separately in Randomization settings.</div>
           <ToggleRow
             on={allowAdditions}
-            onToggle={() => { setAllowAdditions(!allowAdditions); onToast("Setting saved"); }}
+            onToggle={() => { applyAdditions(!allowAdditions); onToast("Setting saved"); }}
             label="Allow mid-study additions"
-            desc={allowAdditions ? "New subjects / units can be added while the study is active" : "Structure is locked after study initiation"}
+            desc="When enabled, new subjects or units can be added after the study has started. When disabled, the study structure is locked once the study is initiated."
           />
-          <div className="settings-row">
+          <div className="settings-row" style={{ borderBottom: "none", paddingBottom: 0 }}>
             <div><div className="settings-row-label">Structure locked at</div><div className="settings-row-desc">When the subject structure becomes read-only</div></div>
             <div className="settings-row-value">
-              <select className="set-select" style={{ maxWidth: 200 }} value={structureLockedAt} onChange={(e) => { setStructureLockedAt(e.target.value); onToast("Structure lock updated"); }}>
-                <option value="initiation">At study initiation</option>
-                <option value="first_enrollment">At first enrollment</option>
-                <option value="manual">Manual lock</option>
-              </select>
+              {allowAdditions
+                ? <select className="set-select" style={{ maxWidth: 200 }} value={structureLockedAt} onChange={(e) => { setStructureLockedAt(e.target.value); onToast("Structure lock updated"); }}>
+                    <option value="first_enrollment">At first enrollment</option>
+                    <option value="manual">Manual lock</option>
+                  </select>
+                : <select className="set-select" style={{ maxWidth: 200 }} value="initiation" disabled>
+                    <option value="initiation">At study initiation</option>
+                  </select>}
             </div>
           </div>
+          <div style={{ fontSize: "var(--text-xs)", color: "var(--color-text-tertiary)", paddingTop: "var(--space-1)" }}>A protocol amendment can unlock structure changes — see Audit &amp; Signatures for amendment history.</div>
         </div>
       </div>
 
