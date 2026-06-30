@@ -972,10 +972,10 @@ const STUDY_ACCESS: { key: string; label: string; desc: string }[] = [
   { key: "lock_unlock_study", label: "Lock/unlock study", desc: "Database lock authority" },
 ];
 const ROLE_SEED: RoleState[] = [
-  { key: "CRC", preset: "CRC", name: "CRC", code: "C", desc: "Clinical Research Coordinator — data entry and subject management", color: "var(--blue-600)", bg: "var(--blue-50)", tasks: ["data_entry"], study: [], allSites: false, readOnly: false, canManage: null },
-  { key: "CRA", preset: "CRA", name: "CRA", code: "A", desc: "Clinical Research Associate — monitoring and review", color: "var(--purple-600)", bg: "var(--purple-50)", tasks: ["monitoring"], study: ["export_data"], allSites: false, readOnly: false, canManage: null },
-  { key: "PI", preset: "PI", name: "PI", code: "P", desc: "Principal Investigator — full clinical authority", color: "var(--green-600)", bg: "var(--green-50)", tasks: ["data_entry", "monitoring"], study: ["export_data"], allSites: false, readOnly: false, canManage: null },
-  { key: "DM", preset: "DM", name: "DM", code: "D", desc: "Data Manager — data quality and lock authority", color: "var(--amber-700)", bg: "var(--amber-50)", tasks: ["study_management", "reporting"], study: ["export_data", "lock_unlock_study"], allSites: false, readOnly: false, canManage: null },
+  { key: "CRC", preset: "CRC", name: "CRC", code: "C", desc: "Clinical Research Coordinator — data entry and subject management", color: "var(--blue-600)", bg: "var(--blue-50)", tasks: ["data_entry"], study: [], allSites: false, readOnly: false, canManage: [] },
+  { key: "CRA", preset: "CRA", name: "CRA", code: "A", desc: "Clinical Research Associate — monitoring and review", color: "var(--purple-600)", bg: "var(--purple-50)", tasks: ["monitoring"], study: ["export_data"], allSites: false, readOnly: false, canManage: [] },
+  { key: "PI", preset: "PI", name: "PI", code: "P", desc: "Principal Investigator — full clinical authority", color: "var(--green-600)", bg: "var(--green-50)", tasks: ["data_entry", "monitoring"], study: ["export_data"], allSites: false, readOnly: false, canManage: [] },
+  { key: "DM", preset: "DM", name: "DM", code: "D", desc: "Data Manager — data quality and lock authority", color: "var(--amber-700)", bg: "var(--amber-50)", tasks: ["study_management", "reporting"], study: ["export_data", "lock_unlock_study"], allSites: false, readOnly: false, canManage: ["CRC", "CRA"] },
   { key: "Admin", preset: "Admin", name: "Admin", code: "AD", desc: "Administrator — full system access", color: "var(--slate-600)", bg: "var(--slate-50)", tasks: ["data_entry", "monitoring", "study_management", "reporting"], study: ["export_data", "manage_sites", "manage_users", "lock_unlock_study"], allSites: true, readOnly: false, canManage: ["CRC", "CRA", "PI", "DM"] },
 ];
 const toggleArr = (arr: string[], v: string) => (arr.includes(v) ? arr.filter((x) => x !== v) : [...arr, v]);
@@ -1102,8 +1102,8 @@ function RolesSection({ onToast }: { onToast: (m: string) => void }) {
                   })}
                 </div>
 
-                {/* Section 5 — User management (admin-level roles only) */}
-                {r.canManage !== null && (
+                {/* Section 5 — User management (all roles; hidden when read-only) */}
+                {!r.readOnly && (
                   <>
                     <hr className="rcs-divider" />
                     <div className="rcs-section-title">User management <span className="rcs-section-hint">Which roles this role can add/edit users for</span></div>
