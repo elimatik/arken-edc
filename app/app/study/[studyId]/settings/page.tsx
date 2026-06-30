@@ -957,6 +957,176 @@ function FormPermissionsSection({ studyId, dataset }: { studyId: string; dataset
   );
 }
 
+// ─── Roles section (ported from 25-settings.html) ────────────────────────────
+interface RoleState { key: string; preset: string; name: string; code: string; desc: string; color: string; bg: string; tasks: string[]; study: string[]; allSites: boolean; readOnly: boolean; canManage: string[] | null }
+const ROLE_TASKS: { key: string; label: string }[] = [
+  { key: "data_entry", label: "Data entry" }, { key: "monitoring", label: "Monitoring" },
+  { key: "study_management", label: "Study management" }, { key: "reporting", label: "Reporting" },
+];
+const STUDY_ACCESS: { key: string; label: string; desc: string }[] = [
+  { key: "export_data", label: "Export data", desc: "Download study data and reports" },
+  { key: "manage_sites", label: "Manage sites", desc: "Add, edit, or deactivate sites" },
+  { key: "manage_users", label: "Manage users", desc: "Invite and manage user accounts" },
+  { key: "lock_unlock_study", label: "Lock/unlock study", desc: "Database lock authority" },
+];
+const ROLE_SEED: RoleState[] = [
+  { key: "CRC", preset: "CRC", name: "CRC", code: "C", desc: "Clinical Research Coordinator — data entry and subject management", color: "var(--blue-600)", bg: "var(--blue-50)", tasks: ["data_entry"], study: [], allSites: false, readOnly: false, canManage: null },
+  { key: "CRA", preset: "CRA", name: "CRA", code: "A", desc: "Clinical Research Associate — monitoring and review", color: "var(--purple-600)", bg: "var(--purple-50)", tasks: ["monitoring"], study: ["export_data"], allSites: false, readOnly: false, canManage: null },
+  { key: "PI", preset: "PI", name: "PI", code: "P", desc: "Principal Investigator — full clinical authority", color: "var(--green-600)", bg: "var(--green-50)", tasks: ["data_entry", "monitoring"], study: ["export_data"], allSites: false, readOnly: false, canManage: null },
+  { key: "DM", preset: "DM", name: "DM", code: "D", desc: "Data Manager — data quality and lock authority", color: "var(--amber-700)", bg: "var(--amber-50)", tasks: ["study_management", "reporting"], study: ["export_data", "lock_unlock_study"], allSites: false, readOnly: false, canManage: null },
+  { key: "Admin", preset: "Admin", name: "Admin", code: "AD", desc: "Administrator — full system access", color: "var(--slate-600)", bg: "var(--slate-50)", tasks: ["data_entry", "monitoring", "study_management", "reporting"], study: ["export_data", "manage_sites", "manage_users", "lock_unlock_study"], allSites: true, readOnly: false, canManage: ["CRC", "CRA", "PI", "DM"] },
+];
+const toggleArr = (arr: string[], v: string) => (arr.includes(v) ? arr.filter((x) => x !== v) : [...arr, v]);
+
+function RolesSection({ onNavigate, onToast }: { onNavigate: (s: string) => void; onToast: (m: string) => void }) {
+  const [roles, setRoles] = useState<RoleState[]>(() => ROLE_SEED.map((r) => ({ ...r })));
+  const [expanded, setExpanded] = useState<Set<string>>(new Set());
+  const [modalOpen, setModalOpen] = useState(false);
+  const [newName, setNewName] = useState("");
+  const [newPreset, setNewPreset] = useState("CRC");
+
+  const toggleRow = (k: string) => setExpanded((s) => { const n = new Set(s); if (n.has(k)) n.delete(k); else n.add(k); return n; });
+  const patchRole = (key: string, fn: (r: RoleState) => RoleState) => setRoles((rs) => rs.map((r) => (r.key === key ? fn(r) : r)));
+  const Toggle = ({ on, onChange }: { on: boolean; onChange: () => void }) => (
+    <label className="set-toggle" style={{ flexShrink: 0 }}><input type="checkbox" checked={on} onChange={onChange} /><span className="set-toggle-slider"></span></label>
+  );
+
+  function createRole() {
+    if (!newName.trim()) { onToast("Role name is required"); return; }
+    const base = ROLE_SEED.find((r) => r.preset === newPreset) ?? ROLE_SEED[0];
+    const key = `role-${newName.trim().toLowerCase().replace(/\s+/g, "-")}-${roles.length}`;
+    setRoles((rs) => [...rs, { ...base, key, preset: base.preset, name: newName.trim(), code: newName.trim().slice(0, 2).toUpperCase(), desc: `Custom role based on ${base.name}`, canManage: null, tasks: [...base.tasks], study: [...base.study] }]);
+    setModalOpen(false); setNewName(""); setNewPreset("CRC");
+    onToast("Role created");
+  }
+
+  return (
+    <>
+      <div className="section-header" style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between" }}>
+        <div>
+          <h1 className="set-section-title">Roles</h1>
+          <p className="section-desc">Define roles and their system-level permissions for this study</p>
+        </div>
+        <button className="set-btn-primary" type="button" onClick={() => setModalOpen(true)}><i className="ti ti-plus"></i> Create role</button>
+      </div>
+
+      {roles.map((r) => {
+        const open = expanded.has(r.key);
+        const fpDefaults = ROLE_DEFAULTS[r.preset] ?? [];
+        return (
+          <div key={r.key} className="settings-card" style={{ marginBottom: "var(--space-3)" }}>
+            <button type="button" className="role-card-head" onClick={() => toggleRow(r.key)}>
+              <div className="role-icon" style={{ background: r.bg }}><i className="ti ti-user-shield" style={{ color: r.color }}></i></div>
+              <div style={{ flex: 1, minWidth: 0 }}>
+                <div className="role-name">{r.name}</div>
+                <div className="role-desc">{r.desc}</div>
+              </div>
+              <div style={{ display: "flex", alignItems: "center", gap: "var(--space-2)" }}>
+                <div style={{ display: "flex", gap: 4, flexWrap: "wrap", justifyContent: "flex-end" }}>{r.tasks.map((t) => <span key={t} className="set-badge set-badge-blue">{ROLE_TASKS.find((x) => x.key === t)?.label}</span>)}</div>
+                <i className={`ti ti-chevron-${open ? "up" : "down"}`} style={{ fontSize: 14, color: "var(--color-text-tertiary)" }}></i>
+              </div>
+            </button>
+
+            {open && (
+              <div className="rcs-body">
+                {/* Section 1 — Role info */}
+                <div className="rcs-section-title">Role info</div>
+                <div style={{ display: "flex", gap: "var(--space-5)", flexWrap: "wrap", alignItems: "flex-end" }}>
+                  <div className="set-field"><div className="set-field-label">Role name</div><input className="set-input" style={{ width: 200 }} value={r.name} onChange={(e) => patchRole(r.key, (x) => ({ ...x, name: e.target.value }))} /></div>
+                  <div className="set-field"><div className="set-field-label">Role code</div><input className="set-input" style={{ width: 80, textAlign: "center", fontFamily: "var(--font-mono)" }} maxLength={2} value={r.code} onChange={(e) => patchRole(r.key, (x) => ({ ...x, code: e.target.value }))} /></div>
+                  <label style={{ display: "flex", alignItems: "center", gap: "var(--space-2)", fontSize: "var(--text-sm)", paddingBottom: 8 }}><Toggle on={r.allSites} onChange={() => patchRole(r.key, (x) => ({ ...x, allSites: !x.allSites }))} /> Add to all sites</label>
+                  <label style={{ display: "flex", alignItems: "center", gap: "var(--space-2)", fontSize: "var(--text-sm)", paddingBottom: 8 }}><Toggle on={r.readOnly} onChange={() => patchRole(r.key, (x) => ({ ...x, readOnly: !x.readOnly }))} /> Read-only permissions</label>
+                </div>
+
+                {/* Section 2 — Main tasks (hidden when read-only) */}
+                {!r.readOnly && (
+                  <>
+                    <hr className="rcs-divider" />
+                    <div className="rcs-section-title">Main tasks <span className="rcs-section-hint">Checking a task auto-sets form and study permissions below</span></div>
+                    <div style={{ display: "flex", gap: "var(--space-2)", flexWrap: "wrap" }}>
+                      {ROLE_TASKS.map((t) => {
+                        const on = r.tasks.includes(t.key);
+                        return <label key={t.key} className={`rcs-chip-pill${on ? " checked" : ""}`}><input type="checkbox" className="perm-cb" checked={on} onChange={() => patchRole(r.key, (x) => ({ ...x, tasks: toggleArr(x.tasks, t.key) }))} /> {t.label}</label>;
+                      })}
+                    </div>
+                  </>
+                )}
+
+                {/* Section 3 — Form permissions reference (hidden when read-only) */}
+                {!r.readOnly && (
+                  <>
+                    <hr className="rcs-divider" />
+                    <div className="rcs-section-title">Form permissions</div>
+                    <div style={{ fontSize: "var(--text-sm)", color: "var(--color-text-secondary)", marginBottom: "var(--space-3)" }}>Form permissions are configured per-form in the Form permissions section.</div>
+                    <div style={{ display: "flex", alignItems: "center", gap: "var(--space-3)", flexWrap: "wrap" }}>
+                      <div style={{ display: "flex", gap: 4, flexWrap: "wrap" }}>
+                        {fpDefaults.length === 0 ? <span style={{ fontSize: "var(--text-xs)", color: "var(--color-text-placeholder)" }}>No default access</span>
+                          : fpDefaults.map((p) => <span key={p} className="set-badge set-badge-slate">{PERM_SHORT[p]}</span>)}
+                      </div>
+                      <button className="set-btn-secondary" style={{ height: 28, fontSize: "var(--text-xs)" }} type="button" onClick={() => onNavigate("formperm")}>Go to Form permissions <i className="ti ti-arrow-right"></i></button>
+                    </div>
+                  </>
+                )}
+
+                {/* Section 4 — Study access */}
+                <hr className="rcs-divider" />
+                <div className="rcs-section-title">Study access</div>
+                <div style={{ display: "grid", gridTemplateColumns: "repeat(2, 1fr)", gap: "var(--space-2)" }}>
+                  {STUDY_ACCESS.map((p) => {
+                    const on = r.study.includes(p.key);
+                    return (
+                      <label key={p.key} className={`rcs-pill${on ? " checked" : ""}`}>
+                        <input type="checkbox" className="perm-cb" checked={on} onChange={() => patchRole(r.key, (x) => ({ ...x, study: toggleArr(x.study, p.key) }))} />
+                        <div><div className="rcs-pill-title">{p.label}</div><div className="rcs-pill-desc">{p.desc}</div></div>
+                      </label>
+                    );
+                  })}
+                </div>
+
+                {/* Section 5 — User management (admin-level roles only) */}
+                {r.canManage !== null && (
+                  <>
+                    <hr className="rcs-divider" />
+                    <div className="rcs-section-title">User management <span className="rcs-section-hint">Which roles this role can add/edit users for</span></div>
+                    <div style={{ display: "flex", gap: "var(--space-2)", flexWrap: "wrap" }}>
+                      {roles.filter((x) => x.key !== r.key).map((x) => {
+                        const on = (r.canManage ?? []).includes(x.name);
+                        return <label key={x.key} className={`rcs-chip-pill${on ? " checked" : ""}`}><input type="checkbox" className="perm-cb" checked={on} onChange={() => patchRole(r.key, (cur) => ({ ...cur, canManage: toggleArr(cur.canManage ?? [], x.name) }))} /> {x.name}</label>;
+                      })}
+                    </div>
+                  </>
+                )}
+              </div>
+            )}
+          </div>
+        );
+      })}
+
+      {/* Create role modal (stub) */}
+      {modalOpen && (
+        <div className="set-modal-overlay" onClick={(e) => { if (e.target === e.currentTarget) setModalOpen(false); }}>
+          <div className="set-modal" role="dialog" aria-modal="true">
+            <div className="set-modal-header">
+              <div><div className="set-modal-title">Create role</div><div style={{ fontSize: "var(--text-xs)", color: "var(--color-text-tertiary)", marginTop: 2 }}>Start from an existing role&apos;s permission preset</div></div>
+              <button className="set-modal-close" type="button" onClick={() => setModalOpen(false)}><i className="ti ti-x"></i></button>
+            </div>
+            <div className="set-modal-body">
+              <div className="set-field"><div className="set-field-label">Role name</div><input className="set-input" placeholder="e.g. Sub-Investigator" value={newName} onChange={(e) => setNewName(e.target.value)} autoFocus /></div>
+              <div className="set-field"><div className="set-field-label">Based on</div>
+                <select className="set-select" value={newPreset} onChange={(e) => setNewPreset(e.target.value)}>{ROLE_SEED.map((r) => <option key={r.preset} value={r.preset}>{r.name}</option>)}</select>
+              </div>
+            </div>
+            <div className="set-modal-footer">
+              <button className="set-btn-secondary" type="button" onClick={() => setModalOpen(false)}>Cancel</button>
+              <button className="set-btn-primary" type="button" onClick={createRole}><i className="ti ti-check"></i> Create role</button>
+            </div>
+          </div>
+        </div>
+      )}
+    </>
+  );
+}
+
 export default function StudySettingsPage() {
   const { study } = useShell();
   const { dataset } = useStudySession();
@@ -1238,6 +1408,8 @@ export default function StudySettingsPage() {
           <ProtocolAmendmentsSection key={study.code} studyCode={study.code} studyId={study.id} dataset={dataset} onToast={setToast} />
         ) : section === "formperm" ? (
           <FormPermissionsSection key={study.code} studyId={study.id} dataset={dataset} />
+        ) : section === "roles" ? (
+          <RolesSection key={study.code} onNavigate={setSection} onToast={setToast} />
         ) : (
           <>
             <div className="section-header">

@@ -134,3 +134,20 @@
 .fp-row-head { display: flex; align-items: center; gap: var(--space-3); width: 100%; padding: var(--space-3) var(--space-4); background: none; border: none; cursor: pointer; text-align: left; }
 .fp-row-head:hover { background: var(--color-hover-bg); }
 .perm-matrix td.fp-matrix-section { background: var(--color-page-bg); font-size: 10px; font-weight: 700; text-transform: uppercase; letter-spacing: var(--tracking-caps); color: var(--color-text-secondary); padding: var(--space-2) var(--space-4); }
+
+/* Roles — expandable role cards */
+.role-card-head { display: flex; align-items: center; gap: var(--space-3); width: 100%; padding: var(--space-3) var(--space-4); background: none; border: none; cursor: pointer; text-align: left; }
+.role-card-head:hover { background: var(--color-hover-bg); }
+.role-icon { width: 32px; height: 32px; border-radius: 50%; display: flex; align-items: center; justify-content: center; flex-shrink: 0; font-size: 16px; }
+.role-name { font-size: var(--text-sm); font-weight: 600; color: var(--color-text-primary); }
+.role-desc { font-size: var(--text-xs); color: var(--color-text-tertiary); }
+.rcs-body { border-top: 1px solid var(--color-border); padding: var(--space-4); }
+.rcs-divider { border: none; border-top: 1px solid var(--color-border-subtle); margin: var(--space-4) 0; }
+.rcs-section-title { font-size: var(--text-sm); font-weight: 600; margin-bottom: var(--space-3); display: flex; align-items: baseline; gap: var(--space-2); }
+.rcs-section-hint { font-size: var(--text-xs); font-weight: 400; color: var(--color-text-tertiary); }
+.rcs-pill { display: flex; align-items: center; gap: var(--space-2); padding: var(--space-2) var(--space-3); border: 1px solid var(--color-border); border-radius: var(--radius-md); background: var(--color-surface); cursor: pointer; }
+.rcs-pill.checked { border-color: var(--blue-600); background: var(--blue-50); }
+.rcs-pill-title { font-size: var(--text-sm); font-weight: 500; }
+.rcs-pill-desc { font-size: 10px; color: var(--color-text-tertiary); }
+.rcs-chip-pill { display: inline-flex; align-items: center; gap: 6px; padding: 4px var(--space-3); border: 1px solid var(--color-border); border-radius: var(--radius-full); font-size: var(--text-sm); cursor: pointer; }
+.rcs-chip-pill.checked { border-color: var(--blue-600); background: var(--blue-50); }
