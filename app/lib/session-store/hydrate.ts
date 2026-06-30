@@ -425,9 +425,18 @@ export async function hydrateFromSupabase(): Promise<Dataset> {
     const paForm = (forms.data ?? []).find((f) => f.study_id === brId && f.name === "Protocol Amendments");
     if (brId && coSite && paForm) {
       const fvArr = fieldValues as Dataset["fieldValues"];
-      let inst = fInst.find((i) => i.form_id === paForm.id && i.site_id === coSite.id);
+      // The live DB carries a blank placeholder Protocol Amendments instance for this
+      // site; keep exactly ONE CO-scoped instance (seed onto the first, drop the rest +
+      // their values) so the table shows one real entry, not a stray empty row.
+      const existing = fInst.filter((i) => i.form_id === paForm.id && i.site_id === coSite.id);
+      let inst = existing[0];
       if (!inst) { inst = { id: "fi-pa-co-br2502", form_id: paForm.id, subject_id: null, barn_id: null, site_id: coSite.id, status: "in_work" }; fInst.push(inst); }
       const iid = inst.id;
+      const strayIds = new Set(existing.filter((i) => i.id !== iid).map((i) => i.id));
+      if (strayIds.size) {
+        for (let k = fInst.length - 1; k >= 0; k--) if (strayIds.has(fInst[k].id)) fInst.splice(k, 1);
+        for (let k = fvArr.length - 1; k >= 0; k--) if (strayIds.has(fvArr[k].form_instance_id)) fvArr.splice(k, 1);
+      }
       const fieldIdByCode = new Map((formFields as FF[]).filter((f) => f.form_id === paForm.id).map((f) => [f.code, f.id]));
       const seed = (code: string, value: string) => {
         const fid = fieldIdByCode.get(code); if (!fid) return;
