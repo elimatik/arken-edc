@@ -4,7 +4,7 @@ import { useEffect, useMemo, useState } from "react";
 import { useRouter, useParams } from "next/navigation";
 import { useShell } from "@/components/shell/ShellContext";
 import { useStudySession } from "@/lib/session-store/SessionStore";
-import { usersForStudy, avatarColor, initials, type AppUser } from "@/lib/users-data";
+import { usersForStudy, getRoleAvatarColor, initials, type AppUser } from "@/lib/users-data";
 import type { Role } from "@/lib/permissions";
 import "./users.css";
 
@@ -111,7 +111,7 @@ export default function UsersListPage() {
               <tr key={u.id} className={`u-row${u.status === "inactive" ? " inactive" : ""}`} onClick={() => router.push(`/study/${studyId}/users/${u.id}`)}>
                 <td>
                   <div className="u-userc">
-                    <span className="u-avatar" style={{ background: avatarColor(u.name) }}>{initials(u.name)}</span>
+                    <span className="u-avatar" style={{ background: getRoleAvatarColor(u.role) }}>{initials(u.name)}</span>
                     <div><div className="u-name">{u.name}</div><div className="u-email">{u.email}</div></div>
                   </div>
                 </td>

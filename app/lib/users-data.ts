@@ -94,12 +94,12 @@ const ACTIVITY: ActivityEntry[] = [
 ];
 export function userActivity(_userId: string): ActivityEntry[] { void _userId; return ACTIVITY.map((a) => ({ ...a })); }
 
-// Deterministic avatar colour from the user's name.
-const AVATAR_COLORS = ["--blue-600", "--purple-600", "--green-600", "--amber-700", "--slate-600", "--red-600"];
-export function avatarColor(name: string): string {
-  let h = 0;
-  for (let i = 0; i < name.length; i++) h = (h * 31 + name.charCodeAt(i)) >>> 0;
-  return `var(${AVATAR_COLORS[h % AVATAR_COLORS.length]})`;
+// Avatar colour is derived from the user's ROLE (matches the role-badge system).
+const ROLE_AVATAR: Record<string, string> = {
+  CRC: "var(--blue-600)", CRA: "var(--purple-600)", PI: "var(--green-600)", DM: "var(--amber-700)", Admin: "var(--slate-600)",
+};
+export function getRoleAvatarColor(role: string): string {
+  return ROLE_AVATAR[role] ?? "var(--slate-600)";
 }
 export function initials(name: string): string {
   const parts = name.replace(/^(Dr\.|Mr\.|Ms\.)\s*/i, "").replace(/,.*$/, "").trim().split(/\s+/);
