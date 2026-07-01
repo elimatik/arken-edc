@@ -1,0 +1,1066 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Arken EDC — Profile</title>
+<link href="https://fonts.googleapis.com/css2?family=Roboto:wght@400;500;700&family=Roboto+Mono:wght@400;500&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@tabler/icons-webfont@latest/tabler-icons.min.css">
+<style>
+:root {
+  --color-nav-bg:#1A1F2E;--color-nav-hover:#2C3248;--color-nav-icon:#8aafc8;
+  --color-page-bg:#FBFBFB;--color-surface:#FFFFFF;
+  --color-border:#E8E8E6;--color-border-subtle:#F0F0EE;
+  --color-text-primary:#2C2D33;--color-text-secondary:#4F535B;
+  --color-text-tertiary:#6D7480;--color-text-placeholder:#C4C4C2;
+  --color-hover-bg:#F0F0EE;--color-cta-bg:#1A1F2E;--color-cta-hover:#2C3248;
+  --color-link:#3D4A5C;--color-focus-ring:#3D8FE0;
+  --amber-50:#FFF8E7;--amber-200:#F5B830;--amber-700:#8A5C00;
+  --red-50:#FFF0F0;--red-200:#EC8585;--red-600:#B52626;
+  --green-50:#EEFAF4;--green-200:#58BC88;--green-600:#1A6B47;
+  --blue-50:#E8F4FF;--blue-200:#7AB8EE;--blue-600:#1760A8;
+  --slate-50:#EEF1F6;--slate-200:#8AA0B8;--slate-600:#3D5A78;
+  --purple-50:#F0EEFF;--purple-200:#A9A3EC;--purple-600:#534AB7;
+  --orange-50:#FFF0E8;--orange-200:#F48E50;--orange-600:#C94C0C;
+  --font-sans:'Roboto',system-ui,sans-serif;--font-mono:'Roboto Mono',monospace;
+  --text-xs:11px;--text-sm:12px;--text-base:14px;--text-lg:16px;--text-xl:20px;--text-3xl:24px;
+  --weight-medium:500;--weight-bold:700;
+  --radius-sm:2px;--radius-md:4px;--radius-lg:6px;--radius-full:9999px;
+  --space-1:4px;--space-2:8px;--space-3:12px;--space-4:16px;--space-5:20px;--space-6:24px;
+  --duration-fast:120ms;--ease-default:cubic-bezier(0.16,1,0.3,1);
+  --tracking-caps:0.07em;
+}
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+body{font-family:var(--font-sans);font-size:var(--text-base);color:var(--color-text-primary);background:var(--color-page-bg);-webkit-font-smoothing:antialiased}
+
+/* ─── Shell ─────────────────────────────────────────────── */
+.shell{display:flex;height:100vh;overflow:hidden}
+.sidenav{width:74px;background:var(--color-nav-bg);display:flex;flex-direction:column;align-items:center;padding:var(--space-3) 0;gap:2px;flex-shrink:0}
+.nav-logo{width:30px;height:30px;border-radius:var(--radius-md);background:var(--color-nav-hover);display:flex;align-items:center;justify-content:center;margin-bottom:var(--space-3)}
+.nav-logo span{font-size:var(--text-base);font-weight:700;color:#fff}
+.nav-item{width:100%;min-height:50px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:3px;border:none;background:transparent;color:var(--color-nav-icon);cursor:pointer;padding:4px 0;transition:background var(--duration-fast)}
+.nav-item:hover{background:var(--color-nav-hover);color:#fff}
+.nav-item i{font-size:20px}.nav-label{font-size:11px;font-weight:500;color:inherit;text-align:center}
+.nav-spacer{flex:1}
+.main{flex:1;display:flex;flex-direction:column;min-width:0;overflow:hidden}
+.topbar{height:56px;background:var(--color-nav-bg);display:flex;align-items:center;padding:0 var(--space-5);gap:var(--space-3);flex-shrink:0}
+.tb-study{background:var(--color-nav-hover);color:#fff;font-size:var(--text-base);font-weight:500;padding:7px var(--space-4);border-radius:var(--radius-md);border:1px solid #525D73;display:flex;align-items:center;gap:4px;cursor:pointer}
+.tb-right{margin-left:auto;display:flex;align-items:center;gap:var(--space-3)}
+.tb-role{background:var(--color-nav-hover);color:#fff;font-size:var(--text-sm);font-weight:500;padding:3px var(--space-2);border-radius:var(--radius-md);border:1px solid #525D73;cursor:pointer;display:flex;align-items:center;gap:4px}
+.tb-avatar{width:30px;height:30px;border-radius:50%;background:#3D5A78;color:#EEF1F6;font-size:12px;font-weight:500;display:flex;align-items:center;justify-content:center;cursor:pointer;border:2px solid #525D73}
+
+/* ─── Page ───────────────────────────────────────────────── */
+.page-wrap{flex:1;overflow-y:auto}
+.page-inner{display:flex;height:100%}
+
+/* ─── Profile sidebar nav (sticky — stays fixed while content scrolls) ─── */
+.profile-nav{width:220px;flex-shrink:0;padding:var(--space-6) var(--space-4);border-right:1px solid var(--color-border);background:var(--color-surface);position:sticky;top:0;height:100vh;overflow-y:auto}
+.profile-nav-title{font-size:var(--text-xs);font-weight:500;text-transform:uppercase;letter-spacing:var(--tracking-caps);color:var(--color-text-tertiary);padding:0 var(--space-3);margin-bottom:var(--space-2);margin-top:var(--space-4)}
+.profile-nav-title:first-child{margin-top:0}
+.profile-nav-item{display:flex;align-items:center;gap:var(--space-3);padding:var(--space-2) var(--space-3);border-radius:var(--radius-md);font-size:var(--text-sm);color:var(--color-text-secondary);cursor:pointer;border:none;background:none;width:100%;text-align:left;transition:all var(--duration-fast)}
+.profile-nav-item:hover{background:var(--color-hover-bg);color:var(--color-text-primary)}
+.profile-nav-item.active{background:var(--blue-50);color:var(--blue-600);font-weight:500}
+.profile-nav-item i{font-size:16px;flex-shrink:0}
+
+/* ─── Profile content ────────────────────────────────────── */
+.profile-content{flex:1;padding:var(--space-6);min-width:0;max-width:800px}
+.profile-section{display:none}
+.profile-section.active{display:block}
+.profile-section-title{font-size:var(--text-3xl);font-weight:500;margin-bottom:var(--space-1)}
+.profile-section-desc{font-size:var(--text-sm);color:var(--color-text-tertiary);margin-bottom:var(--space-5)}
+
+/* ─── Cards ──────────────────────────────────────────────── */
+.pcard{background:var(--color-surface);border:1px solid var(--color-border);border-radius:var(--radius-lg);overflow:hidden;margin-bottom:var(--space-4)}
+.pcard-header{padding:var(--space-4) var(--space-5);border-bottom:1px solid var(--color-border);display:flex;align-items:center;justify-content:space-between}
+.pcard-title{font-size:var(--text-base);font-weight:500}
+.pcard-desc{font-size:var(--text-xs);color:var(--color-text-tertiary);margin-top:2px}
+.pcard-body{padding:var(--space-5)}
+.prow{display:flex;align-items:center;justify-content:space-between;gap:var(--space-5);padding:var(--space-3) 0;border-bottom:1px solid var(--color-border-subtle)}
+.prow:last-child{border-bottom:none}
+.prow-label{font-size:var(--text-xs);color:var(--color-text-tertiary);min-width:140px;flex-shrink:0}
+.prow-value{font-size:var(--text-sm);color:var(--color-text-primary)}
+.prow-value.mono{font-family:var(--font-mono);font-size:var(--text-xs)}
+.prow-actions{display:flex;align-items:center;gap:var(--space-2);margin-left:auto}
+
+/* ─── Avatar section ─────────────────────────────────────── */
+.avatar-section{display:flex;align-items:center;gap:var(--space-5);padding:var(--space-5)}
+.avatar-large{width:80px;height:80px;border-radius:50%;background:#3D5A78;color:#fff;font-size:28px;font-weight:500;display:flex;align-items:center;justify-content:center;flex-shrink:0;position:relative;cursor:pointer}
+.avatar-edit-overlay{position:absolute;inset:0;border-radius:50%;background:rgba(0,0,0,0.4);display:flex;align-items:center;justify-content:center;opacity:0;transition:opacity var(--duration-fast)}
+.avatar-large:hover .avatar-edit-overlay{opacity:1}
+.avatar-info{flex:1}
+.avatar-name{font-size:var(--text-lg);font-weight:500;margin-bottom:var(--space-1)}
+.avatar-meta{font-size:var(--text-sm);color:var(--color-text-tertiary)}
+.avatar-color-row{display:flex;align-items:center;gap:var(--space-2);margin-top:var(--space-3)}
+.avatar-color-label{font-size:var(--text-xs);color:var(--color-text-tertiary)}
+.color-swatch{width:20px;height:20px;border-radius:50%;cursor:pointer;border:2px solid transparent;transition:transform var(--duration-fast)}
+.color-swatch:hover{transform:scale(1.15)}
+.color-swatch.selected{border-color:var(--color-text-primary)}
+
+/* ─── Form inputs ────────────────────────────────────────── */
+.form-grid-2{display:grid;grid-template-columns:1fr 1fr;gap:var(--space-4);margin-bottom:var(--space-4)}
+.form-field{display:flex;flex-direction:column;gap:var(--space-1)}
+.form-label{font-size:var(--text-sm);font-weight:500;color:var(--color-text-primary)}
+.form-input{height:36px;padding:0 var(--space-3);font-size:var(--text-sm);font-family:var(--font-sans);border:1px solid var(--color-border);border-radius:var(--radius-md);background:var(--color-surface);color:var(--color-text-primary);outline:none;width:100%}
+.form-input:focus{border-color:var(--color-focus-ring)}
+.form-input:disabled{background:var(--color-hover-bg);color:var(--color-text-tertiary);cursor:not-allowed}
+.form-select{height:36px;padding:0 28px 0 var(--space-3);font-size:var(--text-sm);font-family:var(--font-sans);border:1px solid var(--color-border);border-radius:var(--radius-md);background:var(--color-surface);cursor:pointer;appearance:none;background-image:url("data:image/svg+xml,%3Csvg width='8' height='12' viewBox='0 0 8 12' fill='none'%3E%3Cpath d='M1 1L6 6L1 11' stroke='%236D7480' stroke-width='1.5' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E");background-repeat:no-repeat;background-position:right 10px center;outline:none;width:100%}
+.form-hint{font-size:var(--text-xs);color:var(--color-text-tertiary)}
+.form-actions{display:flex;justify-content:flex-end;gap:var(--space-2);padding-top:var(--space-4);border-top:1px solid var(--color-border-subtle);margin-top:var(--space-4)}
+
+/* ─── Buttons ────────────────────────────────────────────── */
+.btn-primary{display:inline-flex;align-items:center;gap:4px;height:32px;padding:0 var(--space-3);font-size:var(--text-sm);font-weight:500;font-family:var(--font-sans);border:none;border-radius:var(--radius-md);background:var(--color-cta-bg);color:#fff;cursor:pointer}
+.btn-primary:hover{background:var(--color-cta-hover)}
+.btn-secondary{display:inline-flex;align-items:center;gap:4px;height:32px;padding:0 var(--space-3);font-size:var(--text-sm);font-weight:500;font-family:var(--font-sans);border:1px solid var(--color-border);border-radius:var(--radius-md);background:var(--color-surface);color:var(--color-text-primary);cursor:pointer}
+.btn-secondary:hover{background:var(--color-hover-bg)}
+.btn-danger{display:inline-flex;align-items:center;gap:4px;height:32px;padding:0 var(--space-3);font-size:var(--text-sm);font-weight:500;font-family:var(--font-sans);border:1px solid var(--red-200);border-radius:var(--radius-md);background:var(--red-50);color:var(--red-600);cursor:pointer}
+.btn-icon{display:inline-flex;align-items:center;justify-content:center;width:28px;height:28px;border:none;background:none;border-radius:var(--radius-md);color:var(--color-text-tertiary);cursor:pointer}
+.btn-icon:hover{background:var(--color-hover-bg);color:var(--color-text-primary)}
+.btn-link{background:none;border:none;color:var(--blue-600);font-size:var(--text-sm);cursor:pointer;padding:0;text-decoration:underline}
+
+/* ─── Badges ─────────────────────────────────────────────── */
+.badge{display:inline-flex;align-items:center;gap:3px;padding:2px var(--space-2);border-radius:var(--radius-full);font-size:var(--text-xs);font-weight:500;border:1px solid;white-space:nowrap}
+.badge-green{background:var(--green-50);border-color:var(--green-200);color:var(--green-600)}
+.badge-amber{background:var(--amber-50);border-color:var(--amber-200);color:var(--amber-700)}
+.badge-blue{background:var(--blue-50);border-color:var(--blue-200);color:var(--blue-600)}
+.badge-slate{background:var(--slate-50);border-color:var(--slate-200);color:var(--slate-600)}
+.badge-red{background:var(--red-50);border-color:var(--red-200);color:var(--red-600)}
+
+/* ─── Toggle ─────────────────────────────────────────────── */
+.toggle{position:relative;width:32px;height:20px;flex-shrink:0}
+.toggle input{opacity:0;width:0;height:0}
+.toggle-slider{position:absolute;inset:0;background:var(--color-border);border-radius:var(--radius-full);cursor:pointer;transition:background var(--duration-fast)}
+.toggle-slider:before{content:'';position:absolute;width:14px;height:14px;left:3px;top:3px;background:#fff;border-radius:50%;transition:transform var(--duration-fast)}
+.toggle input:checked + .toggle-slider{background:var(--blue-600)}
+.toggle input:checked + .toggle-slider:before{transform:translateX(12px)}
+.toggle-row{display:flex;align-items:center;gap:var(--space-3);padding:var(--space-3) 0;border-bottom:1px solid var(--color-border-subtle)}
+.toggle-row:last-child{border-bottom:none}
+.toggle-info{flex:1}
+.toggle-label{font-size:var(--text-sm);font-weight:500}
+.toggle-desc{font-size:var(--text-xs);color:var(--color-text-tertiary);margin-top:2px}
+
+/* ─── Session table ──────────────────────────────────────── */
+.session-table{width:100%;border-collapse:collapse}
+.session-table th{padding:var(--space-2) var(--space-3);text-align:left;font-size:var(--text-xs);font-weight:500;text-transform:uppercase;letter-spacing:var(--tracking-caps);color:var(--color-text-tertiary);border-bottom:1px solid var(--color-border)}
+.session-table td{padding:var(--space-3);font-size:var(--text-sm);border-bottom:1px solid var(--color-border-subtle);vertical-align:middle}
+.session-table tr:last-child td{border-bottom:none}
+.session-current{background:var(--green-50)}
+.device-icon{width:28px;height:28px;border-radius:var(--radius-md);background:var(--color-hover-bg);display:flex;align-items:center;justify-content:center;color:var(--color-text-tertiary)}
+
+/* ─── Notif event groups ─────────────────────────────────── */
+.notif-group{margin-bottom:var(--space-4)}
+.notif-group-title{display:flex;align-items:center;gap:var(--space-2);font-size:var(--text-xs);font-weight:500;text-transform:uppercase;letter-spacing:var(--tracking-caps);color:var(--color-text-tertiary);margin-bottom:var(--space-2)}
+.notif-group-title i{font-size:14px}
+.notif-event-row{display:flex;align-items:flex-start;justify-content:space-between;padding:var(--space-3) 0;border-bottom:1px solid var(--color-border-subtle)}
+.notif-event-row:last-child{border-bottom:none}
+.notif-event-info{flex:1;padding-right:var(--space-4)}
+.notif-event-label{font-size:var(--text-sm);font-weight:500}
+.notif-event-desc{font-size:var(--text-xs);color:var(--color-text-tertiary);margin-top:2px}
+.notif-event-sub{margin-top:var(--space-2);padding-left:var(--space-5);display:none}
+.notif-event-sub.visible{display:block}
+.notif-sub-select{height:28px;padding:0 24px 0 var(--space-2);font-size:var(--text-xs);font-family:var(--font-sans);border:1px solid var(--color-border);border-radius:var(--radius-md);background:var(--color-surface);cursor:pointer;appearance:none;background-image:url("data:image/svg+xml,%3Csvg width='8' height='12' viewBox='0 0 8 12' fill='none'%3E%3Cpath d='M1 1L6 6L1 11' stroke='%236D7480' stroke-width='1.5' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E");background-repeat:no-repeat;background-position:right 6px center;outline:none}
+
+/* ─── Study override cards ───────────────────────────────── */
+.study-override-card{border:1px solid var(--color-border);border-radius:var(--radius-md);overflow:hidden;margin-bottom:var(--space-3)}
+.study-override-header{display:flex;align-items:center;justify-content:space-between;padding:var(--space-3) var(--space-4);cursor:pointer}
+.study-override-header:hover{background:var(--color-hover-bg)}
+.study-override-name{font-size:var(--text-sm);font-weight:500}
+.study-override-meta{font-size:var(--text-xs);color:var(--color-text-tertiary);margin-top:2px}
+.study-override-body{padding:var(--space-4);border-top:1px solid var(--color-border);display:none}
+.study-override-body.open{display:block}
+
+/* ─── Password strength ──────────────────────────────────── */
+.pwd-strength{margin-top:var(--space-2)}
+.pwd-bars{display:flex;gap:3px;margin-bottom:var(--space-1)}
+.pwd-bar{height:3px;border-radius:2px;flex:1;background:var(--color-border)}
+.pwd-bar.filled-weak{background:var(--red-600)}
+.pwd-bar.filled-ok{background:var(--amber-200)}
+.pwd-bar.filled-strong{background:var(--green-600)}
+.pwd-label{font-size:var(--text-xs);color:var(--color-text-tertiary)}
+
+/* ─── 2FA section ────────────────────────────────────────── */
+.tfa-method{border:1px solid var(--color-border);border-radius:var(--radius-md);padding:var(--space-4);display:flex;align-items:center;gap:var(--space-4);margin-bottom:var(--space-3);cursor:pointer;transition:border-color var(--duration-fast)}
+.tfa-method:hover{border-color:var(--blue-200)}
+.tfa-method.selected{border-color:var(--blue-600);background:var(--blue-50)}
+.tfa-icon{width:40px;height:40px;border-radius:var(--radius-md);background:var(--color-hover-bg);display:flex;align-items:center;justify-content:center;flex-shrink:0;font-size:20px;color:var(--color-text-secondary)}
+.tfa-info{flex:1}
+.tfa-name{font-size:var(--text-sm);font-weight:500}
+.tfa-desc{font-size:var(--text-xs);color:var(--color-text-tertiary);margin-top:2px}
+
+/* ─── Danger zone ────────────────────────────────────────── */
+.danger-zone{border:1px solid var(--red-200);border-radius:var(--radius-lg);overflow:hidden}
+.danger-zone-header{padding:var(--space-4) var(--space-5);background:var(--red-50);border-bottom:1px solid var(--red-200)}
+.danger-zone-title{font-size:var(--text-sm);font-weight:500;color:var(--red-600)}
+.danger-zone-body{padding:var(--space-1) 0}
+.danger-row{display:flex;align-items:center;justify-content:space-between;padding:var(--space-4) var(--space-5);border-bottom:1px solid var(--color-border-subtle)}
+.danger-row:last-child{border-bottom:none}
+.danger-row-info{flex:1}
+.danger-row-label{font-size:var(--text-sm);font-weight:500}
+.danger-row-desc{font-size:var(--text-xs);color:var(--color-text-tertiary);margin-top:2px}
+
+/* ─── Toast ──────────────────────────────────────────────── */
+.toast{position:fixed;bottom:24px;right:24px;background:var(--color-cta-bg);color:#fff;padding:var(--space-3) var(--space-4);border-radius:var(--radius-md);font-size:var(--text-sm);font-weight:500;display:flex;align-items:center;gap:var(--space-2);box-shadow:0 4px 16px rgba(0,0,0,0.2);z-index:999;transform:translateY(80px);opacity:0;transition:all 0.22s var(--ease-default)}
+.toast.show{transform:translateY(0);opacity:1}
+
+/* ─── Info banner ────────────────────────────────────────── */
+.info-banner{display:flex;align-items:flex-start;gap:var(--space-3);padding:var(--space-3) var(--space-4);background:var(--blue-50);border:1px solid var(--blue-200);border-radius:var(--radius-md);font-size:var(--text-xs);color:var(--blue-600);margin-bottom:var(--space-4)}
+.info-banner i{font-size:14px;flex-shrink:0;margin-top:1px}
+
+/* ─── Divider ────────────────────────────────────────────── */
+hr{border:none;border-top:1px solid var(--color-border-subtle);margin:var(--space-4) 0}
+</style>
+</head>
+<body>
+<div class="shell">
+
+  <!-- Sidenav -->
+  <nav class="sidenav">
+    <div class="nav-logo"><span>Ar</span></div>
+    <button class="nav-item"><i class="ti ti-layout-dashboard"></i><span class="nav-label">Dashboard</span></button>
+    <button class="nav-item"><i class="ti ti-forms"></i><span class="nav-label">Data Entry</span></button>
+    <button class="nav-item"><i class="ti ti-list-details"></i><span class="nav-label">Animals</span></button>
+    <button class="nav-item"><i class="ti ti-message-question"></i><span class="nav-label">Queries</span></button>
+    <button class="nav-item"><i class="ti ti-calendar"></i><span class="nav-label">Visits</span></button>
+    <button class="nav-item"><i class="ti ti-check-lines"></i><span class="nav-label">SDV</span></button>
+    <button class="nav-item"><i class="ti ti-chart-bar"></i><span class="nav-label">Reports</span></button>
+    <button class="nav-item"><i class="ti ti-flask"></i><span class="nav-label">Inventory</span></button>
+    <button class="nav-item"><i class="ti ti-adjustments-horizontal"></i><span class="nav-label">Settings</span></button>
+    <button class="nav-item"><i class="ti ti-users"></i><span class="nav-label">Users</span></button>
+    <div class="nav-spacer"></div>
+    <button class="nav-item"><i class="ti ti-history"></i><span class="nav-label">Audit</span></button>
+  </nav>
+
+  <div class="main">
+    <!-- Topbar -->
+    <div class="topbar">
+      <button class="tb-study">BR-2502 — Bovine Respiratory Disease Treatment Trial <i class="ti ti-chevron-down" style="font-size:14px;opacity:0.6"></i></button>
+      <div class="tb-right">
+        <button class="tb-role"><i class="ti ti-shield-check" style="font-size:14px"></i> CRC <span style="opacity:0.5;font-size:10px">(Demo)</span></button>
+        <div class="tb-avatar" onclick="showToast('Profile opened from avatar click')">ET</div>
+      </div>
+    </div>
+
+    <!-- Page -->
+    <div class="page-wrap">
+      <div class="page-inner">
+
+        <!-- Profile sidebar nav -->
+        <nav class="profile-nav">
+          <div style="padding:0 var(--space-3);margin-bottom:var(--space-5)">
+            <div style="font-size:var(--text-lg);font-weight:500">My profile</div>
+            <div style="font-size:var(--text-xs);color:var(--color-text-tertiary);margin-top:2px">Elisa Tron · CRC</div>
+          </div>
+
+          <div class="profile-nav-title">Account</div>
+          <button class="profile-nav-item active" onclick="switchSection('personal')">
+            <i class="ti ti-user"></i> Personal information
+          </button>
+          <button class="profile-nav-item" onclick="switchSection('password')">
+            <i class="ti ti-lock"></i> Password
+          </button>
+          <button class="profile-nav-item" onclick="switchSection('2fa')">
+            <i class="ti ti-shield-check"></i> Two-factor auth
+            <span class="badge badge-green" style="margin-left:auto;font-size:10px">On</span>
+          </button>
+          <button class="profile-nav-item" onclick="switchSection('sessions')">
+            <i class="ti ti-devices"></i> Sessions
+          </button>
+
+          <div class="profile-nav-title">Preferences</div>
+          <button class="profile-nav-item" onclick="switchSection('notifications')">
+            <i class="ti ti-bell"></i> Notifications
+            <span class="badge badge-blue" style="margin-left:auto;font-size:10px">3 new</span>
+          </button>
+          <button class="profile-nav-item" onclick="switchSection('display')">
+            <i class="ti ti-palette"></i> Display
+          </button>
+          <button class="profile-nav-item" onclick="switchSection('language')">
+            <i class="ti ti-world"></i> Language & timezone
+          </button>
+        </nav>
+
+        <!-- Profile content -->
+        <div class="profile-content">
+
+          <!-- ═══ PERSONAL INFORMATION ═══ -->
+          <div class="profile-section active" id="section-personal">
+            <div class="profile-section-title">Personal information</div>
+            <div class="profile-section-desc">Your name, contact details, and how you appear in the system.</div>
+
+            <!-- Avatar card -->
+            <div class="pcard">
+              <div class="pcard-header">
+                <div>
+                  <div class="pcard-title">Profile picture</div>
+                  <div class="pcard-desc">Your initials and color appear throughout the app</div>
+                </div>
+              </div>
+              <div class="avatar-section">
+                <div class="avatar-large" style="background:#3D5A78" onclick="showToast('Avatar color picker')">
+                  ET
+                  <div class="avatar-edit-overlay"><i class="ti ti-pencil" style="color:#fff;font-size:18px"></i></div>
+                </div>
+                <div class="avatar-info">
+                  <div class="avatar-name">Elisa Tron</div>
+                  <div class="avatar-meta">CRC · BR-2502, CA-0801</div>
+                  <div class="avatar-color-row">
+                    <span class="avatar-color-label">Avatar color:</span>
+                    <div class="color-swatch selected" style="background:#3D5A78" onclick="selectColor(this,'#3D5A78')"></div>
+                    <div class="color-swatch" style="background:#1760A8" onclick="selectColor(this,'#1760A8')"></div>
+                    <div class="color-swatch" style="background:#534AB7" onclick="selectColor(this,'#534AB7')"></div>
+                    <div class="color-swatch" style="background:#1A6B47" onclick="selectColor(this,'#1A6B47')"></div>
+                    <div class="color-swatch" style="background:#8A5C00" onclick="selectColor(this,'#8A5C00')"></div>
+                    <div class="color-swatch" style="background:#C94C0C" onclick="selectColor(this,'#C94C0C')"></div>
+                    <div class="color-swatch" style="background:#B52626" onclick="selectColor(this,'#B52626')"></div>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <!-- Personal details card -->
+            <div class="pcard">
+              <div class="pcard-header">
+                <div class="pcard-title">Personal details</div>
+                <button class="btn-secondary" style="font-size:var(--text-xs);height:28px" onclick="toggleEdit('details')">
+                  <i class="ti ti-pencil" style="font-size:13px"></i> Edit
+                </button>
+              </div>
+              <div class="pcard-body" id="details-view">
+                <div class="prow">
+                  <span class="prow-label">First name</span>
+                  <span class="prow-value">Elisa</span>
+                </div>
+                <div class="prow">
+                  <span class="prow-label">Last name</span>
+                  <span class="prow-value">Tron</span>
+                </div>
+                <div class="prow">
+                  <span class="prow-label">Email address</span>
+                  <span class="prow-value">elisa@arken.com</span>
+                </div>
+                <div class="prow">
+                  <span class="prow-label">Phone</span>
+                  <span class="prow-value">+1 (303) 555-0142</span>
+                </div>
+                <div class="prow">
+                  <span class="prow-label">Organization</span>
+                  <span class="prow-value">Arken EDC</span>
+                </div>
+                <div class="prow">
+                  <span class="prow-label">Title / credentials</span>
+                  <span class="prow-value">BSc Clinical Research</span>
+                </div>
+              </div>
+              <div class="pcard-body" id="details-edit" style="display:none">
+                <div class="form-grid-2">
+                  <div class="form-field">
+                    <label class="form-label">First name</label>
+                    <input class="form-input" type="text" value="Elisa">
+                  </div>
+                  <div class="form-field">
+                    <label class="form-label">Last name</label>
+                    <input class="form-input" type="text" value="Tron">
+                  </div>
+                </div>
+                <div class="form-field" style="margin-bottom:var(--space-4)">
+                  <label class="form-label">Email address</label>
+                  <input class="form-input" type="email" value="elisa@arken.com">
+                  <span class="form-hint">Changing your email will require re-verification.</span>
+                </div>
+                <div class="form-grid-2">
+                  <div class="form-field">
+                    <label class="form-label">Phone</label>
+                    <input class="form-input" type="tel" value="+1 (303) 555-0142">
+                  </div>
+                  <div class="form-field">
+                    <label class="form-label">Organization</label>
+                    <input class="form-input" type="text" value="Arken EDC">
+                  </div>
+                </div>
+                <div class="form-field" style="margin-bottom:0">
+                  <label class="form-label">Title / credentials</label>
+                  <input class="form-input" type="text" value="BSc Clinical Research">
+                </div>
+                <div class="form-actions">
+                  <button class="btn-secondary" onclick="cancelEdit('details')">Cancel</button>
+                  <button class="btn-primary" onclick="saveEdit('details')">Save changes</button>
+                </div>
+              </div>
+            </div>
+
+            <!-- Study roles card (read-only) -->
+            <div class="pcard">
+              <div class="pcard-header">
+                <div>
+                  <div class="pcard-title">Study roles</div>
+                  <div class="pcard-desc">Managed by your study Admin or DM</div>
+                </div>
+              </div>
+              <div class="pcard-body" style="padding:0">
+                <div class="prow" style="padding:var(--space-3) var(--space-5)">
+                  <div>
+                    <div style="font-size:var(--text-sm);font-weight:500">BR-2502</div>
+                    <div style="font-size:var(--text-xs);color:var(--color-text-tertiary)">Bovine Respiratory Disease Treatment Trial</div>
+                  </div>
+                  <span class="badge badge-blue">CRC</span>
+                </div>
+                <div class="prow" style="padding:var(--space-3) var(--space-5)">
+                  <div>
+                    <div style="font-size:var(--text-sm);font-weight:500">CA-0801</div>
+                    <div style="font-size:var(--text-xs);color:var(--color-text-tertiary)">DermAlliv™ Canine Atopic Dermatitis Study</div>
+                  </div>
+                  <span class="badge badge-blue">CRC</span>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- ═══ PASSWORD ═══ -->
+          <div class="profile-section" id="section-password">
+            <div class="profile-section-title">Password</div>
+            <div class="profile-section-desc">Choose a strong password and don't reuse it for other accounts.</div>
+
+            <div class="pcard">
+              <div class="pcard-header"><div class="pcard-title">Change password</div></div>
+              <div class="pcard-body">
+                <div class="form-field" style="margin-bottom:var(--space-4)">
+                  <label class="form-label">Current password</label>
+                  <input class="form-input" type="password" placeholder="Enter current password">
+                </div>
+                <div class="form-field" style="margin-bottom:var(--space-4)">
+                  <label class="form-label">New password</label>
+                  <input class="form-input" type="password" placeholder="Enter new password" oninput="updateStrength(this.value)">
+                  <div class="pwd-strength">
+                    <div class="pwd-bars">
+                      <div class="pwd-bar" id="bar1"></div>
+                      <div class="pwd-bar" id="bar2"></div>
+                      <div class="pwd-bar" id="bar3"></div>
+                      <div class="pwd-bar" id="bar4"></div>
+                    </div>
+                    <div class="pwd-label" id="pwd-label">Enter a new password</div>
+                  </div>
+                </div>
+                <div class="form-field" style="margin-bottom:0">
+                  <label class="form-label">Confirm new password</label>
+                  <input class="form-input" type="password" placeholder="Confirm new password">
+                </div>
+                <div class="form-actions">
+                  <button class="btn-primary" onclick="showToast('Password updated successfully')">Update password</button>
+                </div>
+              </div>
+            </div>
+
+            <div class="pcard">
+              <div class="pcard-header"><div class="pcard-title">Password requirements</div></div>
+              <div class="pcard-body" style="padding:var(--space-4) var(--space-5)">
+                <div style="display:flex;flex-direction:column;gap:var(--space-2)">
+                  <div style="display:flex;align-items:center;gap:var(--space-2);font-size:var(--text-sm);color:var(--color-text-secondary)">
+                    <i class="ti ti-check" style="color:var(--green-600);font-size:14px"></i> At least 12 characters
+                  </div>
+                  <div style="display:flex;align-items:center;gap:var(--space-2);font-size:var(--text-sm);color:var(--color-text-secondary)">
+                    <i class="ti ti-check" style="color:var(--green-600);font-size:14px"></i> At least one uppercase letter
+                  </div>
+                  <div style="display:flex;align-items:center;gap:var(--space-2);font-size:var(--text-sm);color:var(--color-text-secondary)">
+                    <i class="ti ti-check" style="color:var(--green-600);font-size:14px"></i> At least one number
+                  </div>
+                  <div style="display:flex;align-items:center;gap:var(--space-2);font-size:var(--text-sm);color:var(--color-text-secondary)">
+                    <i class="ti ti-check" style="color:var(--green-600);font-size:14px"></i> At least one special character
+                  </div>
+                  <div style="display:flex;align-items:center;gap:var(--space-2);font-size:var(--text-sm);color:var(--color-text-secondary)">
+                    <i class="ti ti-x" style="color:var(--color-text-tertiary);font-size:14px"></i> Cannot reuse last 12 passwords
+                  </div>
+                </div>
+                <div style="margin-top:var(--space-3);font-size:var(--text-xs);color:var(--color-text-tertiary)">Required by 21 CFR Part 11 electronic records policy.</div>
+              </div>
+            </div>
+          </div>
+
+          <!-- ═══ 2FA ═══ -->
+          <div class="profile-section" id="section-2fa">
+            <div class="profile-section-title">Two-factor authentication</div>
+            <div class="profile-section-desc">Add an extra layer of security to your account. Required for all users per 21 CFR Part 11.</div>
+
+            <div class="info-banner">
+              <i class="ti ti-info-circle"></i>
+              <span>Two-factor authentication is <strong>required</strong> for all Arken EDC users. It cannot be disabled.</span>
+            </div>
+
+            <div class="pcard">
+              <div class="pcard-header">
+                <div class="pcard-title">Authentication method</div>
+                <span class="badge badge-green"><i class="ti ti-check" style="font-size:10px"></i> Active</span>
+              </div>
+              <div class="pcard-body" style="padding:var(--space-4) var(--space-5)">
+                <div class="tfa-method selected">
+                  <div class="tfa-icon"><i class="ti ti-device-mobile"></i></div>
+                  <div class="tfa-info">
+                    <div class="tfa-name">Authenticator app</div>
+                    <div class="tfa-desc">Use an app like Google Authenticator or Authy to generate codes. Recommended.</div>
+                  </div>
+                  <i class="ti ti-check" style="color:var(--blue-600);font-size:18px"></i>
+                </div>
+                <div class="tfa-method" onclick="showToast('SMS 2FA — configure in account settings')">
+                  <div class="tfa-icon"><i class="ti ti-message"></i></div>
+                  <div class="tfa-info">
+                    <div class="tfa-name">SMS text message</div>
+                    <div class="tfa-desc">Receive a code via text to your registered phone number.</div>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <div class="pcard">
+              <div class="pcard-header"><div class="pcard-title">Recovery codes</div></div>
+              <div class="pcard-body" style="padding:var(--space-4) var(--space-5)">
+                <p style="font-size:var(--text-sm);color:var(--color-text-secondary);margin-bottom:var(--space-4)">Recovery codes can be used to access your account if you lose your authentication device. Each code can only be used once.</p>
+                <div style="display:grid;grid-template-columns:1fr 1fr;gap:var(--space-2);font-family:var(--font-mono);font-size:var(--text-sm);background:var(--color-hover-bg);padding:var(--space-4);border-radius:var(--radius-md);margin-bottom:var(--space-4)">
+                  <span>ARKE-X4T2-9M1K</span><span>ARKE-B7Q3-2N8J</span>
+                  <span>ARKE-P5W9-6L4H</span><span>ARKE-C2R7-8F3D</span>
+                  <span>ARKE-M1Y4-3K9G</span><span style="color:var(--color-text-tertiary);text-decoration:line-through">ARKE-N6V8-7A2E</span>
+                </div>
+                <div style="display:flex;gap:var(--space-2)">
+                  <button class="btn-secondary" onclick="showToast('Recovery codes copied')"><i class="ti ti-copy"></i> Copy codes</button>
+                  <button class="btn-secondary" onclick="showToast('Recovery codes downloaded')"><i class="ti ti-download"></i> Download</button>
+                  <button class="btn-secondary" onclick="showToast('New recovery codes generated — old codes are now invalid')"><i class="ti ti-refresh"></i> Regenerate</button>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- ═══ SESSIONS ═══ -->
+          <div class="profile-section" id="section-sessions">
+            <div class="profile-section-title">Sessions</div>
+            <div class="profile-section-desc">Devices and locations where your account is currently signed in.</div>
+
+            <div class="pcard">
+              <div class="pcard-header">
+                <div class="pcard-title">Active sessions</div>
+                <button class="btn-danger" style="font-size:var(--text-xs);height:28px" onclick="showToast('All other sessions have been revoked')">
+                  <i class="ti ti-logout" style="font-size:13px"></i> Revoke all other sessions
+                </button>
+              </div>
+              <div style="overflow:hidden">
+                <table class="session-table">
+                  <thead>
+                    <tr>
+                      <th>Device</th>
+                      <th>Location</th>
+                      <th>IP address</th>
+                      <th>Last active</th>
+                      <th></th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    <tr class="session-current">
+                      <td>
+                        <div style="display:flex;align-items:center;gap:var(--space-3)">
+                          <div class="device-icon"><i class="ti ti-device-laptop"></i></div>
+                          <div>
+                            <div style="font-size:var(--text-sm);font-weight:500">MacBook Pro · Chrome 125</div>
+                            <div style="font-size:var(--text-xs);color:var(--green-600);font-weight:500"><i class="ti ti-circle-filled" style="font-size:8px"></i> Current session</div>
+                          </div>
+                        </div>
+                      </td>
+                      <td style="font-size:var(--text-sm);color:var(--color-text-secondary)">Milan, IT</td>
+                      <td style="font-family:var(--font-mono);font-size:var(--text-xs)">203.0.113.47</td>
+                      <td style="font-size:var(--text-sm);color:var(--color-text-secondary)">Now</td>
+                      <td>—</td>
+                    </tr>
+                    <tr>
+                      <td>
+                        <div style="display:flex;align-items:center;gap:var(--space-3)">
+                          <div class="device-icon"><i class="ti ti-device-mobile"></i></div>
+                          <div>
+                            <div style="font-size:var(--text-sm);font-weight:500">iPhone · Safari 17</div>
+                            <div style="font-size:var(--text-xs);color:var(--color-text-tertiary)">Signed in</div>
+                          </div>
+                        </div>
+                      </td>
+                      <td style="font-size:var(--text-sm);color:var(--color-text-secondary)">Milan, IT</td>
+                      <td style="font-family:var(--font-mono);font-size:var(--text-xs)">203.0.113.47</td>
+                      <td style="font-size:var(--text-sm);color:var(--color-text-secondary)">2h ago</td>
+                      <td><button class="btn-icon" onclick="showToast('Session revoked')" title="Revoke session"><i class="ti ti-logout" style="font-size:14px;color:var(--red-600)"></i></button></td>
+                    </tr>
+                    <tr>
+                      <td>
+                        <div style="display:flex;align-items:center;gap:var(--space-3)">
+                          <div class="device-icon"><i class="ti ti-device-laptop"></i></div>
+                          <div>
+                            <div style="font-size:var(--text-sm);font-weight:500">MacBook Pro · Firefox 126</div>
+                            <div style="font-size:var(--text-xs);color:var(--color-text-tertiary)">Signed in</div>
+                          </div>
+                        </div>
+                      </td>
+                      <td style="font-size:var(--text-sm);color:var(--color-text-secondary)">Rome, IT</td>
+                      <td style="font-family:var(--font-mono);font-size:var(--text-xs)">198.51.100.22</td>
+                      <td style="font-size:var(--text-sm);color:var(--color-text-secondary)">Yesterday</td>
+                      <td><button class="btn-icon" onclick="showToast('Session revoked')" title="Revoke session"><i class="ti ti-logout" style="font-size:14px;color:var(--red-600)"></i></button></td>
+                    </tr>
+                  </tbody>
+                </table>
+              </div>
+            </div>
+
+            <div class="pcard">
+              <div class="pcard-header"><div class="pcard-title">Recent login history</div></div>
+              <div style="overflow:hidden">
+                <table class="session-table">
+                  <thead>
+                    <tr><th>Date & time (UTC)</th><th>Device</th><th>IP address</th><th>Location</th><th>Result</th></tr>
+                  </thead>
+                  <tbody>
+                    <tr>
+                      <td style="font-family:var(--font-mono);font-size:var(--text-xs);white-space:nowrap">2026-07-01 14:32:07</td>
+                      <td style="font-size:var(--text-sm)">MacBook Pro · Chrome</td>
+                      <td style="font-family:var(--font-mono);font-size:var(--text-xs)">203.0.113.47</td>
+                      <td style="font-size:var(--text-sm);color:var(--color-text-secondary)">Milan, IT</td>
+                      <td><span class="badge badge-green">Success</span></td>
+                    </tr>
+                    <tr>
+                      <td style="font-family:var(--font-mono);font-size:var(--text-xs);white-space:nowrap">2026-06-30 09:15:33</td>
+                      <td style="font-size:var(--text-sm)">iPhone · Safari</td>
+                      <td style="font-family:var(--font-mono);font-size:var(--text-xs)">203.0.113.47</td>
+                      <td style="font-size:var(--text-sm);color:var(--color-text-secondary)">Milan, IT</td>
+                      <td><span class="badge badge-green">Success</span></td>
+                    </tr>
+                    <tr>
+                      <td style="font-family:var(--font-mono);font-size:var(--text-xs);white-space:nowrap">2026-06-29 22:04:11</td>
+                      <td style="font-size:var(--text-sm)">MacBook Pro · Chrome</td>
+                      <td style="font-family:var(--font-mono);font-size:var(--text-xs)">203.0.113.47</td>
+                      <td style="font-size:var(--text-sm);color:var(--color-text-secondary)">Milan, IT</td>
+                      <td><span class="badge badge-red">Failed — wrong password</span></td>
+                    </tr>
+                    <tr>
+                      <td style="font-family:var(--font-mono);font-size:var(--text-xs);white-space:nowrap">2026-06-29 22:04:58</td>
+                      <td style="font-size:var(--text-sm)">MacBook Pro · Chrome</td>
+                      <td style="font-family:var(--font-mono);font-size:var(--text-xs)">203.0.113.47</td>
+                      <td style="font-size:var(--text-sm);color:var(--color-text-secondary)">Milan, IT</td>
+                      <td><span class="badge badge-green">Success</span></td>
+                    </tr>
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          </div>
+
+          <!-- ═══ NOTIFICATIONS ═══ -->
+          <div class="profile-section" id="section-notifications">
+            <div class="profile-section-title">Notification preferences</div>
+            <div class="profile-section-desc">Control how and when you receive notifications. Study admins may override some settings.</div>
+
+            <!-- Delivery -->
+            <div class="pcard">
+              <div class="pcard-header"><div class="pcard-title">Delivery</div></div>
+              <div class="pcard-body" style="padding:var(--space-3) var(--space-5)">
+                <div class="toggle-row">
+                  <label class="toggle"><input type="checkbox" checked><span class="toggle-slider"></span></label>
+                  <div class="toggle-info">
+                    <div class="toggle-label">In-app notifications</div>
+                    <div class="toggle-desc">Shown in the notification bell in the topbar</div>
+                  </div>
+                </div>
+                <div class="toggle-row">
+                  <label class="toggle"><input type="checkbox" checked id="emailToggle" onchange="toggleEmailFreq()"><span class="toggle-slider"></span></label>
+                  <div class="toggle-info">
+                    <div class="toggle-label">Email notifications</div>
+                    <div class="toggle-desc">Sent to elisa@arken.com</div>
+                    <div id="emailFreq" style="margin-top:var(--space-2)">
+                      <select class="notif-sub-select" style="width:200px">
+                        <option selected>Immediately</option>
+                        <option>Daily digest (9:00 AM)</option>
+                        <option>Weekly digest (Monday 9:00 AM)</option>
+                      </select>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <!-- Notify me when -->
+            <div class="pcard">
+              <div class="pcard-header">
+                <div>
+                  <div class="pcard-title">Notify me when</div>
+                  <div class="pcard-desc">Applies to studies and subjects you have access to</div>
+                </div>
+              </div>
+              <div class="pcard-body" style="padding:var(--space-4) var(--space-5)">
+
+                <div class="notif-group">
+                  <div class="notif-group-title"><i class="ti ti-message-question" style="color:var(--amber-700)"></i> Queries</div>
+                  <div class="notif-event-row">
+                    <div class="notif-event-info">
+                      <div class="notif-event-label">A query is raised on one of my subjects</div>
+                      <div class="notif-event-desc">My subjects = subjects at your assigned sites (BR-2502: Feedlot CO, Feedlot KS)</div>
+                    </div>
+                    <label class="toggle"><input type="checkbox" checked><span class="toggle-slider"></span></label>
+                  </div>
+                  <div class="notif-event-row">
+                    <div class="notif-event-info">
+                      <div class="notif-event-label">A query I raised gets a response</div>
+                    </div>
+                    <label class="toggle"><input type="checkbox" checked><span class="toggle-slider"></span></label>
+                  </div>
+                  <div class="notif-event-row">
+                    <div class="notif-event-info">
+                      <div class="notif-event-label">Any query activity in the study</div>
+                      <div class="notif-event-desc">All queries across all subjects and sites</div>
+                      <div class="notif-event-sub" id="severitySub">
+                        <select class="notif-sub-select">
+                          <option>All queries</option>
+                          <option>Queries on signed fields only</option>
+                          <option>Critical queries only</option>
+                        </select>
+                      </div>
+                    </div>
+                    <label class="toggle"><input type="checkbox" onchange="toggleSeverity(this)"><span class="toggle-slider"></span></label>
+                  </div>
+                  <div class="notif-event-row">
+                    <div class="notif-event-info">
+                      <div class="notif-event-label">A query is overdue</div>
+                      <div class="notif-event-desc">No response after the threshold set by your study Admin</div>
+                    </div>
+                    <label class="toggle"><input type="checkbox" checked><span class="toggle-slider"></span></label>
+                  </div>
+                </div>
+
+                <div class="notif-group">
+                  <div class="notif-group-title"><i class="ti ti-alert-triangle" style="color:var(--red-600)"></i> Safety</div>
+                  <div class="notif-event-row">
+                    <div class="notif-event-info">
+                      <div class="notif-event-label">An AE or SAE is submitted</div>
+                      <div class="notif-event-desc">Requires acknowledgment within 24h for SAEs</div>
+                    </div>
+                    <label class="toggle"><input type="checkbox" checked><span class="toggle-slider"></span></label>
+                  </div>
+                  <div class="notif-event-row">
+                    <div class="notif-event-info">
+                      <div class="notif-event-label">A withdrawal period is ending</div>
+                      <div class="notif-event-desc">BR-2502 only — notified 14 days before withdrawal end date</div>
+                    </div>
+                    <label class="toggle"><input type="checkbox" checked><span class="toggle-slider"></span></label>
+                  </div>
+                </div>
+
+                <div class="notif-group">
+                  <div class="notif-group-title"><i class="ti ti-calendar" style="color:var(--blue-600)"></i> Visits & data</div>
+                  <div class="notif-event-row">
+                    <div class="notif-event-info">
+                      <div class="notif-event-label">A visit becomes overdue</div>
+                    </div>
+                    <label class="toggle"><input type="checkbox" checked><span class="toggle-slider"></span></label>
+                  </div>
+                  <div class="notif-event-row">
+                    <div class="notif-event-info">
+                      <div class="notif-event-label">Forms submitted for my review (SDV)</div>
+                    </div>
+                    <label class="toggle"><input type="checkbox"><span class="toggle-slider"></span></label>
+                  </div>
+                </div>
+
+                <div class="notif-group">
+                  <div class="notif-group-title"><i class="ti ti-flask" style="color:var(--orange-600)"></i> Inventory</div>
+                  <div class="notif-event-row">
+                    <div class="notif-event-info">
+                      <div class="notif-event-label">Stock falls below low-stock threshold</div>
+                    </div>
+                    <label class="toggle"><input type="checkbox"><span class="toggle-slider"></span></label>
+                  </div>
+                  <div class="notif-event-row">
+                    <div class="notif-event-info">
+                      <div class="notif-event-label">A unit is expiring within 30 days</div>
+                    </div>
+                    <label class="toggle"><input type="checkbox"><span class="toggle-slider"></span></label>
+                  </div>
+                </div>
+
+                <div class="notif-group" style="margin-bottom:0">
+                  <div class="notif-group-title"><i class="ti ti-clipboard-list" style="color:var(--purple-600)"></i> Study management</div>
+                  <div class="notif-event-row">
+                    <div class="notif-event-info">
+                      <div class="notif-event-label">A protocol amendment is published</div>
+                    </div>
+                    <label class="toggle"><input type="checkbox" checked><span class="toggle-slider"></span></label>
+                  </div>
+                  <div class="notif-event-row">
+                    <div class="notif-event-info">
+                      <div class="notif-event-label">Database lock is approaching (30 days)</div>
+                    </div>
+                    <label class="toggle"><input type="checkbox" checked><span class="toggle-slider"></span></label>
+                  </div>
+                  <div class="notif-event-row">
+                    <div class="notif-event-info">
+                      <div class="notif-event-label">Enrollment target reached</div>
+                    </div>
+                    <label class="toggle"><input type="checkbox" checked><span class="toggle-slider"></span></label>
+                  </div>
+                  <div class="notif-event-row">
+                    <div class="notif-event-info">
+                      <div class="notif-event-label">A subject is withdrawn</div>
+                    </div>
+                    <label class="toggle"><input type="checkbox" checked><span class="toggle-slider"></span></label>
+                  </div>
+                </div>
+
+              </div>
+            </div>
+
+            <!-- Per-study overrides -->
+            <div class="pcard">
+              <div class="pcard-header">
+                <div>
+                  <div class="pcard-title">Per-study overrides</div>
+                  <div class="pcard-desc">Customize notification settings for individual studies</div>
+                </div>
+              </div>
+              <div class="pcard-body" style="padding:0">
+                <div class="study-override-card" style="margin:var(--space-4);margin-bottom:var(--space-3)">
+                  <div class="study-override-header" onclick="toggleOverride('br')">
+                    <div>
+                      <div class="study-override-name">BR-2502 — Bovine Respiratory</div>
+                      <div class="study-override-meta">CRC · Feedlot CO, Feedlot KS</div>
+                    </div>
+                    <div style="display:flex;align-items:center;gap:var(--space-2)">
+                      <span class="badge badge-slate" id="br-chip">Using defaults</span>
+                      <i class="ti ti-chevron-down" style="font-size:14px;color:var(--color-text-tertiary)" id="br-chevron"></i>
+                    </div>
+                  </div>
+                  <div class="study-override-body" id="br-override">
+                    <div style="font-size:var(--text-xs);color:var(--color-text-tertiary);margin-bottom:var(--space-3)">Overrides apply only to BR-2502. Leave all defaults to inherit from your global preferences above.</div>
+                    <div class="toggle-row">
+                      <label class="toggle"><input type="checkbox" checked><span class="toggle-slider"></span></label>
+                      <div class="toggle-info"><div class="toggle-label" style="font-size:var(--text-sm)">Query notifications</div></div>
+                    </div>
+                    <div class="toggle-row">
+                      <label class="toggle"><input type="checkbox" checked><span class="toggle-slider"></span></label>
+                      <div class="toggle-info"><div class="toggle-label" style="font-size:var(--text-sm)">Safety / AE notifications</div></div>
+                    </div>
+                    <div class="toggle-row">
+                      <label class="toggle"><input type="checkbox"><span class="toggle-slider"></span></label>
+                      <div class="toggle-info"><div class="toggle-label" style="font-size:var(--text-sm)">Visit overdue notifications</div></div>
+                    </div>
+                    <div style="margin-top:var(--space-3)">
+                      <button class="btn-link" style="font-size:var(--text-xs)" onclick="showToast('BR-2502 notifications reset to defaults')">Reset to defaults</button>
+                    </div>
+                  </div>
+                </div>
+                <div class="study-override-card" style="margin:0 var(--space-4);margin-bottom:var(--space-4)">
+                  <div class="study-override-header" onclick="toggleOverride('ca')">
+                    <div>
+                      <div class="study-override-name">CA-0801 — DermAlliv™ Canine Atopic</div>
+                      <div class="study-override-meta">CRC · UC Davis Dermatology</div>
+                    </div>
+                    <div style="display:flex;align-items:center;gap:var(--space-2)">
+                      <span class="badge badge-slate" id="ca-chip">Using defaults</span>
+                      <i class="ti ti-chevron-down" style="font-size:14px;color:var(--color-text-tertiary)" id="ca-chevron"></i>
+                    </div>
+                  </div>
+                  <div class="study-override-body" id="ca-override">
+                    <div style="font-size:var(--text-xs);color:var(--color-text-tertiary);margin-bottom:var(--space-3)">Overrides apply only to CA-0801.</div>
+                    <div class="toggle-row">
+                      <label class="toggle"><input type="checkbox" checked><span class="toggle-slider"></span></label>
+                      <div class="toggle-info"><div class="toggle-label" style="font-size:var(--text-sm)">Query notifications</div></div>
+                    </div>
+                    <div class="toggle-row">
+                      <label class="toggle"><input type="checkbox" checked><span class="toggle-slider"></span></label>
+                      <div class="toggle-info"><div class="toggle-label" style="font-size:var(--text-sm)">Safety / AE notifications</div></div>
+                    </div>
+                    <div style="margin-top:var(--space-3)">
+                      <button class="btn-link" style="font-size:var(--text-xs)" onclick="showToast('CA-0801 notifications reset to defaults')">Reset to defaults</button>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- ═══ DISPLAY ═══ -->
+          <div class="profile-section" id="section-display">
+            <div class="profile-section-title">Display</div>
+            <div class="profile-section-desc">Customize how Arken EDC looks for you.</div>
+
+            <div class="pcard">
+              <div class="pcard-header"><div class="pcard-title">Appearance</div></div>
+              <div class="pcard-body" style="padding:var(--space-3) var(--space-5)">
+                <div class="toggle-row">
+                  <label class="toggle"><input type="checkbox"><span class="toggle-slider"></span></label>
+                  <div class="toggle-info">
+                    <div class="toggle-label">Compact mode</div>
+                    <div class="toggle-desc">Reduce row height and spacing in tables for more data on screen</div>
+                  </div>
+                </div>
+                <div class="toggle-row">
+                  <label class="toggle"><input type="checkbox" checked><span class="toggle-slider"></span></label>
+                  <div class="toggle-info">
+                    <div class="toggle-label">Show field codes</div>
+                    <div class="toggle-desc">Display field codes alongside labels in forms (useful for data managers)</div>
+                  </div>
+                </div>
+                <div class="toggle-row">
+                  <label class="toggle"><input type="checkbox" checked><span class="toggle-slider"></span></label>
+                  <div class="toggle-info">
+                    <div class="toggle-label">Confirm before navigating away from unsaved forms</div>
+                    <div class="toggle-desc">Show a warning if you try to leave a form with unsaved changes</div>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <div class="pcard">
+              <div class="pcard-header"><div class="pcard-title">Date & number format</div></div>
+              <div class="pcard-body" style="padding:var(--space-4) var(--space-5)">
+                <div class="form-grid-2">
+                  <div class="form-field">
+                    <label class="form-label">Date format</label>
+                    <select class="form-select">
+                      <option>DD/MM/YYYY</option>
+                      <option>MM/DD/YYYY</option>
+                      <option selected>YYYY-MM-DD (ISO)</option>
+                    </select>
+                  </div>
+                  <div class="form-field">
+                    <label class="form-label">Time format</label>
+                    <select class="form-select">
+                      <option selected>24-hour (14:30)</option>
+                      <option>12-hour (2:30 PM)</option>
+                    </select>
+                  </div>
+                </div>
+                <div class="form-field">
+                  <label class="form-label">Decimal separator</label>
+                  <select class="form-select" style="max-width:240px">
+                    <option selected>Period · 1,234.56</option>
+                    <option>Comma · 1.234,56</option>
+                  </select>
+                  <span class="form-hint">Used for numeric field display only — data is stored in standard format regardless.</span>
+                </div>
+                <div class="form-actions">
+                  <button class="btn-primary" onclick="showToast('Display preferences saved')">Save preferences</button>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- ═══ LANGUAGE & TIMEZONE ═══ -->
+          <div class="profile-section" id="section-language">
+            <div class="profile-section-title">Language & timezone</div>
+            <div class="profile-section-desc">These settings affect how dates, times, and text appear for you.</div>
+
+            <div class="pcard">
+              <div class="pcard-header"><div class="pcard-title">Language & region</div></div>
+              <div class="pcard-body" style="padding:var(--space-4) var(--space-5)">
+                <div class="form-grid-2">
+                  <div class="form-field">
+                    <label class="form-label">Language</label>
+                    <select class="form-select">
+                      <option selected>English (US)</option>
+                      <option>English (UK)</option>
+                      <option>Italian</option>
+                      <option>French</option>
+                      <option>German</option>
+                      <option>Spanish</option>
+                    </select>
+                  </div>
+                  <div class="form-field">
+                    <label class="form-label">Timezone</label>
+                    <select class="form-select">
+                      <option>UTC+0 — London</option>
+                      <option selected>UTC+1 — Rome, Milan, Paris</option>
+                      <option>UTC-5 — New York</option>
+                      <option>UTC-6 — Chicago, Dallas</option>
+                      <option>UTC-7 — Denver, Phoenix</option>
+                      <option>UTC-8 — Los Angeles</option>
+                    </select>
+                  </div>
+                </div>
+                <div class="info-banner" style="margin-bottom:0;margin-top:var(--space-3)">
+                  <i class="ti ti-info-circle"></i>
+                  <span>All audit trail timestamps are stored and displayed in <strong>UTC</strong> regardless of your timezone setting. Your timezone only affects visit scheduling and calendar displays.</span>
+                </div>
+                <div class="form-actions">
+                  <button class="btn-primary" onclick="showToast('Language & timezone saved')">Save preferences</button>
+                </div>
+              </div>
+            </div>
+          </div>
+
+        </div><!-- /profile-content -->
+      </div><!-- /page-inner -->
+    </div><!-- /page-wrap -->
+  </div><!-- /main -->
+</div><!-- /shell -->
+
+<!-- Toast -->
+<div class="toast" id="toast"></div>
+
+<script>
+function switchSection(id) {
+  document.querySelectorAll('.profile-section').forEach(s => s.classList.remove('active'));
+  document.querySelectorAll('.profile-nav-item').forEach(i => i.classList.remove('active'));
+  document.getElementById('section-' + id).classList.add('active');
+  event.currentTarget.classList.add('active');
+}
+
+function toggleEdit(id) {
+  const view = document.getElementById(id + '-view');
+  const edit = document.getElementById(id + '-edit');
+  view.style.display = 'none';
+  edit.style.display = 'block';
+}
+function cancelEdit(id) {
+  document.getElementById(id + '-view').style.display = 'block';
+  document.getElementById(id + '-edit').style.display = 'none';
+}
+function saveEdit(id) {
+  document.getElementById(id + '-view').style.display = 'block';
+  document.getElementById(id + '-edit').style.display = 'none';
+  showToast('Changes saved successfully');
+}
+
+function selectColor(el, color) {
+  document.querySelectorAll('.color-swatch').forEach(s => s.classList.remove('selected'));
+  el.classList.add('selected');
+  document.querySelector('.avatar-large').style.background = color;
+  showToast('Avatar color updated');
+}
+
+function updateStrength(val) {
+  const bars = [1,2,3,4].map(i => document.getElementById('bar' + i));
+  const label = document.getElementById('pwd-label');
+  bars.forEach(b => { b.className = 'pwd-bar'; });
+  if (!val) { label.textContent = 'Enter a new password'; return; }
+  const score = (val.length >= 12 ? 1 : 0) + (/[A-Z]/.test(val) ? 1 : 0) + (/[0-9]/.test(val) ? 1 : 0) + (/[^A-Za-z0-9]/.test(val) ? 1 : 0);
+  const cls = score <= 1 ? 'filled-weak' : score <= 2 ? 'filled-ok' : 'filled-strong';
+  const lbl = score <= 1 ? 'Weak' : score <= 2 ? 'Fair' : score <= 3 ? 'Good' : 'Strong';
+  for (let i = 0; i < score; i++) bars[i].classList.add(cls);
+  label.textContent = lbl;
+  label.style.color = score <= 1 ? 'var(--red-600)' : score <= 2 ? 'var(--amber-700)' : 'var(--green-600)';
+}
+
+function toggleEmailFreq() {
+  const freq = document.getElementById('emailFreq');
+  freq.style.display = document.getElementById('emailToggle').checked ? 'block' : 'none';
+}
+
+function toggleSeverity(el) {
+  document.getElementById('severitySub').classList.toggle('visible', el.checked);
+}
+
+function toggleOverride(study) {
+  const body = document.getElementById(study + '-override');
+  const chevron = document.getElementById(study + '-chevron');
+  const chip = document.getElementById(study + '-chip');
+  const open = body.classList.toggle('open');
+  chevron.style.transform = open ? 'rotate(180deg)' : '';
+  chip.textContent = open ? 'Custom' : 'Using defaults';
+  chip.className = open ? 'badge badge-blue' : 'badge badge-slate';
+}
+
+function showToast(msg) {
+  const t = document.getElementById('toast');
+  t.innerHTML = '<i class="ti ti-check" style="font-size:16px"></i> ' + msg;
+  t.classList.add('show');
+  setTimeout(() => t.classList.remove('show'), 2800);
+}
+</script>
+</body>
+</html>
