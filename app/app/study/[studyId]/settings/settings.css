@@ -162,3 +162,10 @@
 .fee-table th { padding: var(--space-2) var(--space-3); text-align: left; font-size: var(--text-xs); font-weight: 500; text-transform: uppercase; letter-spacing: var(--tracking-caps); color: var(--color-text-tertiary); border-bottom: 1px solid var(--color-border); }
 .fee-table td { padding: var(--space-2) var(--space-3); border-bottom: 1px solid var(--color-border-subtle); vertical-align: middle; }
 .fee-table tr.fee-section td { background: var(--color-page-bg); font-size: 10px; font-weight: 700; text-transform: uppercase; letter-spacing: var(--tracking-caps); color: var(--color-text-secondary); }
+
+/* Study status — locked-section gate + status changer dropdown */
+.settings-locked-banner { display: flex; align-items: center; gap: var(--space-2); padding: var(--space-3) var(--space-4); margin-bottom: var(--space-4); border-radius: var(--radius-md); border: 1px solid var(--red-200); background: var(--red-50); color: var(--red-600); font-size: var(--text-sm); font-weight: 500; }
+.settings-locked-fieldset { border: none; margin: 0; padding: 0; min-width: 0; opacity: 0.6; }
+.settings-status-dropdown { position: absolute; z-index: 30; top: 100%; left: var(--space-4); background: var(--color-surface); border: 1px solid var(--color-border); border-radius: var(--radius-md); box-shadow: 0 8px 24px rgba(14, 18, 28, 0.14); padding: var(--space-1); min-width: 168px; }
+.settings-status-dropdown button { display: block; width: 100%; text-align: left; padding: var(--space-1) var(--space-2); border: none; background: none; cursor: pointer; border-radius: var(--radius-sm); }
+.settings-status-dropdown button:hover { background: var(--color-hover-bg); }

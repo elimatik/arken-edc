@@ -19,6 +19,7 @@ import type { Role } from "@/lib/permissions";
 import { INV_ACTIONS, INV_ROLES, useInventoryPermissions, setInvPermission } from "@/lib/inventory-permissions";
 import { getStudyTypeConfig } from "@/lib/study-type-config";
 import { getFormPermDefaults, setFormPermDefault, setFormPermDefaultsFor, rolePresetPerms, useFormPermDefaults } from "@/lib/form-perm-defaults";
+import { type StudyStatus, STATUS_ORDER, STATUS_META, getStudyStatus, isSectionEditable } from "@/lib/study-status";
 import "./settings.css";
 
 type Method = "blocked" | "simple" | "stratified" | "minimization";
@@ -1656,10 +1657,39 @@ function BillingSection({ studyCode, onToast }: { studyCode: string; onToast: (m
   );
 }
 
+// Study-status badge + Admin-only demo status changer (top of the Settings nav).
+function StatusControl({ studyCode, status, onChange, isAdmin, onToast }: { studyCode: string; status: StudyStatus; onChange: (s: StudyStatus) => void; isAdmin: boolean; onToast: (m: string) => void }) {
+  const [open, setOpen] = useState(false);
+  const meta = STATUS_META[status];
+  return (
+    <div style={{ padding: "0 var(--space-4) var(--space-3)", marginBottom: "var(--space-3)", borderBottom: "1px solid var(--color-border-subtle)", position: "relative" }}>
+      <div style={{ fontSize: "var(--text-xs)", fontWeight: 500, color: "var(--color-text-secondary)", fontFamily: "var(--font-mono)", marginBottom: 4 }}>{studyCode}</div>
+      <button type="button" disabled={!isAdmin} onClick={() => setOpen((o) => !o)} title={isAdmin ? "Change study status (demo)" : "Study status"} style={{ display: "inline-flex", alignItems: "center", gap: 4, border: "none", background: "none", padding: 0, cursor: isAdmin ? "pointer" : "default" }}>
+        <span className={`set-badge ${meta.badge}`}>{meta.icon && <i className={`ti ti-${meta.icon}`} style={{ fontSize: 10, marginRight: 3 }}></i>}{meta.label}</span>
+        {isAdmin && <i className={`ti ti-chevron-${open ? "up" : "down"}`} style={{ fontSize: 12, color: "var(--color-text-tertiary)" }}></i>}
+      </button>
+      {open && isAdmin && (
+        <div className="settings-status-dropdown">
+          {STATUS_ORDER.map((s) => (
+            <button key={s} type="button" onClick={() => { onChange(s); setOpen(false); onToast(`Study status changed to ${STATUS_META[s].label}`); }} style={s === status ? { fontWeight: 600 } : undefined}>
+              <span className={`set-badge ${STATUS_META[s].badge}`} style={{ marginRight: 6 }}>{STATUS_META[s].label}</span>
+            </button>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
 export default function StudySettingsPage() {
-  const { study } = useShell();
+  const { study, activeRole } = useShell();
   const { dataset } = useStudySession();
   const cfg = useMemo(() => randConfig(study.code), [study.code]);
+  // Study status lifecycle — seeded per study; the demo control (Admin) overrides
+  // it in component state to demonstrate the read-only gating on locked studies.
+  const [status, setStatus] = useState<StudyStatus>(() => getStudyStatus(study.code));
+  useEffect(() => { setStatus(getStudyStatus(study.code)); }, [study.code]);
+  const isAdmin = activeRole === "Admin";
   const typeCfg = getStudyTypeConfig(study.code); // study-type design flags (rand unit, timing)
   const isGroupRand = typeCfg.randomizationUnit === "group";
   const atSetup = typeCfg.groupAssignmentTiming === "at_setup";
@@ -1734,6 +1764,7 @@ export default function StudySettingsPage() {
     <div className="settings-wrap">
       {/* Nav sidebar — grouped */}
       <nav className="settings-nav" aria-label="Settings sections">
+        <StatusControl studyCode={study.code} status={status} onChange={setStatus} isAdmin={isAdmin} onToast={setToast} />
         {NAV_GROUPS.map((grp, gi) => (
           <div key={grp.title}>
             <div className="settings-nav-title" style={gi > 0 ? { marginTop: "var(--space-4)" } : undefined}>{grp.title}</div>
@@ -1748,7 +1779,7 @@ export default function StudySettingsPage() {
 
       {/* Content */}
       <div className="settings-content">
-        {section === "randomization" ? (
+        {(() => { const sectionEl = section === "randomization" ? (
           <>
             <div className="section-header">
               <h1 className="set-section-title">Randomization</h1>
@@ -1957,7 +1988,17 @@ export default function StudySettingsPage() {
               <div style={{ fontSize: "var(--text-sm)", maxWidth: 440, lineHeight: 1.5 }}>This settings section isn’t built yet. The Randomization section is the first live area.</div>
             </div>
           </>
-        )}
+        );
+        // Status gate — when the study status locks this section, disable every
+        // control (fieldset) and show a read-only banner.
+        if (isSectionEditable(status, section)) return sectionEl;
+        return (
+          <>
+            <div className="settings-locked-banner"><i className="ti ti-lock"></i> Locked — study status: {STATUS_META[status].label}. This section is read-only.</div>
+            <fieldset disabled className="settings-locked-fieldset">{sectionEl}</fieldset>
+          </>
+        );
+        })()}
       </div>
 
       {/* ── Add / Edit stratification factor modal ── */}
