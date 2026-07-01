@@ -199,6 +199,7 @@ export function Topbar({
                 <button className="tb-avatar-menu-item" role="menuitem" type="button" onClick={() => { setAvatarMenuOpen(false); router.push(`/study/${study.id}/profile`); }}>
                   <i className="ti ti-user" aria-hidden="true"></i> Profile
                 </button>
+                <div className="tb-avatar-menu-sep" role="separator" />
                 <button className="tb-avatar-menu-item" role="menuitem" type="button" onClick={() => { setAvatarMenuOpen(false); setLogoutOpen(true); }}>
                   <i className="ti ti-logout" aria-hidden="true"></i> Log out
                 </button>
