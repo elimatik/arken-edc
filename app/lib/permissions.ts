@@ -72,6 +72,10 @@ export const NAV_ITEMS: NavItem[] = [
   // does not review the immutable log of it.
   { key: "audit", label: "Audit Trail", title: "Audit Trail", icon: "clipboard-list",
     access: { CRA: open, DM: open, PI: open, Admin: open } },
+  // Users — account / delegation management. Admin + DM only (PI's site-scoped
+  // read-only view is deferred; CRC/CRA excluded).
+  { key: "users", label: "Users", title: "Users", icon: "users",
+    access: { DM: open, Admin: open } },
   { key: "invoices", label: "Invoices", icon: "receipt",
     access: { Admin: open } },
   // Pinned to the bottom of the sidenav.
@@ -102,6 +106,7 @@ export const NAV_ROUTES: Partial<Record<string, string>> = {
   reports: "reports",
   inventory: "inventory",
   audit: "audit-trail",
+  users: "users",
   sites: "sites",
   settings: "settings",
 };
