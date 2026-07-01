@@ -54,10 +54,19 @@ Three guards: **`isSubjectUnblinded(dataset, subjectId)`** (is this subject in t
 - **PART 2** — CA-0801 kit-per-visit (one fresh kit unit per visit; Kit A-007-V1/V2…; Study Drug Accountability form aligned to inventory).
 - **PART 3** — Dispensing log derived from Treatment Admin / Re-treatment **form instances** instead of vial events (the form→inventory coupling deferred several times). Re-treatment → 2nd dispensing row comes free here.
 - **Settings module** — currently a stub. Port the randomization section (method/blocks/blinding/stratification, treatment groups, list management) + move the hardcoded `INVENTORY_PERMISSIONS` here.
-- **Notifications**, **Profile + Invoices**, **portfolio site**.
+- ~~**Notifications**~~ — **COMPLETE** (see the Notifications note below). Still open: **Profile + Invoices**, **portfolio site**.
 
 ### ⚠️ Architecture note — Notification preferences route (Profile placeholder)
 **Notification preferences live at `/study/[id]/profile?section=notifications`** (study-scoped, **not** a bare top-level `/profile`) — this keeps the session/role/site context (the delivery + per-role event toggles + per-study overrides all need `activeRole`, `dataset.studies`, and the current study's sites, which only exist inside the study shell). The route currently renders the 3 preference cards behind a "Full profile & account settings coming soon" banner; **it lifts out cleanly into the real Profile page when that's built** (drop the banner, move the file). The Settings sidebar no longer has a Notifications item (removed); Settings keeps only the Admin/DM **"Study notification rules"** card under Study preferences. **Sidenav has no active-highlight mapping for the `/notifications` (full-page history) or `/profile` routes** — `activeKey` falls back to `dashboard` for both. Add the mapping (in `AppShell.tsx`'s route→activeKey reverse-map + `NAV_ROUTES`) when the Profile page is built.
+
+### ✅ Notifications — COMPLETE
+Bell drawer (unread inbox) + full-page history (`/study/[id]/notifications`) + preferences (in the profile route above), all module/component state (no DATA_KEY). Key behaviours a future session should know:
+- **SAE ack-gating keys off `kind === 'safety'`, not the title.** `idsForMarkAll()` excludes any unacknowledged `safety` notification from "mark all as read"; they stay in the unread drawer until individually acknowledged (21 CFR Part 11 receipt), then clear on the next mark-all. This means the seeded generic "Safety — …" history entries are ack-gated too, not only the real titled SAE.
+- **Only titled-SAE entries (`title` contains "SAE") show the escalation timeline** (4 visual chips: notified → acknowledged → sponsor → compliance flag; purely seeded, no timer logic).
+- **Badge was already per-study scoped** (`unreadCount(study.code)`); a **cross-study indicator** ("X more across all studies", `unreadOtherStudies()`) was added to the drawer header.
+- **Subject filter on the full-page history** works off a `subjectCode` field seeded on notifications (plus a title/body fallback for generated entries).
+- **Withdrawal-period reminders use a distinct `withdrawal_reminder` kind** (amber, safety-adjacent) so they are **NOT** ack-gated like a true SAE.
+- **Deferred to production:** real delivery receipts, actual escalation timer logic, notification audit-trail persistence, bulk management / snooze.
 
 ### ⚠️ Clinical accuracy gaps — known issues
 Compliance/realism gaps in the inventory + randomization flows (display works; the underlying clinical model is incomplete):

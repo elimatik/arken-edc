@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { useShell } from "@/components/shell/ShellContext";
 import { useStudySession } from "@/lib/session-store/SessionStore";
@@ -42,6 +42,7 @@ export default function NotificationsPage() {
   const [page, setPage] = useState(0);
   const [toast, setToast] = useState<string | null>(null);
   const [ackNotif, setAckNotif] = useState<Notif | null>(null);
+  const searchRef = useRef<HTMLInputElement>(null);
   useEffect(() => { if (!toast) return; const t = setTimeout(() => setToast(null), 3200); return () => clearTimeout(t); }, [toast]);
   useEffect(() => { setPage(0); }, [q, type, status, subj, from, to]);
 
@@ -87,7 +88,8 @@ export default function NotificationsPage() {
       <div className="notif-page-toolbar">
         <div className="notif-page-search">
           <i className="ti ti-search"></i>
-          <input value={q} onChange={(e) => setQ(e.target.value)} placeholder="Search notifications…" aria-label="Search notifications" />
+          <input ref={searchRef} value={q} onChange={(e) => setQ(e.target.value)} placeholder="Search notifications…" aria-label="Search notifications" />
+          {q && <button type="button" className="notif-search-clear" aria-label="Clear search" onClick={() => { setQ(""); searchRef.current?.focus(); }}><i className="ti ti-x"></i></button>}
         </div>
         <select value={type} onChange={(e) => setType(e.target.value)} aria-label="Filter by type">
           <option value="All">All types</option>

@@ -41,8 +41,9 @@
 .notif-ack-btn { font-size: 11px; font-weight: 500; padding: 3px 8px; border: 1px solid var(--color-border); background: var(--color-surface); border-radius: var(--radius-sm); color: var(--color-text-secondary); cursor: pointer; white-space: nowrap; }
 .notif-ack-btn:hover { background: var(--color-hover-bg); border-color: var(--color-border-strong, var(--color-border)); }
 .notif-ack-chip { display: inline-flex; align-items: center; gap: 4px; font-size: 11px; font-weight: 600; padding: 3px 8px; border-radius: var(--radius-sm); background: var(--green-50, #e9f6ee); color: var(--green-700, #1c7c43); white-space: nowrap; }
-.notif-retry { font-size: var(--text-xs); font-weight: 500; color: var(--color-link); background: none; border: none; padding: 0; cursor: pointer; }
-.notif-retry:hover { text-decoration: underline; }
+/* Retry matches the Acknowledge button — small secondary button */
+.notif-retry { font-size: 11px; font-weight: 500; padding: 3px 8px; border: 1px solid var(--color-border); background: var(--color-surface); border-radius: var(--radius-sm); color: var(--color-text-secondary); cursor: pointer; white-space: nowrap; }
+.notif-retry:hover { background: var(--color-hover-bg); border-color: var(--color-border-strong, var(--color-border)); }
 
 /* SAE escalation timeline chips */
 .notif-tl { display: flex; flex-wrap: wrap; gap: 4px; margin-top: var(--space-2); }
@@ -68,8 +69,10 @@
 .notif-page-head { display: flex; align-items: flex-start; justify-content: space-between; gap: var(--space-4); margin-bottom: var(--space-4); }
 .notif-page-toolbar { display: flex; flex-wrap: wrap; align-items: center; gap: var(--space-3); margin-bottom: var(--space-4); padding: var(--space-3) var(--space-4); background: var(--color-surface); border: 1px solid var(--color-border); border-radius: var(--radius-lg); }
 .notif-page-search { flex: 1; min-width: 200px; position: relative; }
-.notif-page-search i { position: absolute; left: 10px; top: 50%; transform: translateY(-50%); color: var(--color-text-tertiary); font-size: 15px; }
-.notif-page-search input { width: 100%; padding: var(--space-2) var(--space-2) var(--space-2) 30px; border: 1px solid var(--color-border); border-radius: var(--radius-md); font-size: var(--text-sm); background: var(--color-page-bg); }
+.notif-page-search > i { position: absolute; left: 10px; top: 50%; transform: translateY(-50%); color: var(--color-text-tertiary); font-size: 15px; }
+.notif-page-search input { width: 100%; padding: var(--space-2) 30px var(--space-2) 30px; border: 1px solid var(--color-border); border-radius: var(--radius-md); font-size: var(--text-sm); background: var(--color-page-bg); }
+.notif-search-clear { position: absolute; right: 6px; top: 50%; transform: translateY(-50%); display: inline-flex; align-items: center; justify-content: center; width: 20px; height: 20px; border: none; background: none; border-radius: var(--radius-sm); color: var(--color-text-tertiary); cursor: pointer; font-size: 14px; }
+.notif-search-clear:hover { background: var(--color-hover-bg); color: var(--color-text-primary); }
 .notif-page-toolbar select, .notif-page-toolbar input[type="date"] { padding: var(--space-2) var(--space-2); border: 1px solid var(--color-border); border-radius: var(--radius-md); font-size: var(--text-sm); background: var(--color-surface); color: var(--color-text-primary); }
 .notif-page-list { background: var(--color-surface); border: 1px solid var(--color-border); border-radius: var(--radius-lg); overflow: hidden; }
 .notif-page-list .notif-row { padding: var(--space-3) var(--space-4); }
