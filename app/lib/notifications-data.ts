@@ -9,7 +9,8 @@ import type { Dataset } from "@/lib/session-store/types";
 
 export type NotifKind =
   | "query" | "safety" | "visit" | "sdv" | "inventory" | "amendment" | "user" | "randomization"
-  | "query_overdue" | "enrollment_reached" | "subject_withdrawn" | "delivery_failed";
+  | "query_overdue" | "enrollment_reached" | "subject_withdrawn" | "delivery_failed"
+  | "lock" | "withdrawal_reminder";
 export type DeliveryStatus = "delivered" | "pending" | "failed";
 export interface Notif { id: string; kind: NotifKind; title: string; body: string; ts: string; bucket: "today" | "yesterday" | "earlier"; route: string; read: boolean; delivery: DeliveryStatus; subjectCode?: string }
 
@@ -27,17 +28,20 @@ export const KIND_CFG: Record<NotifKind, { icon: string; color: string }> = {
   enrollment_reached: { icon: "target", color: "var(--green-600)" },
   subject_withdrawn: { icon: "user-minus", color: "var(--slate-600)" },
   delivery_failed: { icon: "mail-off", color: "var(--red-600)" },
+  lock: { icon: "lock", color: "var(--red-600)" },
+  withdrawal_reminder: { icon: "clock-exclamation", color: "var(--amber-700)" },
 };
 export const KIND_LABEL: Record<NotifKind, string> = {
   query: "Query", safety: "Safety", visit: "Visit overdue", sdv: "SDV review", inventory: "Inventory",
   amendment: "Protocol amendment", user: "User", randomization: "Randomization",
   query_overdue: "Query overdue", enrollment_reached: "Enrollment target reached", subject_withdrawn: "Subject withdrawn", delivery_failed: "Notification delivery failed",
+  lock: "Database lock", withdrawal_reminder: "Withdrawal period",
 };
 // Type-filter categories on the full-page history.
 export const NOTIF_CATEGORIES = ["Queries", "Safety", "Visits", "Inventory", "Study management"] as const;
 export function kindCategory(k: NotifKind): string {
   if (k === "query" || k === "query_overdue") return "Queries";
-  if (k === "safety") return "Safety";
+  if (k === "safety" || k === "withdrawal_reminder") return "Safety";
   if (k === "visit" || k === "sdv") return "Visits";
   if (k === "inventory") return "Inventory";
   return "Study management";
@@ -51,27 +55,31 @@ export function isSafetyKind(k: NotifKind): boolean { return k === "safety"; }
 
 // ── Curated (recent) notifications ──
 const BR_CURATED: Notif[] = [
-  { id: "n-br-1", kind: "query", title: "Query raised on BR-2502-CO-001", body: "Visit Day 3 · Heart rate field · Raised by Sofia Reyes (CRA)", ts: "14 min ago", bucket: "today", route: "queries", read: false, delivery: "delivered" },
+  { id: "n-br-1", kind: "query", title: "Query raised on BR-2502-CO-001", body: "Visit Day 3 · Heart rate field · Raised by Sofia Reyes (CRA)", ts: "14 min ago", bucket: "today", route: "queries", read: false, delivery: "delivered", subjectCode: "BR-2502-CO-001" },
   { id: "n-br-2", kind: "safety", title: "SAE submitted on BR-2502-CO-002", body: "Serious Adverse Event · Injection-site abscess · Reported by M. Okafor · Requires acknowledgment within 24h", ts: "1 hr ago", bucket: "today", route: "data-entry", read: false, delivery: "delivered", subjectCode: "BR-2502-CO-002" },
-  { id: "n-br-3", kind: "sdv", title: "Forms submitted for SDV review", body: "BR-2502-CO-001 · Visit Day 0 · 6 fields awaiting verification", ts: "2 hr ago", bucket: "today", route: "sdv", read: true, delivery: "delivered" },
-  { id: "n-br-4", kind: "visit", title: "Visit overdue — BR-2502-KS-003", body: "Visit Day 7 · 2 days past the visit window", ts: "3 hr ago", bucket: "today", route: "visits", read: false, delivery: "delivered" },
-  { id: "n-br-5", kind: "query", title: "Query response — QRY-0042", body: "BR-2502-CO-002 · CRC responded · Awaiting your review", ts: "Yesterday, 16:40", bucket: "yesterday", route: "queries", read: true, delivery: "delivered" },
+  { id: "n-br-sdv2", kind: "sdv", title: "3 forms ready for SDV review", body: "BR-2502-CO-001 · Visit Day 7 · Vital Signs, Clinical Response, Body Weight forms submitted for review by Anh Nguyen (CRC)", ts: "90 min ago", bucket: "today", route: "sdv", read: false, delivery: "delivered", subjectCode: "BR-2502-CO-001" },
+  { id: "n-br-inv-exp", kind: "inventory", title: "Unit expiring soon — Kit A-005-V3", body: "Kit A-005-V3 expires 2026-07-12 (12 days). 3 units affected. Review inventory and contact sponsor if replacement is needed before next dispensing visit.", ts: "2 hr ago", bucket: "today", route: "inventory", read: false, delivery: "delivered" },
+  { id: "n-br-3", kind: "sdv", title: "Forms submitted for SDV review", body: "BR-2502-CO-001 · Visit Day 0 · 6 fields awaiting verification", ts: "3 hr ago", bucket: "today", route: "sdv", read: true, delivery: "delivered", subjectCode: "BR-2502-CO-001" },
+  { id: "n-br-4", kind: "visit", title: "Visit overdue — BR-2502-KS-003", body: "Visit Day 7 · 2 days past the visit window", ts: "4 hr ago", bucket: "today", route: "visits", read: false, delivery: "delivered", subjectCode: "BR-2502-KS-003" },
+  { id: "n-br-5", kind: "query", title: "Query response — QRY-0042", body: "BR-2502-CO-002 · CRC responded · Awaiting your review", ts: "Yesterday, 16:40", bucket: "yesterday", route: "queries", read: true, delivery: "delivered", subjectCode: "BR-2502-CO-002" },
   { id: "n-br-6", kind: "inventory", title: "Low stock — LOT-BR-T02", body: "3 vials remaining at Feedlot CO · below the low-stock threshold", ts: "Yesterday, 11:05", bucket: "yesterday", route: "inventory", read: false, delivery: "pending" },
-  { id: "n-br-qo", kind: "query_overdue", title: "Query overdue — QRY-0038 on BR-2502-KS-002", body: "No response after 6 days — threshold is 5 days · Raised by Sofia Reyes (CRA) · Visit Day 7 · Body weight field", ts: "Yesterday, 08:30", bucket: "yesterday", route: "queries", read: false, delivery: "delivered" },
-  { id: "n-br-7", kind: "amendment", title: "Protocol amendment published", body: "Feedlot CO · Site-specific addendum: additional welfare checks", ts: "Yesterday, 09:14", bucket: "yesterday", route: "settings?section=protocol", read: true, delivery: "delivered" },
-  { id: "n-br-sw", kind: "subject_withdrawn", title: "Subject withdrawn — BR-2502-NE-003", body: "Withdrawn from the study · Reason: Owner request · Recorded by M. Okafor (CRC)", ts: "2 days ago", bucket: "earlier", route: "data-entry", read: false, delivery: "delivered" },
+  { id: "n-br-qo", kind: "query_overdue", title: "Query overdue — QRY-0038 on BR-2502-KS-002", body: "No response after 6 days — threshold is 5 days · Raised by Sofia Reyes (CRA) · Visit Day 7 · Body weight field", ts: "Yesterday, 08:30", bucket: "yesterday", route: "queries", read: false, delivery: "delivered", subjectCode: "BR-2502-KS-002" },
+  { id: "n-br-wd", kind: "withdrawal_reminder", title: "Withdrawal period ending — BR-2502-KS-002", body: "BR-2502-KS-002 (T02 arm — 84 day withdrawal) withdrawal period ends 2026-07-18. Notify the site CRC to inform the owner. Subject must not enter slaughter before this date.", ts: "Yesterday, 07:10", bucket: "yesterday", route: "data-entry", read: false, delivery: "delivered", subjectCode: "BR-2502-KS-002" },
+  { id: "n-br-7", kind: "amendment", title: "Protocol amendment published — v1.1", body: "Amendment v1.1 (2026-06-15): additional heifer-welfare checks added at all follow-up visits for Feedlot CO. All active users have been notified. Review the updated protocol before your next site visit.", ts: "Yesterday, 09:14", bucket: "yesterday", route: "settings?section=protocol", read: true, delivery: "delivered" },
+  { id: "n-br-sw", kind: "subject_withdrawn", title: "Subject withdrawn — BR-2502-NE-003", body: "Withdrawn from the study · Reason: Owner request · Recorded by M. Okafor (CRC)", ts: "2 days ago", bucket: "earlier", route: "data-entry", read: false, delivery: "delivered", subjectCode: "BR-2502-NE-003" },
   { id: "n-br-8", kind: "user", title: "New user invited — James Bell", body: "CRC · Feedlot KS · Invite pending (expires in 72 hours)", ts: "3 days ago", bucket: "earlier", route: "users", read: true, delivery: "failed" },
   { id: "n-br-er", kind: "enrollment_reached", title: "Enrollment target reached — BR-2502", body: "Reached its enrollment target of 36 subjects · All sites contributed · Randomization list is now closed", ts: "3 days ago", bucket: "earlier", route: "animals", read: true, delivery: "delivered" },
   { id: "n-br-9", kind: "randomization", title: "Randomization list locked", body: "BR-2502 · Assignments can no longer be changed without an amendment", ts: "2026-06-25", bucket: "earlier", route: "settings?section=randomization", read: true, delivery: "delivered" },
 ];
 const CA_CURATED: Notif[] = [
-  { id: "n-ca-1", kind: "query", title: "Query raised on CA-0801-101-01", body: "Baseline · CADESI-04 score · Raised by DM", ts: "22 min ago", bucket: "today", route: "queries", read: false, delivery: "delivered" },
-  { id: "n-ca-2", kind: "inventory", title: "Kit dispensed — A-001-V2", body: "CA-0801-101-01 · Follow-Up 1 · dispensed by Anh Nguyen", ts: "2 hr ago", bucket: "today", route: "inventory", read: true, delivery: "delivered" },
-  { id: "n-ca-3", kind: "sdv", title: "Forms submitted for SDV review", body: "CA-0801-101-02 · Baseline Dermatology Assessment", ts: "Yesterday, 14:02", bucket: "yesterday", route: "sdv", read: false, delivery: "delivered" },
+  { id: "n-ca-1", kind: "query", title: "Query raised on CA-0801-101-01", body: "Baseline · CADESI-04 score · Raised by DM", ts: "22 min ago", bucket: "today", route: "queries", read: false, delivery: "delivered", subjectCode: "CA-0801-101-01" },
+  { id: "n-ca-2", kind: "inventory", title: "Kit dispensed — A-001-V2", body: "CA-0801-101-01 · Follow-Up 1 · dispensed by Anh Nguyen", ts: "2 hr ago", bucket: "today", route: "inventory", read: true, delivery: "delivered", subjectCode: "CA-0801-101-01" },
+  { id: "n-ca-lock", kind: "lock", title: "Study database locked", body: "CA-0801 database has been locked by Dr. L. Chen (DM) at 2026-06-29 16:42 UTC. Data entry is now closed for all subjects. Export the final dataset from Reports.", ts: "Yesterday, 16:42", bucket: "yesterday", route: "settings?section=audit", read: false, delivery: "delivered" },
+  { id: "n-ca-3", kind: "sdv", title: "Forms submitted for SDV review", body: "CA-0801-101-02 · Baseline Dermatology Assessment", ts: "Yesterday, 14:02", bucket: "yesterday", route: "sdv", read: false, delivery: "delivered", subjectCode: "CA-0801-101-02" },
   { id: "n-ca-4", kind: "user", title: "New user invited — Dr. S. Kim", body: "PI · UC Davis · Invite accepted", ts: "4 days ago", bucket: "earlier", route: "users", read: true, delivery: "delivered" },
 ];
 const PH_CURATED: Notif[] = [
-  { id: "n-ph-1", kind: "visit", title: "Feed phase overdue — PH-2401-P05", body: "Grower phase weighing · 1 day past window", ts: "40 min ago", bucket: "today", route: "visits", read: false, delivery: "delivered" },
+  { id: "n-ph-1", kind: "visit", title: "Feed phase overdue — PH-2401-P05", body: "Grower phase weighing · 1 day past window", ts: "40 min ago", bucket: "today", route: "visits", read: false, delivery: "delivered", subjectCode: "PH-2401-P05" },
   { id: "n-ph-2", kind: "inventory", title: "Low stock — BATCH-PH-001", body: "Phytogenic blend below the low-stock threshold", ts: "Yesterday, 10:12", bucket: "yesterday", route: "inventory", read: false, delivery: "delivered" },
   { id: "n-ph-3", kind: "randomization", title: "Pen arm assignments confirmed", body: "PH-2401 · All pens assigned at study setup", ts: "5 days ago", bucket: "earlier", route: "settings?section=randomization", read: true, delivery: "delivered" },
 ];
@@ -119,22 +127,43 @@ export function notifTargetRoute(dataset: Dataset, studyId: string, n: Notif): s
     if (subj && aeForm) return `data-entry/${subj.id}?form=${aeForm.id}`;
     return "queries";
   }
+  // Subject-scoped kinds (withdrawal reminder, subject withdrawn) → the record.
+  if (n.route === "data-entry" && n.subjectCode) {
+    const subj = dataset.subjects.find((s) => s.study_id === studyId && s.subject_code === n.subjectCode);
+    if (subj) return `data-entry/${subj.id}`;
+  }
   return n.route;
 }
 
-// ── Read + acknowledge stores (shared by badge / drawer / full page) ──
+// ── Read + acknowledge + delivery stores (shared by badge / drawer / full page) ──
 let readSet = new Set<string>();
 let ackSet = new Set<string>();
+let deliveryMap = new Map<string, DeliveryStatus>(); // session overrides (Retry action)
 const listeners = new Set<() => void>();
 const emit = () => listeners.forEach((l) => l());
 export function markRead(id: string): void { if (readSet.has(id)) return; readSet = new Set(readSet); readSet.add(id); emit(); }
 export function markAllRead(ids: string[]): void { readSet = new Set(readSet); ids.forEach((i) => readSet.add(i)); emit(); }
 export function acknowledge(id: string): void { if (ackSet.has(id)) return; ackSet = new Set(ackSet); ackSet.add(id); emit(); }
+export function setDelivery(id: string, status: DeliveryStatus): void { deliveryMap = new Map(deliveryMap); deliveryMap.set(id, status); emit(); }
 function subscribe(cb: () => void): () => void { listeners.add(cb); return () => { listeners.delete(cb); }; }
 export function useReadSet(): Set<string> { return useSyncExternalStore(subscribe, () => readSet, () => readSet); }
 export function useAckSet(): Set<string> { return useSyncExternalStore(subscribe, () => ackSet, () => ackSet); }
+export function useDeliveryMap(): Map<string, DeliveryStatus> { return useSyncExternalStore(subscribe, () => deliveryMap, () => deliveryMap); }
+export function effectiveDelivery(n: Notif, map: Map<string, DeliveryStatus>): DeliveryStatus { return map.get(n.id) ?? n.delivery; }
 export function isUnread(n: Notif, read: Set<string>): boolean { return !n.read && !read.has(n.id); }
 export function unreadCount(studyCode: string, read: Set<string>): number { return notificationsForStudy(studyCode).filter((n) => isUnread(n, read)).length; }
+
+// SAE (safety) notifications are excluded from "mark all as read" until they are
+// individually acknowledged — they require an explicit 21 CFR Part 11 receipt.
+export function idsForMarkAll(notifs: Notif[], ack: Set<string>): string[] {
+  return notifs.filter((n) => !(n.kind === "safety" && !ack.has(n.id))).map((n) => n.id);
+}
+
+// Unread across the other studies (for the drawer's "X more across all studies").
+export const STUDY_CODES = ["BR-2502", "CA-0801", "PH-2401"];
+export function unreadOtherStudies(currentStudyCode: string, read: Set<string>): number {
+  return STUDY_CODES.filter((c) => c !== currentStudyCode).reduce((sum, c) => sum + unreadCount(c, read), 0);
+}
 
 // ── Notification-preference event config ──
 export interface EventGroup { title: string; icon: string; color: string; events: { key: string; label: string }[] }

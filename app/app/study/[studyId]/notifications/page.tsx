@@ -6,7 +6,7 @@ import { useShell } from "@/components/shell/ShellContext";
 import { useStudySession } from "@/lib/session-store/SessionStore";
 import {
   notificationsForStudy, notifTargetRoute, useReadSet, useAckSet, markRead, markAllRead, acknowledge,
-  isUnread, kindCategory, NOTIF_CATEGORIES, type Notif,
+  idsForMarkAll, setDelivery, isUnread, kindCategory, NOTIF_CATEGORIES, type Notif,
 } from "@/lib/notifications-data";
 import { NotificationRow, AckDialog, utcStamp } from "@/components/notifications/NotificationRow";
 import "@/components/notifications/notifications.css";
@@ -28,28 +28,34 @@ export default function NotificationsPage() {
   const read = useReadSet();
   const ack = useAckSet();
   const all = useMemo(() => notificationsForStudy(study.code), [study.code]);
+  const subjectCodes = useMemo(
+    () => dataset.subjects.filter((s) => s.study_id === study.id).map((s) => s.subject_code).sort((a, b) => a.localeCompare(b)),
+    [dataset.subjects, study.id],
+  );
 
   const [q, setQ] = useState("");
   const [type, setType] = useState("All");
   const [status, setStatus] = useState("All");
+  const [subj, setSubj] = useState("All");
   const [from, setFrom] = useState("");
   const [to, setTo] = useState("");
   const [page, setPage] = useState(0);
   const [toast, setToast] = useState<string | null>(null);
   const [ackNotif, setAckNotif] = useState<Notif | null>(null);
   useEffect(() => { if (!toast) return; const t = setTimeout(() => setToast(null), 3200); return () => clearTimeout(t); }, [toast]);
-  useEffect(() => { setPage(0); }, [q, type, status, from, to]);
+  useEffect(() => { setPage(0); }, [q, type, status, subj, from, to]);
 
   const filtered = useMemo(() => all.filter((n) => {
     if (q && !`${n.title} ${n.body}`.toLowerCase().includes(q.toLowerCase())) return false;
     if (type !== "All" && kindCategory(n.kind) !== type) return false;
     if (status === "Unread" && !isUnread(n, read)) return false;
     if (status === "Read" && isUnread(n, read)) return false;
+    if (subj !== "All" && n.subjectCode !== subj && !n.title.includes(subj) && !n.body.includes(subj)) return false;
     const d = parseTs(n.ts);
     if (d && from && d < new Date(from)) return false;
     if (d && to && d > new Date(to)) return false;
     return true;
-  }), [all, q, type, status, from, to, read]);
+  }), [all, q, type, status, subj, from, to, read]);
 
   const pageCount = Math.max(1, Math.ceil(filtered.length / PAGE_SIZE));
   const safePage = Math.min(page, pageCount - 1);
@@ -62,6 +68,11 @@ export default function NotificationsPage() {
     setToast(`SAE notification acknowledged — logged in audit trail at ${utcStamp()} UTC`);
     setAckNotif(null);
   }
+  function retry(n: Notif) {
+    setDelivery(n.id, "pending");
+    setToast("Retrying delivery…");
+    setTimeout(() => { setDelivery(n.id, "delivered"); setToast("Delivered"); }, 1500);
+  }
 
   return (
     <div className="notif-page">
@@ -70,7 +81,7 @@ export default function NotificationsPage() {
           <h1 style={{ fontSize: "var(--text-2xl)", fontWeight: 600, margin: 0 }}>Notifications</h1>
           <p style={{ fontSize: "var(--text-sm)", color: "var(--color-text-tertiary)", margin: "4px 0 0" }}>{study.code} · {all.length} notifications</p>
         </div>
-        <button className="notif-head-link" type="button" style={{ fontSize: "var(--text-sm)" }} onClick={() => markAllRead(all.map((n) => n.id))}>Mark all as read</button>
+        <button className="notif-head-link" type="button" style={{ fontSize: "var(--text-sm)" }} onClick={() => markAllRead(idsForMarkAll(all, ack))}>Mark all as read</button>
       </div>
 
       <div className="notif-page-toolbar">
@@ -85,6 +96,10 @@ export default function NotificationsPage() {
         <select value={status} onChange={(e) => setStatus(e.target.value)} aria-label="Filter by status">
           {STATUSES.map((s) => <option key={s} value={s}>{s === "All" ? "All statuses" : s}</option>)}
         </select>
+        <select value={subj} onChange={(e) => setSubj(e.target.value)} aria-label="Filter by subject">
+          <option value="All">All subjects</option>
+          {subjectCodes.map((c) => <option key={c} value={c}>{c}</option>)}
+        </select>
         <input type="date" value={from} onChange={(e) => setFrom(e.target.value)} aria-label="From date" title="From date" />
         <input type="date" value={to} onChange={(e) => setTo(e.target.value)} aria-label="To date" title="To date" />
       </div>
@@ -94,7 +109,7 @@ export default function NotificationsPage() {
       ) : (
         <div className="notif-page-list">
           {shown.map((n) => (
-            <NotificationRow key={n.id} n={n} read={read} ack={ack} onOpen={openNotif} onAckRequest={setAckNotif} />
+            <NotificationRow key={n.id} n={n} read={read} ack={ack} onOpen={openNotif} onAckRequest={setAckNotif} onRetry={retry} />
           ))}
         </div>
       )}

@@ -4,7 +4,7 @@ import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { useShell } from "@/components/shell/ShellContext";
 import { useStudySession } from "@/lib/session-store/SessionStore";
-import { drawerNotifications, notificationsForStudy, notifTargetRoute, isUnread, useReadSet, useAckSet, markRead, markAllRead, acknowledge, type Notif } from "@/lib/notifications-data";
+import { drawerNotifications, notificationsForStudy, notifTargetRoute, isUnread, idsForMarkAll, unreadOtherStudies, setDelivery, useReadSet, useAckSet, markRead, markAllRead, acknowledge, type Notif } from "@/lib/notifications-data";
 import { NotificationRow, AckDialog, utcStamp } from "./NotificationRow";
 import "./notifications.css";
 
@@ -28,6 +28,7 @@ export function NotificationsDrawer({ open, onClose }: { open: boolean; onClose:
   const notifs = drawerNotifications(study.code).filter((n) => isUnread(n, read));
   const groups = BUCKETS.map((b) => ({ ...b, items: notifs.filter((n) => n.bucket === b.key) })).filter((g) => g.items.length > 0);
   const total = notifs.length;
+  const otherUnread = unreadOtherStudies(study.code, read);
 
   function openNotif(n: Notif) {
     markRead(n.id);
@@ -40,6 +41,11 @@ export function NotificationsDrawer({ open, onClose }: { open: boolean; onClose:
     setToast(`SAE notification acknowledged — logged in audit trail at ${utcStamp()} UTC`);
     setAckNotif(null);
   }
+  function retry(n: Notif) {
+    setDelivery(n.id, "pending");
+    setToast("Retrying delivery…");
+    setTimeout(() => { setDelivery(n.id, "delivered"); setToast("Delivered"); }, 1500);
+  }
 
   return (
     <>
@@ -47,10 +53,14 @@ export function NotificationsDrawer({ open, onClose }: { open: boolean; onClose:
       <aside className={`notif-panel${open ? " open" : ""}`} aria-hidden={!open} aria-label="Notifications">
         <header className="notif-head">
           <div className="notif-head-title">Notifications</div>
-          <button className="notif-head-link" type="button" onClick={() => markAllRead(notificationsForStudy(study.code).map((n) => n.id))}>Mark all as read</button>
+          <button className="notif-head-link" type="button" onClick={() => markAllRead(idsForMarkAll(notificationsForStudy(study.code), ack))}>Mark all as read</button>
           <button className="notif-icon-btn" type="button" title="Notification settings" onClick={() => { onClose(); router.push(`/study/${study.id}/profile?section=notifications`); }}><i className="ti ti-settings"></i></button>
           <button className="notif-icon-btn" type="button" title="Close" onClick={onClose}><i className="ti ti-x"></i></button>
         </header>
+        <div className="notif-subhead">
+          <span className="notif-subhead-note"><i className="ti ti-info-circle"></i> SAE notifications require individual acknowledgment</span>
+          {otherUnread > 0 && <span className="notif-subhead-more">{otherUnread} more across all studies</span>}
+        </div>
 
         <div className="notif-body">
           {total === 0 ? (
@@ -63,7 +73,7 @@ export function NotificationsDrawer({ open, onClose }: { open: boolean; onClose:
             <div key={g.key}>
               <div className="notif-group-label">{g.label}</div>
               {g.items.map((n) => (
-                <NotificationRow key={n.id} n={n} read={read} ack={ack} onOpen={openNotif} onAckRequest={setAckNotif} />
+                <NotificationRow key={n.id} n={n} read={read} ack={ack} onOpen={openNotif} onAckRequest={setAckNotif} onRetry={retry} />
               ))}
             </div>
           ))}

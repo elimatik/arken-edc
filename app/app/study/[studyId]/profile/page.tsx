@@ -4,7 +4,7 @@ import { useMemo, useState } from "react";
 import { useShell } from "@/components/shell/ShellContext";
 import { useStudySession } from "@/lib/session-store/SessionStore";
 import { useNdaName } from "@/lib/use-nda-name";
-import { emailFromName } from "@/lib/users-data";
+import { emailFromName, usersForStudy } from "@/lib/users-data";
 import { EVENT_GROUPS, roleNotifDefaults } from "@/lib/notifications-data";
 import "../settings/settings.css";
 import "@/components/notifications/notifications.css";
@@ -49,7 +49,11 @@ export default function ProfileNotificationsPage() {
   const resetOverride = (code: string) => { setOverrides((o) => { const n = { ...o }; delete n[code]; return n; }); collapse(code); notify("Reset to default notification settings"); };
   const toggleOverride = (code: string, k: string) => setOverrides((o) => ({ ...o, [code]: { ...o[code], [k]: !o[code][k] } }));
 
-  const siteNames = sites.slice(0, 2).map((s) => s.name).join(", ") || "your assigned sites";
+  // Fix 11 scope note — the current user's assigned sites (users-data). Users
+  // with no explicit site assignment (DM/Admin) see all study sites.
+  const me = useMemo(() => usersForStudy(study.code).find((u) => u.role === activeRole), [study.code, activeRole]);
+  const assignedSites = me && me.siteCodes.length ? sites.filter((s) => me.siteCodes.includes(s.code)) : sites;
+  const siteNames = assignedSites.map((s) => s.name).join(", ") || "your assigned sites";
   const groupHeader = (g: (typeof EVENT_GROUPS)[number]) => (
     <div style={{ display: "flex", alignItems: "center", gap: 6, fontSize: "var(--text-sm)", fontWeight: 600, margin: "var(--space-3) 0 var(--space-1)" }}><i className={`ti ti-${g.icon}`} style={{ color: g.color }}></i> {g.title}</div>
   );
