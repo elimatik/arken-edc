@@ -5,6 +5,9 @@
 .settings-wrap { flex: 1; display: flex; overflow: hidden; height: 100%; }
 /* Settings manages its own internal spacing — drop the shell's content padding. */
 .page-content:has(.settings-wrap) { padding: 0; gap: 0; }
+/* Profile preferences (settings-parity) — match Settings' content padding (space-6,
+   vs the shell's default space-5) so cards/padding line up with Settings. */
+.page-content:has(.profile-prefs) { padding: var(--space-6); }
 
 /* Nav sidebar */
 .settings-nav { width: 200px; background: var(--color-surface); border-right: 1px solid var(--color-border); flex-shrink: 0; padding: var(--space-4) 0; overflow-y: auto; }

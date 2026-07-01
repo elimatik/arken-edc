@@ -74,7 +74,7 @@ export default function ProfileNotificationsPage() {
   );
 
   return (
-    <div style={{ maxWidth: 760 }}>
+    <div className="profile-prefs" style={{ maxWidth: 760 }}>
       <div className="section-header">
         <h1 className="set-section-title">Notification preferences</h1>
         <p className="section-desc">Choose how and when Arken notifies you · part of your profile</p>
