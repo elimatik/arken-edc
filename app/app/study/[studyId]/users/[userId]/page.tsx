@@ -4,7 +4,7 @@ import { useEffect, useMemo, useState } from "react";
 import { useRouter, useParams } from "next/navigation";
 import { useShell } from "@/components/shell/ShellContext";
 import { useStudySession } from "@/lib/session-store/SessionStore";
-import { findUser, userActivity, getRoleAvatarColor, initials, type UserStatus } from "@/lib/users-data";
+import { findUser, userActivity, getRoleAvatarColor, getUserPermissions, initials, type UserStatus } from "@/lib/users-data";
 import "../users.css";
 
 const ROLE_BADGE: Record<string, string> = { CRC: "u-badge-blue", CRA: "u-badge-purple", PI: "u-badge-green", DM: "u-badge-amber", Admin: "u-badge-slate", Sponsor: "u-badge-slate" };
@@ -25,6 +25,7 @@ export default function UserDetailPage() {
   const userId = String(params.userId);
   const { study, activeRole } = useShell();
   const { dataset } = useStudySession();
+  const perms = getUserPermissions(activeRole);
 
   const user = useMemo(() => findUser(study.code, userId), [study.code, userId]);
   const [tab, setTab] = useState<"overview" | "studies" | "activity">("overview");
@@ -136,8 +137,8 @@ export default function UserDetailPage() {
           <div className="u-detail-meta">{fEmail} · {siteLabel} · Last login: {user.lastLogin}</div>
         </div>
         <div className="u-detail-actions">
-          <button className="u-btn u-btn-sm" type="button" onClick={() => setToast("Password reset link sent")}><i className="ti ti-key"></i> Reset password</button>
-          <button className="u-btn u-btn-sm u-btn-danger" type="button" onClick={() => setRemoveOpen(true)}><i className="ti ti-user-minus"></i> Remove from study</button>
+          {perms.resetPassword && <button className="u-btn u-btn-sm" type="button" onClick={() => setToast("Password reset link sent")}><i className="ti ti-key"></i> Reset password</button>}
+          {perms.remove && <button className="u-btn u-btn-sm u-btn-danger" type="button" onClick={() => setRemoveOpen(true)}><i className="ti ti-user-minus"></i> Remove from study</button>}
         </div>
       </div>
 
@@ -153,7 +154,7 @@ export default function UserDetailPage() {
         <div className="u-cols">
           <div>
             <div className="u-card">
-              <div className="u-card-header"><div className="u-card-title">User information</div>{!editInfo && <button className="u-icon-btn" type="button" onClick={startEditInfo}><i className="ti ti-pencil"></i></button>}</div>
+              <div className="u-card-header"><div className="u-card-title">User information</div>{perms.edit && !editInfo && <button className="u-icon-btn" type="button" onClick={startEditInfo}><i className="ti ti-pencil"></i></button>}</div>
               <div>
                 <div className="u-crow"><span className="u-clabel">Full name</span><span className="u-cvalue" style={{ flex: editInfo ? 1 : undefined }}>{editInfo ? <input className="u-finput" value={dName} onChange={(e) => setDName(e.target.value)} /> : fName}</span></div>
                 <div className="u-crow"><span className="u-clabel">Email</span><span className="u-cvalue" style={{ flex: editInfo ? 1 : undefined }}>{editInfo ? <input className="u-finput" type="email" value={dEmail} onChange={(e) => setDEmail(e.target.value)} /> : fEmail}</span></div>
@@ -177,8 +178,8 @@ export default function UserDetailPage() {
                   <span className="u-clabel">Account status</span>
                   <div style={{ display: "flex", alignItems: "center", gap: "var(--space-2)", position: "relative" }}>
                     <span className={`u-badge ${sb.cls}`}><span className="u-dot" style={{ background: sb.dot, marginRight: 3, width: 7, height: 7 }}></span>{sb.label}</span>
-                    <button className="u-btn u-btn-sm" type="button" onClick={(e) => { e.stopPropagation(); setMenuOpen((o) => !o); }}>Change status <i className="ti ti-chevron-down" style={{ fontSize: 11 }}></i></button>
-                    {menuOpen && (
+                    {perms.changeStatus && <button className="u-btn u-btn-sm" type="button" onClick={(e) => { e.stopPropagation(); setMenuOpen((o) => !o); }}>Change status <i className="ti ti-chevron-down" style={{ fontSize: 11 }}></i></button>}
+                    {perms.changeStatus && menuOpen && (
                       <div className="u-status-menu" onClick={(e) => e.stopPropagation()}>
                         <div className="u-status-menu-head">Change account status</div>
                         {localStatus === "pending" && (
@@ -250,7 +251,7 @@ export default function UserDetailPage() {
               <div style={{ fontSize: "var(--text-base)", fontWeight: 500 }}>Study assignments</div>
               <div style={{ fontSize: "var(--text-xs)", color: "var(--color-text-tertiary)", marginTop: 2 }}>{fName} is active on {Object.keys(assignedStudies).length} {Object.keys(assignedStudies).length === 1 ? "study" : "studies"} for {sponsor}</div>
             </div>
-            <button className="u-btn u-btn-primary u-btn-sm" type="button" disabled={availStudies.length === 0} onClick={() => openAssignStudy()}><i className="ti ti-plus"></i> Assign to study</button>
+            {perms.assign && <button className="u-btn u-btn-primary u-btn-sm" type="button" disabled={availStudies.length === 0} onClick={() => openAssignStudy()}><i className="ti ti-plus"></i> Assign to study</button>}
           </div>
 
           {dataset.studies.map((st) => {
@@ -260,7 +261,7 @@ export default function UserDetailPage() {
               return (
                 <div key={st.id} className="u-unassigned">
                   <div><div style={{ fontSize: "var(--text-sm)", color: "var(--color-text-tertiary)" }}>{st.code} — {st.name}</div><div style={{ fontSize: "var(--text-xs)", color: "var(--color-text-placeholder)", marginTop: 2 }}>Not assigned to this study</div></div>
-                  <button className="u-btn u-btn-sm" type="button" onClick={() => openAssignStudy(st.code)}><i className="ti ti-plus"></i> Assign</button>
+                  {perms.assign && <button className="u-btn u-btn-sm" type="button" onClick={() => openAssignStudy(st.code)}><i className="ti ti-plus"></i> Assign</button>}
                 </div>
               );
             }
@@ -300,7 +301,7 @@ export default function UserDetailPage() {
                     {unassignedSites.map((s) => (
                       <div key={s.id} className="u-site-row" style={{ opacity: 0.5 }}>
                         <div><span className="u-site-name" style={{ color: "var(--color-text-tertiary)" }}>{s.name} — not assigned</span></div>
-                        <button className="u-btn u-btn-sm" type="button" onClick={() => openAssignSite(s.code)}><i className="ti ti-plus"></i> Add site</button>
+                        {perms.assign && <button className="u-btn u-btn-sm" type="button" onClick={() => openAssignSite(s.code)}><i className="ti ti-plus"></i> Add site</button>}
                       </div>
                     ))}
                   </div>
@@ -346,10 +347,12 @@ export default function UserDetailPage() {
         </>
       )}
 
-      {/* Footer — Delete only */}
-      <div className="u-footer">
-        <button className="u-btn u-btn-danger" type="button" disabled={entryCount > 0} title={entryCount > 0 ? `Cannot delete — user has ${entryCount} form entries. Use 'Remove from study' instead.` : undefined} onClick={() => { setDeleteType(""); setDeleteOpen(true); }}><i className="ti ti-trash"></i> Delete user</button>
-      </div>
+      {/* Footer — Delete only (Admin) */}
+      {perms.delete && (
+        <div className="u-footer">
+          <button className="u-btn u-btn-danger" type="button" disabled={entryCount > 0} title={entryCount > 0 ? `Cannot delete — user has ${entryCount} form entries. Use 'Remove from study' instead.` : undefined} onClick={() => { setDeleteType(""); setDeleteOpen(true); }}><i className="ti ti-trash"></i> Delete user</button>
+        </div>
+      )}
 
       {/* Role-change confirm */}
       {roleConfirm && (

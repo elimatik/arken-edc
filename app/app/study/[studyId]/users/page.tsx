@@ -4,7 +4,7 @@ import { useEffect, useMemo, useState } from "react";
 import { useRouter, useParams } from "next/navigation";
 import { useShell } from "@/components/shell/ShellContext";
 import { useStudySession } from "@/lib/session-store/SessionStore";
-import { usersForStudy, getRoleAvatarColor, initials, type AppUser } from "@/lib/users-data";
+import { usersForStudy, getRoleAvatarColor, getUserPermissions, emailFromName, initials, type AppUser } from "@/lib/users-data";
 import type { Role } from "@/lib/permissions";
 import "./users.css";
 
@@ -29,6 +29,7 @@ export default function UsersListPage() {
   const studyId = String(params.studyId);
   const { study, activeRole } = useShell();
   const { dataset } = useStudySession();
+  const perms = getUserPermissions(activeRole);
 
   const [search, setSearch] = useState("");
   const [roleFilter, setRoleFilter] = useState("all");
@@ -59,14 +60,16 @@ export default function UsersListPage() {
 
   // Invite modal.
   const [inviteOpen, setInviteOpen] = useState(false);
-  const [iFirst, setIFirst] = useState(""); const [iLast, setILast] = useState(""); const [iEmail, setIEmail] = useState(""); const [iRole, setIRole] = useState(""); const [iSite, setISite] = useState(""); const [iMsg, setIMsg] = useState("");
-  function openInvite() { setIFirst(""); setILast(""); setIEmail(""); setIRole(""); setISite(""); setIMsg(""); setInviteOpen(true); }
+  const [iFirst, setIFirst] = useState(""); const [iLast, setILast] = useState(""); const [iEmail, setIEmail] = useState(""); const [iRole, setIRole] = useState(""); const [iSite, setISite] = useState(""); const [iMsg, setIMsg] = useState(""); const [iNotify, setINotify] = useState(false);
+  const invitePI = useMemo(() => (iSite ? sites.find((s) => s.code === iSite)?.principal_investigator ?? null : null), [iSite, sites]);
+  function openInvite() { setIFirst(""); setILast(""); setIEmail(""); setIRole(""); setISite(""); setIMsg(""); setINotify(false); setInviteOpen(true); }
   function sendInvite() {
     if (!iFirst.trim() || !iLast.trim() || !iEmail.trim() || !iRole) { setToast("First name, last name, email and role are required"); return; }
     const u: AppUser = { id: `u-inv-${Date.now()}`, name: `${iFirst.trim()} ${iLast.trim()}`, email: iEmail.trim(), role: iRole as Role, siteCodes: iSite ? [iSite] : [], status: "pending", online: false, training: "not_trained", lastLogin: "Never" };
     setInvited((p) => [...p, u]);
     setInviteOpen(false);
-    setToast(`Invite sent to ${iEmail.trim()}`);
+    setToast(`Invite sent to ${iEmail.trim()} — link expires in 72 hours`);
+    if (iNotify) setTimeout(() => setToast(iSite && invitePI ? `${invitePI} has been notified` : "Site PIs have been notified"), 900);
   }
 
   if (activeRole !== "Admin" && activeRole !== "DM") return null;
@@ -78,7 +81,7 @@ export default function UsersListPage() {
           <h1 className="u-title">Users</h1>
           <div className="u-sub">{study.code} · {users.length} users across {siteCount} sites</div>
         </div>
-        <button className="u-btn u-btn-primary" type="button" onClick={openInvite}><i className="ti ti-user-plus"></i> Invite user</button>
+        {perms.invite && <button className="u-btn u-btn-primary" type="button" onClick={openInvite}><i className="ti ti-user-plus"></i> Invite user</button>}
       </div>
 
       <div className="u-banner">
@@ -155,6 +158,10 @@ export default function UsersListPage() {
                 </div>
               </div>
               <div className="u-field"><label className="u-flabel">Message (optional)</label><input className="u-finput" value={iMsg} onChange={(e) => setIMsg(e.target.value)} placeholder="Add a personal message to the invite email…" /><div className="u-fhint">User will receive an email with a link to set up their account. Invite link expires in 72 hours.</div></div>
+              <label className="u-check" style={{ alignItems: "flex-start" }}>
+                <input type="checkbox" checked={iNotify} onChange={(e) => setINotify(e.target.checked)} style={{ marginTop: 2 }} />
+                <span>{iSite ? (invitePI ? `Also notify ${invitePI} (${emailFromName(invitePI)}) that a new team member is being added to their site` : "Also notify the site PI that a new team member is being added to their site") : "Also notify all site PIs for this study that a new team member is being added"}</span>
+              </label>
             </div>
             <div className="u-modal-footer">
               <button className="u-btn" type="button" onClick={() => setInviteOpen(false)}>Cancel</button>

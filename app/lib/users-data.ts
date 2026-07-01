@@ -94,6 +94,32 @@ const ACTIVITY: ActivityEntry[] = [
 ];
 export function userActivity(_userId: string): ActivityEntry[] { void _userId; return ACTIVITY.map((a) => ({ ...a })); }
 
+// ── Role-based permissions for the Users module ──
+export interface UserPerms { viewAll: boolean; invite: boolean; edit: boolean; changeStatus: boolean; remove: boolean; assign: boolean; resetPassword: boolean; delete: boolean }
+export function getUserPermissions(role: string): UserPerms {
+  const admin = role === "Admin";
+  const dm = role === "DM";
+  return {
+    viewAll: admin || dm, // PI own-site read-only view is deferred (no access for now)
+    invite: admin || dm,
+    edit: admin,
+    changeStatus: admin || dm,
+    remove: admin || dm,
+    assign: admin || dm,
+    resetPassword: admin,
+    delete: admin,
+  };
+}
+
+// Derive a plausible email from a person's name for the "notify PI" line.
+export function emailFromName(name: string, domain = "site.org"): string {
+  const clean = name.replace(/^(Dr\.|Mr\.|Ms\.)\s*/i, "").replace(/,.*$/, "").trim();
+  const parts = clean.split(/\s+/);
+  const first = (parts[0]?.[0] ?? "").toLowerCase();
+  const last = (parts[parts.length - 1] ?? "").toLowerCase();
+  return `${first}.${last}@${domain}`;
+}
+
 // Avatar colour is derived from the user's ROLE (matches the role-badge system).
 const ROLE_AVATAR: Record<string, string> = {
   CRC: "var(--blue-600)", CRA: "var(--purple-600)", PI: "var(--green-600)", DM: "var(--amber-700)", Admin: "var(--slate-600)",
