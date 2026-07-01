@@ -56,6 +56,9 @@ Three guards: **`isSubjectUnblinded(dataset, subjectId)`** (is this subject in t
 - **Settings module** — currently a stub. Port the randomization section (method/blocks/blinding/stratification, treatment groups, list management) + move the hardcoded `INVENTORY_PERMISSIONS` here.
 - **Notifications**, **Profile + Invoices**, **portfolio site**.
 
+### ⚠️ Architecture note — Notification preferences route (Profile placeholder)
+**Notification preferences live at `/study/[id]/profile?section=notifications`** (study-scoped, **not** a bare top-level `/profile`) — this keeps the session/role/site context (the delivery + per-role event toggles + per-study overrides all need `activeRole`, `dataset.studies`, and the current study's sites, which only exist inside the study shell). The route currently renders the 3 preference cards behind a "Full profile & account settings coming soon" banner; **it lifts out cleanly into the real Profile page when that's built** (drop the banner, move the file). The Settings sidebar no longer has a Notifications item (removed); Settings keeps only the Admin/DM **"Study notification rules"** card under Study preferences. **Sidenav has no active-highlight mapping for the `/notifications` (full-page history) or `/profile` routes** — `activeKey` falls back to `dashboard` for both. Add the mapping (in `AppShell.tsx`'s route→activeKey reverse-map + `NAV_ROUTES`) when the Profile page is built.
+
 ### ⚠️ Clinical accuracy gaps — known issues
 Compliance/realism gaps in the inventory + randomization flows (display works; the underlying clinical model is incomplete):
 - **Reconciliation — drug accountability %**: missing the accountability calc (dispensed + returned + destroyed + remaining ÷ received × 100). A Variance column exists but there's no closing balance or per-lot "balanced / unbalanced" status. Required for 21 CFR Part 11 / VICH GL9 database lock.

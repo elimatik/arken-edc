@@ -45,6 +45,8 @@ export function AppShell({ study, sites, children }: AppShellProps) {
   // Site/House record pages (/sites/[id], /barns/[id]) are reached from the Data
   // Entry drill-down — keep "Data Entry" highlighted there (the /sites list stays "Sites").
   if ((sub === "sites" && segs.length > 1) || sub === "barns") activeKey = "data-entry";
+  // Notification history + profile aren't nav destinations — highlight nothing.
+  if (sub === "notifications" || sub === "profile") activeKey = "";
 
   function navigate(key: string) {
     const route = NAV_ROUTES[key];

@@ -5,12 +5,13 @@
 // state is session-scoped and resets on a full reload.
 // ════════════════════════════════════════════════════════════════════════════
 import { useSyncExternalStore } from "react";
+import type { Dataset } from "@/lib/session-store/types";
 
 export type NotifKind =
   | "query" | "safety" | "visit" | "sdv" | "inventory" | "amendment" | "user" | "randomization"
   | "query_overdue" | "enrollment_reached" | "subject_withdrawn" | "delivery_failed";
 export type DeliveryStatus = "delivered" | "pending" | "failed";
-export interface Notif { id: string; kind: NotifKind; title: string; body: string; ts: string; bucket: "today" | "yesterday" | "earlier"; route: string; read: boolean; delivery: DeliveryStatus }
+export interface Notif { id: string; kind: NotifKind; title: string; body: string; ts: string; bucket: "today" | "yesterday" | "earlier"; route: string; read: boolean; delivery: DeliveryStatus; subjectCode?: string }
 
 // Icon + colour per event kind (matches the preference groups + list rows).
 export const KIND_CFG: Record<NotifKind, { icon: string; color: string }> = {
@@ -51,7 +52,7 @@ export function isSafetyKind(k: NotifKind): boolean { return k === "safety"; }
 // ── Curated (recent) notifications ──
 const BR_CURATED: Notif[] = [
   { id: "n-br-1", kind: "query", title: "Query raised on BR-2502-CO-001", body: "Visit Day 3 · Heart rate field · Raised by Sofia Reyes (CRA)", ts: "14 min ago", bucket: "today", route: "queries", read: false, delivery: "delivered" },
-  { id: "n-br-2", kind: "safety", title: "SAE submitted on BR-2502-CO-002", body: "Serious Adverse Event · Injection-site abscess · Reported by M. Okafor · Requires acknowledgment within 24h", ts: "1 hr ago", bucket: "today", route: "data-entry", read: false, delivery: "delivered" },
+  { id: "n-br-2", kind: "safety", title: "SAE submitted on BR-2502-CO-002", body: "Serious Adverse Event · Injection-site abscess · Reported by M. Okafor · Requires acknowledgment within 24h", ts: "1 hr ago", bucket: "today", route: "data-entry", read: false, delivery: "delivered", subjectCode: "BR-2502-CO-002" },
   { id: "n-br-3", kind: "sdv", title: "Forms submitted for SDV review", body: "BR-2502-CO-001 · Visit Day 0 · 6 fields awaiting verification", ts: "2 hr ago", bucket: "today", route: "sdv", read: true, delivery: "delivered" },
   { id: "n-br-4", kind: "visit", title: "Visit overdue — BR-2502-KS-003", body: "Visit Day 7 · 2 days past the visit window", ts: "3 hr ago", bucket: "today", route: "visits", read: false, delivery: "delivered" },
   { id: "n-br-5", kind: "query", title: "Query response — QRY-0042", body: "BR-2502-CO-002 · CRC responded · Awaiting your review", ts: "Yesterday, 16:40", bucket: "yesterday", route: "queries", read: true, delivery: "delivered" },
@@ -85,7 +86,8 @@ function generate(prefix: string, code: string, sites: string[], count: number):
     const k = GEN_KINDS[i % GEN_KINDS.length];
     const site = sites[i % sites.length];
     const num = String((i % 8) + 1).padStart(3, "0");
-    out.push({ id: `${prefix}-g${i}`, kind: k, title: `${KIND_LABEL[k]} — ${code}-${site}-${num}`, body: `${KIND_LABEL[k]} event · ${code} · Feedlot ${site}`, ts: `${i + 6} days ago`, bucket: "earlier", route: GEN_ROUTES[k] ?? "queries", read: i % 4 !== 0, delivery: "delivered" });
+    const subjectCode = `${code}-${site}-${num}`;
+    out.push({ id: `${prefix}-g${i}`, kind: k, title: `${KIND_LABEL[k]} — ${subjectCode}`, body: `${KIND_LABEL[k]} event · ${code} · Feedlot ${site}`, ts: `${i + 6} days ago`, bucket: "earlier", route: GEN_ROUTES[k] ?? "queries", read: i % 4 !== 0, delivery: "delivered", ...(k === "safety" ? { subjectCode } : {}) });
   }
   return out;
 }
@@ -100,6 +102,24 @@ export function notificationsForStudy(studyCode: string): Notif[] {
 // The drawer shows only the most recent items.
 export function drawerNotifications(studyCode: string): Notif[] {
   return notificationsForStudy(studyCode).slice(0, 12);
+}
+
+// Resolve the click target (a `/study/<id>/…` suffix) for a notification.
+// SAE/safety notifications deep-link to the subject's AE/SAE form via the ?form=
+// definition-id pattern; if the subject or AE form can't be resolved, fall back
+// to the Queries worklist (where AE-related queries live). Other kinds use their
+// own seeded route.
+export function notifTargetRoute(dataset: Dataset, studyId: string, n: Notif): string {
+  if (n.kind === "safety") {
+    const subj = n.subjectCode ? dataset.subjects.find((s) => s.study_id === studyId && s.subject_code === n.subjectCode) : undefined;
+    // Prefer the canonical repeating "Adverse Event" form over visit-level
+    // "Adverse Events Review" / "Final Adverse Event Assessment" variants.
+    const aeForm = dataset.forms.find((f) => f.study_id === studyId && f.name.toLowerCase() === "adverse event")
+      ?? dataset.forms.find((f) => f.study_id === studyId && /adverse event/i.test(f.name));
+    if (subj && aeForm) return `data-entry/${subj.id}?form=${aeForm.id}`;
+    return "queries";
+  }
+  return n.route;
 }
 
 // ── Read + acknowledge stores (shared by badge / drawer / full page) ──

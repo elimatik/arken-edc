@@ -3,8 +3,9 @@
 import { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import { useShell } from "@/components/shell/ShellContext";
+import { useStudySession } from "@/lib/session-store/SessionStore";
 import {
-  notificationsForStudy, useReadSet, useAckSet, markRead, markAllRead, acknowledge,
+  notificationsForStudy, notifTargetRoute, useReadSet, useAckSet, markRead, markAllRead, acknowledge,
   isUnread, kindCategory, NOTIF_CATEGORIES, type Notif,
 } from "@/lib/notifications-data";
 import { NotificationRow, AckDialog, utcStamp } from "@/components/notifications/NotificationRow";
@@ -23,6 +24,7 @@ function parseTs(ts: string): Date | null {
 export default function NotificationsPage() {
   const router = useRouter();
   const { study } = useShell();
+  const { dataset } = useStudySession();
   const read = useReadSet();
   const ack = useAckSet();
   const all = useMemo(() => notificationsForStudy(study.code), [study.code]);
@@ -53,7 +55,7 @@ export default function NotificationsPage() {
   const safePage = Math.min(page, pageCount - 1);
   const shown = filtered.slice(safePage * PAGE_SIZE, safePage * PAGE_SIZE + PAGE_SIZE);
 
-  function openNotif(n: Notif) { markRead(n.id); router.push(`/study/${study.id}/${n.route}`); }
+  function openNotif(n: Notif) { markRead(n.id); router.push(`/study/${study.id}/${notifTargetRoute(dataset, study.id, n)}`); }
   function confirmAck() {
     if (!ackNotif) return;
     acknowledge(ackNotif.id);
