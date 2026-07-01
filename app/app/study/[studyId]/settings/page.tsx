@@ -1833,7 +1833,7 @@ export default function StudySettingsPage() {
   const isGroupRand = typeCfg.randomizationUnit === "group";
   const atSetup = typeCfg.groupAssignmentTiming === "at_setup";
 
-  const [section, setSection] = useState<string>("randomization");
+  const [section, setSection] = useState<string>("study");
   const [method, setMethod] = useState<Method>(cfg.method);
   const [blockSize, setBlockSize] = useState(cfg.blockSize);
   const [blinding, setBlinding] = useState(cfg.blinding);
