@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { ROLES, type Role } from "@/lib/permissions";
 import { useNdaName, useNdaInitials } from "@/lib/use-nda-name";
@@ -32,6 +32,9 @@ export function Topbar({
   const userInitials = useNdaInitials();
   const avatarColor = useAvatarColor();
   const [pickerOpen, setPickerOpen] = useState(false);
+  const [avatarMenuOpen, setAvatarMenuOpen] = useState(false);
+  const [toast, setToast] = useState<string | null>(null);
+  useEffect(() => { if (!toast) return; const t = setTimeout(() => setToast(null), 2400); return () => clearTimeout(t); }, [toast]);
   const [pinnedIds, setPinnedIds] = useState<string[]>(() => getPinnedStudies());
 
   function openPicker() {
@@ -166,19 +169,37 @@ export function Topbar({
           <span className="tb-role-demo">(Demo)</span>
         </div>
 
-        <div
-          className="tb-avatar"
-          style={{ background: avatarColor }}
-          title={`${userName} — open profile`}
-          role="button"
-          tabIndex={0}
-          aria-label="Open profile"
-          onClick={() => router.push(`/study/${study.id}/profile`)}
-          onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); router.push(`/study/${study.id}/profile`); } }}
-        >
-          {userInitials}
+        <div className="tb-avatar-wrap">
+          <div
+            className="tb-avatar"
+            style={{ background: avatarColor }}
+            title={`${userName} — account menu`}
+            role="button"
+            tabIndex={0}
+            aria-haspopup="menu"
+            aria-expanded={avatarMenuOpen}
+            aria-label="Account menu"
+            onClick={() => setAvatarMenuOpen((o) => !o)}
+            onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); setAvatarMenuOpen((o) => !o); } }}
+          >
+            {userInitials}
+          </div>
+          {avatarMenuOpen && (
+            <>
+              <div className="tb-avatar-backdrop" onClick={() => setAvatarMenuOpen(false)} />
+              <div className="tb-avatar-menu" role="menu">
+                <button className="tb-avatar-menu-item" role="menuitem" type="button" onClick={() => { setAvatarMenuOpen(false); router.push(`/study/${study.id}/profile`); }}>
+                  <i className="ti ti-user" aria-hidden="true"></i> Profile
+                </button>
+                <button className="tb-avatar-menu-item" role="menuitem" type="button" onClick={() => { setAvatarMenuOpen(false); setToast("Logged out"); }}>
+                  <i className="ti ti-logout" aria-hidden="true"></i> Log out
+                </button>
+              </div>
+            </>
+          )}
         </div>
       </div>
+      {toast && <div className="tb-toast" role="status">{toast}</div>}
     </header>
   );
 }

@@ -71,7 +71,10 @@ export default function ProfilePage() {
 
   // ── Password ──
   const [newPwd, setNewPwd] = useState("");
-  const pwdScore = (newPwd.length >= 12 ? 1 : 0) + (/[A-Z]/.test(newPwd) ? 1 : 0) + (/[0-9]/.test(newPwd) ? 1 : 0) + (/[^A-Za-z0-9]/.test(newPwd) ? 1 : 0);
+  // Start reacting immediately: 1-2 chars → 1 bar (weak); 3+ chars → score by
+  // length ≥12 + uppercase + number + special (min 1 bar while typing).
+  const pwdRaw = (newPwd.length >= 12 ? 1 : 0) + (/[A-Z]/.test(newPwd) ? 1 : 0) + (/[0-9]/.test(newPwd) ? 1 : 0) + (/[^A-Za-z0-9]/.test(newPwd) ? 1 : 0);
+  const pwdScore = newPwd.length === 0 ? 0 : newPwd.length <= 2 ? 1 : Math.max(1, pwdRaw);
   const pwdCls = pwdScore <= 1 ? "weak" : pwdScore <= 2 ? "ok" : "strong";
   const pwdLabel = !newPwd ? "Enter a new password" : pwdScore <= 1 ? "Weak" : pwdScore <= 2 ? "Fair" : pwdScore <= 3 ? "Good" : "Strong";
   const pwdLabelColor = !newPwd ? "var(--color-text-tertiary)" : pwdScore <= 1 ? "var(--red-600)" : pwdScore <= 2 ? "var(--amber-700)" : "var(--green-600)";

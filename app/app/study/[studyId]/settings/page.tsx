@@ -829,7 +829,7 @@ function ProtocolAmendmentsSection({ studyCode, studyId, dataset, onToast }: { s
               const list = siteAddenda[s.id] ?? [];
               return (
                 <div key={s.id} className="settings-card" style={{ marginBottom: "var(--space-3)" }}>
-                  <div className="settings-card-header">
+                  <div className="settings-card-header" style={{ borderBottom: "none" }}>
                     <div><div className="settings-card-title">{s.name}</div><div className="settings-card-desc">{s.principal_investigator ?? "—"} · {subjectsBySite[s.id] ?? 0} enrolled</div></div>
                     <button className="set-btn-icon" type="button" title={open ? "Collapse" : "Expand"} onClick={() => setExpanded((e) => ({ ...e, [s.id]: !open }))}><i className={`ti ti-chevron-${open ? "up" : "down"}`} style={{ fontSize: 14 }}></i></button>
                   </div>
