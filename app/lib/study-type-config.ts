@@ -8,7 +8,10 @@
 // Study Settings becomes editable this map is what the Study-design card writes to.
 // ════════════════════════════════════════════════════════════════════════════
 
+export type StudySpecies = "cattle" | "canine" | "poultry" | "swine" | "equine" | "feline" | "ovine" | "aquatic" | "other";
+
 export interface StudyTypeConfig {
+  species: StudySpecies; // downstream: withdrawal defaults, dosing-unit conventions, etc.
   enrollmentModel: "rolling" | "fixed_group" | "single_cohort";
   subjectUnit: "animal" | "pen" | "tank" | "cage";
   subjectUnitPlural: string;
@@ -25,6 +28,7 @@ export interface StudyTypeConfig {
 
 const STUDY_TYPE_CONFIG: Record<string, StudyTypeConfig> = {
   "BR-2502": {
+    species: "cattle",
     enrollmentModel: "rolling",
     subjectUnit: "animal",
     subjectUnitPlural: "animals",
@@ -39,6 +43,7 @@ const STUDY_TYPE_CONFIG: Record<string, StudyTypeConfig> = {
     enrollmentCloseLabel: "Enrollment close",
   },
   "CA-0801": {
+    species: "canine",
     enrollmentModel: "rolling",
     subjectUnit: "animal",
     subjectUnitPlural: "animals",
@@ -53,6 +58,7 @@ const STUDY_TYPE_CONFIG: Record<string, StudyTypeConfig> = {
     enrollmentCloseLabel: "Enrollment close",
   },
   "PH-2401": {
+    species: "poultry",
     enrollmentModel: "fixed_group",
     subjectUnit: "pen",
     subjectUnitPlural: "pens",

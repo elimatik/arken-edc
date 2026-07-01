@@ -74,15 +74,17 @@ function randConfig(code: string): RandConfig {
 // portfolio (edits surface autosave toasts, not persisted).
 type StudyTypeKey = "livestock" | "companion" | "aquatic" | "custom";
 interface StudyMeta {
-  title: string; sponsor: string; ind: string; framework: string[];
+  title: string; sponsor: string; ind: string; framework: string[]; species: string; indication: string;
   protoStart: string; protoEnroll: string; protoEnd: string; protoTarget: string; protoVersion: string;
   type: StudyTypeKey;
   drugName: string; drugFormulation: string; drugDoseUnit: string; drugDoseCalc: string; drugRoute: string;
 }
+const SPECIES_OPTS = ["Cattle", "Canine", "Poultry", "Swine", "Equine", "Feline", "Ovine", "Aquatic", "Other"];
 function studyMeta(code: string): StudyMeta {
   if (code === "CA-0801") return {
     title: "DermAlliv™ Canine Atopic Dermatitis Study", sponsor: "DermAlliv Therapeutics",
     ind: "NADA-141-YYY · IND-CA-0801-US", framework: ["21 CFR Part 11", "VICH GL42"],
+    species: "Canine", indication: "Canine atopic dermatitis — topical immunomodulator",
     protoStart: "2026-01-15", protoEnroll: "2026-04-01", protoEnd: "2026-10-31", protoTarget: "30", protoVersion: "v2.1 — 2026-01-10",
     type: "companion",
     drugName: "DermAlliv™ (blinded)", drugFormulation: "Topical / oral", drugDoseUnit: "ml", drugDoseCalc: "60 ml per visit", drugRoute: "Topical application",
@@ -90,6 +92,7 @@ function studyMeta(code: string): StudyMeta {
   if (code === "PH-2401") return {
     title: "Phytogenic Feed Additive Broiler Growth Performance Trial", sponsor: "PhytoVet Nutrition",
     ind: "No IND (feed additive)", framework: ["21 CFR Part 11"],
+    species: "Poultry", indication: "Broiler growth performance — phytogenic feed additive",
     protoStart: "2026-04-20", protoEnroll: "N/A (fixed pens)", protoEnd: "2026-07-31", protoTarget: "16 pens", protoVersion: "v1.0 — 2026-04-01",
     type: "livestock",
     drugName: "PhytoGrow™ Phytogenic Blend", drugFormulation: "Feed premix", drugDoseUnit: "kg", drugDoseCalc: "500g/tonne inclusion rate", drugRoute: "In-feed",
@@ -98,10 +101,26 @@ function studyMeta(code: string): StudyMeta {
   return {
     title: "Bovine Respiratory Disease Treatment Trial", sponsor: "BioVet Pharma Inc.",
     ind: "NADA-141-XXX · IND-BR-2502-US", framework: ["21 CFR Part 11", "VICH GL9"],
+    species: "Cattle", indication: "Bovine respiratory disease (BRD) treatment — antimicrobial efficacy",
     protoStart: "2026-04-01", protoEnroll: "2026-05-15", protoEnd: "2026-08-31", protoTarget: "36", protoVersion: "v1.0 — 2026-03-01",
     type: "livestock",
     drugName: "Tulathromycin", drugFormulation: "Liquid injection", drugDoseUnit: "ml", drugDoseCalc: "weight × arm_dose_factor ÷ 100 mg/mL", drugRoute: "SC injection",
   };
+}
+// Regulatory approvals seed (IACUC for all three animal studies).
+interface Approval { id: string; type: string; committee: string; number: string; approvalDate: string; expiryDate: string }
+function approvalsSeed(code: string): Approval[] {
+  if (code === "CA-0801") return [{ id: "ap1", type: "IACUC", committee: "University of California Davis IACUC", number: "IACUC-2026-CA-0801", approvalDate: "2026-01-10", expiryDate: "2027-01-09" }];
+  if (code === "PH-2401") return [{ id: "ap1", type: "IACUC", committee: "Purdue University IACUC", number: "IACUC-2026-PH-2401", approvalDate: "2026-04-01", expiryDate: "2027-03-31" }];
+  return [{ id: "ap1", type: "IACUC", committee: "Colorado State University IACUC", number: "IACUC-2026-BR-0042", approvalDate: "2026-03-15", expiryDate: "2027-03-14" }];
+}
+// Expiry proximity → status + colour (amber within 60 days, red past expiry).
+function approvalStatus(expiry: string): { label: string; badge: string; color: string } {
+  const days = Math.round((Date.parse(expiry) - Date.now()) / 86400000);
+  if (Number.isNaN(days)) return { label: "Active", badge: "set-badge-green", color: "var(--color-text-secondary)" };
+  if (days < 0) return { label: "Expired", badge: "set-badge-red", color: "var(--red-600)" };
+  if (days <= 60) return { label: "Pending renewal", badge: "set-badge-amber", color: "var(--amber-700)" };
+  return { label: "Active", badge: "set-badge-green", color: "var(--color-text-secondary)" };
 }
 
 interface HLevel { fixed: boolean; isSubject: boolean; value: string; options: string[]; optional?: boolean }
@@ -391,11 +410,33 @@ function StudySettingsSection({ studyCode, onToast }: { studyCode: string; onToa
   const [title, setTitle] = useState(meta.title);
   const [sponsor, setSponsor] = useState(meta.sponsor);
   const [ind, setInd] = useState(meta.ind);
+  const [species, setSpecies] = useState(meta.species);
+  const [indication, setIndication] = useState(meta.indication);
   const [dTitle, setDTitle] = useState(meta.title);
   const [dSponsor, setDSponsor] = useState(meta.sponsor);
   const [dInd, setDInd] = useState(meta.ind);
-  function startEdit() { setDTitle(title); setDSponsor(sponsor); setDInd(ind); setEditInfo(true); }
-  function saveInfo() { setTitle(dTitle); setSponsor(dSponsor); setInd(dInd); setEditInfo(false); onToast("Study information saved"); }
+  const [dSpecies, setDSpecies] = useState(meta.species);
+  const [dIndication, setDIndication] = useState(meta.indication);
+  function startEdit() { setDTitle(title); setDSponsor(sponsor); setDInd(ind); setDSpecies(species); setDIndication(indication); setEditInfo(true); }
+  function saveInfo() { setTitle(dTitle); setSponsor(dSponsor); setInd(dInd); setSpecies(dSpecies); setIndication(dIndication); setEditInfo(false); onToast("Study information saved"); }
+
+  // Card — Regulatory approvals (IACUC/IRB/ethics records).
+  const [approvals, setApprovals] = useState<Approval[]>(() => approvalsSeed(studyCode));
+  const [apOpen, setApOpen] = useState(false);
+  const [apEdit, setApEdit] = useState<number | null>(null);
+  const [apType, setApType] = useState("IACUC"); const [apCommittee, setApCommittee] = useState(""); const [apNumber, setApNumber] = useState(""); const [apApproval, setApApproval] = useState(""); const [apExpiry, setApExpiry] = useState("");
+  function openApproval(idx: number | null) {
+    setApEdit(idx);
+    if (idx == null) { setApType("IACUC"); setApCommittee(""); setApNumber(""); setApApproval(""); setApExpiry(""); }
+    else { const a = approvals[idx]; setApType(a.type); setApCommittee(a.committee); setApNumber(a.number); setApApproval(a.approvalDate); setApExpiry(a.expiryDate); }
+    setApOpen(true);
+  }
+  function saveApproval() {
+    if (!apCommittee.trim() || !apNumber.trim()) { onToast("Committee name and approval number are required"); return; }
+    const a: Approval = { id: apEdit != null ? approvals[apEdit].id : `ap-${crypto.randomUUID()}`, type: apType, committee: apCommittee.trim(), number: apNumber.trim(), approvalDate: apApproval.trim(), expiryDate: apExpiry.trim() };
+    setApprovals((p) => (apEdit != null ? p.map((x, i) => (i === apEdit ? a : x)) : [...p, a]));
+    setApOpen(false); onToast("Regulatory approval saved");
+  }
 
   // Card 3a/3b — Study type, design fields (editable, initialized from the study-type
   // config defaults; overrides are component-local / display-only), and hierarchy.
@@ -470,6 +511,8 @@ function StudySettingsSection({ studyCode, onToast }: { studyCode: string; onToa
           <div className="settings-row"><div><div className="settings-row-label">Study title</div></div><div className="settings-row-value">{editInfo ? <input className="set-input" value={dTitle} onChange={(e) => setDTitle(e.target.value)} /> : title}</div></div>
           <div className="settings-row"><div><div className="settings-row-label">Sponsor</div></div><div className="settings-row-value">{editInfo ? <input className="set-input" value={dSponsor} onChange={(e) => setDSponsor(e.target.value)} /> : sponsor}</div></div>
           <div className="settings-row"><div><div className="settings-row-label">IND / NADA number</div></div><div className="settings-row-value">{editInfo ? <input className="set-input" style={{ fontFamily: "var(--font-mono)" }} value={dInd} onChange={(e) => setDInd(e.target.value)} /> : <span style={{ fontFamily: "var(--font-mono)" }}>{ind}</span>}</div></div>
+          <div className="settings-row"><div><div className="settings-row-label">Species</div></div><div className="settings-row-value">{editInfo ? <select className="set-select" style={{ maxWidth: 200 }} value={dSpecies} onChange={(e) => setDSpecies(e.target.value)}>{SPECIES_OPTS.map((s) => <option key={s} value={s}>{s}</option>)}</select> : species}</div></div>
+          <div className="settings-row"><div><div className="settings-row-label">Therapeutic indication / study objective</div></div><div className="settings-row-value">{editInfo ? <input className="set-input" value={dIndication} onChange={(e) => setDIndication(e.target.value)} /> : indication}</div></div>
           <div className="settings-row"><div><div className="settings-row-label">Regulatory framework</div></div><div className="settings-row-value">{meta.framework.map((f, i) => <span key={f} className="set-badge set-badge-blue" style={i > 0 ? { marginLeft: 4 } : undefined}>{f}</span>)}</div></div>
           {editInfo && (
             <div style={{ display: "flex", gap: "var(--space-2)", justifyContent: "flex-end", marginTop: "var(--space-4)" }}>
@@ -479,6 +522,64 @@ function StudySettingsSection({ studyCode, onToast }: { studyCode: string; onToa
           )}
         </div>
       </div>
+
+      {/* ── Card: Regulatory approvals ── */}
+      <div className="settings-card">
+        <div className="settings-card-header">
+          <div><div className="settings-card-title">Regulatory approvals</div><div className="settings-card-desc">IACUC, IRB, or ethics committee approval records for this study</div></div>
+          <button className="set-btn-secondary" type="button" onClick={() => openApproval(null)}><i className="ti ti-plus"></i> Add approval</button>
+        </div>
+        <div className="settings-card-body" style={{ overflowX: "auto" }}>
+          {approvals.length === 0 ? <div style={{ fontSize: "var(--text-sm)", color: "var(--color-text-placeholder)" }}>No approval records.</div> : (
+            <table className="fee-table">
+              <thead><tr><th>Type</th><th>Committee</th><th>Approval no.</th><th>Approved</th><th>Expires</th><th>Status</th><th></th></tr></thead>
+              <tbody>
+                {approvals.map((a, i) => {
+                  const st = approvalStatus(a.expiryDate);
+                  return (
+                    <tr key={a.id}>
+                      <td><span className={`set-badge ${a.type === "IRB" ? "set-badge-blue" : "set-badge-green"}`}>{a.type}</span></td>
+                      <td>{a.committee}</td>
+                      <td style={{ fontFamily: "var(--font-mono)" }}>{a.number}</td>
+                      <td style={{ fontFamily: "var(--font-mono)" }}>{a.approvalDate || "—"}</td>
+                      <td style={{ fontFamily: "var(--font-mono)", color: st.color, fontWeight: st.color === "var(--color-text-secondary)" ? undefined : 600 }}>{a.expiryDate || "—"}</td>
+                      <td><span className={`set-badge ${st.badge}`}>{st.label}</span></td>
+                      <td style={{ textAlign: "right" }}><button className="set-btn-icon" type="button" title="Edit approval" onClick={() => openApproval(i)}><i className="ti ti-pencil" style={{ fontSize: 13 }}></i></button></td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          )}
+        </div>
+      </div>
+
+      {/* ── Regulatory approval modal ── */}
+      {apOpen && (
+        <div className="set-modal-overlay" onClick={(e) => { if (e.target === e.currentTarget) setApOpen(false); }}>
+          <div className="set-modal" role="dialog" aria-modal="true">
+            <div className="set-modal-header">
+              <div><div className="set-modal-title">{apEdit == null ? "Add regulatory approval" : "Edit regulatory approval"}</div><div style={{ fontSize: "var(--text-xs)", color: "var(--color-text-tertiary)", marginTop: 2 }}>Ethics / animal-use committee approval record</div></div>
+              <button className="set-modal-close" type="button" onClick={() => setApOpen(false)}><i className="ti ti-x"></i></button>
+            </div>
+            <div className="set-modal-body">
+              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "var(--space-3)" }}>
+                <div className="set-field"><div className="set-field-label">Approval type</div><select className="set-select" value={apType} onChange={(e) => setApType(e.target.value)}><option>IACUC</option><option>IRB</option><option>Ethics Committee</option><option>Other</option></select></div>
+                <div className="set-field"><div className="set-field-label">Approval number</div><input className="set-input" style={{ fontFamily: "var(--font-mono)" }} value={apNumber} onChange={(e) => setApNumber(e.target.value)} /></div>
+              </div>
+              <div className="set-field"><div className="set-field-label">Committee name</div><input className="set-input" value={apCommittee} onChange={(e) => setApCommittee(e.target.value)} /></div>
+              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "var(--space-3)" }}>
+                <div className="set-field"><div className="set-field-label">Approval date</div><input className="set-input" placeholder="YYYY-MM-DD" value={apApproval} onChange={(e) => setApApproval(e.target.value)} /></div>
+                <div className="set-field"><div className="set-field-label">Expiry date</div><input className="set-input" placeholder="YYYY-MM-DD" value={apExpiry} onChange={(e) => setApExpiry(e.target.value)} /></div>
+              </div>
+            </div>
+            <div className="set-modal-footer">
+              <button className="set-btn-secondary" type="button" onClick={() => setApOpen(false)}>Cancel</button>
+              <button className="set-btn-primary" type="button" onClick={saveApproval}><i className="ti ti-check"></i> Save</button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* ── Card 2: Protocol & timeline ── */}
       <div className="settings-card">
@@ -1347,10 +1448,30 @@ const SIG_DEFAULT_RE = /adverse|\bsae\b|serious|randomi[sz]ation|allocation|trea
 const defaultRequiresSig = (name: string) => SIG_DEFAULT_RE.test(name);
 
 function AuditSignaturesSection({ studyId, dataset, onToast }: { studyId: string; dataset: Dataset; onToast: (m: string) => void }) {
+  const router = useRouter();
   // Card 1 — Electronic signatures.
   const [sigMethod, setSigMethod] = useState("Username + password (biometric equivalent)");
   const [requireMeaning, setRequireMeaning] = useState(true);
   const [coSignature, setCoSignature] = useState(false);
+
+  // Signature delegation log — read-only rollup from the real Site Staff & Delegation
+  // Log CRF instances (same pattern as Protocol & Amendments → site addenda).
+  const delegationRows = useMemo(() => {
+    const staffForm = dataset.forms.find((f) => f.study_id === studyId && f.name === "Site Staff & Delegation Log");
+    if (!staffForm) return [];
+    const codeById = new Map(dataset.formFields.filter((f) => f.form_id === staffForm.id).map((f) => [f.id, f.code]));
+    const siteName = new Map(dataset.sites.filter((s) => s.study_id === studyId).map((s) => [s.id, s.name]));
+    const parseMulti = (raw: string) => { try { const a = JSON.parse(raw); return Array.isArray(a) ? a.join(", ") : raw; } catch { return raw; } };
+    const rows: { id: string; staff: string; role: string; authority: string; effective: string; site: string }[] = [];
+    for (const inst of dataset.formInstances.filter((i) => i.form_id === staffForm.id && i.site_id)) {
+      const byCode: Record<string, string> = {};
+      for (const v of dataset.fieldValues) if (v.form_instance_id === inst.id) { const c = codeById.get(v.form_field_id); if (c) byCode[c] = v.value ?? ""; }
+      if (!byCode.staff_name) continue;
+      const authority = byCode.delegated_tasks ? parseMulti(byCode.delegated_tasks) : (byCode.signature_authority === "Yes" ? "Signature authority" : "—");
+      rows.push({ id: inst.id, staff: byCode.staff_name, role: byCode.role || "—", authority, effective: byCode.protocol_training_date || byCode.gcp_training_date || "—", site: siteName.get(inst.site_id ?? "") || "—" });
+    }
+    return rows;
+  }, [dataset.forms, dataset.formFields, dataset.formInstances, dataset.fieldValues, dataset.sites, studyId]);
 
   // Card 2 — leaf forms grouped by builder section (same as Form permissions).
   const sections = useMemo(() => {
@@ -1438,6 +1559,24 @@ function AuditSignaturesSection({ studyId, dataset, onToast }: { studyId: string
             <div className="settings-row-value"><span className="set-badge set-badge-blue">UTC (Coordinated Universal Time)</span></div>
           </div>
           <ToggleRow on={reasonAllEdits} onToggle={() => { setReasonAllEdits(!reasonAllEdits); onToast("Setting saved"); }} label="Require reason for change on all field edits (not just post-signature)" desc="When OFF, reason is only required on edits after signature/lock." />
+        </div>
+      </div>
+
+      {/* ── Card 4: Signature delegation log (read-only rollup from the site CRF) ── */}
+      <div className="settings-card">
+        <div className="settings-card-header"><div><div className="settings-card-title">Signature delegation log</div><div className="settings-card-desc">Track who has been delegated signature authority — required for 21 CFR Part 11 compliance</div></div></div>
+        <div className="settings-card-body" style={{ overflowX: "auto" }}>
+          {delegationRows.length === 0 ? (
+            <div style={{ fontSize: "var(--text-sm)", color: "var(--color-text-tertiary)", marginBottom: "var(--space-3)" }}>No delegation records found. Complete the Site Staff &amp; Delegation Log on each site record to track signature delegation.</div>
+          ) : (
+            <table className="fee-table" style={{ marginBottom: "var(--space-3)" }}>
+              <thead><tr><th>Staff member</th><th>Role</th><th>Delegated authority</th><th>Effective date</th><th>Site</th></tr></thead>
+              <tbody>{delegationRows.map((r) => (
+                <tr key={r.id}><td style={{ fontWeight: 500 }}>{r.staff}</td><td>{r.role}</td><td>{r.authority}</td><td style={{ fontFamily: "var(--font-mono)" }}>{r.effective}</td><td>{r.site}</td></tr>
+              ))}</tbody>
+            </table>
+          )}
+          <button className="set-btn-secondary" type="button" onClick={() => router.push(`/study/${studyId}/sites`)}>Go to site records <i className="ti ti-arrow-right"></i></button>
         </div>
       </div>
     </>
