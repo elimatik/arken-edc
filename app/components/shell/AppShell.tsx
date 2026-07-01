@@ -10,6 +10,8 @@ import { isStudyLocked } from "@/lib/study-lock";
 import { navItemsForRole, NAV_ROUTES, type Role } from "@/lib/permissions";
 import { actionableQueryCount } from "@/lib/queries-data";
 import { ArkenAI } from "@/components/ai/ArkenAI";
+import { NotificationsDrawer } from "@/components/notifications/NotificationsDrawer";
+import { useReadSet, unreadCount } from "@/lib/notifications-data";
 import "./shell.css";
 
 interface AppShellProps {
@@ -31,6 +33,9 @@ export function AppShell({ study, sites, children }: AppShellProps) {
   // the Inventory header). Kept null in ShellContext for not-yet-migrated screens.
   const selectedSiteId: string | null = null;
   const [aiOpen, setAiOpen] = useState(false); // Arken Insights slide-in
+  const [notifOpen, setNotifOpen] = useState(false); // notifications drawer
+  const notifRead = useReadSet();
+  const notifCount = unreadCount(study.code, notifRead);
 
   // The active nav item is derived from the route (first path segment under the study).
   const base = `/study/${study.id}`;
@@ -73,6 +78,8 @@ export function AppShell({ study, sites, children }: AppShellProps) {
             activeRole={activeRole}
             onChangeRole={changeRole}
             onToggleAI={() => setAiOpen((o) => !o)}
+            onToggleNotif={() => setNotifOpen((o) => !o)}
+            notifCount={notifCount}
           />
           {isStudyLocked(dataset, study.id) && (
             <div className="db-lock-bar" role="status">
@@ -83,6 +90,7 @@ export function AppShell({ study, sites, children }: AppShellProps) {
           <main className="page-content">{children}</main>
         </div>
         <ArkenAI open={aiOpen} onClose={() => setAiOpen(false)} />
+        <NotificationsDrawer open={notifOpen} onClose={() => setNotifOpen(false)} />
       </div>
     </ShellProvider>
   );

@@ -13,6 +13,8 @@ interface TopbarProps {
   activeRole: Role;
   onChangeRole: (role: Role) => void;
   onToggleAI?: () => void; // opens the Arken Insights slide-in
+  onToggleNotif?: () => void; // opens the notifications drawer
+  notifCount?: number; // unread notification count for the bell badge
 }
 
 export function Topbar({
@@ -20,6 +22,8 @@ export function Topbar({
   activeRole,
   onChangeRole,
   onToggleAI,
+  onToggleNotif,
+  notifCount = 0,
 }: TopbarProps) {
   const router = useRouter();
   const { dataset } = useStudySession();
@@ -131,9 +135,9 @@ export function Topbar({
 
       {/* Right: utilities + role switcher + avatar */}
       <div className="tb-right">
-        <button className="tb-icon" title="Notifications" aria-label="Notifications" type="button">
+        <button className="tb-icon" title="Notifications" aria-label={`Notifications${notifCount > 0 ? ` (${notifCount} unread)` : ""}`} type="button" onClick={onToggleNotif}>
           <i className="ti ti-bell" aria-hidden="true"></i>
-          <span className="notif-dot" aria-hidden="true"></span>
+          {notifCount > 0 && <span className="tb-notif-badge" aria-hidden="true">{notifCount > 9 ? "9+" : notifCount}</span>}
         </button>
         <button className="tb-icon" title="Help" type="button">
           <i className="ti ti-help-circle" aria-hidden="true"></i>

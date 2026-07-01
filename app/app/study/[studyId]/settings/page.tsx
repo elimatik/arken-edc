@@ -12,7 +12,11 @@
 
 import { Fragment, useEffect, useMemo, useState, type CSSProperties } from "react";
 import { useRouter } from "next/navigation";
+import { useSearchParams } from "next/navigation";
 import { useShell } from "@/components/shell/ShellContext";
+import { useNdaName } from "@/lib/use-nda-name";
+import { EVENT_GROUPS, roleNotifDefaults } from "@/lib/notifications-data";
+import { emailFromName } from "@/lib/users-data";
 import { useStudySession } from "@/lib/session-store/SessionStore";
 import type { Dataset } from "@/lib/session-store/types";
 import type { Role } from "@/lib/permissions";
@@ -33,7 +37,7 @@ const NAV_GROUPS: { title: string; items: NavItem[] }[] = [
   { title: "Study", items: [{ key: "study", label: "Study settings", icon: "clipboard-list" }, { key: "preferences", label: "Study preferences", icon: "adjustments" }] },
   { title: "Access", items: [{ key: "roles", label: "Roles", icon: "shield-check" }, { key: "formperm", label: "Form permissions", icon: "forms" }] },
   { title: "Protocol", items: [{ key: "randomization", label: "Randomization", icon: "arrows-shuffle" }, { key: "protocol", label: "Protocol & Amendments", icon: "file-certificate" }] },
-  { title: "System", items: [{ key: "inventory", label: "Inventory", icon: "flask" }, { key: "audit", label: "Audit & Signatures", icon: "writing" }, { key: "billing", label: "Billing", icon: "receipt-2" }] },
+  { title: "System", items: [{ key: "inventory", label: "Inventory", icon: "flask" }, { key: "notifications", label: "Notifications", icon: "bell" }, { key: "audit", label: "Audit & Signatures", icon: "writing" }, { key: "billing", label: "Billing", icon: "receipt-2" }] },
 ];
 const NAV_ITEMS: NavItem[] = NAV_GROUPS.flatMap((g) => g.items);
 
@@ -1820,6 +1824,112 @@ function StatusControl({ studyCode, status, onChange, isAdmin, onToast }: { stud
   );
 }
 
+// ─── Notifications preferences section ──────────────────────────────────────
+function NotifEventToggle({ on, onToggle, label }: { on: boolean; onToggle: () => void; label: string }) {
+  return (
+    <div style={{ display: "flex", alignItems: "center", gap: "var(--space-3)", padding: "var(--space-2) 0" }}>
+      <label className="set-toggle" style={{ flexShrink: 0 }}><input type="checkbox" checked={on} onChange={onToggle} /><span className="set-toggle-slider"></span></label>
+      <div style={{ fontSize: "var(--text-sm)" }}>{label}</div>
+    </div>
+  );
+}
+function NotificationsSection({ dataset, activeRole, onToast }: { dataset: Dataset; activeRole: Role; onToast: (m: string) => void }) {
+  const userName = useNdaName();
+  const userEmail = emailFromName(userName, "arken.com");
+  const [inApp, setInApp] = useState(true);
+  const [email, setEmail] = useState(true);
+  const [freq, setFreq] = useState("Immediately (as they happen)");
+  const [events, setEvents] = useState<Record<string, boolean>>(() => roleNotifDefaults(activeRole));
+  const toggleEvent = (k: string) => { setEvents((e) => ({ ...e, [k]: !e[k] })); onToast("Setting saved"); };
+
+  const studies = useMemo(() => dataset.studies.slice(), [dataset.studies]);
+  const [overrides, setOverrides] = useState<Record<string, Record<string, boolean>>>({});
+  const [expanded, setExpanded] = useState<Set<string>>(new Set());
+  const customize = (code: string) => { setOverrides((o) => (o[code] ? o : { ...o, [code]: { ...events } })); setExpanded((s) => new Set(s).add(code)); };
+  const collapse = (code: string) => setExpanded((s) => { const n = new Set(s); n.delete(code); return n; });
+  const resetOverride = (code: string) => { setOverrides((o) => { const n = { ...o }; delete n[code]; return n; }); collapse(code); onToast("Reset to default notification settings"); };
+  const toggleOverride = (code: string, k: string) => setOverrides((o) => ({ ...o, [code]: { ...o[code], [k]: !o[code][k] } }));
+
+  const groupHeader = (g: (typeof EVENT_GROUPS)[number]) => (
+    <div style={{ display: "flex", alignItems: "center", gap: 6, fontSize: "var(--text-sm)", fontWeight: 600, margin: "var(--space-3) 0 var(--space-1)" }}><i className={`ti ti-${g.icon}`} style={{ color: g.color }}></i> {g.title}</div>
+  );
+
+  return (
+    <>
+      <div className="section-header">
+        <h1 className="set-section-title">Notifications</h1>
+        <p className="section-desc">Choose how and when Arken notifies you</p>
+      </div>
+
+      {/* Card 1 — Delivery */}
+      <div className="settings-card">
+        <div className="settings-card-header"><div><div className="settings-card-title">How you receive notifications</div></div></div>
+        <div className="settings-card-body">
+          <ToggleRow on={inApp} onToggle={() => { setInApp(!inApp); onToast("Setting saved"); }} label="In-app notifications" desc="Shown in the notification bell in the topbar" />
+          <ToggleRow on={email} onToggle={() => { setEmail(!email); onToast("Setting saved"); }} label="Email notifications" desc={`Sent to ${userEmail}`} />
+          {email && (
+            <div className="settings-row">
+              <div><div className="settings-row-label">Email frequency</div></div>
+              <div className="settings-row-value"><select className="set-select" style={{ maxWidth: 260 }} value={freq} onChange={(e) => { setFreq(e.target.value); onToast("Email frequency saved"); }}><option>Immediately (as they happen)</option><option>Daily digest (9:00 AM)</option><option>Weekly digest (Monday 9:00 AM)</option></select></div>
+            </div>
+          )}
+          <div className="settings-row" style={{ borderBottom: "none", paddingBottom: 0 }}>
+            <div><div className="settings-row-label">Email address</div></div>
+            <div className="settings-row-value" style={{ fontSize: "var(--text-sm)" }}>{userEmail} <a style={{ color: "var(--color-link)", cursor: "pointer", marginLeft: 8 }} onClick={() => onToast("Account settings — demo")}>Change in account settings</a></div>
+          </div>
+        </div>
+      </div>
+
+      {/* Card 2 — Notify me when */}
+      <div className="settings-card">
+        <div className="settings-card-header"><div><div className="settings-card-title">Notify me when</div><div className="settings-card-desc">Choose which events trigger a notification · these apply to studies and subjects you have access to</div></div></div>
+        <div className="settings-card-body">
+          {EVENT_GROUPS.map((g) => (
+            <div key={g.title}>
+              {groupHeader(g)}
+              {g.events.map((ev) => <NotifEventToggle key={ev.key} on={!!events[ev.key]} onToggle={() => toggleEvent(ev.key)} label={ev.label} />)}
+            </div>
+          ))}
+        </div>
+      </div>
+
+      {/* Card 3 — Per-study overrides */}
+      <div className="settings-card">
+        <div className="settings-card-header"><div><div className="settings-card-title">Per-study overrides</div><div className="settings-card-desc">Customize notification settings for individual studies</div></div></div>
+        <div className="settings-card-body">
+          {studies.map((st) => {
+            const open = expanded.has(st.code);
+            const has = !!overrides[st.code];
+            return (
+              <div key={st.id} style={{ borderBottom: "1px solid var(--color-border-subtle)", padding: "var(--space-3) 0" }}>
+                <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: "var(--space-3)" }}>
+                  <div style={{ display: "flex", alignItems: "center", gap: "var(--space-2)" }}><span style={{ fontSize: "var(--text-sm)", fontWeight: 500 }}>{st.code} — {st.name}</span><span className="set-badge set-badge-slate">{activeRole}</span></div>
+                  <div style={{ display: "flex", alignItems: "center", gap: "var(--space-2)" }}>
+                    <span className={`set-badge ${has ? "set-badge-blue" : "set-badge-slate"}`}>{has ? "Custom settings" : "Using default settings"}</span>
+                    {open ? <button className="set-btn-secondary" style={{ height: 26, fontSize: "var(--text-xs)" }} type="button" onClick={() => collapse(st.code)}>Collapse</button>
+                      : <button className="set-btn-secondary" style={{ height: 26, fontSize: "var(--text-xs)" }} type="button" onClick={() => customize(st.code)}>Customize</button>}
+                  </div>
+                </div>
+                {open && overrides[st.code] && (
+                  <div style={{ marginTop: "var(--space-2)", paddingLeft: "var(--space-3)", borderLeft: "2px solid var(--color-border)" }}>
+                    {EVENT_GROUPS.map((g) => (
+                      <div key={g.title}>
+                        {groupHeader(g)}
+                        {g.events.map((ev) => <NotifEventToggle key={ev.key} on={!!overrides[st.code][ev.key]} onToggle={() => toggleOverride(st.code, ev.key)} label={ev.label} />)}
+                      </div>
+                    ))}
+                    <a style={{ color: "var(--color-link)", cursor: "pointer", fontSize: "var(--text-xs)", display: "inline-block", marginTop: "var(--space-2)" }} onClick={() => resetOverride(st.code)}>Reset to defaults</a>
+                  </div>
+                )}
+              </div>
+            );
+          })}
+        </div>
+      </div>
+    </>
+  );
+}
+
 export default function StudySettingsPage() {
   const { study, activeRole } = useShell();
   const { dataset } = useStudySession();
@@ -1833,7 +1943,10 @@ export default function StudySettingsPage() {
   const isGroupRand = typeCfg.randomizationUnit === "group";
   const atSetup = typeCfg.groupAssignmentTiming === "at_setup";
 
-  const [section, setSection] = useState<string>("study");
+  const sp = useSearchParams();
+  const [section, setSection] = useState<string>(() => { const s = sp.get("section"); return s && NAV_ITEMS.some((n) => n.key === s) ? s : "study"; });
+  // Honour ?section= even when already on Settings (e.g. the notifications gear).
+  useEffect(() => { const s = sp.get("section"); if (s && NAV_ITEMS.some((n) => n.key === s)) setSection(s); }, [sp]);
   const [method, setMethod] = useState<Method>(cfg.method);
   const [blockSize, setBlockSize] = useState(cfg.blockSize);
   const [blinding, setBlinding] = useState(cfg.blinding);
@@ -2113,6 +2226,8 @@ export default function StudySettingsPage() {
           <StudyPreferencesSection key={study.code} studyId={study.id} dataset={dataset} onToast={setToast} />
         ) : section === "audit" ? (
           <AuditSignaturesSection key={study.code} studyId={study.id} dataset={dataset} onToast={setToast} />
+        ) : section === "notifications" ? (
+          <NotificationsSection key={study.code} dataset={dataset} activeRole={activeRole} onToast={setToast} />
         ) : section === "billing" ? (
           <BillingSection key={study.code} studyCode={study.code} onToast={setToast} />
         ) : (

@@ -307,6 +307,21 @@
   border-radius: 50%;
   background: var(--color-nav-badge-bg);
 }
+.tb-icon .tb-notif-badge {
+  position: absolute;
+  top: -2px;
+  right: -2px;
+  min-width: 15px;
+  height: 15px;
+  padding: 0 3px;
+  border-radius: var(--radius-full);
+  background: var(--color-nav-badge-bg, #B52626);
+  color: #fff;
+  font-size: 9px;
+  font-weight: 700;
+  line-height: 15px;
+  text-align: center;
+}
 
 /* Role switcher — chip-styled select, white chevron */
 .tb-role-select {
