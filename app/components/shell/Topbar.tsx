@@ -4,6 +4,7 @@ import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { ROLES, type Role } from "@/lib/permissions";
 import { useNdaName, useNdaInitials } from "@/lib/use-nda-name";
+import { useAvatarColor } from "@/lib/avatar-color";
 import { useStudySession } from "@/lib/session-store/SessionStore";
 import { getPinnedStudies, togglePinnedStudy } from "@/lib/pinned-study";
 import type { ShellStudy } from "./ShellContext";
@@ -29,6 +30,7 @@ export function Topbar({
   const { dataset } = useStudySession();
   const userName = useNdaName();
   const userInitials = useNdaInitials();
+  const avatarColor = useAvatarColor();
   const [pickerOpen, setPickerOpen] = useState(false);
   const [pinnedIds, setPinnedIds] = useState<string[]>(() => getPinnedStudies());
 
@@ -166,10 +168,13 @@ export function Topbar({
 
         <div
           className="tb-avatar"
-          title={`${userName} — account menu`}
+          style={{ background: avatarColor }}
+          title={`${userName} — open profile`}
           role="button"
           tabIndex={0}
-          aria-label="Account menu"
+          aria-label="Open profile"
+          onClick={() => router.push(`/study/${study.id}/profile`)}
+          onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); router.push(`/study/${study.id}/profile`); } }}
         >
           {userInitials}
         </div>

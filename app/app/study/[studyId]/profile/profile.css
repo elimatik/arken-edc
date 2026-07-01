@@ -1,0 +1,99 @@
+/* ════════════════════════════════════════════════════════════════════════════
+   Full Profile page (ported from 27-profile.html). Two-column layout: a sticky
+   left nav + a scrolling content column. Cards / toggles / badges / buttons /
+   inputs reuse the settings.css primitives; only the profile-specific pieces
+   (avatar, password strength, 2FA, sessions, etc.) are defined here.
+   ════════════════════════════════════════════════════════════════════════════ */
+
+/* Profile owns its own edge-to-edge layout — drop the shell's content padding. */
+.page-content:has(.profile-page) { padding: 0; gap: 0; }
+.profile-page { flex: 1; display: flex; min-height: 100%; min-width: 0; }
+
+/* Sticky left nav */
+.profile-nav { width: 220px; flex-shrink: 0; padding: var(--space-6) var(--space-4); border-right: 1px solid var(--color-border); background: var(--color-surface); position: sticky; top: 0; height: 100vh; overflow-y: auto; }
+.profile-nav-head { padding: 0 var(--space-3); margin-bottom: var(--space-5); }
+.profile-nav-head-title { font-size: var(--text-lg); font-weight: 500; }
+.profile-nav-head-sub { font-size: var(--text-xs); color: var(--color-text-tertiary); margin-top: 2px; }
+.profile-nav-title { font-size: var(--text-xs); font-weight: 500; text-transform: uppercase; letter-spacing: var(--tracking-caps); color: var(--color-text-tertiary); padding: 0 var(--space-3); margin: var(--space-4) 0 var(--space-2); }
+.profile-nav-title:first-of-type { margin-top: 0; }
+.profile-nav-item { display: flex; align-items: center; gap: var(--space-3); padding: var(--space-2) var(--space-3); border-radius: var(--radius-md); font-size: var(--text-sm); color: var(--color-text-secondary); cursor: pointer; border: none; background: none; width: 100%; text-align: left; transition: all var(--duration-fast); }
+.profile-nav-item:hover { background: var(--color-hover-bg); color: var(--color-text-primary); }
+.profile-nav-item.active { background: var(--blue-50); color: var(--blue-600); font-weight: 500; }
+.profile-nav-item > i { font-size: 16px; flex-shrink: 0; }
+.profile-nav-item .set-badge { margin-left: auto; }
+
+/* Content column */
+.profile-content { flex: 1; padding: var(--space-6); min-width: 0; max-width: 840px; }
+
+/* Read-only key/value rows */
+.pf-row { display: flex; align-items: center; justify-content: space-between; gap: var(--space-5); padding: var(--space-3) 0; border-bottom: 1px solid var(--color-border-subtle); }
+.pf-row:last-child { border-bottom: none; }
+.pf-row-label { font-size: var(--text-xs); color: var(--color-text-tertiary); min-width: 140px; flex-shrink: 0; }
+.pf-row-value { font-size: var(--text-sm); color: var(--color-text-primary); text-align: right; }
+
+/* Avatar card */
+.pf-avatar-section { display: flex; align-items: center; gap: var(--space-5); padding: var(--space-5); }
+.pf-avatar-large { width: 80px; height: 80px; border-radius: 50%; color: #fff; font-size: 28px; font-weight: 500; display: flex; align-items: center; justify-content: center; flex-shrink: 0; position: relative; cursor: pointer; }
+.pf-avatar-overlay { position: absolute; inset: 0; border-radius: 50%; background: rgba(0,0,0,0.4); display: flex; align-items: center; justify-content: center; opacity: 0; transition: opacity var(--duration-fast); }
+.pf-avatar-large:hover .pf-avatar-overlay { opacity: 1; }
+.pf-avatar-info { flex: 1; }
+.pf-avatar-name { font-size: var(--text-lg); font-weight: 500; margin-bottom: var(--space-1); }
+.pf-avatar-meta { font-size: var(--text-sm); color: var(--color-text-tertiary); }
+.pf-color-row { display: flex; align-items: center; gap: var(--space-2); margin-top: var(--space-3); }
+.pf-color-label { font-size: var(--text-xs); color: var(--color-text-tertiary); }
+.pf-swatch { width: 20px; height: 20px; border-radius: 50%; cursor: pointer; border: 2px solid transparent; transition: transform var(--duration-fast); padding: 0; }
+.pf-swatch:hover { transform: scale(1.15); }
+.pf-swatch.selected { border-color: var(--color-text-primary); }
+
+/* Forms */
+.pf-form-grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: var(--space-4); margin-bottom: var(--space-4); }
+.pf-hint { font-size: var(--text-xs); color: var(--color-text-tertiary); }
+.pf-form-actions { display: flex; justify-content: flex-end; gap: var(--space-2); padding-top: var(--space-4); border-top: 1px solid var(--color-border-subtle); margin-top: var(--space-4); }
+
+/* Toggle rows (Display + delivery) */
+.pf-toggle-row { display: flex; align-items: center; gap: var(--space-3); padding: var(--space-3) 0; border-bottom: 1px solid var(--color-border-subtle); }
+.pf-toggle-row:last-child { border-bottom: none; }
+.pf-toggle-info { flex: 1; }
+.pf-toggle-label { font-size: var(--text-sm); font-weight: 500; }
+.pf-toggle-desc { font-size: var(--text-xs); color: var(--color-text-tertiary); margin-top: 2px; }
+
+/* Password strength */
+.pf-pwd { margin-top: var(--space-2); }
+.pf-pwd-bars { display: flex; gap: 3px; margin-bottom: var(--space-1); }
+.pf-pwd-bar { height: 3px; border-radius: 2px; flex: 1; background: var(--color-border); }
+.pf-pwd-bar.weak { background: var(--red-600); }
+.pf-pwd-bar.ok { background: var(--amber-200); }
+.pf-pwd-bar.strong { background: var(--green-600); }
+.pf-pwd-label { font-size: var(--text-xs); color: var(--color-text-tertiary); }
+.pf-req { display: flex; flex-direction: column; gap: var(--space-2); }
+.pf-req-item { display: flex; align-items: center; gap: var(--space-2); font-size: var(--text-sm); color: var(--color-text-secondary); }
+.pf-req-item i { font-size: 14px; }
+
+/* 2FA */
+.pf-tfa-method { border: 1px solid var(--color-border); border-radius: var(--radius-md); padding: var(--space-4); display: flex; align-items: center; gap: var(--space-4); margin-bottom: var(--space-3); cursor: pointer; transition: border-color var(--duration-fast); width: 100%; text-align: left; background: var(--color-surface); }
+.pf-tfa-method:last-child { margin-bottom: 0; }
+.pf-tfa-method:hover { border-color: var(--blue-200); }
+.pf-tfa-method.selected { border-color: var(--blue-600); background: var(--blue-50); }
+.pf-tfa-icon { width: 40px; height: 40px; border-radius: var(--radius-md); background: var(--color-hover-bg); display: flex; align-items: center; justify-content: center; flex-shrink: 0; font-size: 20px; color: var(--color-text-secondary); }
+.pf-tfa-info { flex: 1; }
+.pf-tfa-name { font-size: var(--text-sm); font-weight: 500; }
+.pf-tfa-desc { font-size: var(--text-xs); color: var(--color-text-tertiary); margin-top: 2px; }
+
+/* Recovery codes */
+.pf-codes { display: grid; grid-template-columns: 1fr 1fr; gap: var(--space-2); font-family: var(--font-mono); font-size: var(--text-sm); background: var(--color-hover-bg); padding: var(--space-4); border-radius: var(--radius-md); margin-bottom: var(--space-4); }
+.pf-code-used { color: var(--color-text-tertiary); text-decoration: line-through; }
+
+/* Sessions */
+.pf-session-table { width: 100%; border-collapse: collapse; }
+.pf-session-table th { padding: var(--space-2) var(--space-3); text-align: left; font-size: var(--text-xs); font-weight: 500; text-transform: uppercase; letter-spacing: var(--tracking-caps); color: var(--color-text-tertiary); border-bottom: 1px solid var(--color-border); }
+.pf-session-table td { padding: var(--space-3); font-size: var(--text-sm); border-bottom: 1px solid var(--color-border-subtle); vertical-align: middle; }
+.pf-session-table tr:last-child td { border-bottom: none; }
+.pf-session-current { background: var(--green-50); }
+.pf-device-icon { width: 28px; height: 28px; border-radius: var(--radius-md); background: var(--color-hover-bg); display: flex; align-items: center; justify-content: center; color: var(--color-text-tertiary); flex-shrink: 0; }
+
+/* Info banner */
+.pf-info-banner { display: flex; align-items: flex-start; gap: var(--space-3); padding: var(--space-3) var(--space-4); background: var(--blue-50); border: 1px solid var(--blue-200); border-radius: var(--radius-md); font-size: var(--text-xs); color: var(--blue-600); margin-bottom: var(--space-4); }
+.pf-info-banner i { font-size: 14px; flex-shrink: 0; margin-top: 1px; }
+
+/* Toast (bottom-right, matches prototype) */
+.pf-toast { position: fixed; bottom: 24px; right: 24px; background: var(--color-cta-bg); color: #fff; padding: var(--space-3) var(--space-4); border-radius: var(--radius-md); font-size: var(--text-sm); font-weight: 500; display: flex; align-items: center; gap: var(--space-2); box-shadow: 0 4px 16px rgba(0,0,0,0.2); z-index: 999; }
