@@ -372,7 +372,16 @@
 .tb-avatar-menu-item { width: 100%; text-align: left; padding: var(--space-2) var(--space-3); font-size: var(--text-sm); color: var(--color-text-primary); border: none; background: none; cursor: pointer; display: flex; align-items: center; gap: var(--space-2); border-radius: var(--radius-sm); }
 .tb-avatar-menu-item:hover { background: var(--color-hover-bg); }
 .tb-avatar-menu-item i { font-size: 16px; color: var(--color-text-tertiary); }
-.tb-toast { position: fixed; bottom: var(--space-6); left: 50%; transform: translateX(-50%); background: var(--color-cta-bg); color: #fff; padding: var(--space-3) var(--space-4); border-radius: var(--radius-md); font-size: var(--text-sm); z-index: 250; box-shadow: 0 8px 24px rgba(14, 18, 28, 0.2); }
+
+/* Log-out confirmation modal (same pattern as Revoke-all / Remove-from-study) */
+.tb-modal-overlay { position: fixed; inset: 0; background: rgba(14, 18, 28, 0.45); z-index: 800; display: flex; align-items: center; justify-content: center; padding: var(--space-4); }
+.tb-modal { background: var(--color-surface); border-radius: var(--radius-lg); box-shadow: 0 24px 64px rgba(14, 18, 28, 0.3); width: 100%; max-width: 420px; padding: var(--space-5); }
+.tb-modal-title { font-size: var(--text-base); font-weight: 600; display: flex; align-items: center; gap: var(--space-2); }
+.tb-modal-title i { color: var(--red-600); }
+.tb-modal-body { font-size: var(--text-sm); color: var(--color-text-secondary); margin: var(--space-3) 0 var(--space-5); line-height: 1.5; }
+.tb-modal-actions { display: flex; justify-content: flex-end; gap: var(--space-2); }
+.tb-modal-btn { font-size: var(--text-sm); font-weight: 500; padding: var(--space-2) var(--space-4); border-radius: var(--radius-md); cursor: pointer; border: 1px solid var(--color-border); background: var(--color-surface); color: var(--color-text-secondary); }
+.tb-modal-btn.primary { background: var(--color-cta-bg); border-color: var(--color-cta-bg); color: #fff; }
 
 /* ─── Page content ───────────────────────────────────────────────────────── */
 .page-content {

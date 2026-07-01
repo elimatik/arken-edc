@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { ROLES, type Role } from "@/lib/permissions";
 import { useNdaName, useNdaInitials } from "@/lib/use-nda-name";
@@ -33,9 +33,17 @@ export function Topbar({
   const avatarColor = useAvatarColor();
   const [pickerOpen, setPickerOpen] = useState(false);
   const [avatarMenuOpen, setAvatarMenuOpen] = useState(false);
-  const [toast, setToast] = useState<string | null>(null);
-  useEffect(() => { if (!toast) return; const t = setTimeout(() => setToast(null), 2400); return () => clearTimeout(t); }, [toast]);
+  const [logoutOpen, setLogoutOpen] = useState(false);
   const [pinnedIds, setPinnedIds] = useState<string[]>(() => getPinnedStudies());
+
+  // Log out — clear all session/role state (session store, active role, NDA name,
+  // pins) and hard-navigate to /login so the app loads fresh, as if first opened.
+  function doLogout() {
+    try {
+      Object.keys(sessionStorage).filter((k) => k.startsWith("arken_")).forEach((k) => sessionStorage.removeItem(k));
+    } catch { /* storage unavailable */ }
+    window.location.href = "/login";
+  }
 
   function openPicker() {
     setPinnedIds(getPinnedStudies()); // refresh from storage in case it changed elsewhere
@@ -191,7 +199,7 @@ export function Topbar({
                 <button className="tb-avatar-menu-item" role="menuitem" type="button" onClick={() => { setAvatarMenuOpen(false); router.push(`/study/${study.id}/profile`); }}>
                   <i className="ti ti-user" aria-hidden="true"></i> Profile
                 </button>
-                <button className="tb-avatar-menu-item" role="menuitem" type="button" onClick={() => { setAvatarMenuOpen(false); setToast("Logged out"); }}>
+                <button className="tb-avatar-menu-item" role="menuitem" type="button" onClick={() => { setAvatarMenuOpen(false); setLogoutOpen(true); }}>
                   <i className="ti ti-logout" aria-hidden="true"></i> Log out
                 </button>
               </div>
@@ -199,7 +207,19 @@ export function Topbar({
           )}
         </div>
       </div>
-      {toast && <div className="tb-toast" role="status">{toast}</div>}
+
+      {logoutOpen && (
+        <div className="tb-modal-overlay" onClick={() => setLogoutOpen(false)}>
+          <div className="tb-modal" role="dialog" aria-modal="true" aria-labelledby="tb-logout-title" onClick={(e) => e.stopPropagation()}>
+            <div className="tb-modal-title" id="tb-logout-title"><i className="ti ti-logout" aria-hidden="true"></i>Log out?</div>
+            <div className="tb-modal-body">You&apos;ll be signed out of Arken EDC. Any unsaved changes will be lost.</div>
+            <div className="tb-modal-actions">
+              <button className="tb-modal-btn" type="button" onClick={() => setLogoutOpen(false)}>Cancel</button>
+              <button className="tb-modal-btn primary" type="button" onClick={doLogout}>Log out</button>
+            </div>
+          </div>
+        </div>
+      )}
     </header>
   );
 }
