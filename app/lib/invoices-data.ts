@@ -119,6 +119,36 @@ export function seedInvoices(): Invoice[] {
   return ALL_INVOICES.map((inv) => ({ ...inv, lineItems: inv.lineItems.map((l) => ({ ...l })) }));
 }
 
+// Sites with uninvoiced completed events — offered in the "Generate invoices"
+// modal. Selecting a site materialises it into a fresh draft invoice.
+const PENDING_GEN: Invoice[] = [
+  { id: "INV-BR-004", studyCode: "BR-2502", site: "Feedlot CO", period: "Jun 2026", status: "draft", issueDate: "2026-06-30", dueDate: "2026-07-30", holdbackPct: 0.1, lineItems: [
+    { section: "Enrollment & Screening", name: "Screening visit", qty: 3, rate: 450, override: null },
+    { section: "Protocol visits", name: "Visit Day 7", qty: 3, rate: 650, override: null },
+    { section: "Protocol visits", name: "Visit Day 14", qty: 3, rate: 650, override: null },
+  ] },
+  { id: "INV-BR-005", studyCode: "BR-2502", site: "Feedlot KS", period: "Jun 2026", status: "draft", issueDate: "2026-06-30", dueDate: "2026-07-30", holdbackPct: 0.1, lineItems: [
+    { section: "Enrollment & Screening", name: "Screening visit", qty: 2, rate: 450, override: null },
+    { section: "Protocol visits", name: "Visit Day 7", qty: 2, rate: 650, override: null },
+  ] },
+  { id: "INV-BR-006", studyCode: "BR-2502", site: "Feedlot NE", period: "Jun 2026", status: "draft", issueDate: "2026-06-30", dueDate: "2026-07-30", holdbackPct: 0.1, lineItems: [
+    { section: "Protocol visits", name: "Visit Day 0 — Treatment", qty: 2, rate: 950, override: null },
+    { section: "Protocol visits", name: "Visit Day 7", qty: 2, rate: 650, override: null },
+  ] },
+  { id: "INV-CA-002", studyCode: "CA-0801", site: "UC Davis", period: "Apr – Jun 2026", status: "draft", issueDate: "2026-06-30", dueDate: "2026-07-30", holdbackPct: 0.1, lineItems: [
+    { section: "Protocol visits", name: "Follow-up visit", qty: 6, rate: 550, override: null },
+    { section: "Protocol visits", name: "EOS visit", qty: 3, rate: 700, override: null },
+  ] },
+  { id: "INV-PH-002", studyCode: "PH-2401", site: "Purdue Farm", period: "Jul 2026", status: "draft", issueDate: "2026-07-15", dueDate: "2026-08-14", holdbackPct: 0.1, lineItems: [
+    { section: "Protocol visits", name: "Grower phase complete", qty: 2, rate: 400, override: null },
+    { section: "Protocol visits", name: "Finisher phase complete", qty: 2, rate: 500, override: null },
+  ] },
+];
+export function pendingForStudy(studyCode: string): Invoice[] {
+  return PENDING_GEN.filter((p) => p.studyCode === studyCode).map((p) => ({ ...p, lineItems: p.lineItems.map((l) => ({ ...l })) }));
+}
+export function eventCount(inv: Invoice): number { return inv.lineItems.reduce((s, l) => s + l.qty, 0); }
+
 // ── Money helpers ───────────────────────────────────────────────────────────
 export function gross(inv: Invoice): number { return inv.lineItems.reduce((s, l) => s + l.qty * l.rate, 0); }
 export function holdback(inv: Invoice): number { return Math.round(gross(inv) * inv.holdbackPct); }

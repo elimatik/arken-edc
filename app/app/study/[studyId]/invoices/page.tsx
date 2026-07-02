@@ -5,14 +5,16 @@ import { useShell } from "@/components/shell/ShellContext";
 import { useStudySession } from "@/lib/session-store/SessionStore";
 import {
   type FeeEvent, type Invoice, type InvStatus, type InvSite,
-  feeEventsForStudy, sitesForStudy, siteByName, seedInvoices,
+  feeEventsForStudy, sitesForStudy, siteByName, seedInvoices, pendingForStudy, eventCount,
   gross, holdback, net, fmt, FEE_SECTIONS,
   STATUS_LABEL, STATUS_DESC, STATUS_BADGE, NEXT_STATUS, STATUS_ACTION,
 } from "@/lib/invoices-data";
 import "./invoices.css";
 
 type Tab = "fee" | "invoices" | "preview";
-const TRIGGER_TYPES = ["Form completed", "Subject status", "Manual"];
+const CUR_SYM: Record<string, string> = { USD: "$", CAD: "CA$", EUR: "€", GBP: "£", AUD: "A$" };
+const CURRENCIES = ["USD", "CAD", "EUR", "GBP", "AUD"];
+const money = (n: number, cur: string) => (CUR_SYM[cur] ?? "$") + n.toLocaleString("en-US");
 
 export default function InvoicesPage() {
   const { study, activeRole } = useShell();
@@ -29,103 +31,48 @@ export default function InvoicesPage() {
   // ── Fee schedule (per current study) ──
   const sites = useMemo(() => sitesForStudy(study.code), [study.code]);
   const [fees, setFees] = useState<FeeEvent[]>(() => feeEventsForStudy(study.code));
-  useEffect(() => { setFees(feeEventsForStudy(study.code)); }, [study.code]);
-  const [sortField, setSortField] = useState<"name" | "rate" | null>(null);
-  const [sortDir, setSortDir] = useState<"asc" | "desc">("asc");
-  const [editCell, setEditCell] = useState<{ id: string; site: string | null } | null>(null);
+  const [siteCurrency, setSiteCurrency] = useState<Record<string, string>>(() => Object.fromEntries(sitesForStudy(study.code).map((s) => [s.name, "USD"])));
+  useEffect(() => { setFees(feeEventsForStudy(study.code)); setSiteCurrency(Object.fromEntries(sitesForStudy(study.code).map((s) => [s.name, "USD"]))); }, [study.code]);
+  const [sortAsc, setSortAsc] = useState<boolean | null>(null); // null unsorted · true asc · false desc (by name)
+  const [editCell, setEditCell] = useState<{ id: string; site: string } | null>(null);
   const [editBuf, setEditBuf] = useState("");
 
   const sortedFees = useMemo(() => {
-    if (!sortField) return fees;
-    const arr = fees.slice();
-    arr.sort((a, b) => {
-      const av: string | number = sortField === "rate" ? a.rate : a.name;
-      const bv: string | number = sortField === "rate" ? b.rate : b.name;
-      const cmp = String(av).localeCompare(String(bv), undefined, { numeric: true });
-      return sortDir === "asc" ? cmp : -cmp;
-    });
-    return arr;
-  }, [fees, sortField, sortDir]);
-  const feeSort = (f: "name" | "rate") => {
-    if (sortField === f) { if (sortDir === "asc") setSortDir("desc"); else setSortField(null); }
-    else { setSortField(f); setSortDir("asc"); }
-  };
+    if (sortAsc === null) return fees;
+    const arr = fees.slice().sort((a, b) => a.name.localeCompare(b.name, undefined, { numeric: true }));
+    return sortAsc ? arr : arr.reverse();
+  }, [fees, sortAsc]);
+  const feeSort = () => setSortAsc((v) => (v === null ? true : v ? false : null));
   const feeSections = useMemo(() => {
     const known = FEE_SECTIONS.map((sec) => ({ sec, items: sortedFees.filter((f) => f.section === sec) })).filter((g) => g.items.length);
     const extra = Array.from(new Set(sortedFees.map((f) => f.section))).filter((s) => !FEE_SECTIONS.includes(s));
     return [...known, ...extra.map((sec) => ({ sec, items: sortedFees.filter((f) => f.section === sec) }))];
   }, [sortedFees]);
 
+  // Inline override editing — click a cell to edit; blur saves; 0/empty clears it.
   const commitCell = () => {
     if (!editCell) return;
     const num = parseInt(editBuf.replace(/[^0-9]/g, ""), 10);
     setFees((prev) => prev.map((f) => {
       if (f.id !== editCell.id) return f;
-      if (editCell.site === null) return { ...f, rate: Number.isNaN(num) ? f.rate : num };
       const ov = { ...f.overrides };
-      if (Number.isNaN(num) || num === f.rate) delete ov[editCell.site];
+      if (Number.isNaN(num) || num <= 0) delete ov[editCell.site];
       else ov[editCell.site] = num;
       return { ...f, overrides: ov };
     }));
     setEditCell(null);
-    notify("Rate updated");
+    notify("Site rate updated");
   };
-  const startEdit = (id: string, site: string | null, current: number) => {
+  const startEdit = (id: string, site: string, current: number | null) => {
     if (!canEdit) return;
-    setEditCell({ id, site }); setEditBuf(String(current));
+    setEditCell({ id, site }); setEditBuf(current != null ? String(current) : "");
   };
-
   const overrideCount = fees.reduce((s, e) => s + Object.keys(e.overrides).length, 0);
-  const avgRate = fees.length ? Math.round(fees.reduce((s, e) => s + e.rate, 0) / fees.length) : 0;
-
-  // ── Fee event modal ──
-  const [modalOpen, setModalOpen] = useState(false);
-  const [editId, setEditId] = useState<string | null>(null);
-  const [mName, setMName] = useState("");
-  const [mId, setMId] = useState("");
-  const [mSection, setMSection] = useState(FEE_SECTIONS[0]);
-  const [mTrigType, setMTrigType] = useState(TRIGGER_TYPES[0]);
-  const [mTrigDetail, setMTrigDetail] = useState("");
-  const [mRate, setMRate] = useState("");
-  const [mOv, setMOv] = useState<Record<string, { on: boolean; amount: string }>>({});
-  function openAdd() {
-    setEditId(null);
-    setMName(""); setMId("E" + String(fees.length + 1).padStart(2, "0"));
-    setMSection(FEE_SECTIONS[0]); setMTrigType(TRIGGER_TYPES[0]); setMTrigDetail(""); setMRate("");
-    setMOv(Object.fromEntries(sites.map((s) => [s.name, { on: false, amount: "" }])));
-    setModalOpen(true);
-  }
-  function openEdit(ev: FeeEvent) {
-    setEditId(ev.id);
-    setMName(ev.name); setMId(ev.id); setMSection(ev.section); setMTrigType(TRIGGER_TYPES[0]); setMTrigDetail(ev.trigger); setMRate(String(ev.rate));
-    setMOv(Object.fromEntries(sites.map((s) => [s.name, { on: s.name in ev.overrides, amount: s.name in ev.overrides ? String(ev.overrides[s.name]) : "" }])));
-    setModalOpen(true);
-  }
-  function saveEvent() {
-    if (!mName.trim()) { notify("Event name is required"); return; }
-    const rate = parseInt(mRate.replace(/[^0-9]/g, ""), 10) || 0;
-    const overrides: Record<string, number> = {};
-    for (const s of sites) { const o = mOv[s.name]; if (o?.on) overrides[s.name] = parseInt((o.amount || "").replace(/[^0-9]/g, ""), 10) || rate; }
-    const trigger = mTrigDetail.trim() || mTrigType;
-    if (editId) {
-      setFees((prev) => prev.map((f) => f.id === editId ? { ...f, name: mName.trim(), section: mSection, trigger, rate, overrides } : f));
-      notify("Event type updated");
-    } else {
-      setFees((prev) => [...prev, { id: mId.trim() || `E${prev.length + 1}`, section: mSection, name: mName.trim(), trigger, rate, overrides }]);
-      notify("Event type added");
-    }
-    setModalOpen(false);
-  }
-  const [deleteId, setDeleteId] = useState<string | null>(null);
-  function confirmDelete() {
-    if (!deleteId) return;
-    setFees((prev) => prev.filter((f) => f.id !== deleteId));
-    setDeleteId(null);
-    notify("Event type deleted");
-  }
 
   // ── Invoices (cross-study) ──
   const [invoices, setInvoices] = useState<Invoice[]>(() => seedInvoices());
+  const [pending, setPending] = useState<Invoice[]>(() => pendingForStudy(study.code));
+  useEffect(() => { setPending(pendingForStudy(study.code)); }, [study.code]);
   const [siteFilter, setSiteFilter] = useState("all");
   const [statusFilter, setStatusFilter] = useState("all");
   const [today, setToday] = useState<Date | null>(null);
@@ -153,13 +100,17 @@ export default function InvoicesPage() {
   }
   const canDoAction = (status: InvStatus) => status === "draft" ? canSubmit : canEdit; // approve/pay = Admin only
 
-  // ── Generate invoices ──
+  // ── Generate invoices (checkbox picker of sites with uninvoiced events) ──
   const [genOpen, setGenOpen] = useState(false);
-  const draftSites = useMemo(() => invoices.filter((i) => i.status === "draft").map((i) => i.site), [invoices]);
+  const [genSel, setGenSel] = useState<Set<string>>(new Set());
+  function openGenerate() { setGenSel(new Set(pending.map((p) => p.id))); setGenOpen(true); }
   function generate() {
-    setInvoices((prev) => prev.map((i) => i.status === "draft" ? { ...i, status: "submitted" } : i));
+    const chosen = pending.filter((p) => genSel.has(p.id));
+    if (!chosen.length) return;
+    setInvoices((prev) => [...chosen.map((p) => ({ ...p, lineItems: p.lineItems.map((l) => ({ ...l })) })), ...prev]);
+    setPending((prev) => prev.filter((p) => !genSel.has(p.id)));
     setGenOpen(false);
-    notify(`${draftSites.length} draft invoice${draftSites.length === 1 ? "" : "s"} generated and submitted`);
+    notify(`${chosen.length} draft invoice${chosen.length === 1 ? "" : "s"} generated — review in Site invoices tab`);
   }
 
   // ── Site info modal ──
@@ -178,19 +129,12 @@ export default function InvoicesPage() {
       Object.keys(secs).filter((s) => !FEE_SECTIONS.includes(s)).map((s) => ({ sec: s, items: secs[s] })));
   };
 
-  const mainAction = tab === "fee"
-    ? (canEdit ? <button className="inv-btn-primary" type="button" onClick={openAdd}><i className="ti ti-plus"></i> Add event type</button> : null)
-    : tab === "invoices"
-      ? (canEdit ? <button className="inv-btn-primary" type="button" onClick={() => setGenOpen(true)}><i className="ti ti-plus"></i> Generate invoices</button> : null)
-      : <button className="inv-btn-primary" type="button" onClick={() => notify("PDF download is disabled in the demo")}><i className="ti ti-download"></i> Download PDF</button>;
-
   return (
     <div className="invoices-wrap">
       <div className="inv-header">
         <h1 className="inv-title">Invoices</h1>
         <div className="inv-head-actions">
           <button className="inv-btn-secondary" type="button" onClick={() => notify("Export is disabled in the demo")}><i className="ti ti-download"></i> Export</button>
-          {mainAction}
         </div>
       </div>
 
@@ -203,34 +147,42 @@ export default function InvoicesPage() {
       {/* ═══ TAB 1 — FEE SCHEDULE ═══ */}
       {tab === "fee" && (
         <>
-          <div className="inv-note-bar">Study default rates for {study.code} · Site-level overrides shown in <span style={{ color: "var(--purple-600)", fontWeight: 500 }}>purple</span>{!canEdit && " · read-only (DM)"}</div>
+          <div className="inv-note-bar">Per-site rates for {study.code} · site overrides shown in <span style={{ color: "var(--purple-600)", fontWeight: 500 }}>purple</span> · click a cell to edit, set to 0 to clear · study default rates are managed in Settings → Billing{!canEdit && " · read-only (DM)"}</div>
           <div className="inv-table-wrap">
             <table className="inv-table">
               <thead>
                 <tr>
-                  <th style={{ cursor: "pointer" }} onClick={() => feeSort("name")}>Event type {sortField === "name" ? (sortDir === "asc" ? "▲" : "▼") : ""}</th>
+                  <th style={{ cursor: "pointer" }} onClick={feeSort}>Event type {sortAsc === null ? "" : sortAsc ? "▲" : "▼"}</th>
                   <th>Trigger</th>
-                  <th style={{ cursor: "pointer" }} onClick={() => feeSort("rate")}>Study default rate {sortField === "rate" ? (sortDir === "asc" ? "▲" : "▼") : ""}</th>
-                  {sites.map((s) => <th key={s.name}>{s.name} override</th>)}
-                  <th>Actions</th>
+                  {sites.map((s) => <th key={s.name}>{s.name}</th>)}
                 </tr>
               </thead>
               <tbody>
+                <tr className="inv-currency-row">
+                  <td colSpan={2}>Billing currency per site</td>
+                  {sites.map((s) => (
+                    <td key={s.name}>
+                      <select className="inv-cur-select" value={siteCurrency[s.name] ?? "USD"} disabled={!canEdit}
+                        onChange={(e) => setSiteCurrency((p) => ({ ...p, [s.name]: e.target.value }))}>
+                        {CURRENCIES.map((c) => <option key={c} value={c}>{c}</option>)}
+                      </select>
+                    </td>
+                  ))}
+                </tr>
                 {feeSections.map((g) => (
                   <FeeSectionRows key={g.sec}
-                    sec={g.sec} items={g.items} sites={sites} canEdit={canEdit}
+                    sec={g.sec} items={g.items} sites={sites} siteCurrency={siteCurrency} canEdit={canEdit}
                     editCell={editCell} editBuf={editBuf} setEditBuf={setEditBuf}
                     onStartEdit={startEdit} onCommit={commitCell} onCancel={() => setEditCell(null)}
-                    onEdit={openEdit} onDelete={setDeleteId} colSpan={4 + sites.length} />
+                    colSpan={2 + sites.length} />
                 ))}
               </tbody>
             </table>
           </div>
           <div className="inv-summary-bar">
             <span>Event types: <span className="inv-sv">{fees.length}</span></span>
-            <span>Average rate: <span className="inv-sv">{fmt(avgRate)}</span></span>
             <span>Site overrides active: <span className="inv-sv warn">{overrideCount}</span></span>
-            <span style={{ marginLeft: "auto" }}>Rates in USD · Holdback 10%</span>
+            <span style={{ marginLeft: "auto" }}>Holdback 10% · default rates in Settings → Billing</span>
           </div>
         </>
       )}
@@ -255,6 +207,7 @@ export default function InvoicesPage() {
               <option value="draft">Draft</option><option value="submitted">Submitted</option><option value="approved">Approved</option><option value="paid">Paid</option>
             </select>
             <span className="inv-toolbar-count">{shownInvoices.length} invoice{shownInvoices.length === 1 ? "" : "s"}</span>
+            {canEdit && <button className="inv-btn-primary" type="button" onClick={openGenerate}><i className="ti ti-plus"></i> Generate invoices</button>}
           </div>
           <div className="inv-table-wrap">
             <table className="inv-table">
@@ -269,7 +222,7 @@ export default function InvoicesPage() {
                       <td><div style={{ fontFamily: "var(--font-mono)", fontWeight: 500 }}>{inv.id}</div><div style={{ fontSize: 10, color: "var(--color-text-tertiary)" }}>Issued {inv.issueDate}</div></td>
                       <td><div style={{ display: "flex", alignItems: "center", gap: "var(--space-2)" }}><span style={{ fontWeight: 500 }}>{inv.site}</span><button className="inv-btn-icon" style={{ width: 20, height: 20 }} type="button" title="Site info" onClick={(e) => { e.stopPropagation(); const s = siteByName(inv.site); if (s) setSiteInfo(s); }}><i className="ti ti-info-circle" style={{ fontSize: 13 }}></i></button></div></td>
                       <td className="inv-cell-muted">{inv.period}</td>
-                      <td><span className="inv-cell-mono">{inv.lineItems.length}</span>{ovCount > 0 && <span className="inv-override-pill"><i className="ti ti-pencil" style={{ fontSize: 9 }}></i> {ovCount}</span>}</td>
+                      <td><span className="inv-cell-mono">{inv.lineItems.length}</span>{ovCount > 0 && <span className="inv-override-pill">{ovCount} override{ovCount > 1 ? "s" : ""}</span>}</td>
                       <td className="inv-cell-money">{fmt(gross(inv))}</td>
                       <td className="inv-cell-money" style={{ color: "var(--amber-700)" }}>−{fmt(holdback(inv))}</td>
                       <td className="inv-cell-money" style={{ color: "var(--green-600)" }}>{fmt(net(inv))}</td>
@@ -330,18 +283,13 @@ export default function InvoicesPage() {
               <div><div className="inv-total-label">Net payable</div><div className="inv-total-amount">{fmt(net(openInv))}</div></div>
             </div>
             <div className="inv-id-body">
-              {groupBySection(openInv.lineItems).map((g) => (
-                <div key={g.sec}>
-                  <div className="inv-id-sec-title">{g.sec}</div>
-                  {g.items.map((l, i) => (
-                    <div className="inv-li" key={i}>
-                      <div style={{ minWidth: 0 }}>
-                        <div className="inv-li-name">{l.name}</div>
-                        {l.override && <div className="inv-li-override"><i className="ti ti-pencil" style={{ fontSize: 10 }}></i> {l.override} site override</div>}
-                      </div>
-                      <div className="inv-li-right"><div className="inv-li-qty">{l.qty} × {fmt(l.rate)}</div><div className="inv-li-amount">{fmt(l.qty * l.rate)}</div></div>
-                    </div>
-                  ))}
+              {openInv.lineItems.map((l, i) => (
+                <div className="inv-li" key={i}>
+                  <div style={{ minWidth: 0 }}>
+                    <div className="inv-li-name">{l.name}</div>
+                    {l.override && <div className="inv-li-override">{l.override} site override</div>}
+                  </div>
+                  <div className="inv-li-right"><div className="inv-li-qty">{l.qty} × {fmt(l.rate)}</div><div className="inv-li-amount">{fmt(l.qty * l.rate)}</div></div>
                 </div>
               ))}
               <div className="inv-id-subtotal"><span>Gross total</span><span style={{ fontFamily: "var(--font-mono)" }}>{fmt(gross(openInv))}</span></div>
@@ -363,72 +311,28 @@ export default function InvoicesPage() {
         </>
       )}
 
-      {/* ── Fee event modal ── */}
-      {modalOpen && (
-        <div className="inv-modal-overlay" onClick={() => setModalOpen(false)}>
-          <div className="inv-modal" onClick={(e) => e.stopPropagation()} role="dialog" aria-modal="true">
-            <div className="inv-modal-header"><div className="inv-modal-title">{editId ? "Edit event type" : "Add event type"}</div><button className="inv-id-close" type="button" onClick={() => setModalOpen(false)}><i className="ti ti-x"></i></button></div>
-            <div className="inv-modal-body">
-              <div className="inv-form-row"><div className="inv-form-label">Event name</div><input className="inv-form-input" value={mName} onChange={(e) => setMName(e.target.value)} /></div>
-              <div className="inv-form-row-2">
-                <div className="inv-form-row"><div className="inv-form-label">Event ID</div><input className="inv-form-input mono" value={mId} onChange={(e) => setMId(e.target.value)} /><div className="inv-form-hint">Used for reporting and exports</div></div>
-                <div className="inv-form-row"><div className="inv-form-label">Section</div><select className="inv-form-input" style={{ cursor: "pointer" }} value={mSection} onChange={(e) => setMSection(e.target.value)}>{FEE_SECTIONS.map((s) => <option key={s}>{s}</option>)}</select></div>
-              </div>
-              <div className="inv-form-row">
-                <div className="inv-form-label">Trigger</div>
-                <div className="inv-trigger-btns">{TRIGGER_TYPES.map((t) => <button key={t} type="button" className={`inv-trigger-btn${mTrigType === t ? " active" : ""}`} onClick={() => setMTrigType(t)}>{t}</button>)}</div>
-                <input className="inv-form-input" value={mTrigDetail} onChange={(e) => setMTrigDetail(e.target.value)} placeholder={mTrigType === "Form completed" ? "e.g. Day 0 forms complete" : mTrigType === "Subject status" ? "e.g. Subject enrolled (ICF signed)" : "Describe the manual trigger"} />
-                <div className="inv-form-hint">When this condition is met, the fee is added to the site invoice.</div>
-              </div>
-              <div className="inv-section-divider">Rates</div>
-              <div className="inv-form-row"><div className="inv-form-label">Study default rate (USD)</div><input className="inv-form-input mono" value={mRate} onChange={(e) => setMRate(e.target.value)} placeholder="0" /><div className="inv-form-hint">Applies to all sites unless overridden below</div></div>
-              <div className="inv-section-divider">Site-level overrides</div>
-              <div className="inv-form-hint" style={{ marginBottom: "var(--space-2)" }}>Override the default rate for individual sites. Leave off to use the study default.</div>
-              {sites.map((s) => {
-                const o = mOv[s.name] ?? { on: false, amount: "" };
-                return (
-                  <div className="inv-override-row" key={s.name}>
-                    <span className="inv-override-site">{s.name}</span>
-                    <div className="inv-override-ctrl">
-                      <label className="inv-override-check"><input type="checkbox" checked={o.on} onChange={(e) => setMOv((p) => ({ ...p, [s.name]: { on: e.target.checked, amount: e.target.checked ? (p[s.name]?.amount || mRate) : "" } }))} /> Override</label>
-                      <input className={`inv-override-amount${o.on ? " active" : ""}`} value={o.amount} disabled={!o.on} placeholder="—" onChange={(e) => setMOv((p) => ({ ...p, [s.name]: { on: true, amount: e.target.value } }))} />
-                    </div>
-                  </div>
-                );
-              })}
-            </div>
-            <div className="inv-modal-footer"><button className="inv-btn-secondary" type="button" onClick={() => setModalOpen(false)}>Cancel</button><button className="inv-btn-primary" type="button" onClick={saveEvent}><i className="ti ti-check"></i> Save changes</button></div>
-          </div>
-        </div>
-      )}
-
-      {/* ── Delete confirm ── */}
-      {deleteId && (
-        <div className="inv-modal-overlay" onClick={() => setDeleteId(null)}>
-          <div className="inv-modal" style={{ width: 420 }} onClick={(e) => e.stopPropagation()} role="dialog" aria-modal="true">
-            <div className="inv-modal-header"><div className="inv-modal-title">Delete event type?</div><button className="inv-id-close" type="button" onClick={() => setDeleteId(null)}><i className="ti ti-x"></i></button></div>
-            <div className="inv-modal-body"><div className="inv-dialog-body">Remove <strong>{fees.find((f) => f.id === deleteId)?.name}</strong> from the fee schedule? Existing invoices are unaffected.</div></div>
-            <div className="inv-modal-footer"><button className="inv-btn-secondary" type="button" onClick={() => setDeleteId(null)}>Cancel</button><button className="inv-btn-primary" type="button" style={{ background: "var(--red-600)" }} onClick={confirmDelete}>Delete</button></div>
-          </div>
-        </div>
-      )}
-
-      {/* ── Generate invoices confirm ── */}
+      {/* ── Generate invoices (checkbox picker) ── */}
       {genOpen && (
         <div className="inv-modal-overlay" onClick={() => setGenOpen(false)}>
-          <div className="inv-modal" style={{ width: 460 }} onClick={(e) => e.stopPropagation()} role="dialog" aria-modal="true">
-            <div className="inv-modal-header"><div className="inv-modal-title">Generate invoices</div><button className="inv-id-close" type="button" onClick={() => setGenOpen(false)}><i className="ti ti-x"></i></button></div>
+          <div className="inv-modal" style={{ width: 480 }} onClick={(e) => e.stopPropagation()} role="dialog" aria-modal="true">
+            <div className="inv-modal-header"><div className="inv-modal-title">Generate draft invoices</div><button className="inv-id-close" type="button" onClick={() => setGenOpen(false)}><i className="ti ti-x"></i></button></div>
             <div className="inv-modal-body">
-              {draftSites.length === 0 ? (
-                <div className="inv-dialog-body">All invoices are already submitted or later. No drafts to generate.</div>
+              {pending.length === 0 ? (
+                <div className="inv-dialog-body">No uninvoiced completed events for {study.code}. All billable events are already on an invoice.</div>
               ) : (
                 <>
-                  <div className="inv-dialog-body">Generate and submit draft invoices for all completed billable events since the last billing date:</div>
-                  <div className="inv-dialog-list">{draftSites.map((s) => <span key={s}>· {s}</span>)}</div>
+                  <div className="inv-dialog-body">Sites with uninvoiced completed events since the last billing date. Select which to invoice:</div>
+                  {pending.map((p) => (
+                    <label className="inv-gen-row" key={p.id}>
+                      <input type="checkbox" checked={genSel.has(p.id)} onChange={(e) => setGenSel((prev) => { const n = new Set(prev); if (e.target.checked) n.add(p.id); else n.delete(p.id); return n; })} />
+                      <div className="inv-gen-info"><div className="inv-gen-site">{p.site}</div><div className="inv-gen-meta">{p.period} · {eventCount(p)} events</div></div>
+                      <div className="inv-gen-amount">{fmt(gross(p))}</div>
+                    </label>
+                  ))}
                 </>
               )}
             </div>
-            <div className="inv-modal-footer"><button className="inv-btn-secondary" type="button" onClick={() => setGenOpen(false)}>Cancel</button><button className="inv-btn-primary" type="button" disabled={draftSites.length === 0} onClick={generate}>Generate {draftSites.length || ""} invoice{draftSites.length === 1 ? "" : "s"}</button></div>
+            <div className="inv-modal-footer"><button className="inv-btn-secondary" type="button" onClick={() => setGenOpen(false)}>Cancel</button><button className="inv-btn-primary" type="button" disabled={genSel.size === 0} onClick={generate}>Generate selected{genSel.size ? ` (${genSel.size})` : ""}</button></div>
           </div>
         </div>
       )}
@@ -474,26 +378,29 @@ function SibField({ label, value, mono }: { label: string; value: string; mono?:
   return <div className="inv-sib-field"><div className="inv-sib-label">{label}</div><div className={`inv-sib-value${mono ? " mono" : ""}`}>{value || "—"}</div></div>;
 }
 
-// One fee section (header row + event rows). Extracted to keep the main render lean.
-function FeeSectionRows({ sec, items, sites, canEdit, editCell, editBuf, setEditBuf, onStartEdit, onCommit, onCancel, onEdit, onDelete, colSpan }: {
-  sec: string; items: FeeEvent[]; sites: InvSite[]; canEdit: boolean;
-  editCell: { id: string; site: string | null } | null; editBuf: string; setEditBuf: (v: string) => void;
-  onStartEdit: (id: string, site: string | null, current: number) => void; onCommit: () => void; onCancel: () => void;
-  onEdit: (ev: FeeEvent) => void; onDelete: (id: string) => void; colSpan: number;
+// One fee section (header row + per-site override cells). Each site cell is
+// inline-editable — click to enter an override, blur to save, 0/empty to clear.
+function FeeSectionRows({ sec, items, sites, siteCurrency, canEdit, editCell, editBuf, setEditBuf, onStartEdit, onCommit, onCancel, colSpan }: {
+  sec: string; items: FeeEvent[]; sites: InvSite[]; siteCurrency: Record<string, string>; canEdit: boolean;
+  editCell: { id: string; site: string } | null; editBuf: string; setEditBuf: (v: string) => void;
+  onStartEdit: (id: string, site: string, current: number | null) => void; onCommit: () => void; onCancel: () => void;
+  colSpan: number;
 }) {
-  const cell = (ev: FeeEvent, site: string | null) => {
+  const cell = (ev: FeeEvent, site: string) => {
     const isEditing = editCell?.id === ev.id && editCell?.site === site;
-    const ovVal = site ? ev.overrides[site] : undefined;
-    const hasOv = site !== null && ovVal !== undefined;
-    const shown = site === null ? ev.rate : (ovVal ?? ev.rate);
+    const ovVal = ev.overrides[site];
+    const hasOv = ovVal !== undefined;
+    const cur = siteCurrency[site] ?? "USD";
     if (isEditing) {
-      return <input className={`inv-fee-input${hasOv || site === null ? "" : ""}`} autoFocus value={editBuf}
+      return <input className="inv-fee-input" autoFocus value={editBuf}
         onChange={(e) => setEditBuf(e.target.value)} onBlur={onCommit}
         onKeyDown={(e) => { if (e.key === "Enter") onCommit(); if (e.key === "Escape") onCancel(); }} />;
     }
     return (
-      <button type="button" className={`inv-fee-input${hasOv ? " override" : ""}`} disabled={!canEdit} style={{ cursor: canEdit ? "text" : "default", opacity: site !== null && !hasOv ? 0.6 : 1 }} onClick={() => onStartEdit(ev.id, site, shown)}>
-        {fmt(shown)}{hasOv && <span className="inv-override-pill"><i className="ti ti-pencil" style={{ fontSize: 9 }}></i></span>}
+      <button type="button" className={`inv-fee-input${hasOv ? " override" : ""}`} disabled={!canEdit}
+        style={{ cursor: canEdit ? "text" : "default", opacity: hasOv ? 1 : 0.5 }}
+        onClick={() => onStartEdit(ev.id, site, hasOv ? ovVal : null)}>
+        {hasOv ? money(ovVal, cur) : "—"}
       </button>
     );
   };
@@ -504,16 +411,7 @@ function FeeSectionRows({ sec, items, sites, canEdit, editCell, editBuf, setEdit
         <tr key={ev.id}>
           <td><div style={{ fontSize: "var(--text-sm)", fontWeight: 500 }}>{ev.name}</div><div style={{ fontSize: 10, color: "var(--color-text-tertiary)" }}>{ev.id}</div></td>
           <td className="inv-cell-muted">{ev.trigger}</td>
-          <td>{cell(ev, null)}</td>
           {sites.map((s) => <td key={s.name}>{cell(ev, s.name)}</td>)}
-          <td>
-            {canEdit ? (
-              <div style={{ display: "flex", justifyContent: "flex-end", gap: 4 }}>
-                <button className="inv-btn-icon" type="button" title="Edit" onClick={() => onEdit(ev)}><i className="ti ti-pencil"></i></button>
-                <button className="inv-btn-icon" type="button" title="Delete" style={{ color: "var(--red-200)" }} onClick={() => onDelete(ev.id)}><i className="ti ti-trash"></i></button>
-              </div>
-            ) : <span style={{ color: "var(--color-text-placeholder)" }}>—</span>}
-          </td>
         </tr>
       ))}
     </>
@@ -582,7 +480,7 @@ function InvoicePaper({ inv, sponsor, groupBySection }: {
       </table>
       <div style={{ marginLeft: "auto", width: 280 }}>
         <div style={{ display: "flex", justifyContent: "space-between", padding: "8px 0", borderBottom: "1px solid #E8E8E6", fontSize: 13 }}><span style={{ color: "#4F535B" }}>Subtotal</span><span style={{ fontFamily: "var(--font-mono)", fontWeight: 500 }}>{fmt(g)}</span></div>
-        <div style={{ display: "flex", justifyContent: "space-between", padding: "8px 0", borderBottom: "1px solid #E8E8E6", fontSize: 13 }}><span style={{ color: "#4F535B" }}>Holdback ({Math.round(inv.holdbackPct * 100)}%) — released at close-out</span><span style={{ fontFamily: "var(--font-mono)", color: "#8A5C00" }}>−{fmt(h)}</span></div>
+        <div style={{ display: "flex", justifyContent: "space-between", padding: "8px 0", fontSize: 13 }}><span style={{ color: "#4F535B" }}>Holdback ({Math.round(inv.holdbackPct * 100)}%) — released at close-out</span><span style={{ fontFamily: "var(--font-mono)", color: "#8A5C00" }}>−{fmt(h)}</span></div>
         <div style={{ display: "flex", justifyContent: "space-between", padding: "12px 0", fontSize: 16, fontWeight: 700, borderTop: "2px solid #1A1F2E", marginTop: 4 }}><span>Net payable</span><span style={{ fontFamily: "var(--font-mono)", color: "#1A6B47" }}>{fmt(n)}</span></div>
       </div>
       <div style={{ marginTop: 40, padding: "16px 20px", background: "#F0F0EE", borderRadius: 6, fontSize: 12, color: "#4F535B", lineHeight: 1.7 }}>
