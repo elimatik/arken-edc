@@ -152,7 +152,7 @@ export default function InvoicesPage() {
         <>
           <div className="inv-note-bar">Per-site rates for {study.code} · cells show the study default rate (from Settings → Billing) in grey until a site override is set · overrides shown in <span style={{ color: "var(--purple-600)", fontWeight: 500 }}>purple</span> · click a cell to override, set to 0 to clear{!canEdit && " · read-only (DM)"}</div>
           <div className="inv-table-wrap">
-            <table className="inv-table">
+            <table className="inv-table inv-fee-table">
               <thead>
                 <tr>
                   <th style={{ cursor: "pointer" }} onClick={feeSort}>Event type {sortAsc === null ? "" : sortAsc ? "▲" : "▼"}</th>
