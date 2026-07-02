@@ -215,7 +215,7 @@ export default function InvoicesPage() {
           <div className="inv-table-wrap">
             <table className="inv-table">
               <thead>
-                <tr><th>Invoice</th><th>Site</th><th>Period</th><th>Events</th><th className="inv-r">Gross amount</th><th className="inv-r">Holdback (10%)</th><th className="inv-r">Net payable</th><th>Status</th><th></th></tr>
+                <tr><th>Invoice</th><th>Site</th><th>Period</th><th>Events</th><th>Gross amount</th><th>Holdback (10%)</th><th>Net payable</th><th>Status</th><th></th></tr>
               </thead>
               <tbody>
                 {shownInvoices.map((inv) => {
