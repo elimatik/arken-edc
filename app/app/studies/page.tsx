@@ -6,6 +6,7 @@ import { useStudySession } from "@/lib/session-store/SessionStore";
 import { getPinnedStudies, togglePinnedStudy } from "@/lib/pinned-study";
 import { isStudyLocked } from "@/lib/study-lock";
 import { useNdaName, useNdaInitials } from "@/lib/use-nda-name";
+import { useAvatarColor } from "@/lib/avatar-color";
 import { useTableSort } from "@/lib/useTableSort";
 import { SortTh } from "@/components/common/SortTh";
 import "./studies.css";
@@ -63,6 +64,9 @@ export default function StudiesPage() {
   const { dataset, ready, update, setActiveRole } = useStudySession();
   const userName = useNdaName();
   const userInitials = useNdaInitials();
+  const avatarColor = useAvatarColor();
+  const [avatarMenuOpen, setAvatarMenuOpen] = useState(false);
+  const [logoutOpen, setLogoutOpen] = useState(false);
   const [search, setSearch] = useState("");
   const [statusFilter, setStatusFilter] = useState("");
   const [speciesFilter, setSpeciesFilter] = useState("");
@@ -150,8 +154,13 @@ export default function StudiesPage() {
     router.push(`/study/${s.id}`);
   }
 
-  function signOut() {
-    router.push("/login");
+  // Log out — clear all session/role state (session store, active role, NDA name,
+  // pins) and hard-navigate to /login so the app loads fresh, as if first opened.
+  function doLogout() {
+    try {
+      Object.keys(sessionStorage).filter((k) => k.startsWith("arken_")).forEach((k) => sessionStorage.removeItem(k));
+    } catch { /* storage unavailable */ }
+    window.location.href = "/login";
   }
 
   // Distinct existing clients (sponsors) for the Add-study dropdown.
@@ -199,13 +208,32 @@ export default function StudiesPage() {
           <span className="studies-logo-name">Arken EDC</span>
         </div>
         <div className="studies-topbar-right">
-          <div className="studies-user">
-            <div className="studies-user-avatar">{userInitials}</div>
-            <span>{userName}</span>
+          <div className="studies-avatar-wrap">
+            <div
+              className="studies-user-avatar"
+              style={{ background: avatarColor, cursor: "pointer" }}
+              title={`${userName} — account menu`}
+              role="button"
+              tabIndex={0}
+              aria-haspopup="menu"
+              aria-expanded={avatarMenuOpen}
+              aria-label="Account menu"
+              onClick={() => setAvatarMenuOpen((o) => !o)}
+              onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); setAvatarMenuOpen((o) => !o); } }}
+            >
+              {userInitials}
+            </div>
+            {avatarMenuOpen && (
+              <>
+                <div className="studies-avatar-backdrop" onClick={() => setAvatarMenuOpen(false)} />
+                <div className="studies-avatar-menu" role="menu">
+                  <button className="studies-avatar-menu-item" role="menuitem" type="button" onClick={() => { setAvatarMenuOpen(false); setLogoutOpen(true); }}>
+                    <i className="ti ti-logout" aria-hidden="true"></i> Log out
+                  </button>
+                </div>
+              </>
+            )}
           </div>
-          <button className="studies-signout" onClick={signOut} type="button">
-            Sign out
-          </button>
         </div>
       </header>
 
@@ -377,6 +405,25 @@ export default function StudiesPage() {
             <div className="modal-foot">
               <button className="modal-btn-secondary" onClick={closeAdd} type="button">Cancel</button>
               <button className="modal-btn-primary" onClick={confirmAdd} disabled={!canCreate} type="button">Create study</button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Log-out confirmation */}
+      {logoutOpen && (
+        <div className="modal-overlay" onClick={() => setLogoutOpen(false)}>
+          <div className="modal-card" role="dialog" aria-modal="true" aria-labelledby="studies-logout-title" onClick={(e) => e.stopPropagation()}>
+            <div className="modal-head">
+              <div className="modal-title" id="studies-logout-title">Log out?</div>
+              <button className="modal-close" type="button" aria-label="Close" onClick={() => setLogoutOpen(false)}><i className="ti ti-x"></i></button>
+            </div>
+            <div className="modal-body">
+              <p style={{ fontSize: "var(--text-sm)", color: "var(--color-text-secondary)", lineHeight: 1.5 }}>You&apos;ll be signed out of Arken EDC. Any unsaved changes will be lost.</p>
+            </div>
+            <div className="modal-foot">
+              <button className="modal-btn-secondary" type="button" onClick={() => setLogoutOpen(false)}>Cancel</button>
+              <button className="modal-btn-primary" type="button" onClick={doLogout}>Log out</button>
             </div>
           </div>
         </div>

@@ -10,10 +10,14 @@
 .studies-logo-mark span{font-size:var(--text-sm);font-weight:700;color:#fff;font-family:var(--font-mono)}
 .studies-logo-name{font-size:var(--text-base);font-weight:700;color:#fff}
 .studies-topbar-right{margin-left:auto;display:flex;align-items:center;gap:var(--space-4)}
-.studies-user{display:flex;align-items:center;gap:var(--space-2);font-size:var(--text-sm);color:rgba(255,255,255,0.7)}
 .studies-user-avatar{width:30px;height:30px;border-radius:50%;background:#3D5A78;color:#EEF1F6;font-size:12px;font-weight:500;display:flex;align-items:center;justify-content:center;flex-shrink:0}
-.studies-signout{font-size:var(--text-xs);color:rgba(255,255,255,0.4);background:none;border:none;cursor:pointer;font-family:var(--font-sans);text-decoration:underline;text-underline-offset:2px}
-.studies-signout:hover{color:rgba(255,255,255,0.7)}
+/* Account dropdown on the study-list avatar (same pattern as the in-study topbar) */
+.studies-avatar-wrap{position:relative}
+.studies-avatar-backdrop{position:fixed;inset:0;z-index:390}
+.studies-avatar-menu{position:absolute;right:0;top:38px;min-width:160px;background:var(--color-surface);border:1px solid var(--color-border);border-radius:var(--radius-md);box-shadow:0 8px 24px rgba(14,18,28,0.14);z-index:391;overflow:hidden;padding:var(--space-1)}
+.studies-avatar-menu-item{width:100%;text-align:left;padding:var(--space-2) var(--space-3);font-size:var(--text-sm);color:var(--color-text-primary);border:none;background:none;cursor:pointer;display:flex;align-items:center;gap:var(--space-2);border-radius:var(--radius-sm)}
+.studies-avatar-menu-item:hover{background:var(--color-hover-bg)}
+.studies-avatar-menu-item i{font-size:16px;color:var(--color-text-tertiary)}
 
 .studies-body{flex:1;overflow-y:auto;padding:var(--space-10) var(--space-6)}
 .studies-content{max-width:960px;margin:0 auto}
