@@ -68,6 +68,9 @@ export const NAV_ITEMS: NavItem[] = [
   // only supply the open/readonly/blinded title hint. Sponsor is excluded.
   { key: "inventory", label: "Inventory", icon: "flask",
     access: { CRC: open, CRA: open, DM: open, PI: open, Admin: open } },
+  // Invoices — site-fee billing. Admin (full) + DM (submit only). Others hidden.
+  { key: "invoices", label: "Invoices", icon: "receipt",
+    access: { DM: open, Admin: open } },
   // Audit Trail (21 CFR Part 11) — oversight roles only; the CRC who enters data
   // does not review the immutable log of it.
   { key: "audit", label: "Audit Trail", title: "Audit Trail", icon: "clipboard-list",
@@ -76,8 +79,6 @@ export const NAV_ITEMS: NavItem[] = [
   // read-only view is deferred; CRC/CRA excluded).
   { key: "users", label: "Users", title: "Users", icon: "users",
     access: { DM: open, Admin: open } },
-  { key: "invoices", label: "Invoices", icon: "receipt",
-    access: { Admin: open } },
   // Pinned to the bottom of the sidenav.
   { key: "settings", label: "Settings", icon: "settings", bottom: true,
     access: { DM: { readonly: true }, Admin: { readonly: false } } },
@@ -105,6 +106,7 @@ export const NAV_ROUTES: Partial<Record<string, string>> = {
   coding: "coding",
   reports: "reports",
   inventory: "inventory",
+  invoices: "invoices",
   audit: "audit-trail",
   users: "users",
   sites: "sites",
