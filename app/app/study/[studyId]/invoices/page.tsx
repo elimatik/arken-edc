@@ -81,12 +81,15 @@ export default function InvoicesPage() {
   const shownInvoices = useMemo(() => invoices.filter((i) =>
     (siteFilter === "all" || i.site === siteFilter) && (statusFilter === "all" || i.status === statusFilter)), [invoices, siteFilter, statusFilter]);
 
-  const totalGross = invoices.reduce((s, i) => s + gross(i), 0);
-  const totalNet = invoices.reduce((s, i) => s + net(i), 0);
-  const totalHold = invoices.reduce((s, i) => s + holdback(i), 0);
-  const paid = invoices.filter((i) => i.status === "paid").reduce((s, i) => s + net(i), 0);
+  // KPI strip reacts to the site filter: "All sites" → study totals; a specific
+  // site → that site's totals only.
+  const kpiInvoices = useMemo(() => siteFilter === "all" ? invoices : invoices.filter((i) => i.site === siteFilter), [invoices, siteFilter]);
+  const totalGross = kpiInvoices.reduce((s, i) => s + gross(i), 0);
+  const totalNet = kpiInvoices.reduce((s, i) => s + net(i), 0);
+  const totalHold = kpiInvoices.reduce((s, i) => s + holdback(i), 0);
+  const paid = kpiInvoices.filter((i) => i.status === "paid").reduce((s, i) => s + net(i), 0);
   const outstanding = totalNet - paid;
-  const overdue = today ? invoices.filter((i) => i.status !== "paid" && new Date(i.dueDate) < today).reduce((s, i) => s + net(i), 0) : 0;
+  const overdue = today ? kpiInvoices.filter((i) => i.status !== "paid" && new Date(i.dueDate) < today).reduce((s, i) => s + net(i), 0) : 0;
 
   // ── Detail panel ──
   const [openId, setOpenId] = useState<string | null>(null);
@@ -147,21 +150,21 @@ export default function InvoicesPage() {
       {/* ═══ TAB 1 — FEE SCHEDULE ═══ */}
       {tab === "fee" && (
         <>
-          <div className="inv-note-bar">Per-site rates for {study.code} · site overrides shown in <span style={{ color: "var(--purple-600)", fontWeight: 500 }}>purple</span> · click a cell to edit, set to 0 to clear · study default rates are managed in Settings → Billing{!canEdit && " · read-only (DM)"}</div>
+          <div className="inv-note-bar">Per-site rates for {study.code} · cells show the study default rate (from Settings → Billing) in grey until a site override is set · overrides shown in <span style={{ color: "var(--purple-600)", fontWeight: 500 }}>purple</span> · click a cell to override, set to 0 to clear{!canEdit && " · read-only (DM)"}</div>
           <div className="inv-table-wrap">
             <table className="inv-table">
               <thead>
                 <tr>
                   <th style={{ cursor: "pointer" }} onClick={feeSort}>Event type {sortAsc === null ? "" : sortAsc ? "▲" : "▼"}</th>
                   <th>Trigger</th>
-                  {sites.map((s) => <th key={s.name}>{s.name}</th>)}
+                  {sites.map((s) => <th key={s.name} className="inv-r">{s.name}</th>)}
                 </tr>
               </thead>
               <tbody>
                 <tr className="inv-currency-row">
                   <td colSpan={2}>Billing currency per site</td>
                   {sites.map((s) => (
-                    <td key={s.name}>
+                    <td key={s.name} className="inv-r">
                       <select className="inv-cur-select" value={siteCurrency[s.name] ?? "USD"} disabled={!canEdit}
                         onChange={(e) => setSiteCurrency((p) => ({ ...p, [s.name]: e.target.value }))}>
                         {CURRENCIES.map((c) => <option key={c} value={c}>{c}</option>)}
@@ -190,13 +193,6 @@ export default function InvoicesPage() {
       {/* ═══ TAB 2 — SITE INVOICES ═══ */}
       {tab === "invoices" && (
         <>
-          <div className="inv-kpi-row">
-            <div className="inv-kpi-card"><div className="inv-kpi-label">Total invoiced</div><div className="inv-kpi-value">{fmt(totalGross)}</div><div className="inv-kpi-sub">{invoices.length} invoices</div></div>
-            <div className="inv-kpi-card"><div className="inv-kpi-label">Paid</div><div className="inv-kpi-value" style={{ color: "var(--green-600)" }}>{fmt(paid)}</div><div className="inv-kpi-sub">received</div></div>
-            <div className="inv-kpi-card"><div className="inv-kpi-label">Outstanding</div><div className="inv-kpi-value">{fmt(outstanding)}</div><div className="inv-kpi-sub">awaiting payment</div></div>
-            <div className="inv-kpi-card"><div className="inv-kpi-label">Holdback retained</div><div className="inv-kpi-value" style={{ color: "var(--amber-700)" }}>{fmt(totalHold)}</div><div className="inv-kpi-sub">released at close-out</div></div>
-            <div className="inv-kpi-card"><div className="inv-kpi-label">Overdue</div><div className="inv-kpi-value" style={{ color: overdue > 0 ? "var(--red-600)" : "var(--color-text-primary)" }}>{fmt(overdue)}</div><div className="inv-kpi-sub">past due date</div></div>
-          </div>
           <div className="inv-toolbar">
             <select className="inv-select" value={siteFilter} onChange={(e) => setSiteFilter(e.target.value)} aria-label="Filter by site">
               <option value="all">All sites</option>
@@ -209,10 +205,17 @@ export default function InvoicesPage() {
             <span className="inv-toolbar-count">{shownInvoices.length} invoice{shownInvoices.length === 1 ? "" : "s"}</span>
             {canEdit && <button className="inv-btn-primary" type="button" onClick={openGenerate}><i className="ti ti-plus"></i> Generate invoices</button>}
           </div>
+          <div className="inv-kpi-row">
+            <div className="inv-kpi-card"><div className="inv-kpi-label">Total invoiced</div><div className="inv-kpi-value">{fmt(totalGross)}</div><div className="inv-kpi-sub">{kpiInvoices.length} invoice{kpiInvoices.length === 1 ? "" : "s"}{siteFilter !== "all" ? ` · ${siteFilter}` : ""}</div></div>
+            <div className="inv-kpi-card"><div className="inv-kpi-label">Paid</div><div className="inv-kpi-value" style={{ color: "var(--green-600)" }}>{fmt(paid)}</div><div className="inv-kpi-sub">received</div></div>
+            <div className="inv-kpi-card"><div className="inv-kpi-label">Outstanding</div><div className="inv-kpi-value">{fmt(outstanding)}</div><div className="inv-kpi-sub">awaiting payment</div></div>
+            <div className="inv-kpi-card"><div className="inv-kpi-label">Holdback retained</div><div className="inv-kpi-value" style={{ color: "var(--amber-700)" }}>{fmt(totalHold)}</div><div className="inv-kpi-sub">released at close-out</div></div>
+            <div className="inv-kpi-card"><div className="inv-kpi-label">Overdue</div><div className="inv-kpi-value" style={{ color: overdue > 0 ? "var(--red-600)" : "var(--color-text-primary)" }}>{fmt(overdue)}</div><div className="inv-kpi-sub">past due date</div></div>
+          </div>
           <div className="inv-table-wrap">
             <table className="inv-table">
               <thead>
-                <tr><th>Invoice</th><th>Site</th><th>Period</th><th>Events</th><th>Gross amount</th><th>Holdback (10%)</th><th>Net payable</th><th>Status</th><th></th></tr>
+                <tr><th>Invoice</th><th>Site</th><th>Period</th><th>Events</th><th className="inv-r">Gross amount</th><th className="inv-r">Holdback (10%)</th><th className="inv-r">Net payable</th><th>Status</th><th></th></tr>
               </thead>
               <tbody>
                 {shownInvoices.map((inv) => {
@@ -398,9 +401,10 @@ function FeeSectionRows({ sec, items, sites, siteCurrency, canEdit, editCell, ed
     }
     return (
       <button type="button" className={`inv-fee-input${hasOv ? " override" : ""}`} disabled={!canEdit}
-        style={{ cursor: canEdit ? "text" : "default", opacity: hasOv ? 1 : 0.5 }}
+        style={{ cursor: canEdit ? "text" : "default", ...(hasOv ? {} : { color: "var(--color-text-tertiary)" }) }}
+        title={hasOv ? `${site} override` : "Study default — click to set a site override"}
         onClick={() => onStartEdit(ev.id, site, hasOv ? ovVal : null)}>
-        {hasOv ? money(ovVal, cur) : "—"}
+        {hasOv ? money(ovVal, cur) : fmt(ev.rate)}
       </button>
     );
   };
@@ -411,7 +415,7 @@ function FeeSectionRows({ sec, items, sites, siteCurrency, canEdit, editCell, ed
         <tr key={ev.id}>
           <td><div style={{ fontSize: "var(--text-sm)", fontWeight: 500 }}>{ev.name}</div><div style={{ fontSize: 10, color: "var(--color-text-tertiary)" }}>{ev.id}</div></td>
           <td className="inv-cell-muted">{ev.trigger}</td>
-          {sites.map((s) => <td key={s.name}>{cell(ev, s.name)}</td>)}
+          {sites.map((s) => <td key={s.name} className="inv-r">{cell(ev, s.name)}</td>)}
         </tr>
       ))}
     </>
