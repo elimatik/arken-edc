@@ -1656,7 +1656,10 @@ export function SubjectRecord({ studyId, subjectId, initialFormId, initialPanelF
   const instFvId = (instId: string, fieldId: string) => dataset.fieldValues.find((v) => v.form_instance_id === instId && v.form_field_id === fieldId)?.id;
   const instHasData = (instId: string) => fields.some((f) => entryVal(instId, f.id).trim() !== "");
   const instOpenEC = (instId: string) => fields.some((f) => { const id = instFvId(instId, f.id); return !!id && !!dataset.editChecks.find((e) => e.field_value_id === id && e.status === "open"); });
-  const instPendingDelta = (instId: string) => fields.some((f) => { const id = instFvId(instId, f.id); return !!id && dataset.deltaRecords.some((r) => r.field_value_id === id && r.status === "pending"); });
+  // Open delta = a change reason not yet APPROVED — i.e. "pending" (change required)
+  // OR "responded" (answered, awaiting DM). Both block submit/finalize; only DM
+  // approval (→ "approved") clears it. Scoped to the current form's field values.
+  const instOpenDelta = (instId: string) => fields.some((f) => { const id = instFvId(instId, f.id); return !!id && dataset.deltaRecords.some((r) => r.field_value_id === id && (r.status === "pending" || r.status === "responded")); });
   const instEmptyRequired = (instId: string) => fields.some((f) => f.is_required && isFieldVisible(f) && entryVal(instId, f.id).trim() === "");
 
   const formHasData = isRepeatingForm
@@ -1665,9 +1668,9 @@ export function SubjectRecord({ studyId, subjectId, initialFormId, initialPanelF
   const hasOpenEditCheck = isRepeatingForm
     ? repeatingEntries.some((i) => instOpenEC(i.id))
     : fields.some((f) => !!editCheckFor(fvFor(f.id)?.id));
-  const hasPendingDelta = isRepeatingForm
-    ? repeatingEntries.some((i) => instPendingDelta(i.id))
-    : fields.some((f) => deltaStateFor(f.id, fvFor(f.id)?.id) === "pending");
+  const hasOpenDeltas = isRepeatingForm
+    ? repeatingEntries.some((i) => instOpenDelta(i.id))
+    : fields.some((f) => { const s = deltaStateFor(f.id, fvFor(f.id)?.id); return s === "pending" || s === "responded"; });
   const hasEmptyRequired = isRepeatingForm
     ? repeatingEntries.some((i) => instEmptyRequired(i.id))
     : fields.some((f) => f.is_required && isFieldVisible(f) && (fvFor(f.id)?.value ?? "") === "");
@@ -1716,8 +1719,8 @@ export function SubjectRecord({ studyId, subjectId, initialFormId, initialPanelF
   // clicking it surfaces inline errors + scrolls to the first empty field. Repeating
   // forms keep the hard block (their entries validate in the add-entry panel).
   const requiredHardBlock = isRepeatingForm && hasEmptyRequired;
-  const submitBlocked = hasOpenEditCheck || hasPendingDelta || requiredHardBlock || shipHardBlock || treatmentArmMissing;
-  const submitBlockReason = treatmentArmMissing ? "Complete randomization before treatment" : shipHardBlock ? "Withdrawal period active — cannot ship for slaughter" : hasOpenEditCheck ? "Resolve all edit checks first" : hasPendingDelta ? "Provide all change reasons first" : hasEmptyRequired ? "Complete all required fields first" : undefined;
+  const submitBlocked = hasOpenEditCheck || hasOpenDeltas || requiredHardBlock || shipHardBlock || treatmentArmMissing;
+  const submitBlockReason = treatmentArmMissing ? "Complete randomization before treatment" : shipHardBlock ? "Withdrawal period active — cannot ship for slaughter" : hasOpenEditCheck ? "Resolve all edit checks first" : hasOpenDeltas ? "Resolve all change reasons before submitting" : hasEmptyRequired ? "Complete all required fields first" : undefined;
 
   // Δ change-reason panel — all records for the field, chronological. Each pending
   // record is reasoned on its own; the top context shows the most recent transition.
@@ -2293,15 +2296,20 @@ export function SubjectRecord({ studyId, subjectId, initialFormId, initialPanelF
                     <button
                       className="btn-primary"
                       type="button"
-                      disabled={!canAdvance}
+                      disabled={!canAdvance || hasOpenDeltas}
                       onClick={advanceStatus}
-                      title={canAdvance ? undefined : `${flow.label} — not permitted for ${activeRole}`}
+                      title={!canAdvance ? `${flow.label} — not permitted for ${activeRole}` : hasOpenDeltas ? "Resolve all change reasons before submitting" : undefined}
                     >
                       {flow.esign && <i className="ti ti-lock"></i>}
                       {flow.label}
                     </button>
                   )}
                 </>
+              )}
+              {/* A change reason still open (pending / answered, not yet approved)
+                  blocks Submit for review + Finalize until it is resolved. */}
+              {!subjectClosed && !modeSdv && hasOpenDeltas && (currentStatus === "in_work" || !!flow) && (
+                <span className="submit-block-note"><i className="ti ti-alert-circle"></i> Resolve all change reasons before submitting</span>
               )}
             </div>
           </div>
