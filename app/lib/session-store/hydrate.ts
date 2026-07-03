@@ -617,6 +617,30 @@ export async function hydrateFromSupabase(): Promise<Dataset> {
     { verbatim: "Salinomycin", termType: "drug", status: "coded", by: "Auto", conf: 0.98 },
   ]);
 
+  // ─── v60: BR-2502 barn/pen rename (session-only) ────────────────────────────
+  // The live DB seeds every feedlot barn as "Barn 1" and every pen as "Pen 1".
+  // Rename to unique, site-prefixed names ("Barn CO-A" / "Pen CO-A1" …). Everything
+  // references barns/pens by id, so renaming .name propagates to the Data Entry
+  // tree, breadcrumbs, batch filters, and logs — no other reference to update.
+  {
+    const brId = (studies.data ?? []).find((s) => s.code === "BR-2502")?.id;
+    if (brId) {
+      const brSiteCode = new Map((sites.data ?? []).filter((s) => s.study_id === brId).map((s) => [s.id, s.code] as [string, string]));
+      const allBarns = (barns.data ?? []) as Dataset["barns"];
+      const allPens = (pens.data ?? []) as Dataset["pens"];
+      for (const siteId of Array.from(brSiteCode.keys())) {
+        const sc = brSiteCode.get(siteId) ?? "";
+        const siteBarns = allBarns.filter((b) => b.site_id === siteId).slice().sort((a, b) => a.code.localeCompare(b.code));
+        siteBarns.forEach((barn, bi) => {
+          const letter = String.fromCharCode(65 + bi); // A, B, …
+          barn.name = `Barn ${sc}-${letter}`;
+          allPens.filter((p) => p.barn_id === barn.id).slice().sort((a, b) => a.code.localeCompare(b.code))
+            .forEach((pen, pi) => { pen.name = `Pen ${sc}-${letter}${pi + 1}`; });
+        });
+      }
+    }
+  }
+
   // ─── Seeded drug inventory (session-only) ───────────────────────────────────
   const inventory = buildInventorySeed(studiesWithTargets, sitesWithTargets, (subjects.data ?? []) as Dataset["subjects"]);
 

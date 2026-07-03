@@ -75,6 +75,8 @@ export function BatchEntryGrid({
   const [bulkReason, setBulkReason] = useState("");
   const [bulkOther, setBulkOther] = useState("");
   const [toast, setToast] = useState<string | null>(null);
+  // Nothing to save on load; any field change flips this true, Submit-all resets it.
+  const [isDirty, setIsDirty] = useState(false);
 
   // ── Store helpers (keyed by subject → that animal's own form instance) ───────
   const instForSubject = (sid: string) => dataset.formInstances.find((i) => i.subject_id === sid && i.form_id === formId);
@@ -122,6 +124,7 @@ export function BatchEntryGrid({
     if (!skipCheck) evalEC(d, inst, fv, field, value, sid);
   }
   function setFieldValue(sid: string, field: FormFieldRow, value: string, recordChange = false, skipCheck = false) {
+    setIsDirty(true);
     update((d: Dataset) => writeValue(d, sid, field, value, recordChange, skipCheck));
   }
   function snapshotTextFocus(sid: string, field: FormFieldRow) { editStartRef.current = { sid, fieldId: field.id, value: fvFor(sid, field.id)?.value ?? "" }; }
@@ -144,6 +147,7 @@ export function BatchEntryGrid({
   // already have a saved value for it (never overwrites a saved date).
   function setHeaderField(field: FormFieldRow, value: string) {
     setHeaderVals((p) => ({ ...p, [field.id]: value }));
+    setIsDirty(true);
     if (value === "") return;
     update((d: Dataset) => {
       for (const s of subjects) {
@@ -205,6 +209,7 @@ export function BatchEntryGrid({
   }
   function submitAll() {
     setToast(`${dataN} animal${dataN === 1 ? "" : "s"} with data · ${alertN} with alerts · ${pendingDeltas} pending change reason${pendingDeltas === 1 ? "" : "s"}`);
+    setIsDirty(false); // nothing new to save until the next change
   }
 
   if (!form) return <div className="be-screen"><div className="grid-empty">Form not found.</div></div>;
@@ -246,7 +251,7 @@ export function BatchEntryGrid({
         </div>
         <div className="grid-header-right">
           <button className="btn-secondary" type="button" onClick={onExitOrigin}><i className="ti ti-arrow-left"></i> Exit batch</button>
-          <button className="btn-primary" type="button" disabled={dataN === 0} onClick={submitAll}><i className="ti ti-check"></i> Submit all</button>
+          <button className="btn-primary" type="button" disabled={!isDirty} onClick={submitAll} title={isDirty ? "" : "No changes to save"}><i className="ti ti-check"></i> Submit all</button>
         </div>
       </div>
 

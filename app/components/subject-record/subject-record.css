@@ -287,7 +287,8 @@
 .fsb-reviewed { background: var(--purple-50); border-color: var(--purple-200); color: var(--purple-600); }
 .fsb-finalized { background: var(--green-50); border-color: var(--green-200); color: var(--green-600); }
 .fsb-locked { background: var(--slate-50); border-color: var(--slate-200); color: var(--slate-600); }
-.btn-primary:disabled { opacity: 0.5; cursor: not-allowed; }
+.btn-primary:disabled { opacity: 0.4; cursor: not-allowed; }
+.btn-primary:disabled:hover { background: var(--color-cta-bg); }
 
 /* Inclusion/Exclusion fail banner + subject ineligible chip */
 .ie-banner { display: flex; align-items: center; gap: var(--space-2); padding: var(--space-3) var(--space-4); background: var(--red-50); border: 1px solid var(--red-200); border-radius: var(--radius-md); color: var(--red-600); font-size: var(--text-sm); font-weight: var(--weight-medium); }

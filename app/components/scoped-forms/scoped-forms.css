@@ -76,6 +76,6 @@
 .brd-good { color: var(--green-600); }
 .brd-warn { color: var(--amber-700); }
 .brd-bad { color: var(--red-600); }
-.brd-footer-row td { border-top: 2px solid var(--color-border); background: var(--color-page-bg); font-weight: var(--weight-medium); }
+.brd-footer-row td { background: var(--color-page-bg); font-weight: var(--weight-medium); }
 .brd-footnote { margin-top: var(--space-3); font-size: var(--text-xs); line-height: 1.6; color: var(--color-text-tertiary); }
 .brd-footnote strong { color: var(--color-text-secondary); font-weight: var(--weight-medium); }

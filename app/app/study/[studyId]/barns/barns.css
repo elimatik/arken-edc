@@ -42,3 +42,15 @@
 .brn-field-required { margin-top: var(--space-1); font-size: var(--text-xs); color: var(--red-600); display: flex; gap: 4px; align-items: center; }
 .brn-field-required i { font-size: 10px; }
 .brn-panel-note { font-size: var(--text-xs); color: var(--color-text-tertiary); margin-right: auto; align-self: center; }
+
+/* Inline barn-name edit (DM/Admin) in the record header */
+.sr-name-view { display: inline-flex; align-items: center; gap: 6px; background: none; border: none; padding: 0; font: inherit; color: inherit; cursor: default; }
+.sr-name-view.editable { cursor: pointer; }
+.sr-name-pencil { font-size: 14px; color: var(--color-text-tertiary); opacity: 0; transition: opacity var(--duration-fast); }
+.sr-name-view.editable:hover .sr-name-pencil { opacity: 1; }
+.sr-name-inline { display: inline-flex; align-items: center; gap: var(--space-2); }
+.sr-name-input { font-size: inherit; font-weight: inherit; font-family: var(--font-sans); color: var(--color-text-primary); padding: 2px 8px; border: 1px solid var(--color-border); border-radius: var(--radius-md); outline: none; min-width: 200px; }
+.sr-name-input:focus { border-color: var(--color-focus-ring); }
+.sr-name-btn { width: 28px; height: 28px; display: inline-flex; align-items: center; justify-content: center; border: 1px solid var(--color-border); background: var(--color-surface); border-radius: var(--radius-md); cursor: pointer; color: var(--color-text-secondary); }
+.sr-name-btn:hover { background: var(--color-hover-bg); color: var(--color-text-primary); }
+.brn-toast { position: fixed; bottom: var(--space-6); left: 50%; transform: translateX(-50%); background: var(--color-cta-bg); color: #fff; padding: var(--space-3) var(--space-4); border-radius: var(--radius-md); font-size: var(--text-sm); z-index: 700; box-shadow: 0 8px 24px rgba(14,18,28,0.2); display: flex; align-items: center; gap: var(--space-2); }

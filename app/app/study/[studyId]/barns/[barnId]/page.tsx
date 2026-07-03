@@ -34,6 +34,18 @@ export default function BarnRecordPage() {
   const [editingHouse, setEditingHouse] = useState(false);
   const [editingBio, setEditingBio] = useState(false);
   const { sort, toggle } = useTableSort(null);
+  // Inline name edit — DM + Admin only.
+  const canEditName = isAdmin || activeRole === "DM";
+  const [editingName, setEditingName] = useState(false);
+  const [nameDraft, setNameDraft] = useState("");
+  const [toast, setToast] = useState<string | null>(null);
+  useEffect(() => { if (!toast) return; const t = setTimeout(() => setToast(null), 2600); return () => clearTimeout(t); }, [toast]);
+  function saveName() {
+    const n = nameDraft.trim();
+    if (n) update((d) => { const b = d.barns.find((x) => x.id === barnId); if (b) b.name = n; });
+    setEditingName(false);
+    if (n) setToast("Barn name updated");
+  }
 
   // A ?form= deep-link (e.g. from the Dispensing log) opens the Forms tab with that
   // form selected; otherwise honour ?tab=, defaulting to Overview.
@@ -174,7 +186,25 @@ export default function BarnRecordPage() {
           <span className="st-bc-cur">House record</span>
         </nav>
         <div className="sr-title-row">
-          <div><div className="sr-title">{barn.name}</div><div className="sr-title-sub">{barn.code} · House record</div></div>
+          <div>
+            <div className="sr-title">
+              {editingName ? (
+                <span className="sr-name-inline">
+                  <input className="sr-name-input" value={nameDraft} autoFocus onChange={(e) => setNameDraft(e.target.value)}
+                    onKeyDown={(e) => { if (e.key === "Enter") saveName(); if (e.key === "Escape") setEditingName(false); }} />
+                  <button className="sr-name-btn" type="button" title="Save" onClick={saveName}><i className="ti ti-check"></i></button>
+                  <button className="sr-name-btn" type="button" title="Cancel" onClick={() => setEditingName(false)}><i className="ti ti-x"></i></button>
+                </span>
+              ) : canEditName ? (
+                <button className="sr-name-view editable" type="button" title="Rename this barn" onClick={() => { setNameDraft(barn.name); setEditingName(true); }}>
+                  {barn.name}<i className="ti ti-pencil sr-name-pencil"></i>
+                </button>
+              ) : (
+                barn.name
+              )}
+            </div>
+            <div className="sr-title-sub">{barn.code} · House record</div>
+          </div>
           <div className="sr-actions">
             <button className="st-btn-secondary" type="button"><i className="ti ti-download"></i> Export</button>
             <button className="st-btn-secondary" type="button"><i className="ti ti-clipboard-list"></i> Audit trail</button>
@@ -302,6 +332,7 @@ export default function BarnRecordPage() {
         <ScopedFormFlow studyId={studyId} scope="barn" scopeId={barnId} exclude={["Equipment Calibration Log"]} initialFormId={formParam}
           topNote={{ "Daily Environmental Log": "Single-point environmental monitoring — assumes uniform conditions across all pens in this house." }} />
       )}
+      {toast && <div className="brn-toast" role="status"><i className="ti ti-circle-check"></i> {toast}</div>}
     </div>
   );
 }

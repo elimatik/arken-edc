@@ -236,7 +236,7 @@ function EnrollmentArmBar({ ctx }: { ctx: CardCtx }) {
     <>
       <EnrollBar cur={enrolled} tgt={target} pct={pct} segs={segs} legs={legs} />
       {sf.screened > 0 && (
-        <div className="card-note" style={{ padding: "var(--space-2) 0 0" }}>
+        <div className="card-note" style={{ padding: "0 var(--space-4) var(--space-4)" }}>
           Screened: <span className="mono">{sf.screened}</span> · Enrolled: <span className="mono">{sf.enrolled}</span> · Screen failures: <span className="mono" style={{ color: sfColor, fontWeight: 500 }}>{sf.failures} ({Math.round(sf.pct)}%)</span>
         </div>
       )}
@@ -327,11 +327,11 @@ function DataCompletenessCard({ ctx }: { ctx: CardCtx }) {
   const col = (p: number) => (p >= 90 ? "var(--green-600)" : p >= 75 ? "var(--amber-700)" : "var(--red-600)");
   return (
     <Card title="Data completeness" icon="ti-database">
-      <div style={{ display: "flex", alignItems: "baseline", gap: "var(--space-2)", padding: "var(--space-2) 0 var(--space-1)" }}>
+      <div style={{ display: "flex", alignItems: "baseline", gap: "var(--space-2)", padding: "var(--space-3) var(--space-5) var(--space-1)" }}>
         <span style={{ fontSize: "28px", fontWeight: 700, fontFamily: "var(--font-mono)", color: col(dc.overall.pct), lineHeight: 1 }}>{dc.overall.pct}%</span>
       </div>
-      <div className="dash-bar-track" style={{ marginBottom: "var(--space-2)" }}><div className="dash-bar-fill" style={{ width: `${dc.overall.pct}%`, background: col(dc.overall.pct) }}></div></div>
-      <div className="card-note" style={{ padding: "0 0 var(--space-3)" }}>{dc.overall.filled.toLocaleString()} of {dc.overall.expected.toLocaleString()} expected fields completed across all sites</div>
+      <div className="dash-bar-track" style={{ margin: "0 var(--space-5) var(--space-2)" }}><div className="dash-bar-fill" style={{ width: `${dc.overall.pct}%`, background: col(dc.overall.pct) }}></div></div>
+      <div className="card-note" style={{ padding: "0 var(--space-5) var(--space-3)" }}>{dc.overall.filled.toLocaleString()} of {dc.overall.expected.toLocaleString()} expected fields completed across all sites</div>
       {dc.sites.map((r) => (
         <div className="dash-bar" key={r.siteId}>
           <div className="dash-bar-hdr"><span className="dash-bar-name">{r.code} · {r.name}</span><span className="dash-bar-count">{r.pct}%</span></div>
