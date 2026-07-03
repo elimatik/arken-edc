@@ -2874,7 +2874,7 @@ export function SubjectRecord({ studyId, subjectId, initialFormId, initialPanelF
               return (
                 <Fragment key={field.id}>
                   {showSection && <div className="form-section-title">{section}</div>}
-                <div id={`sr-field-${field.id}`} className={`field${isWide ? " full" : ""}${readOnly ? " state-locked" : ""}${reqMissing ? " field-required-missing" : ""}`}>
+                <div id={`sr-field-${field.id}`} className={`field${isWide ? " full" : ""}${readOnly || docReadOnly ? " state-locked" : ""}${reqMissing ? " field-required-missing" : ""}`}>
                   <label className="field-label">
                     {field.label}
                     {field.is_required && <span className="field-req"> *</span>}

@@ -531,8 +531,29 @@
    readOnly attribute: they stay visible with their value + normal layout, but are
    muted and non-interactive (no cursor, no focus ring). Selects/checkboxes use the
    existing :disabled styling. */
-.field-input[readonly], textarea.field-input[readonly] { pointer-events: none; color: var(--color-text-secondary); opacity: 0.85; }
-.field-input[readonly]:focus, textarea.field-input[readonly]:focus { outline: none; box-shadow: none; border-color: var(--color-border); }
+/* Every read-only field type gets the SAME muted, background-blended look (Fix 2):
+   value in tertiary, background = page background (no white box), border removed
+   (no glow/outline), non-interactive. The empty trailing space of a full-width input
+   blends into the page and disappears. */
+.field-input[readonly],
+.field-input:disabled,
+.field-select:disabled,
+select:disabled,
+textarea[readonly],
+.compose-textarea:disabled,
+input[type="checkbox"]:disabled,
+input[type="radio"]:disabled {
+  background: var(--color-page-bg);
+  color: var(--color-text-tertiary);
+  border-color: transparent;
+  cursor: not-allowed;
+  pointer-events: none;
+  opacity: 1;
+}
+.field-input[readonly]:focus, textarea.field-input[readonly]:focus { outline: none; box-shadow: none; }
+/* pointer-events:none passes the hover to the field wrapper — surface the
+   not-allowed cursor there (interactive buttons inside override with their own). */
+.field.state-locked { cursor: not-allowed; }
 
 /* Form-header read-only status badge (Fix 1/2) */
 .form-title-row { display: flex; align-items: center; gap: var(--space-3); min-width: 0; }
