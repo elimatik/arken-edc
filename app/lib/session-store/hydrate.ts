@@ -116,11 +116,11 @@ export async function hydrateFromSupabase(): Promise<Dataset> {
   // CA-0801 EOS drug-return form (F046) is the same accountability form type as the
   // Follow-Up "Study Drug Accountability" forms — rename it to match.
   const CA_F046_ID = "6100002e-0000-0000-0000-000000000801";
-  // ─── CA-0801 new forms (v61) — synthetic ids for the Informed Consent form + its
-  // "Enrollment & Randomization" group, and a "Safety & Events" group that the
-  // existing standalone "ConMed" form is renamed into ("Concomitant Medications").
+  // ─── CA-0801 new forms — synthetic ids for the standalone Informed Consent form
+  // and a "Safety & Events" group the existing standalone "ConMed" form is renamed
+  // into ("Concomitant Medications"). The ICF is a top-level, study-level form (no
+  // group wrapper) so it sits first in the sidebar, above every visit group.
   const caStudyId = (studies.data ?? []).find((s) => s.code === "CA-0801")?.id;
-  const CA_ICF_GROUP = "6100f001-0000-0000-0000-000000000801";
   const CA_ICF_FORM = "6100f002-0000-0000-0000-000000000801";
   const CA_SAFETY_GROUP = "6100f003-0000-0000-0000-000000000801";
   const formsWithFlags = ((forms.data ?? []) as Dataset["forms"]).map((f) =>
@@ -278,17 +278,16 @@ export async function hydrateFromSupabase(): Promise<Dataset> {
     ff(PH_F003, "f003-randomized_by", "randomized_by", "Confirmed by", "text", null, null, false, 7, { section: "Randomization" }),
   ];
 
-  // ─── CA-0801 Informed Consent (ICF) form + its group + a Safety & Events group ─
-  // GCP: no subject should be enrolled without documented consent. The ICF is a new
-  // study-level form (not visit-bound), first in a new "Enrollment & Randomization"
-  // group (before Screening). "Safety & Events" is the group the renamed ConMed form
-  // now lives in. Sequences bracket the existing CA forms so the tree order is right.
+  // ─── CA-0801 Informed Consent (ICF) form + a Safety & Events group ──────────
+  // GCP: no subject should be enrolled without documented consent. The ICF is a
+  // standalone study-level form (not visit-bound, no group), sequenced before every
+  // existing CA form so it sits first in the sidebar. "Safety & Events" is the group
+  // the renamed ConMed form now lives in (sequenced last).
   const caFormRows = (forms.data ?? []).filter((f) => f.study_id === caStudyId);
   const caMinSeq = caFormRows.length ? Math.min(...caFormRows.map((f) => f.sequence)) : 0;
   const caMaxSeq = caFormRows.length ? Math.max(...caFormRows.map((f) => f.sequence)) : 0;
   const caNewForms: Dataset["forms"] = caStudyId ? [
-    { id: CA_ICF_GROUP, study_id: caStudyId, visit_id: null, parent_form_id: null, code: "enrollment_randomization", name: "Enrollment & Randomization", sequence: caMinSeq - 2 },
-    { id: CA_ICF_FORM, study_id: caStudyId, visit_id: null, parent_form_id: CA_ICF_GROUP, code: "informed_consent", name: "Informed Consent", sequence: caMinSeq - 1 },
+    { id: CA_ICF_FORM, study_id: caStudyId, visit_id: null, parent_form_id: null, code: "informed_consent", name: "Informed Consent", sequence: caMinSeq - 1 },
     { id: CA_SAFETY_GROUP, study_id: caStudyId, visit_id: null, parent_form_id: null, code: "safety_events", name: "Safety & Events", sequence: caMaxSeq + 1 },
   ] : [];
   const CA_ICF_FIELDS: FF[] = caStudyId ? [

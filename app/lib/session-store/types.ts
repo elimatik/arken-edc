@@ -188,7 +188,9 @@ export interface DeltaRecordRow {
   author_name: string;
   author_role: string;
   created_at: string;
-  status: "pending" | "responded" | "approved";
+  // "logged" = auto-logged change with no reason required (Audit toggle OFF); it is
+  // recorded to the audit trail but never blocks submit or shows a Δ reason prompt.
+  status: "pending" | "responded" | "approved" | "logged";
 }
 
 export interface MembershipRow {

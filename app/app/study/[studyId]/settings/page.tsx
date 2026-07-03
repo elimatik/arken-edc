@@ -16,6 +16,7 @@ import { useSearchParams } from "next/navigation";
 import { useShell } from "@/components/shell/ShellContext";
 import { STUDY_RULES_SEED } from "@/lib/notifications-data";
 import { useStudySession } from "@/lib/session-store/SessionStore";
+import { getReasonAllEdits, setReasonAllEditsPref } from "@/lib/audit-settings";
 import type { Dataset } from "@/lib/session-store/types";
 import type { Role } from "@/lib/permissions";
 import { INV_ACTIONS, INV_ROLES, useInventoryPermissions, setInvPermission } from "@/lib/inventory-permissions";
@@ -1531,7 +1532,10 @@ function AuditSignaturesSection({ studyId, dataset, onToast }: { studyId: string
 
   // Card 3 — Audit trail behaviour.
   const [reasonSignedLocked, setReasonSignedLocked] = useState(true);
+  // Persisted (session-scoped) so the Subject Record's reason-for-change behaviour
+  // can read it — ON forces a blocking reason panel, OFF auto-logs silently.
   const [reasonAllEdits, setReasonAllEdits] = useState(false);
+  useEffect(() => { setReasonAllEdits(getReasonAllEdits()); }, []);
 
   return (
     <>
@@ -1595,7 +1599,7 @@ function AuditSignaturesSection({ studyId, dataset, onToast }: { studyId: string
             <div><div className="settings-row-label">Timestamp format</div><div className="settings-row-desc">Regulatory requirement — not editable</div></div>
             <div className="settings-row-value"><span className="set-badge set-badge-blue">UTC (Coordinated Universal Time)</span></div>
           </div>
-          <ToggleRow on={reasonAllEdits} onToggle={() => { setReasonAllEdits(!reasonAllEdits); onToast("Setting saved"); }} label="Require reason for change on all field edits (not just post-signature)" desc="When OFF, reason is only required on edits after signature/lock." />
+          <ToggleRow on={reasonAllEdits} onToggle={() => { const next = !reasonAllEdits; setReasonAllEdits(next); setReasonAllEditsPref(next); onToast("Setting saved"); }} label="Require reason for change on all field edits (not just post-signature)" desc="When OFF, reason is only required on edits after signature/lock." />
         </div>
       </div>
 
