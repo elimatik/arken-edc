@@ -276,7 +276,7 @@
 .lookup-btn i { font-size: 14px; }
 
 /* Locked / disabled controls */
-.field-input:disabled, .field-select:disabled, .compose-textarea:disabled, .field.state-locked .field-calc { background: var(--color-page-bg); color: var(--color-text-tertiary); cursor: not-allowed; }
+.field.state-locked .field-calc { background: var(--color-page-bg); color: var(--color-text-tertiary); cursor: not-allowed; }
 
 /* Form status badge + advance */
 .form-status-badge { display: inline-flex; align-items: center; gap: 5px; padding: 0 var(--space-3); border-radius: var(--radius-full); font-size: var(--text-xs); font-weight: var(--weight-medium); border: 1px solid; white-space: nowrap; }
@@ -527,33 +527,21 @@
 .rfc-arrow { color: var(--color-text-tertiary); font-weight: var(--weight-bold); }
 .rfc-navwarn { display: flex; align-items: center; gap: var(--space-2); margin: var(--space-3) var(--space-4) 0; padding: var(--space-2) var(--space-3); font-size: var(--text-xs); font-weight: var(--weight-medium); color: var(--amber-700); background: var(--amber-50); border: 1px solid var(--amber-200); border-radius: var(--radius-md); }
 .rfc-navwarn i { font-size: 14px; flex-shrink: 0; }
-/* Read-only "document" fields (finalized/locked) — Fix 2. Text-like inputs carry the
-   readOnly attribute: they stay visible with their value + normal layout, but are
-   muted and non-interactive (no cursor, no focus ring). Selects/checkboxes use the
-   existing :disabled styling. */
-/* Every read-only field type gets the SAME muted, background-blended look (Fix 2):
-   value in tertiary, background = page background (no white box), border removed
-   (no glow/outline), non-interactive. The empty trailing space of a full-width input
-   blends into the page and disappears. */
+/* Read-only / disabled form fields — single source of truth for their appearance. */
 .field-input[readonly],
 .field-input:disabled,
-.field-select:disabled,
 select:disabled,
 textarea[readonly],
-.compose-textarea:disabled,
+textarea:disabled,
 input[type="checkbox"]:disabled,
 input[type="radio"]:disabled {
   background: var(--color-page-bg);
   color: var(--color-text-tertiary);
-  border-color: transparent;
   cursor: not-allowed;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
   pointer-events: none;
-  opacity: 1;
 }
-.field-input[readonly]:focus, textarea.field-input[readonly]:focus { outline: none; box-shadow: none; }
-/* pointer-events:none passes the hover to the field wrapper — surface the
-   not-allowed cursor there (interactive buttons inside override with their own). */
-.field.state-locked { cursor: not-allowed; }
 
 /* Form-header read-only status badge (Fix 1/2) */
 .form-title-row { display: flex; align-items: center; gap: var(--space-3); min-width: 0; }

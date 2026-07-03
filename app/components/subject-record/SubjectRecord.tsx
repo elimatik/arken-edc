@@ -1202,6 +1202,10 @@ export function SubjectRecord({ studyId, subjectId, initialFormId, initialPanelF
   // one transition per focus→blur edit via recordTextEdit().
   function setFieldValue(field: FormFieldRow, value: string, recordChange = false, skipCheck = false) {
     if (readOnly || docReadOnly) return; // locked / finalized forms + the ePRO stub are read-only
+    // Fix 2 — editing an SDV-verified field auto-revokes its verification. Decide here
+    // (before the async update mutator): only when a saved value actually changes.
+    const prevOutside = fvFor(field.id)?.value ?? "";
+    const verifiedSdv = prevOutside !== "" && prevOutside !== value ? sdvRecordFor(fvFor(field.id)?.id) : undefined;
     update((d: Dataset) => {
       let inst = d.formInstances.find((i) => i.subject_id === subjectId && i.form_id === field.form_id);
       if (!inst) {
@@ -1222,6 +1226,16 @@ export function SubjectRecord({ studyId, subjectId, initialFormId, initialPanelF
       // own pending transition (prev → value). First entry / no-op changes are skipped.
       if (recordChange) recordTransition(d, fv.id, prev, value);
 
+      // Fix 2 — revoke the field's SDV verification: unverify it, drop a fully-reviewed
+      // form back to in-review, and log the revocation to the audit trail.
+      if (verifiedSdv) {
+        const rec = d.sdvRecords.find((r) => r.id === verifiedSdv.id);
+        if (rec) { rec.status = "pending"; rec.verified_by_name = null; rec.verified_at = null; }
+        const vInst = d.formInstances.find((i) => i.id === verifiedSdv.form_instance_id);
+        if (vInst && vInst.status === "reviewed") vInst.status = "in_review";
+        d.formAudits.push({ id: newId(), form_instance_id: verifiedSdv.form_instance_id, subject_id: subjectId, action: "sdv_revoked", from_status: "verified", to_status: "unverified", reason: field.code, description: `field value changed from ${prevOutside || "—"} to ${value || "—"}`, author_name: ndaName, author_role: activeRole, created_at: new Date().toISOString() });
+      }
+
       // Live EDIT CHECK (not a query): out of range → raise/keep an open edit check;
       // back in range → resolve it. Discrete controls evaluate on change; free-text /
       // numeric inputs pass skipCheck while typing and evaluate on BLUR (so the amber
@@ -1241,6 +1255,17 @@ export function SubjectRecord({ studyId, subjectId, initialFormId, initialPanelF
         if (subj) subj.ineligible = fail;
       }
     });
+    // Fix 2 — notify DM/CRA that a verified field needs re-verification (name the
+    // original verifier when known).
+    if (verifiedSdv && studyRow?.code) {
+      addNotification(studyRow.code, {
+        id: `sdv-revoke-${newId()}`, kind: "sdv",
+        title: "A verified field has been edited — re-verification required",
+        body: `${field.label} · ${subject?.subject_code ?? subjectId} · ${selectedForm?.name ?? "Form"}${verifiedSdv.verified_by_name ? ` — originally verified by ${verifiedSdv.verified_by_name}` : ""}`,
+        ts: "just now", bucket: "today", route: `data-entry/${subjectId}?form=${activeFormId}`,
+        read: false, delivery: "delivered", subjectCode: subject?.subject_code,
+      });
+    }
   }
 
   // Out-of-range → raise/keep an open edit check; back in range → resolve it. Never
