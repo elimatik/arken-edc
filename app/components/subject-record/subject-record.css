@@ -527,9 +527,7 @@
 .rfc-arrow { color: var(--color-text-tertiary); font-weight: var(--weight-bold); }
 .rfc-navwarn { display: flex; align-items: center; gap: var(--space-2); margin: var(--space-3) var(--space-4) 0; padding: var(--space-2) var(--space-3); font-size: var(--text-xs); font-weight: var(--weight-medium); color: var(--amber-700); background: var(--amber-50); border: 1px solid var(--amber-200); border-radius: var(--radius-md); }
 .rfc-navwarn i { font-size: 14px; flex-shrink: 0; }
-/* Toggle-OFF "edited" chip on a field label + batch reason panel — Part 2 */
-.field-edited-chip { display: inline-flex; align-items: center; gap: 3px; margin-left: var(--space-2); padding: 0 6px; font-size: 10px; font-weight: var(--weight-medium); color: var(--amber-700); background: var(--amber-50); border: 1px solid var(--amber-200); border-radius: 10px; vertical-align: middle; }
-.field-edited-chip i { font-size: 10px; }
+/* Batch reason panel (toggle OFF, at submit) — Part 2 */
 .rfc-batch-modal { max-width: 560px; width: 92vw; }
 .rfc-batch-list { display: flex; flex-direction: column; gap: var(--space-3); max-height: 46vh; overflow-y: auto; }
 .rfc-batch-row { display: flex; flex-direction: column; gap: var(--space-2); padding: var(--space-2) var(--space-3); background: var(--color-page-bg); border: 1px solid var(--color-border); border-radius: var(--radius-md); }

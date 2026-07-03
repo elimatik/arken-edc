@@ -611,9 +611,10 @@ export function SubjectRecord({ studyId, subjectId, initialFormId, initialPanelF
     if (recs.some((r) => r.status === "pending")) return "pending";
     return recs.every((r) => r.status === "approved") ? "approved" : "responded";
   }
-  // Toggle-OFF "edited" indicator — a Δ awaiting its reason at submission time.
-  function hasPendingReason(fvId: string | undefined): boolean {
-    return !!fvId && dataset.deltaRecords.some((r) => r.field_value_id === fvId && r.status === "pending_reason");
+  // Toggle-OFF unresolved Δ — the delta record awaiting its reason (surfaces the red
+  // Δ button on the field; the user clicks it to open the reason panel when ready).
+  function pendingReasonDeltaFor(fvId: string | undefined) {
+    return fvId ? dataset.deltaRecords.find((r) => r.field_value_id === fvId && r.status === "pending_reason") : undefined;
   }
 
   // ─── Form status (empty → in_work → in_review → reviewed → finalized → locked) ─
@@ -1342,11 +1343,16 @@ export function SubjectRecord({ studyId, subjectId, initialFormId, initialPanelF
     if (!reasonText) return;
     update((d: Dataset) => {
       const r = d.deltaRecords.find((x) => x.id === m.recordId);
-      if (r && r.status === "pending") { r.reason = reasonText; r.author_name = ndaName; r.author_role = activeRole; r.status = "responded"; }
+      // Resolves both an immediate "pending" (toggle ON) and a deferred
+      // "pending_reason" (toggle OFF — Δ clicked by the user) → responded.
+      if (r && (r.status === "pending" || r.status === "pending_reason")) { r.reason = reasonText; r.author_name = ndaName; r.author_role = activeRole; r.status = "responded"; }
     });
     setReasonPanel(null); setReasonSelect(""); setReasonOther(""); setReasonNavWarn(false);
     setToast("Reason recorded");
   }
+  // Toggle OFF — the reason panel is dismissable (the Δ stays on the field until the
+  // reason is saved; the submit gate catches any that are still unresolved).
+  function closeReasonPanel() { setReasonPanel(null); setReasonSelect(""); setReasonOther(""); setReasonNavWarn(false); }
   // Item 1 — a pending reason panel blocks navigation: guard the sidebar/form switch.
   function guardedSelectForm(id: string) {
     if (reasonPanel && reasonAllEdits) { setReasonNavWarn(true); return; }
@@ -2750,6 +2756,7 @@ export function SubjectRecord({ studyId, subjectId, initialFormId, initialPanelF
               const sdvRec = sdvRecordFor(fv?.id);
               const verified = !!sdvRec;
               const dState = deltaStateFor(field.id, fv?.id);
+              const prDelta = readOnly ? undefined : pendingReasonDeltaFor(fv?.id); // toggle-OFF unresolved Δ
               const showInteractiveSdv = isSdvEligible(field) && !readOnly && modeSdv && canSdv; // CRA verifies; DM is read-only
               const showStaticSdv = isSdvEligible(field) && verified && !showInteractiveSdv; // verified badge (incl. DM read-only view)
               const sdvBlock = sdvBlockReason(field, fv?.id); // null if clean
@@ -2767,7 +2774,6 @@ export function SubjectRecord({ studyId, subjectId, initialFormId, initialPanelF
                   <label className="field-label">
                     {field.label}
                     {field.is_required && <span className="field-req"> *</span>}
-                    {hasPendingReason(fv?.id) && <span className="field-edited-chip" title="Edited — a change reason is required at submission"><i className="ti ti-pencil"></i> edited</span>}
                   </label>
                   <div className="field-row">
                     {renderControl(field, value, raised, !!ec || (!!oor && !dispQ))}
@@ -2787,6 +2793,18 @@ export function SubjectRecord({ studyId, subjectId, initialFormId, initialPanelF
                     )}
                     {!readOnly && dState && (
                       <button className={`delta-btn ${dState}`} onClick={() => setDeltaField(field)} title={deltaTitle} type="button">
+                        Δ
+                      </button>
+                    )}
+                    {/* Toggle OFF — a saved value was edited; the red Δ opens the reason
+                        panel (non-blocking) so the user can add the reason when ready. */}
+                    {prDelta && (
+                      <button
+                        className="delta-btn pending"
+                        onClick={() => { setReasonNavWarn(false); setReasonSelect(""); setReasonOther(""); setReasonPanel({ recordId: prDelta.id, field, prev: prDelta.old_value, next: prDelta.new_value }); }}
+                        title="Change reason required — click to add"
+                        type="button"
+                      >
                         Δ
                       </button>
                     )}
@@ -3194,15 +3212,17 @@ export function SubjectRecord({ studyId, subjectId, initialFormId, initialPanelF
       </div>
 
       {/* Reason for change — slide-in panel (21 CFR Part 11, toggle ON) — item 1.
-          The change is already committed; the reason is mandatory (no cancel) and
-          blocks navigation until saved. Overlay click warns rather than closing. */}
-      <div className={`panel-overlay${reasonPanel ? " open" : ""}`} onClick={() => { if (reasonPanel) setReasonNavWarn(true); }}></div>
+          The change is already committed. Toggle ON: mandatory (no cancel), overlay
+          click warns, blocks navigation until saved. Toggle OFF: opened by clicking
+          the field's red Δ, dismissable (overlay/close), non-blocking. */}
+      <div className={`panel-overlay${reasonPanel ? " open" : ""}`} onClick={() => { if (!reasonPanel) return; if (reasonAllEdits) setReasonNavWarn(true); else closeReasonPanel(); }}></div>
       <div className={`slide-panel${reasonPanel ? " open" : ""}`}>
         {reasonPanel && (
           <>
             <div className="panel-header">
-              <div className="panel-header-left"><div className="panel-title">Reason for change required</div></div>
-              {/* No close button — the reason is mandatory. */}
+              <div className="panel-header-left"><div className="panel-title">Reason for change{reasonAllEdits ? " required" : ""}</div></div>
+              {/* Toggle ON → no close (mandatory). Toggle OFF → dismissable. */}
+              {!reasonAllEdits && <button className="panel-close" onClick={closeReasonPanel} type="button"><i className="ti ti-x"></i></button>}
             </div>
             <div className="field-context">
               <div className="fc-label">Field</div>
