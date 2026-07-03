@@ -10,6 +10,7 @@ import { useNdaName } from "@/lib/use-nda-name";
 import { evaluateField, rangeLabel } from "@/lib/forms/validation";
 import { isStudyLocked } from "@/lib/study-lock";
 import { subjectAeList } from "@/lib/reports-data";
+import { buildVisits, addDays } from "@/lib/visits-data";
 import { codingIndex, codedDisplay, normalizeTerm } from "@/lib/coding-data";
 import { LOCK_TOOLTIP } from "@/lib/use-study-locked";
 import { RandomizationPanel } from "./RandomizationPanel";
@@ -48,12 +49,13 @@ const STATUS_MAP: Record<string, { cls: string; label: string }> = {
 // Repeating (log) forms — rendered as a table of entries (one form instance each)
 // with Add / Edit / Delete, instead of a single field grid. Summary columns per form.
 const REPEATING_FORMS = [
-  "ConMed", "Adverse Event", "Protocol Deviation", "Mortality & Cull Record",
+  "ConMed", "Concomitant Medications", "Adverse Event", "Protocol Deviation", "Mortality & Cull Record",
   // BR-2502 Group G — Safety & Events (as-needed repeating logs).
   "Injection Site Reaction", "Re-treatment Log", "Sample Collection", "Concomitant Medication Log",
 ];
 const REPEATING_COLUMNS: Record<string, [string, string][]> = {
   ConMed: [["medication_name", "Drug name"], ["dose", "Dose"], ["route", "Route"], ["start_date", "Start date"], ["ongoing", "Ongoing"]],
+  "Concomitant Medications": [["medication_name", "Medication"], ["indication", "Indication"], ["dose", "Dose"], ["route", "Route"], ["start_date", "Start"], ["ongoing", "Ongoing"]],
   "Adverse Event": [["ae_number", "AE #"], ["ae_term", "AE term"], ["severity", "Severity"], ["outcome", "Outcome"], ["sae_flag", "SAE"]],
   "Protocol Deviation": [["deviation_type", "Type"], ["deviation_date", "Date"], ["major_minor", "Major / Minor"], ["description", "Description"]],
   "Mortality & Cull Record": [["event_date", "Date"], ["death_count", "Deaths"], ["cull_count", "Culls"], ["cause_deaths", "Cause"]],
@@ -82,6 +84,11 @@ const REPEATING_ADD_LABEL: Record<string, string> = {
 };
 
 type SidebarIcon = "final" | "reviewed" | "inreview" | "inwork" | "empty" | "queried";
+// SDV shield state per form (item 6): none = not yet SDV-eligible (not submitted);
+// unverified = submitted, nothing verified; partial = some fields verified;
+// complete = SDV marked complete.
+type SidebarSdvState = "complete" | "partial" | "unverified" | "none";
+const SDV_SUBMITTED_STATUSES = ["in_review", "reviewed", "finalized", "locked"];
 function iconForInstance(s: string | undefined): SidebarIcon {
   if (s === "finalized" || s === "locked") return "final";
   if (s === "reviewed") return "reviewed";
@@ -95,6 +102,18 @@ const QS_CLS: Record<string, string> = { open: "qs-open", responded: "qs-respond
 const ICON_RANK: Record<SidebarIcon, number> = { queried: 0, empty: 1, inwork: 2, inreview: 3, reviewed: 4, final: 5 };
 const newId = () => crypto.randomUUID();
 const todayISO = () => new Date().toISOString().slice(0, 10);
+// Short "Jun 18 – Jun 22" window label (single date when the window is exact).
+// Year is appended only when it isn't the current year.
+function fmtVisitWindow(startISO: string, endISO: string): string {
+  const cy = new Date().getUTCFullYear();
+  const fmt = (iso: string) => {
+    const d = new Date(`${iso.slice(0, 10)}T00:00:00Z`);
+    if (Number.isNaN(d.getTime())) return iso;
+    const md = d.toLocaleDateString("en-US", { month: "short", day: "numeric", timeZone: "UTC" });
+    return d.getUTCFullYear() === cy ? md : `${md}, ${d.getUTCFullYear()}`;
+  };
+  return startISO === endISO ? fmt(startISO) : `${fmt(startISO)} – ${fmt(endISO)}`;
+}
 const STATUS_CAP = (s: string) => s.charAt(0).toUpperCase() + s.slice(1);
 const qCodeFor = (id: string) => `Q-${id.slice(0, 4).toUpperCase()}`;
 const ecCodeFor = (id: string) => `EC-${id.slice(0, 4).toUpperCase()}`;
@@ -115,6 +134,13 @@ const ICON_LABEL: Record<SidebarIcon, string> = {
 const STATUS_LABEL: Record<string, string> = {
   empty: "Empty", in_work: "In-Work", in_review: "In-Review", reviewed: "Reviewed", finalized: "Finalized", locked: "Locked",
 };
+
+// Predefined change reasons (Study preferences → Settings). Drives the item-1
+// "Reason for change" modal select. Kept in sync with settings/page.tsx.
+const CHANGE_REASONS = [
+  "Data entry error", "Transcription error from source document", "Protocol deviation correction",
+  "Clarification from investigator", "Lab result correction", "Unit of measure error", "Date/time correction",
+];
 
 // Stub VeDDRA dictionary for the coded-field "Look up" (DM coding).
 const VEDDRA_TERMS = [
@@ -177,6 +203,28 @@ export function SubjectRecord({ studyId, subjectId, initialFormId, initialPanelF
   const [selectedFormId, setSelectedFormId] = useState<string | undefined>(initialFormId);
   const [aeView, setAeView] = useState(false); // AE/SAE tab (vs form view)
   const subjectAes = useMemo(() => subjectAeList(dataset, subjectId), [dataset, subjectId]);
+  // Visit-window sub-line per sidebar visit group (item 2). Reuses the Visits-module
+  // schedule (buildVisits) → a label + urgency state, keyed by the visit-date form id
+  // AND its parent group id, so a group header can look up its window directly.
+  const subjectVisitWindows = useMemo(() => {
+    const map = new Map<string, { label: string; state: string }>();
+    const today = todayISO();
+    const formById = new Map(dataset.forms.map((f) => [f.id, f]));
+    for (const v of buildVisits(dataset, studyId)) {
+      if (v.subjectId !== subjectId) continue;
+      const start = addDays(v.targetDate, -v.window);
+      const end = addDays(v.targetDate, v.window);
+      const state = v.completed ? "complete"
+        : today < start ? "notopen"
+          : today > end ? "overdue"
+            : today === v.targetDate ? "duetoday" : "open";
+      const entry = { label: fmtVisitWindow(start, end), state };
+      map.set(v.formId, entry);
+      const gid = formById.get(v.formId)?.parent_form_id;
+      if (gid) map.set(gid, entry);
+    }
+    return map;
+  }, [dataset, studyId, subjectId]);
   const codingIdx = useMemo(() => codingIndex(dataset, studyId), [dataset, studyId]);
   const aeStats = useMemo(() => ({
     total: subjectAes.length,
@@ -219,6 +267,13 @@ export function SubjectRecord({ studyId, subjectId, initialFormId, initialPanelF
   const [closeModalOpen, setCloseModalOpen] = useState(false); // "Close without response" modal
   const [closeReason, setCloseReason] = useState("");
   const [toast, setToast] = useState<string | null>(null);
+  // Item 1 — "Reason for change" modal (21 CFR Part 11). Opened when a previously
+  // saved field value is edited; commits the edit + its reason, or reverts on cancel.
+  const [changeModal, setChangeModal] = useState<{ recordId: string; field: FormFieldRow; prev: string; next: string } | null>(null);
+  const [changeReason, setChangeReason] = useState("");
+  const [changeOther, setChangeOther] = useState("");
+  // Item 7 — required fields left empty on a submit attempt (inline errors + scroll).
+  const [requiredErrors, setRequiredErrors] = useState<Set<string>>(new Set());
 
   useEffect(() => {
     if (!toast) return;
@@ -361,14 +416,17 @@ export function SubjectRecord({ studyId, subjectId, initialFormId, initialPanelF
       dataset.fieldValues.some((v) => v.id === q.field_value_id && v.form_instance_id === i.id)));
     const status = insts.length ? insts.reduce<string>((acc, i) => (STATUS_RANK[i.status] < STATUS_RANK[acc] ? i.status : acc), "locked") : "empty";
     const icon: SidebarIcon = openQ.length ? "queried" : iconForInstance(status);
-    // SDV state for the sidebar (item 6): complete > any verified field > none.
+    // SDV shield (item 6). A form is SDV-eligible once submitted (in-review or beyond);
+    // before that there's no shield. Then: complete (marked) > any verified field
+    // (partial) > submitted-but-none (unverified).
     const anyVerified = insts.some((i) => dataset.sdvRecords.some((r) => r.status === "verified" && dataset.fieldValues.some((v) => v.id === r.field_value_id && v.form_instance_id === i.id)));
-    const sdv: "complete" | "partial" | "none" = (insts.length > 0 && insts.every((i) => i.sdv_complete)) ? "complete" : anyVerified ? "partial" : "none";
+    const sdvSubmitted = insts.length > 0 && insts.every((i) => SDV_SUBMITTED_STATUSES.includes(i.status));
+    const sdv: SidebarSdvState = !sdvSubmitted ? "none" : insts.every((i) => i.sdv_complete) ? "complete" : anyVerified ? "partial" : "unverified";
     return { id: f.id, name: f.name, icon, queryCount: openQ.length, status, sdv };
   }
 
   type LeafItem = ReturnType<typeof leafItem>;
-  interface SidebarNode { id: string; name: string; isGroup: boolean; icon: SidebarIcon; queryCount: number; status: string; sdv: "complete" | "partial" | "none"; children: SidebarNode[] }
+  interface SidebarNode { id: string; name: string; isGroup: boolean; icon: SidebarIcon; queryCount: number; status: string; sdv: SidebarSdvState; window?: { label: string; state: string }; children: SidebarNode[] }
 
   // Recursive — groups can nest (Group → Week sub-group → leaf). A group rolls up
   // the worst child icon, the summed open-query count, and an all-complete SDV.
@@ -377,12 +435,14 @@ export function SubjectRecord({ studyId, subjectId, initialFormId, initialPanelF
       const children = studyForms.filter((c) => c.parent_form_id === f.id).map(buildNode);
       const worst = children.reduce<SidebarIcon>((acc, c) => (ICON_RANK[c.icon] < ICON_RANK[acc] ? c.icon : acc), "final");
       const queryCount = children.reduce((a, c) => a + c.queryCount, 0);
-      const groupSdv: "complete" | "partial" | "none" =
-        children.length && children.every((c) => c.sdv === "complete") ? "complete" : children.some((c) => c.sdv !== "none") ? "partial" : "none";
-      return { id: f.id, name: f.name, isGroup: true, icon: worst, queryCount, status: "", sdv: groupSdv, children };
+      const eligibleKids = children.filter((c) => c.sdv !== "none");
+      const groupSdv: SidebarSdvState = eligibleKids.length === 0 ? "none"
+        : eligibleKids.every((c) => c.sdv === "complete") ? "complete"
+          : eligibleKids.some((c) => c.sdv === "complete" || c.sdv === "partial") ? "partial" : "unverified";
+      return { id: f.id, name: f.name, isGroup: true, icon: worst, queryCount, status: "", sdv: groupSdv, window: subjectVisitWindows.get(f.id), children };
     }
     const leaf = leafItem(f);
-    return { id: f.id, name: f.name, isGroup: false, icon: leaf.icon, queryCount: leaf.queryCount, status: leaf.status, sdv: leaf.sdv, children: [] };
+    return { id: f.id, name: f.name, isGroup: false, icon: leaf.icon, queryCount: leaf.queryCount, status: leaf.status, sdv: leaf.sdv, window: subjectVisitWindows.get(f.id), children: [] };
   }
   const sidebarTree: SidebarNode[] = studyForms.filter((f) => !f.parent_form_id).map(buildNode);
 
@@ -461,7 +521,10 @@ export function SubjectRecord({ studyId, subjectId, initialFormId, initialPanelF
           type="button"
         >
           <i className={`ti ti-chevron-${collapsed ? "right" : "down"} form-group-caret`} aria-hidden="true"></i>
-          <span className="form-group-label">{node.name}</span>
+          <span className="form-group-label-stack">
+            <span className="form-group-label">{node.name}</span>
+            {node.window && <span className={`form-group-window win-${node.window.state}`}>{node.window.label}</span>}
+          </span>
           <div className="form-item-right">
             {node.queryCount > 0 && <span className="issue-badge warning">{node.queryCount}</span>}
             <SidebarSdv sdv={node.sdv} />
@@ -472,16 +535,16 @@ export function SubjectRecord({ studyId, subjectId, initialFormId, initialPanelF
       </div>
     );
   }
-  // SDV shield slot in the sidebar — only when Remarks SDV is on (item 6).
-  function SidebarSdv({ sdv }: { sdv: "complete" | "partial" | "none" }) {
-    if (!modeSdv || sdv === "none") return null;
-    return (
-      <i
-        className={`ti ${sdv === "complete" ? "ti-shield-check-filled" : "ti-shield"} sidebar-sdv-icon`}
-        title={sdv === "complete" ? "SDV complete" : "Partially verified — SDV not complete"}
-        aria-hidden="true"
-      ></i>
-    );
+  // SDV shield slot in the sidebar (item 6) — always shown once a form is submitted:
+  // slate outline = awaiting SDV, amber half = partial, green check = complete.
+  function SidebarSdv({ sdv }: { sdv: SidebarSdvState }) {
+    if (sdv === "none") return null;
+    const cfg = sdv === "complete"
+      ? { icon: "ti-shield-check-filled", cls: "sdv-complete", title: "SDV complete" }
+      : sdv === "partial"
+        ? { icon: "ti-shield-half-filled", cls: "sdv-partial", title: "Partially verified — SDV not complete" }
+        : { icon: "ti-shield", cls: "sdv-unverified", title: "Submitted — awaiting source-data verification" };
+    return <i className={`ti ${cfg.icon} sidebar-sdv-icon ${cfg.cls}`} title={cfg.title} aria-hidden="true"></i>;
   }
   const fields = dataset.formFields.filter((f) => f.form_id === activeFormId).slice().sort((a, b) => a.sequence - b.sequence);
   const instance = dataset.formInstances.find((i) => i.subject_id === subjectId && i.form_id === activeFormId);
@@ -1033,10 +1096,13 @@ export function SubjectRecord({ studyId, subjectId, initialFormId, initialPanelF
       if (m < 0 || (m === 0 && now.getDate() < d.getDate())) age--;
       return age >= 0 ? `${age} years` : "—";
     }
-    // PH-2401 performance metrics. FCR is cross-visit (not wired here) → "N/A"
-    // until both feed-consumed and weight-gain are available — so a baseline /
-    // first-visit FCR reads N/A, never a misleading number.
-    if (field.code.includes("fcr")) return "N/A";
+    // PH-2401 performance metrics. FCR (feed ÷ gain) is seeded per weekly visit in
+    // hydrate (phase-realistic) — read the stored value when present; else "N/A"
+    // (baseline / first visit with no prior weight to derive a gain from).
+    if (field.code.includes("fcr")) {
+      const seeded = fvFor(field.id)?.value;
+      return seeded && seeded.trim() !== "" ? seeded : "N/A";
+    }
     // Single-form derived metrics (same instance) — compute when inputs are present.
     const sameNum = (code: string): number | undefined => {
       const f = fields.find((x) => x.code === code);
@@ -1086,10 +1152,10 @@ export function SubjectRecord({ studyId, subjectId, initialFormId, initialPanelF
   // and no-op changes (prev === next), so the very first value never raises a Δ and a
   // same-value "change" is never recorded. Each call captures its own old→new pair, so
   // A→B→C without reasons yields two records (A→B, B→C) — multi-transition tracking.
-  function recordTransition(d: Dataset, fvId: string, prev: string, next: string) {
+  function recordTransition(d: Dataset, fvId: string, prev: string, next: string, id?: string) {
     if (prev === "" || prev === next) return;
     d.deltaRecords.push({
-      id: newId(),
+      id: id ?? newId(),
       field_value_id: fvId,
       old_value: prev,
       new_value: next,
@@ -1106,8 +1172,14 @@ export function SubjectRecord({ studyId, subjectId, initialFormId, initialPanelF
   // date / file), whose every change is an atomic commit → record the transition now.
   // Text inputs pass false (they would record a half-typed entry) and instead record
   // one transition per focus→blur edit via recordTextEdit().
-  function setFieldValue(field: FormFieldRow, value: string, recordChange = false, skipCheck = false) {
+  function setFieldValue(field: FormFieldRow, value: string, recordChange = false, skipCheck = false, suppressReasonModal = false) {
     if (readOnly) return; // locked forms + the ePRO stub are read-only
+    // Item 1 — editing a previously-saved value pops the "Reason for change" modal.
+    // Pre-generate the delta id so the modal can key onto the exact record created
+    // inside update() (the mutator runs asynchronously, so we can't read it back).
+    const prevOutside = fvFor(field.id)?.value ?? "";
+    const promptReason = recordChange && !suppressReasonModal && prevOutside !== "" && prevOutside !== value;
+    const reasonRecordId = promptReason ? newId() : undefined;
     update((d: Dataset) => {
       let inst = d.formInstances.find((i) => i.subject_id === subjectId && i.form_id === field.form_id);
       if (!inst) {
@@ -1126,7 +1198,7 @@ export function SubjectRecord({ studyId, subjectId, initialFormId, initialPanelF
       }
       // Δ (discrete controls only): every change of an already-saved field records its
       // own pending transition (prev → value). First entry / no-op changes are skipped.
-      if (recordChange) recordTransition(d, fv.id, prev, value);
+      if (recordChange) recordTransition(d, fv.id, prev, value, reasonRecordId);
 
       // Live EDIT CHECK (not a query): out of range → raise/keep an open edit check;
       // back in range → resolve it. Discrete controls evaluate on change; free-text /
@@ -1147,6 +1219,7 @@ export function SubjectRecord({ studyId, subjectId, initialFormId, initialPanelF
         if (subj) subj.ineligible = fail;
       }
     });
+    if (promptReason && reasonRecordId) setChangeModal({ recordId: reasonRecordId, field, prev: prevOutside, next: value });
   }
 
   // Out-of-range → raise/keep an open edit check; back in range → resolve it. Never
@@ -1189,10 +1262,15 @@ export function SubjectRecord({ studyId, subjectId, initialFormId, initialPanelF
     if (!fv) return;
     const cur = fv.value ?? "";
     if (cur === snap.value) return; // no net change this edit
+    // Item 1 — editing a previously-saved text value pops the reason modal (first
+    // entry, snap.value === "", is skipped by recordTransition and here too).
+    const promptReason = snap.value !== "";
+    const reasonRecordId = promptReason ? newId() : undefined;
     update((d: Dataset) => {
       const f = d.fieldValues.find((v) => v.id === fv.id);
-      if (f) recordTransition(d, f.id, snap.value, cur);
+      if (f) recordTransition(d, f.id, snap.value, cur, reasonRecordId);
     });
+    if (promptReason && reasonRecordId) setChangeModal({ recordId: reasonRecordId, field, prev: snap.value, next: cur });
   }
 
   // ─── Change reason (Δ) ──────────────────────────────────────────────────────
@@ -1222,10 +1300,54 @@ export function SubjectRecord({ studyId, subjectId, initialFormId, initialPanelF
       if (r) r.status = "approved";
     });
   }
+  // Item 1 — commit the reason for an in-flight edit (pending Δ → responded) + toast.
+  function saveChangeReason() {
+    const m = changeModal;
+    if (!m) return;
+    const reasonText = (changeReason === "__other__" ? changeOther : changeReason).trim();
+    if (!reasonText) return;
+    update((d: Dataset) => {
+      const r = d.deltaRecords.find((x) => x.id === m.recordId);
+      if (r && r.status === "pending") { r.reason = reasonText; r.author_name = ndaName; r.author_role = activeRole; r.status = "responded"; }
+    });
+    setChangeModal(null); setChangeReason(""); setChangeOther("");
+    setToast("Change saved — reason recorded in audit trail.");
+  }
+  // Item 1 — cancel: revert the value to its pre-edit state + drop the pending Δ.
+  function cancelChangeReason() {
+    const m = changeModal;
+    if (!m) { setChangeModal(null); setChangeReason(""); setChangeOther(""); return; }
+    update((d: Dataset) => {
+      const idx = d.deltaRecords.findIndex((x) => x.id === m.recordId);
+      const fvId = idx >= 0 ? d.deltaRecords[idx].field_value_id : undefined;
+      if (idx >= 0) d.deltaRecords.splice(idx, 1);
+      if (fvId) {
+        const fv = d.fieldValues.find((v) => v.id === fvId);
+        if (fv) {
+          fv.value = m.prev;
+          const inst = d.formInstances.find((i) => i.id === fv.form_instance_id);
+          const fld = d.formFields.find((f) => f.id === fv.form_field_id);
+          if (inst && fld) evalEditCheckInline(d, inst, fv, fld, m.prev);
+        }
+      }
+    });
+    setChangeModal(null); setChangeReason(""); setChangeOther("");
+  }
 
   // ─── Form status transitions (persist via update()) ─────────────────────────
   function advanceStatus() {
     if (!flow || !canAdvance) return;
+    // Item 7 — on a one-time form, block the submit attempt when required fields are
+    // empty: surface inline "This field is required" errors + scroll to the first.
+    if (!isRepeatingForm && hasEmptyRequired) {
+      const missing = fields.filter((f) => f.is_required && isFieldVisible(f) && (fvFor(f.id)?.value ?? "").trim() === "");
+      if (missing.length) {
+        setRequiredErrors(new Set(missing.map((f) => f.id)));
+        if (typeof document !== "undefined") document.getElementById(`sr-field-${missing[0].id}`)?.scrollIntoView({ behavior: "smooth", block: "center" });
+        return;
+      }
+    }
+    setRequiredErrors(new Set());
     if (flow.esign) {
       setLockModalOpen(true); // Lock requires e-signature confirmation
       return;
@@ -1489,8 +1611,12 @@ export function SubjectRecord({ studyId, subjectId, initialFormId, initialPanelF
   const isTreatmentForm = fields.some((f) => f.validation?.autoFromArm);
   const treatmentArmMissing = isTreatmentForm && !valByCode("assigned_arm");
 
-  const submitBlocked = hasOpenEditCheck || hasPendingDelta || hasEmptyRequired || shipHardBlock || treatmentArmMissing;
-  const submitBlockReason = treatmentArmMissing ? "Complete randomization before treatment" : shipHardBlock ? "Withdrawal period active — cannot ship for slaughter" : hasEmptyRequired ? "Complete all required fields first" : hasOpenEditCheck ? "Resolve all edit checks first" : hasPendingDelta ? "Provide all change reasons first" : undefined;
+  // Item 7 — empty required fields no longer HARD-disable Submit on a one-time form;
+  // clicking it surfaces inline errors + scrolls to the first empty field. Repeating
+  // forms keep the hard block (their entries validate in the add-entry panel).
+  const requiredHardBlock = isRepeatingForm && hasEmptyRequired;
+  const submitBlocked = hasOpenEditCheck || hasPendingDelta || requiredHardBlock || shipHardBlock || treatmentArmMissing;
+  const submitBlockReason = treatmentArmMissing ? "Complete randomization before treatment" : shipHardBlock ? "Withdrawal period active — cannot ship for slaughter" : hasOpenEditCheck ? "Resolve all edit checks first" : hasPendingDelta ? "Provide all change reasons first" : hasEmptyRequired ? "Complete all required fields first" : undefined;
 
   // Δ change-reason panel — all records for the field, chronological. Each pending
   // record is reasoned on its own; the top context shows the most recent transition.
@@ -1509,14 +1635,16 @@ export function SubjectRecord({ studyId, subjectId, initialFormId, initialPanelF
   // is cleared the total is left blank again, restoring manual entry.
   function commitCadesiSub(subField: FormFieldRow, totalField: FormFieldRow, subs: FormFieldRow[], value: string) {
     if (readOnly) return;
-    setFieldValue(subField, value, true);
+    // Compound derived write (subtotal → auto-recomputed total) — suppress the item-1
+    // reason modal on both writes; the Δ panel still tracks the transitions.
+    setFieldValue(subField, value, true, false, true);
     const rawOf = (s: FormFieldRow) => (s.id === subField.id ? value : (fvFor(s.id)?.value ?? ""));
     const anyHasVal = subs.some((s) => rawOf(s).trim() !== "");
     const sum = subs.reduce((acc, s) => {
       const n = Number(rawOf(s));
       return acc + (rawOf(s).trim() !== "" && !Number.isNaN(n) ? n : 0);
     }, 0);
-    setFieldValue(totalField, anyHasVal ? String(sum) : "", true);
+    setFieldValue(totalField, anyHasVal ? String(sum) : "", true, false, true);
   }
 
   function renderControl(field: FormFieldRow, value: string, queried: boolean, editcheck = false) {
@@ -1653,6 +1781,8 @@ export function SubjectRecord({ studyId, subjectId, initialFormId, initialPanelF
       const tone = field.code === "response_vs_baseline" ? (val === "Improved" ? "green" : val === "Worsened" ? "red" : val === "No change" ? "slate" : "")
         : field.code === "temperature_normalized" || field.code === "meets_temp_criterion" ? (val === "Yes" ? "green" : val === "No" ? "red" : "")
         : field.code === "requires_retreatment" ? (val.startsWith("Yes") ? "amber" : val === "No" ? "green" : "")
+        // FCR above the 2.0 feed-efficiency target → amber flag (Fix 5).
+        : field.code.includes("fcr") ? (Number(val) > 2.0 ? "amber" : "")
         : "";
       return (
         <div className="field-calc">
@@ -2503,6 +2633,12 @@ export function SubjectRecord({ studyId, subjectId, initialFormId, initialPanelF
                 value = dataset.barns.find((b) => b.id === subject.barn_id)?.name ?? "";
               }
               const ec = editCheckFor(fv?.id); // open auto edit-check (orange alert)
+              // Out-of-range flag that PERSISTS on a submitted (read-only) form even
+              // when no live edit-check row exists (item 3) — seeded/submitted data
+              // carries no edit-check row, so re-run the validator for the read view.
+              const oor = readOnly && (value ?? "").trim() !== "" && !ec
+                ? evaluateField(field, value, species, dataset.speciesRanges, subjectAgeMonths)
+                : null;
               const dispQ = fieldQueryFor(fv?.id); // any query: open | responded | resolved
               const raised = dispQ?.status === "open"; // an open query tints the field amber (edit checks use the orange indicator)
               const sdvRec = sdvRecordFor(fv?.id);
@@ -2516,16 +2652,18 @@ export function SubjectRecord({ studyId, subjectId, initialFormId, initialPanelF
               const helpHint = field.validation?.hint ?? null; // persistent help text (score-scale legend, etc.)
               const isWide = field.field_type === "textarea" || field.field_type === "multiselect";
               const deltaTitle = dState === "approved" ? "Change approved by DM" : dState === "responded" ? "Change reason submitted — awaiting DM review" : "Change reason required";
+              // Item 7 — this required field was left empty on a submit attempt.
+              const reqMissing = requiredErrors.has(field.id) && (value ?? "").trim() === "";
               return (
                 <Fragment key={field.id}>
                   {showSection && <div className="form-section-title">{section}</div>}
-                <div className={`field${isWide ? " full" : ""}${readOnly ? " state-locked" : ""}`}>
+                <div id={`sr-field-${field.id}`} className={`field${isWide ? " full" : ""}${readOnly ? " state-locked" : ""}${reqMissing ? " field-required-missing" : ""}`}>
                   <label className="field-label">
                     {field.label}
                     {field.is_required && <span className="field-req"> *</span>}
                   </label>
                   <div className="field-row">
-                    {renderControl(field, value, raised, !!ec)}
+                    {renderControl(field, value, raised, !!ec || (!!oor && !dispQ))}
                     {showInteractiveSdv && (
                       <button
                         className={`sdv-btn visible${verified ? " verified" : ""}${(sdvBlock || value.trim() === "") && !verified ? " blocked" : ""}`}
@@ -2583,10 +2721,21 @@ export function SubjectRecord({ studyId, subjectId, initialFormId, initialPanelF
                         {dispQ.status === "open" ? `[${qCodeFor(dispQ.id)}] ${dispQ.title}` : `[${qCodeFor(dispQ.id)}] open — view thread`}
                       </span>
                     </div>
+                  ) : oor ? (
+                    // Item 3 — persisted out-of-range on a read-only form. If a query
+                    // exists on the field, show the query badge instead of the flag.
+                    dispQ ? (
+                      <div className="field-state state-query"><i className="ti ti-flag-filled"></i><span>Query raised</span></div>
+                    ) : (
+                      <div className="field-state state-editcheck"><i className="ti ti-alert-triangle"></i><span>Out of range{hint ? ` — ${hint}` : ""}</span></div>
+                    )
                   ) : helpHint ? (
                     <span className="field-hint">{helpHint}</span>
                   ) : (
                     hint && <span className="field-hint">{hint}</span>
+                  )}
+                  {reqMissing && (
+                    <span className="field-required-error"><i className="ti ti-alert-triangle"></i> This field is required</span>
                   )}
                   {modeSdv && verified && (
                     <span className="sdv-verified-note">
@@ -2617,7 +2766,7 @@ export function SubjectRecord({ studyId, subjectId, initialFormId, initialPanelF
               {(() => {
                 const nm = selectedForm?.name ?? "";
                 const isAeForm = nm === "Adverse Event";
-                const isConmedForm = nm === "ConMed" || nm === "Concomitant Medication Log";
+                const isConmedForm = nm === "ConMed" || nm === "Concomitant Medications" || nm === "Concomitant Medication Log";
                 let injected = false;
                 return fields.map((field) => {
                   // Hide the schema's own VeDDRA coded-term field on AE/ConMed panels —
@@ -2917,6 +3066,35 @@ export function SubjectRecord({ studyId, subjectId, initialFormId, initialPanelF
           })}
         </div>
       </div>
+
+      {/* Reason for change modal (21 CFR Part 11) — item 1 */}
+      {changeModal && (
+        <div className="sr-modal-overlay" onClick={cancelChangeReason}>
+          <div className="sr-modal" onClick={(e) => e.stopPropagation()} role="dialog" aria-modal="true" aria-label="Reason for change">
+            <div className="sr-modal-title"><i className="ti ti-writing"></i> Reason for change</div>
+            <div className="sr-modal-body">
+              <p style={{ margin: "0 0 var(--space-3)" }}>You are modifying a previously saved value. Per 21 CFR Part 11, a reason is required.</p>
+              <div className="rfc-values">
+                <div className="rfc-row"><span className="rfc-label">Previous value</span><span className="rfc-mono">{changeModal.prev || "—"}</span></div>
+                <div className="rfc-row"><span className="rfc-label">New value</span><span className="rfc-mono">{changeModal.next || "—"}</span></div>
+              </div>
+              <label className="rfc-reason-label">Reason</label>
+              <select className="sr-modal-input" value={changeReason} onChange={(e) => setChangeReason(e.target.value)}>
+                <option value="">Select a reason…</option>
+                {CHANGE_REASONS.map((r) => <option key={r} value={r}>{r}</option>)}
+                <option value="__other__">Other (specify)</option>
+              </select>
+              {changeReason === "__other__" && (
+                <textarea className="compose-textarea" style={{ marginTop: "var(--space-2)" }} placeholder="Specify the reason for this change…" value={changeOther} onChange={(e) => setChangeOther(e.target.value)} />
+              )}
+            </div>
+            <div className="sr-modal-actions">
+              <button className="btn-secondary" type="button" onClick={cancelChangeReason}>Cancel</button>
+              <button className="btn-primary" type="button" disabled={!changeReason || (changeReason === "__other__" && !changeOther.trim())} onClick={saveChangeReason}>Save change</button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* E-signature modal (Finalized → Locked) */}
       {lockModalOpen && (

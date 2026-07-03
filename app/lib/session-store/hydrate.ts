@@ -116,10 +116,20 @@ export async function hydrateFromSupabase(): Promise<Dataset> {
   // CA-0801 EOS drug-return form (F046) is the same accountability form type as the
   // Follow-Up "Study Drug Accountability" forms — rename it to match.
   const CA_F046_ID = "6100002e-0000-0000-0000-000000000801";
+  // ─── CA-0801 new forms (v61) — synthetic ids for the Informed Consent form + its
+  // "Enrollment & Randomization" group, and a "Safety & Events" group that the
+  // existing standalone "ConMed" form is renamed into ("Concomitant Medications").
+  const caStudyId = (studies.data ?? []).find((s) => s.code === "CA-0801")?.id;
+  const CA_ICF_GROUP = "6100f001-0000-0000-0000-000000000801";
+  const CA_ICF_FORM = "6100f002-0000-0000-0000-000000000801";
+  const CA_SAFETY_GROUP = "6100f003-0000-0000-0000-000000000801";
   const formsWithFlags = ((forms.data ?? []) as Dataset["forms"]).map((f) =>
     f.id === F025_ID ? { ...f, name: "Re-treatment Log" } // repeating table in Safety & Events
       : (f.id ?? "").toLowerCase() === CA_F046_ID ? { ...f, name: "Study Drug Accountability" }
-        : SUMMARY_FORM_NAMES.has(f.name) ? { ...f, is_summary: true } : f,
+        // CA-0801 ConMed → "Concomitant Medications", reparented under the new
+        // Safety & Events group (it's already a repeating log with the right fields).
+        : f.study_id === caStudyId && f.name === "ConMed" ? { ...f, name: "Concomitant Medications", parent_form_id: CA_SAFETY_GROUP }
+          : SUMMARY_FORM_NAMES.has(f.name) ? { ...f, is_summary: true } : f,
   );
 
   // ─── BR-2502 Treatment Administration (F005) + Re-treatment (F025) reshape ──
@@ -268,10 +278,33 @@ export async function hydrateFromSupabase(): Promise<Dataset> {
     ff(PH_F003, "f003-randomized_by", "randomized_by", "Confirmed by", "text", null, null, false, 7, { section: "Randomization" }),
   ];
 
+  // ─── CA-0801 Informed Consent (ICF) form + its group + a Safety & Events group ─
+  // GCP: no subject should be enrolled without documented consent. The ICF is a new
+  // study-level form (not visit-bound), first in a new "Enrollment & Randomization"
+  // group (before Screening). "Safety & Events" is the group the renamed ConMed form
+  // now lives in. Sequences bracket the existing CA forms so the tree order is right.
+  const caFormRows = (forms.data ?? []).filter((f) => f.study_id === caStudyId);
+  const caMinSeq = caFormRows.length ? Math.min(...caFormRows.map((f) => f.sequence)) : 0;
+  const caMaxSeq = caFormRows.length ? Math.max(...caFormRows.map((f) => f.sequence)) : 0;
+  const caNewForms: Dataset["forms"] = caStudyId ? [
+    { id: CA_ICF_GROUP, study_id: caStudyId, visit_id: null, parent_form_id: null, code: "enrollment_randomization", name: "Enrollment & Randomization", sequence: caMinSeq - 2 },
+    { id: CA_ICF_FORM, study_id: caStudyId, visit_id: null, parent_form_id: CA_ICF_GROUP, code: "informed_consent", name: "Informed Consent", sequence: caMinSeq - 1 },
+    { id: CA_SAFETY_GROUP, study_id: caStudyId, visit_id: null, parent_form_id: null, code: "safety_events", name: "Safety & Events", sequence: caMaxSeq + 1 },
+  ] : [];
+  const CA_ICF_FIELDS: FF[] = caStudyId ? [
+    ff(CA_ICF_FORM, "icf-owner_name", "owner_guardian_name", "Owner / guardian name", "text", null, null, true, 1, { section: "Consent" }),
+    ff(CA_ICF_FORM, "icf-relationship", "relationship_to_animal", "Relationship to animal", "select", ["Owner", "Authorized representative"], null, true, 2, { section: "Consent" }),
+    ff(CA_ICF_FORM, "icf-consent_date", "consent_date", "Consent date", "date", null, null, true, 3, { section: "Consent", hint: "Must be on or before the screening date." }),
+    ff(CA_ICF_FORM, "icf-protocol_version", "protocol_version_consented", "Protocol version consented to", "select", ["v1.0", "v2.0", "v2.1"], null, true, 4, { section: "Consent", hint: "From Settings → Protocol & Amendments." }),
+    ff(CA_ICF_FORM, "icf-witness_name", "witness_name", "Witness name", "text", null, null, false, 5, { section: "Consent" }),
+    ff(CA_ICF_FORM, "icf-esign_ack", "esign_acknowledgment", "Electronic signature acknowledgment", "checkbox", ["I confirm that informed consent was obtained prior to any study procedures"], null, true, 6, { section: "Signature" }),
+    ff(CA_ICF_FORM, "icf-version_notes", "consent_version_notes", "Consent version notes", "textarea", null, null, false, 7, { section: "Signature" }),
+  ] : [];
+
   const RESHAPED_FORM_IDS = new Set([F005, F025, CA_F014, CA_F020, CA_F028, CA_F036, CA_F046, PH_F003, ...brVsForms.map((f) => f.id), ...brCrForms.map((f) => f.id)]);
   const reshapedFormFields: FF[] = [
     ...(formFields as FF[]).filter((f) => !RESHAPED_FORM_IDS.has((f.form_id ?? "").toLowerCase()) && !RESHAPED_FORM_IDS.has(f.form_id) && !shouldDropField(f)),
-    ...F005_FIELDS, ...F025_FIELDS, ...vsFields, ...crFields, ...CA_FIELDS, ...PH_F003_FIELDS,
+    ...F005_FIELDS, ...F025_FIELDS, ...vsFields, ...crFields, ...CA_FIELDS, ...PH_F003_FIELDS, ...CA_ICF_FIELDS,
   ];
 
   // Seed the BR-2502 CO-001 Re-treatment Log entry. The live DB already has an F025
@@ -411,6 +444,97 @@ export async function hydrateFromSupabase(): Promise<Dataset> {
         seed("lot", "f003-test_article_lot", isPhyto ? "LOT-PHY-0.05" : "LOT-CTRL-00");
         seed("rate", "f003-additive_inclusion_rate", isPhyto ? "0.05" : "0");
         seed("by", "f003-randomized_by", "S. Mwangi");
+      });
+    }
+  }
+
+  // ─── CA-0801 Informed Consent (ICF) — one completed record per enrolled dog ──
+  // GCP requirement: consent documented before enrolment. Seeded finalized, with the
+  // owner name pulled from companion_owners, consent on/before screening, protocol
+  // v2.1, and the e-signature acknowledgment checked.
+  if (caStudyId) {
+    const ENROLLED = new Set(["randomized", "enrolled", "active", "completed", "withdrawn"]);
+    const caDogs = (subjects.data ?? []).filter((s) => s.study_id === caStudyId && ENROLLED.has(s.status));
+    const ownerName = new Map((owners.data ?? []).map((o) => [o.id, o.full_name]));
+    const fInstA = formInstances as Dataset["formInstances"];
+    const fvA = fieldValues as Dataset["fieldValues"];
+    caDogs.forEach((dog, i) => {
+      const iid = `fi-icf-${dog.id}`;
+      if (!fInstA.some((x) => x.id === iid)) fInstA.push({ id: iid, form_id: CA_ICF_FORM, subject_id: dog.id, status: "finalized" });
+      const seed = (fieldId: string, value: string) => {
+        if (value === "") return;
+        if (!fvA.some((v) => v.form_instance_id === iid && v.form_field_id === fieldId))
+          fvA.push({ id: `fv-icf-${dog.id}-${fieldId}`, form_instance_id: iid, form_field_id: fieldId, value });
+      };
+      seed("icf-owner_name", (dog.owner_id ? ownerName.get(dog.owner_id) : "") || "Owner of record");
+      seed("icf-relationship", "Owner");
+      seed("icf-consent_date", "2026-03-05");
+      seed("icf-protocol_version", "v2.1");
+      seed("icf-witness_name", i % 2 === 0 ? "Dr. A. Reyes" : "Dr. M. Chen");
+      seed("icf-esign_ack", JSON.stringify(["I confirm that informed consent was obtained prior to any study procedures"]));
+    });
+  }
+
+  // ─── CA-0801 Concomitant Medications — 2–3 entries per completed dog ─────────
+  // The renamed ConMed form (now "Concomitant Medications", in Safety & Events) is a
+  // repeating log. Seed prior atopic-dermatitis meds (Apoquel, Cytopoint) discontinued
+  // at study start, plus one ongoing otitis medication on the first completed dog.
+  if (caStudyId) {
+    const caConmedForm = (forms.data ?? []).find((f) => f.study_id === caStudyId && f.name === "ConMed");
+    if (caConmedForm) {
+      const cid = caConmedForm.id;
+      const cmField = (code: string) => (formFields as FF[]).find((f) => f.form_id === cid && f.code === code)?.id;
+      const completedDogs = (subjects.data ?? []).filter((s) => s.study_id === caStudyId && s.status === "completed");
+      const fInstC = formInstances as Dataset["formInstances"];
+      const fvC = fieldValues as Dataset["fieldValues"];
+      const seedEntry = (dogId: string, n: number, vals: Record<string, string>) => {
+        const iid = `fi-conmed-${dogId}-${n}`;
+        if (!fInstC.some((x) => x.id === iid)) fInstC.push({ id: iid, form_id: cid, subject_id: dogId, status: "finalized" });
+        for (const [code, value] of Object.entries(vals)) {
+          if (value === "") continue;
+          const fid = cmField(code); if (!fid) continue;
+          if (!fvC.some((v) => v.form_instance_id === iid && v.form_field_id === fid))
+            fvC.push({ id: `fv-conmed-${dogId}-${n}-${code}`, form_instance_id: iid, form_field_id: fid, value });
+        }
+      };
+      completedDogs.forEach((dog, di) => {
+        seedEntry(dog.id, 1, { medication_name: "Apoquel (oclacitinib)", indication: "Atopic dermatitis — pruritus", dose: "0.5 mg/kg", frequency: "q12h", route: "Oral", start_date: "2025-12-01", end_date: "2026-03-04", ongoing: "No", investigator_comments: "Prior medication, discontinued at study start." });
+        seedEntry(dog.id, 2, { medication_name: "Cytopoint (lokivetmab)", indication: "Atopic dermatitis — pruritus", dose: "2 mg/kg", frequency: "q28d", route: "Injectable", start_date: "2025-11-15", end_date: "2026-03-04", ongoing: "No", investigator_comments: "Prior medication, discontinued at study start." });
+        if (di === 0) seedEntry(dog.id, 3, { medication_name: "Osurnia (florfenicol / terbinafine / betamethasone)", indication: "Otitis externa (recurrent)", dose: "1 tube per affected ear", frequency: "Day 1 and Day 7", route: "Topical", start_date: "2026-04-10", ongoing: "Yes", investigator_comments: "Ongoing — recurrent otitis, managed concurrently with study diet." });
+      });
+    }
+  }
+
+  // ─── PH-2401 weekly FCR values (Fix 5) ──────────────────────────────────────
+  // Seed fcr_this_period + cumulative_fcr on each pen's existing weekly "Body Weight
+  // & Feed — Day D" instance, phase-realistic (Starter ~1.4, Grower ~1.7, Finisher
+  // ~1.9–2.0). Some finisher weeks land just above the 2.0 target → amber flag.
+  {
+    const phId = (studies.data ?? []).find((s) => s.code === "PH-2401")?.id;
+    if (phId) {
+      const phPens = (subjects.data ?? []).filter((s) => s.study_id === phId);
+      const bwForms = (forms.data ?? []).filter((f) => f.study_id === phId && /Body Weight & Feed/i.test(f.name));
+      const fInstP = formInstances as Dataset["formInstances"];
+      const fvP = fieldValues as Dataset["fieldValues"];
+      const fieldId = (formId: string, code: string) => (formFields as FF[]).find((f) => f.form_id === formId && f.code === code)?.id;
+      phPens.forEach((pen, penIdx) => {
+        for (const form of bwForms) {
+          const inst = fInstP.find((i) => i.form_id === form.id && i.subject_id === pen.id);
+          if (!inst) continue; // only weeks that actually exist
+          const day = Number((form.name.match(/Day\s+(\d+)/i) ?? [])[1]);
+          if (!day) continue;
+          const wk = Math.round(day / 7); // 1..6
+          const bump = ((penIdx % 3) - 1) * 0.05; // -0.05 / 0 / +0.05 per pen
+          const base = wk <= 2 ? 1.35 + wk * 0.03 : wk <= 4 ? 1.55 + wk * 0.05 : 1.85 + wk * 0.03;
+          const fcr = (base + bump).toFixed(2); // finisher wk6 (bump ≥ 0) → > 2.0
+          const cum = (1.30 + wk * 0.06).toFixed(2);
+          const fThis = fieldId(form.id, "fcr_this_period");
+          const fCum = fieldId(form.id, "cumulative_fcr");
+          if (fThis && !fvP.some((v) => v.form_instance_id === inst.id && v.form_field_id === fThis))
+            fvP.push({ id: `fv-fcr-${inst.id}`, form_instance_id: inst.id, form_field_id: fThis, value: fcr });
+          if (fCum && !fvP.some((v) => v.form_instance_id === inst.id && v.form_field_id === fCum))
+            fvP.push({ id: `fv-cumfcr-${inst.id}`, form_instance_id: inst.id, form_field_id: fCum, value: cum });
+        }
       });
     }
   }
@@ -651,7 +775,7 @@ export async function hydrateFromSupabase(): Promise<Dataset> {
     pens: (pens.data ?? []) as Dataset["pens"],
     subjects: (subjects.data ?? []) as Dataset["subjects"],
     owners: (owners.data ?? []) as Dataset["owners"],
-    forms: formsWithFlags,
+    forms: [...formsWithFlags, ...caNewForms],
     formFields: reshapedFormFields,
     formInstances: formInstances as Dataset["formInstances"],
     fieldValues: fieldValues as Dataset["fieldValues"],
