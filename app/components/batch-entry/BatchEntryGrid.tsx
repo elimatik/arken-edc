@@ -28,8 +28,10 @@ import "./batch-entry.css";
 const newId = () => crypto.randomUUID();
 const RFC_REASONS = ["Data correction", "Transcription error", "Updated source document", "Other"];
 // Fields rendered as a shared "batch header" above the rows (applied to every
-// animal) rather than as a per-row column. For now: the visit date.
-const BATCH_HEADER_CODES = ["visit_date"];
+// animal) rather than as a per-row column. Required header fields gate row entry;
+// notes/comments are never header fields, so they never gate. "Site" is per-animal
+// (a row filter), not a shared header field, so it isn't gated here.
+const BATCH_HEADER_CODES = ["visit_date", "administered_by"];
 const parseMulti = (v: string): string[] => { try { const a = JSON.parse(v || "[]"); return Array.isArray(a) ? a : []; } catch { return v ? [v] : []; } };
 
 type Target = { sid: string; field: FormFieldRow };
@@ -77,6 +79,14 @@ export function BatchEntryGrid({
   const [toast, setToast] = useState<string | null>(null);
   // Nothing to save on load; any field change flips this true, Submit-all resets it.
   const [isDirty, setIsDirty] = useState(false);
+
+  // Header gate — every required batch-header field must be filled before rows are
+  // interactive. headerReady drives the gate; isDirty tells apart a fresh load
+  // (disable + hint) from a header cleared after the user has been working
+  // (keep interactive + amber "re-validate" warning).
+  const headerReady = headerFields.every((f) => (headerVals[f.id] ?? "").trim() !== "");
+  const rowsDisabled = !headerReady && !isDirty;
+  const headerCleared = !headerReady && isDirty;
 
   // ── Store helpers (keyed by subject → that animal's own form instance) ───────
   const instForSubject = (sid: string) => dataset.formInstances.find((i) => i.subject_id === sid && i.form_id === formId);
@@ -251,7 +261,7 @@ export function BatchEntryGrid({
         </div>
         <div className="grid-header-right">
           <button className="btn-secondary" type="button" onClick={onExitOrigin}><i className="ti ti-arrow-left"></i> Exit batch</button>
-          <button className="btn-primary" type="button" disabled={!isDirty} onClick={submitAll} title={isDirty ? "" : "No changes to save"}><i className="ti ti-check"></i> Submit all</button>
+          <button className="btn-primary" type="button" disabled={!isDirty || !headerReady} onClick={submitAll} title={!headerReady ? "Complete the batch header fields first" : isDirty ? "" : "No changes to save"}><i className="ti ti-check"></i> Submit all</button>
         </div>
       </div>
 
@@ -273,7 +283,7 @@ export function BatchEntryGrid({
             {headerFields.map((f) => (
               <div className="bhb-field" key={f.id}>
                 <label className="bhb-field-label">{f.label}{f.is_required ? <span className="req"> *</span> : ""}</label>
-                <input type="date" className="bhb-input" value={headerVals[f.id] ?? ""} onChange={(e) => setHeaderField(f, e.target.value)} />
+                <input type={f.field_type === "date" || f.field_type === "datetime" ? "date" : "text"} className="bhb-input" value={headerVals[f.id] ?? ""} onChange={(e) => setHeaderField(f, e.target.value)} />
                 {(headerVals[f.id] ?? "") !== "" && <span className="bhb-note"><i className="ti ti-circles-relation"></i> Auto-filled where empty</span>}
               </div>
             ))}
@@ -281,9 +291,17 @@ export function BatchEntryGrid({
         </div>
       )}
 
+      {/* Header-completion gate — hint (fresh) or amber re-validate warning (cleared). */}
+      {rowsDisabled && (
+        <div className="batch-gate-hint"><i className="ti ti-info-circle"></i> Complete the batch header fields above before entering subject data.</div>
+      )}
+      {headerCleared && (
+        <div className="batch-gate-warn"><i className="ti ti-alert-triangle"></i> Changing batch header fields will re-validate all rows. Existing data is preserved but should be reviewed.</div>
+      )}
+
       {/* Grid */}
       <div className="grid-wrap">
-        <table className="batch-table">
+        <table className={`batch-table${rowsDisabled ? " batch-rows-disabled" : ""}`}>
           <thead>
             <tr>
               <th className="th-subject"><div className="th-subject-inner"><span className="th-hdr-label">Animal</span></div></th>

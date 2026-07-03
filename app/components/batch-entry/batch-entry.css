@@ -149,3 +149,10 @@
 .be-toast { position: fixed; bottom: var(--space-5); left: 50%; transform: translateX(-50%); display: flex; align-items: center; gap: var(--space-2); padding: var(--space-3) var(--space-4); background: var(--color-text-primary); color: #fff; border-radius: var(--radius-md); box-shadow: 0 8px 24px rgba(0, 0, 0, 0.22); font-size: var(--text-sm); z-index: 400; }
 .be-toast i { color: var(--green-400); }
 .be-toast-x { background: none; border: none; color: rgba(255, 255, 255, 0.7); cursor: pointer; padding: 0 0 0 var(--space-2); }
+
+/* Batch header-completion gate */
+.batch-gate-hint { display: flex; align-items: center; gap: var(--space-2); margin: 0 var(--space-5) var(--space-3); padding: var(--space-2) var(--space-4); background: var(--blue-50); border: 1px solid var(--blue-200); border-radius: var(--radius-md); color: var(--blue-600); font-size: var(--text-sm); }
+.batch-gate-warn { display: flex; align-items: center; gap: var(--space-2); margin: 0 var(--space-5) var(--space-3); padding: var(--space-2) var(--space-4); background: var(--amber-50); border: 1px solid var(--amber-200); border-radius: var(--radius-md); color: var(--amber-700); font-size: var(--text-sm); }
+.batch-gate-hint i, .batch-gate-warn i { font-size: 15px; flex-shrink: 0; }
+/* While the header is incomplete on a fresh grid, dim + freeze the rows. */
+.batch-table.batch-rows-disabled tbody { opacity: 0.5; pointer-events: none; }
