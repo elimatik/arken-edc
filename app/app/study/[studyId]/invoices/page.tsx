@@ -36,8 +36,8 @@ export default function InvoicesPage() {
   // ── Fee schedule (per current study) ──
   const sites = useMemo(() => sitesForStudy(study.code), [study.code]);
   const [fees, setFees] = useState<FeeEvent[]>(() => feeEventsForStudy(study.code));
-  const [currency, setCurrency] = useState("USD"); // one study-wide currency for the whole fee schedule
-  useEffect(() => { setFees(feeEventsForStudy(study.code)); setCurrency("USD"); }, [study.code]);
+  const [siteCurrency, setSiteCurrency] = useState<Record<string, string>>(() => Object.fromEntries(sitesForStudy(study.code).map((s) => [s.name, "USD"]))); // independent per-site currency
+  useEffect(() => { setFees(feeEventsForStudy(study.code)); setSiteCurrency(Object.fromEntries(sitesForStudy(study.code).map((s) => [s.name, "USD"]))); }, [study.code]);
   const [sortAsc, setSortAsc] = useState<boolean | null>(null); // null unsorted · true asc · false desc (by name)
   const [editCell, setEditCell] = useState<{ id: string; site: string } | null>(null);
   const [editBuf, setEditBuf] = useState("");
@@ -61,9 +61,9 @@ export default function InvoicesPage() {
     setFees((prev) => prev.map((f) => {
       if (f.id !== editCell.id) return f;
       const ov = { ...f.overrides };
-      // The input is in the display currency — store the USD equivalent.
+      // The input is in the site's display currency — store the USD equivalent.
       if (Number.isNaN(num) || num <= 0) delete ov[editCell.site];
-      else ov[editCell.site] = toUsd(num, currency);
+      else ov[editCell.site] = toUsd(num, siteCurrency[editCell.site] ?? "USD");
       return { ...f, overrides: ov };
     }));
     setEditCell(null);
@@ -71,10 +71,11 @@ export default function InvoicesPage() {
   };
   const startEdit = (id: string, site: string, currentUsd: number | null) => {
     if (!canEdit) return;
-    setEditCell({ id, site }); setEditBuf(currentUsd != null ? String(toCur(currentUsd, currency)) : "");
+    setEditCell({ id, site }); setEditBuf(currentUsd != null ? String(toCur(currentUsd, siteCurrency[site] ?? "USD")) : "");
   };
   const overrideCount = fees.reduce((s, e) => s + Object.keys(e.overrides).length, 0);
   const feeTotal = fees.reduce((s, e) => s + e.rate, 0); // sum of study default rates (USD base)
+  const feeCurrencies = Array.from(new Set(sites.map((s) => siteCurrency[s.name] ?? "USD"))); // distinct currencies in use
 
   // ── Invoices (cross-study) ──
   const [invoices, setInvoices] = useState<Invoice[]>(() => seedInvoices());
@@ -169,11 +170,11 @@ export default function InvoicesPage() {
               </thead>
               <tbody>
                 <tr className="inv-currency-row">
-                  <td colSpan={2}>Billing currency (study-wide)</td>
+                  <td colSpan={2}>Billing currency per site</td>
                   {sites.map((s) => (
                     <td key={s.name} className="inv-r">
-                      <select className="inv-cur-select" value={currency} disabled={!canEdit}
-                        onChange={(e) => setCurrency(e.target.value)}>
+                      <select className="inv-cur-select" value={siteCurrency[s.name] ?? "USD"} disabled={!canEdit}
+                        onChange={(e) => setSiteCurrency((p) => ({ ...p, [s.name]: e.target.value }))}>
                         {CURRENCIES.map((c) => <option key={c} value={c}>{c}</option>)}
                       </select>
                     </td>
@@ -181,7 +182,7 @@ export default function InvoicesPage() {
                 </tr>
                 {feeSections.map((g) => (
                   <FeeSectionRows key={g.sec}
-                    sec={g.sec} items={g.items} sites={sites} currency={currency} canEdit={canEdit}
+                    sec={g.sec} items={g.items} sites={sites} siteCurrency={siteCurrency} canEdit={canEdit}
                     editCell={editCell} editBuf={editBuf} setEditBuf={setEditBuf}
                     onStartEdit={startEdit} onCommit={commitCell} onCancel={() => setEditCell(null)}
                     colSpan={2 + sites.length} />
@@ -192,8 +193,10 @@ export default function InvoicesPage() {
           <div className="inv-summary-bar">
             <span>Event types: <span className="inv-sv">{fees.length}</span></span>
             <span>Site overrides active: <span className="inv-sv warn">{overrideCount}</span></span>
-            <span>Total fee value: <span className="inv-sv">{money(feeTotal, currency)}</span></span>
-            <span style={{ marginLeft: "auto" }}>Holdback 10% · currency {currency}</span>
+            {feeCurrencies.length === 1
+              ? <span>Total fee value: <span className="inv-sv">{money(feeTotal, feeCurrencies[0])}</span></span>
+              : <span>Total fee value: <span className="inv-sv warn">multi-currency</span> ({feeCurrencies.map((c) => money(feeTotal, c)).join(" · ")})</span>}
+            <span style={{ marginLeft: "auto" }}>Holdback 10% · rates set per site</span>
           </div>
         </>
       )}
@@ -391,8 +394,8 @@ function SibField({ label, value, mono }: { label: string; value: string; mono?:
 
 // One fee section (header row + per-site override cells). Each site cell is
 // inline-editable — click to enter an override, blur to save, 0/empty to clear.
-function FeeSectionRows({ sec, items, sites, currency, canEdit, editCell, editBuf, setEditBuf, onStartEdit, onCommit, onCancel, colSpan }: {
-  sec: string; items: FeeEvent[]; sites: InvSite[]; currency: string; canEdit: boolean;
+function FeeSectionRows({ sec, items, sites, siteCurrency, canEdit, editCell, editBuf, setEditBuf, onStartEdit, onCommit, onCancel, colSpan }: {
+  sec: string; items: FeeEvent[]; sites: InvSite[]; siteCurrency: Record<string, string>; canEdit: boolean;
   editCell: { id: string; site: string } | null; editBuf: string; setEditBuf: (v: string) => void;
   onStartEdit: (id: string, site: string, current: number | null) => void; onCommit: () => void; onCancel: () => void;
   colSpan: number;
@@ -401,6 +404,7 @@ function FeeSectionRows({ sec, items, sites, currency, canEdit, editCell, editBu
     const isEditing = editCell?.id === ev.id && editCell?.site === site;
     const ovVal = ev.overrides[site];
     const hasOv = ovVal !== undefined;
+    const cur = siteCurrency[site] ?? "USD";
     if (isEditing) {
       return <input className="inv-fee-input" autoFocus value={editBuf}
         onChange={(e) => setEditBuf(e.target.value)} onBlur={onCommit}
@@ -411,7 +415,7 @@ function FeeSectionRows({ sec, items, sites, currency, canEdit, editCell, editBu
         style={{ cursor: canEdit ? "text" : "default", ...(hasOv ? {} : { color: "var(--color-text-tertiary)" }) }}
         title={hasOv ? `${site} override` : "Study default — click to set a site override"}
         onClick={() => onStartEdit(ev.id, site, hasOv ? ovVal : null)}>
-        {hasOv ? money(ovVal, currency) : money(ev.rate, currency)}
+        {hasOv ? money(ovVal, cur) : money(ev.rate, cur)}
       </button>
     );
   };
