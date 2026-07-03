@@ -277,7 +277,7 @@ export function BatchEntryGrid({
       {/* Shared batch-header fields — a section header above a row of compact fields,
           each with its own label above its input. Applied to every animal in the batch. */}
       {headerFields.length > 0 && (
-        <div className="batch-header-bar">
+        <div className={`batch-header-bar${!headerReady ? " batch-header-bar--locked" : ""}`}>
           <div className="bhb-label"><i className="ti ti-link"></i> {headerFields.map((f) => f.label).join(" · ")} — applied to all rows</div>
           <div className="bhb-fields">
             {headerFields.map((f) => (

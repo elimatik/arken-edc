@@ -104,6 +104,10 @@
    row of compact fields, each with its own label above its input. Subtle page-bg +
    bottom border separate it from the animal rows. */
 .batch-header-bar { display: flex; flex-direction: column; gap: var(--space-2); padding: var(--space-3) var(--space-5); background: var(--color-page-bg); border-bottom: 1px solid var(--color-border); flex-shrink: 0; }
+/* While the header is incomplete the gate hint/warning sits directly below the
+   bar and carries its own border, so drop the bar's own bottom border to avoid a
+   doubled divider. Border returns once the header is complete. */
+.batch-header-bar--locked { border-bottom: none; }
 .bhb-label { display: flex; align-items: center; gap: 6px; font-size: var(--text-xs); font-weight: var(--weight-medium); text-transform: uppercase; letter-spacing: var(--tracking-caps); color: var(--color-text-tertiary); }
 .bhb-label i { font-size: 13px; color: var(--purple-600); }
 .bhb-fields { display: flex; align-items: flex-start; gap: var(--space-4); flex-wrap: wrap; }
