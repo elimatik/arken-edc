@@ -103,9 +103,12 @@ const BR_ALL = [...BR_CURATED, ...generate("br", "BR-2502", ["CO", "KS", "NE", "
 const CA_ALL = [...CA_CURATED, ...generate("ca", "CA-0801", ["101", "102", "103"], 8)];
 const PH_ALL = [...PH_CURATED, ...generate("ph", "PH-2401", ["RUA"], 5)];
 
+// Runtime notifications (session-only, per study code) — e.g. a form-unlock request
+// fired to DM/Admin. Prepended so they surface at the top of the study's list.
+let runtimeNotifs: Record<string, Notif[]> = {};
 export function notificationsForStudy(studyCode: string): Notif[] {
   const list = studyCode === "CA-0801" ? CA_ALL : studyCode === "PH-2401" ? PH_ALL : BR_ALL;
-  return list.map((n) => ({ ...n }));
+  return [...(runtimeNotifs[studyCode] ?? []), ...list].map((n) => ({ ...n }));
 }
 // The drawer shows only the most recent items.
 export function drawerNotifications(studyCode: string): Notif[] {
@@ -145,6 +148,11 @@ export function markRead(id: string): void { if (readSet.has(id)) return; readSe
 export function markAllRead(ids: string[]): void { readSet = new Set(readSet); ids.forEach((i) => readSet.add(i)); emit(); }
 export function acknowledge(id: string): void { if (ackSet.has(id)) return; ackSet = new Set(ackSet); ackSet.add(id); emit(); }
 export function setDelivery(id: string, status: DeliveryStatus): void { deliveryMap = new Map(deliveryMap); deliveryMap.set(id, status); emit(); }
+// Fire a session-only notification into a study's inbox (bell badge + drawer + page).
+export function addNotification(studyCode: string, n: Notif): void {
+  runtimeNotifs = { ...runtimeNotifs, [studyCode]: [n, ...(runtimeNotifs[studyCode] ?? [])] };
+  emit();
+}
 function subscribe(cb: () => void): () => void { listeners.add(cb); return () => { listeners.delete(cb); }; }
 export function useReadSet(): Set<string> { return useSyncExternalStore(subscribe, () => readSet, () => readSet); }
 export function useAckSet(): Set<string> { return useSyncExternalStore(subscribe, () => ackSet, () => ackSet); }

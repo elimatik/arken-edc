@@ -200,13 +200,16 @@ export interface FormAuditRow {
   id: string;
   form_instance_id: string;
   subject_id: string | null;
-  action: "revert" | "withdraw";
+  action: "revert" | "withdraw" | "unlock_request" | "unlock_approved" | "unlock_denied";
   from_status: string;
   to_status: string;
   reason: string;
   author_name: string;
   author_role: string;
   created_at: string;
+  description?: string; // unlock request — what needs correcting
+  affected?: string; // unlock request — affected field(s)
+  note?: string; // unlock denial — optional DM note
 }
 
 export interface MembershipRow {

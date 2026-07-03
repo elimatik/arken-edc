@@ -527,6 +527,24 @@
 .rfc-arrow { color: var(--color-text-tertiary); font-weight: var(--weight-bold); }
 .rfc-navwarn { display: flex; align-items: center; gap: var(--space-2); margin: var(--space-3) var(--space-4) 0; padding: var(--space-2) var(--space-3); font-size: var(--text-xs); font-weight: var(--weight-medium); color: var(--amber-700); background: var(--amber-50); border: 1px solid var(--amber-200); border-radius: var(--radius-md); }
 .rfc-navwarn i { font-size: 14px; flex-shrink: 0; }
+/* Read-only "document" field rendering on finalized/locked forms — Fix 1 */
+.field-doc { font-size: var(--text-sm); color: var(--color-text-primary); padding: 6px 0; line-height: 1.5; word-break: break-word; }
+.field-doc.empty { color: var(--color-text-tertiary); }
+.field-doc-block { white-space: pre-wrap; }
+.field-doc-checks { display: flex; flex-direction: column; gap: 4px; padding: 4px 0; }
+.doc-check { display: inline-flex; align-items: center; gap: 6px; font-size: var(--text-sm); color: var(--color-text-tertiary); }
+.doc-check.on { color: var(--color-text-primary); }
+.doc-check i { font-size: 15px; }
+.doc-check.on i { color: var(--blue-600); }
+
+/* Form-header read-only status badge (Fix 1/2) */
+.form-title-row { display: flex; align-items: center; gap: var(--space-3); min-width: 0; }
+.form-status-badge { display: inline-flex; align-items: center; gap: 4px; padding: 2px 10px; font-size: var(--text-xs); font-weight: var(--weight-medium); border-radius: 12px; flex-shrink: 0; white-space: nowrap; }
+.form-status-badge i { font-size: 12px; }
+.form-status-badge.fsb-locked { color: var(--red-600); background: var(--red-50); border: 1px solid var(--red-200); }
+.form-status-badge.fsb-unlock { color: var(--amber-700); background: var(--amber-50); border: 1px solid var(--amber-200); }
+.form-status-badge.fsb-final { color: var(--color-text-secondary); background: var(--color-page-bg); border: 1px solid var(--color-border); }
+
 /* Batch reason panel (toggle OFF, at submit) — Part 2 */
 .rfc-batch-modal { max-width: 560px; width: 92vw; }
 .rfc-batch-list { display: flex; flex-direction: column; gap: var(--space-3); max-height: 46vh; overflow-y: auto; }

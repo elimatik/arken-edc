@@ -12,6 +12,7 @@ import { isStudyLocked } from "@/lib/study-lock";
 import { subjectAeList } from "@/lib/reports-data";
 import { buildVisits, addDays } from "@/lib/visits-data";
 import { getReasonAllEdits } from "@/lib/audit-settings";
+import { addNotification } from "@/lib/notifications-data";
 import { codingIndex, codedDisplay, normalizeTerm } from "@/lib/coding-data";
 import { LOCK_TOOLTIP } from "@/lib/use-study-locked";
 import { RandomizationPanel } from "./RandomizationPanel";
@@ -19,7 +20,7 @@ import { subjectWeightKg, findRandForm } from "@/lib/randomization";
 import { canInv } from "@/lib/inventory-data";
 import { shouldHideArmForSubject } from "@/lib/study-config";
 import { getStudyTypeConfig } from "@/lib/study-type-config";
-import type { Dataset, FormFieldRow, Vial, VialStatus } from "@/lib/session-store/types";
+import type { Dataset, FormFieldRow, FormAuditRow, Vial, VialStatus } from "@/lib/session-store/types";
 import "./subject-record.css";
 
 interface Props {
@@ -141,6 +142,11 @@ const STATUS_LABEL: Record<string, string> = {
 const CHANGE_REASONS = [
   "Data entry error", "Transcription error from source document", "Protocol deviation correction",
   "Clarification from investigator", "Lab result correction", "Unit of measure error", "Date/time correction",
+];
+// Reasons offered when requesting an unlock of a locked form (Fix 2).
+const UNLOCK_REASONS = [
+  "Data entry error", "Transcription error", "New source data available",
+  "Protocol amendment requires update", "Regulatory request",
 ];
 
 // Stub VeDDRA dictionary for the coded-field "Look up" (DM coding).
@@ -290,6 +296,15 @@ export function SubjectRecord({ studyId, subjectId, initialFormId, initialPanelF
   const [revertOpen, setRevertOpen] = useState(false);
   const [revertReason, setRevertReason] = useState("");
   const [withdrawOpen, setWithdrawOpen] = useState(false);
+  // Fix 2 — locked-form unlock request → DM approve/deny.
+  const [unlockOpen, setUnlockOpen] = useState(false);
+  const [unlockReason, setUnlockReason] = useState("");
+  const [unlockOther, setUnlockOther] = useState("");
+  const [unlockDesc, setUnlockDesc] = useState("");
+  const [unlockAffected, setUnlockAffected] = useState("");
+  const [approveUnlockOpen, setApproveUnlockOpen] = useState(false);
+  const [denyOpen, setDenyOpen] = useState(false);
+  const [denyNote, setDenyNote] = useState("");
 
   useEffect(() => {
     if (!toast) return;
@@ -673,6 +688,12 @@ export function SubjectRecord({ studyId, subjectId, initialFormId, initialPanelF
   // every form across every subject read-only until an Admin unlocks it.
   const studyLocked = isStudyLocked(dataset, studyId);
   const readOnly = locked || isEproForm || subjectClosed || studyLocked; // fields are non-editable when true
+  // Fix 1 — a finalized OR locked form is a clean read-only DOCUMENT: fields render
+  // as plain display text (no inputs), not just disabled controls.
+  const docReadOnly = currentStatus === "finalized" || currentStatus === "locked";
+  // Fix 2 — a locked form may carry a pending unlock request (amber badge + DM approve/deny).
+  const unlockReq = currentStatus === "locked" ? pendingUnlockRequest() : undefined;
+  const unlockPending = !!unlockReq;
 
   // ─── Emergency unblinding (double-blind studies only — CA-0801) ─────────────
   // The unblinding record persists in the session (for the audit trail), but the
@@ -757,7 +778,7 @@ export function SubjectRecord({ studyId, subjectId, initialFormId, initialPanelF
     return { term: verbatim || "—", status: "pending" };
   }
   function setEntryVal(instId: string, field: FormFieldRow, value: string) {
-    if (readOnly) return;
+    if (readOnly || docReadOnly) return;
     update((d) => {
       const fv = d.fieldValues.find((v) => v.form_instance_id === instId && v.form_field_id === field.id);
       if (fv) fv.value = value;
@@ -890,6 +911,9 @@ export function SubjectRecord({ studyId, subjectId, initialFormId, initialPanelF
   function renderEntryControl(field: FormFieldRow, instId: string) {
     const v = entryVal(instId, field.id);
     const t = field.field_type;
+    // Fix 1 — finalized/locked repeating log entries render as plain document text.
+    const isAutoEntry = t === "calculated" || !!field.validation?.readonlyAuto || !!field.validation?.autoFromArm;
+    if (docReadOnly && !isAutoEntry && field.code !== "test_article") return renderDocValue(field, v);
     // Re-treatment Log — Test article: read-only, auto from the subject's arm (item 1).
     if (field.code === "test_article") {
       const drug = BR_ARM_TO_DRUG[brArmCode(subject?.randomization_arm)] ?? subject?.randomization_arm ?? "—";
@@ -1201,7 +1225,7 @@ export function SubjectRecord({ studyId, subjectId, initialFormId, initialPanelF
   // Text inputs pass false (they would record a half-typed entry) and instead record
   // one transition per focus→blur edit via recordTextEdit().
   function setFieldValue(field: FormFieldRow, value: string, recordChange = false, skipCheck = false, suppressReasonModal = false) {
-    if (readOnly) return; // locked forms + the ePRO stub are read-only
+    if (readOnly || docReadOnly) return; // locked / finalized forms + the ePRO stub are read-only
     // Item 1 (toggle ON) — a pending reason panel blocks any further edit until it's
     // saved: surface the amber "provide a reason first" warning and drop the edit.
     if (reasonPanel && reasonAllEdits) { setReasonNavWarn(true); return; }
@@ -1459,6 +1483,68 @@ export function SubjectRecord({ studyId, subjectId, initialFormId, initialPanelF
     });
     setWithdrawOpen(false);
     setToast("Submission withdrawn — form returned to In-work");
+  }
+  // Fix 2 — the pending unlock request for this form, if any: the latest unlock-*
+  // audit across its instances is a request that hasn't yet been approved/denied.
+  function pendingUnlockRequest(): FormAuditRow | undefined {
+    const ids = new Set(formInstanceList.map((i) => i.id));
+    const rel = dataset.formAudits
+      .filter((a) => ids.has(a.form_instance_id) && a.action.startsWith("unlock_"))
+      .slice().sort((a, b) => (a.created_at < b.created_at ? -1 : 1));
+    const last = rel[rel.length - 1];
+    return last && last.action === "unlock_request" ? last : undefined;
+  }
+  // Fix 2 — submit an unlock request (logged to the audit trail + fired to DM/Admin).
+  function submitUnlockRequest() {
+    const reasonText = (unlockReason === "__other__" ? unlockOther : unlockReason).trim();
+    if (!reasonText || !unlockDesc.trim()) return;
+    const insts = formInstanceList;
+    update((d: Dataset) => {
+      const now = new Date().toISOString();
+      for (const inst of insts) {
+        const di = d.formInstances.find((i) => i.id === inst.id); if (!di) continue;
+        d.formAudits.push({ id: newId(), form_instance_id: di.id, subject_id: subjectId, action: "unlock_request", from_status: "locked", to_status: "locked", reason: reasonText, description: unlockDesc.trim(), affected: unlockAffected.trim() || undefined, author_name: ndaName, author_role: activeRole, created_at: now });
+      }
+    });
+    if (studyRow?.code) {
+      addNotification(studyRow.code, {
+        id: `unlock-${newId()}`, kind: "lock",
+        title: `Form unlock requested — ${selectedForm?.name ?? "Form"}`,
+        body: `${selectedForm?.name ?? "Form"} · ${subject?.subject_code ?? subjectId} · ${studyRow.code} — requested by ${ndaName} (${activeRole})`,
+        ts: "just now", bucket: "today", route: `data-entry/${subjectId}?form=${activeFormId}`,
+        read: false, delivery: "delivered", subjectCode: subject?.subject_code,
+      });
+    }
+    setUnlockOpen(false); setUnlockReason(""); setUnlockOther(""); setUnlockDesc(""); setUnlockAffected("");
+    setToast("Unlock request submitted — pending Data Manager approval");
+  }
+  // Fix 2 — DM/Admin approves: the form returns to In-Work (editable) + audit event.
+  function approveUnlock() {
+    const req = pendingUnlockRequest();
+    const insts = formInstanceList;
+    update((d: Dataset) => {
+      const now = new Date().toISOString();
+      for (const inst of insts) {
+        const di = d.formInstances.find((i) => i.id === inst.id); if (!di) continue;
+        d.formAudits.push({ id: newId(), form_instance_id: di.id, subject_id: subjectId, action: "unlock_approved", from_status: "locked", to_status: "in_work", reason: req?.reason ?? "", author_name: ndaName, author_role: activeRole, created_at: now });
+        di.status = "in_work";
+      }
+    });
+    setApproveUnlockOpen(false);
+    setToast("Form unlocked — returned to in-work status");
+  }
+  // Fix 2 — DM/Admin denies: the form stays locked, request cleared + audit event.
+  function denyUnlock() {
+    const insts = formInstanceList;
+    update((d: Dataset) => {
+      const now = new Date().toISOString();
+      for (const inst of insts) {
+        const di = d.formInstances.find((i) => i.id === inst.id); if (!di) continue;
+        d.formAudits.push({ id: newId(), form_instance_id: di.id, subject_id: subjectId, action: "unlock_denied", from_status: "locked", to_status: "locked", reason: "", note: denyNote.trim() || undefined, author_name: ndaName, author_role: activeRole, created_at: now });
+      }
+    });
+    setDenyOpen(false); setDenyNote("");
+    setToast("Unlock request denied");
   }
 
   // A field must be clean to verify: no open edit check, no pending change reason,
@@ -1726,7 +1812,7 @@ export function SubjectRecord({ studyId, subjectId, initialFormId, initialPanelF
   // sum of all subtotals (using the new value for the edited one). When every subtotal
   // is cleared the total is left blank again, restoring manual entry.
   function commitCadesiSub(subField: FormFieldRow, totalField: FormFieldRow, subs: FormFieldRow[], value: string) {
-    if (readOnly) return;
+    if (readOnly || docReadOnly) return;
     // Compound derived write (subtotal → auto-recomputed total) — suppress the item-1
     // reason modal on both writes; the Δ panel still tracks the transitions.
     setFieldValue(subField, value, true, false, true);
@@ -1737,6 +1823,29 @@ export function SubjectRecord({ studyId, subjectId, initialFormId, initialPanelF
       return acc + (rawOf(s).trim() !== "" && !Number.isNaN(n) ? n : 0);
     }, 0);
     setFieldValue(totalField, anyHasVal ? String(sum) : "", true, false, true);
+  }
+
+  // Fix 1 — plain-text read-only rendering of a field value for a finalized/locked
+  // "document" view: text/number/date/select/radio → text; checkbox/multiselect →
+  // read-only ticks; textarea → a text block. Empty → an em-dash.
+  function renderDocValue(field: FormFieldRow, value: string) {
+    const type = field.field_type;
+    if (value == null || value.trim() === "") return <div className="field-doc empty">—</div>;
+    if (type === "multiselect" || type === "checkbox") {
+      const sel = parseMulti(value);
+      return (
+        <div className="field-doc-checks">
+          {(field.options ?? []).map((o) => (
+            <span key={o} className={`doc-check${sel.includes(o) ? " on" : ""}`}>
+              <i className={`ti ${sel.includes(o) ? "ti-square-check-filled" : "ti-square"}`}></i> {o}
+            </span>
+          ))}
+        </div>
+      );
+    }
+    if (type === "textarea") return <div className="field-doc field-doc-block">{value}</div>;
+    const unit = (type === "number" || type === "integer") && field.unit ? ` ${field.unit}` : "";
+    return <div className="field-doc">{value}{unit}</div>;
   }
 
   function renderControl(field: FormFieldRow, value: string, queried: boolean, editcheck = false) {
@@ -1754,6 +1863,11 @@ export function SubjectRecord({ studyId, subjectId, initialFormId, initialPanelF
     const ro = readOnly;
     const type = field.field_type;
     const isCoded = !!field.validation?.coded;
+
+    // Fix 1 — finalized / locked → a read-only document. Every non-auto field renders
+    // as plain display text (AUTO / calculated fields keep their existing rendering).
+    const isAutoField = type === "calculated" || !!field.validation?.readonlyAuto || !!field.validation?.autoFromArm;
+    if (docReadOnly && !isAutoField) return renderDocValue(field, value);
 
     // Pen / Lot ID — a select sourced from the study's pens (livestock_group only).
     if (field.code === "pen_lot_id" && isLivestockGroup) {
@@ -2193,7 +2307,14 @@ export function SubjectRecord({ studyId, subjectId, initialFormId, initialPanelF
           </div>
 
           <div className="form-header">
-            <h1 className="form-title">{selectedForm?.name || "Form"}</h1>
+            <div className="form-title-row">
+              <h1 className="form-title">{selectedForm?.name || "Form"}</h1>
+              {/* Read-only document badge (Fix 1/2). Locked → red; a pending unlock
+                  request replaces it with an amber "Unlock requested" badge. */}
+              {currentStatus === "finalized" && <span className="form-status-badge fsb-final"><i className="ti ti-check"></i> Finalized</span>}
+              {currentStatus === "locked" && !unlockPending && <span className="form-status-badge fsb-locked"><i className="ti ti-lock"></i> Locked</span>}
+              {currentStatus === "locked" && unlockPending && <span className="form-status-badge fsb-unlock"><i className="ti ti-lock-open"></i> Unlock requested</span>}
+            </div>
             {/* The Remarks dropdown + status CTA apply to the whole form — including
                 repeating (log) forms, whose status/SDV roll up across every entry.
                 Only the auto-generated Production Summary (read-only) has no toolbar. */}
@@ -2258,9 +2379,16 @@ export function SubjectRecord({ studyId, subjectId, initialFormId, initialPanelF
                   {currentStatus === "finalized" && (isAdmin || activeRole === "DM") && (
                     <button className="btn-secondary" type="button" onClick={() => setRevertOpen(true)}>Revert to in-work</button>
                   )}
-                  {/* Locked — DM/Admin see a disabled request-unlock affordance. */}
-                  {currentStatus === "locked" && (isAdmin || activeRole === "DM") && (
-                    <button className="btn-secondary" type="button" disabled title="Contact your Data Manager to unlock this form.">Request unlock</button>
+                  {/* Locked, no request yet — DM/Admin can request an unlock (Fix 2). */}
+                  {currentStatus === "locked" && !unlockPending && (isAdmin || activeRole === "DM") && (
+                    <button className="btn-secondary" type="button" onClick={() => setUnlockOpen(true)}>Request unlock</button>
+                  )}
+                  {/* Locked with a pending request — DM/Admin approve or deny it. */}
+                  {currentStatus === "locked" && unlockPending && (isAdmin || activeRole === "DM") && (
+                    <>
+                      <button className="btn-secondary" type="button" onClick={() => setDenyOpen(true)}>Deny request</button>
+                      <button className="btn-primary" type="button" onClick={() => setApproveUnlockOpen(true)}>Approve unlock</button>
+                    </>
                   )}
                   {/* Flow advance (Mark Reviewed / Finalize / Lock). On a finalized form
                       only DM/Admin (who can Lock) see it — other roles get no action. */}
@@ -2555,7 +2683,7 @@ export function SubjectRecord({ studyId, subjectId, initialFormId, initialPanelF
                 <span className="repeat-count">
                   {repeatingEntries.length} {selectedForm?.name} {repeatingEntries.length === 1 ? "entry" : "entries"}
                 </span>
-                {!readOnly && (
+                {!readOnly && !docReadOnly && (
                   <button className="btn-secondary" type="button" onClick={addEntry}>
                     <i className="ti ti-plus"></i> {repeatingAddLabel}
                   </button>
@@ -2586,7 +2714,7 @@ export function SubjectRecord({ studyId, subjectId, initialFormId, initialPanelF
                           <button className="repeat-btn" title="Edit entry" type="button" onClick={() => setEntryInstanceId(inst.id)}>
                             <i className="ti ti-pencil"></i>
                           </button>
-                          {!readOnly && (
+                          {!readOnly && !docReadOnly && (
                             <button className="repeat-btn" title="Delete entry" type="button" onClick={() => setDeleteEntryId(inst.id)}>
                               <i className="ti ti-trash"></i>
                             </button>
@@ -2715,7 +2843,7 @@ export function SubjectRecord({ studyId, subjectId, initialFormId, initialPanelF
                                   className={`field-input${subEc ? " editcheck" : ""}`}
                                   inputMode="decimal"
                                   value={sv}
-                                  disabled={readOnly}
+                                  disabled={readOnly || docReadOnly}
                                   onChange={(e) => commitCadesiSub(s, field, subs, e.target.value)}
                                 />
                                 {subEc && (
@@ -3310,6 +3438,66 @@ export function SubjectRecord({ studyId, subjectId, initialFormId, initialPanelF
             <div className="sr-modal-actions">
               <button className="btn-secondary" type="button" onClick={() => setWithdrawOpen(false)}>Cancel</button>
               <button className="btn-primary" type="button" onClick={confirmWithdraw}><i className="ti ti-arrow-back-up"></i> Withdraw</button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Request form unlock (locked → request) — Fix 2 */}
+      {unlockOpen && (
+        <div className="sr-modal-overlay" onClick={() => setUnlockOpen(false)}>
+          <div className="sr-modal" onClick={(e) => e.stopPropagation()} role="dialog" aria-modal="true" aria-label="Request form unlock">
+            <div className="sr-modal-title"><i className="ti ti-lock-open"></i> Request form unlock</div>
+            <div className="sr-modal-body">
+              <p style={{ margin: "0 0 var(--space-3)" }}>Unlocking a locked form is a regulated action and requires justification. The request will be logged in the audit trail.</p>
+              <label className="rfc-reason-label">Reason for unlock</label>
+              <select className="sr-modal-input" value={unlockReason} onChange={(e) => setUnlockReason(e.target.value)}>
+                <option value="">Select a reason…</option>
+                {UNLOCK_REASONS.map((r) => <option key={r} value={r}>{r}</option>)}
+                <option value="__other__">Other (specify)</option>
+              </select>
+              {unlockReason === "__other__" && (
+                <input className="sr-modal-input" placeholder="Specify the reason…" value={unlockOther} onChange={(e) => setUnlockOther(e.target.value)} />
+              )}
+              <label className="rfc-reason-label">Description</label>
+              <textarea className="compose-textarea" style={{ marginBottom: "var(--space-3)" }} placeholder="Describe what needs to be corrected and why" value={unlockDesc} onChange={(e) => setUnlockDesc(e.target.value)} />
+              <label className="rfc-reason-label">Affected field(s) <span style={{ color: "var(--color-text-tertiary)", fontWeight: 400 }}>(optional)</span></label>
+              <input className="sr-modal-input" placeholder="Which field(s) need correction?" value={unlockAffected} onChange={(e) => setUnlockAffected(e.target.value)} />
+            </div>
+            <div className="sr-modal-actions">
+              <button className="btn-secondary" type="button" onClick={() => setUnlockOpen(false)}>Cancel</button>
+              <button className="btn-primary" type="button" disabled={!(unlockReason === "__other__" ? unlockOther.trim() : unlockReason) || !unlockDesc.trim()} onClick={submitUnlockRequest}>Submit request</button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Approve unlock (DM/Admin) — Fix 2 */}
+      {approveUnlockOpen && (
+        <div className="sr-modal-overlay" onClick={() => setApproveUnlockOpen(false)}>
+          <div className="sr-modal" onClick={(e) => e.stopPropagation()} role="dialog" aria-modal="true" aria-label="Approve unlock">
+            <div className="sr-modal-title"><i className="ti ti-lock-open"></i> Approve unlock for {selectedForm?.name}?</div>
+            <div className="sr-modal-body">The form will return to in-work status and become editable again. This will be logged in the audit trail.{unlockReq?.reason ? <div style={{ marginTop: "var(--space-2)", fontSize: "var(--text-xs)", color: "var(--color-text-secondary)" }}>Original request reason: {unlockReq.reason}</div> : null}</div>
+            <div className="sr-modal-actions">
+              <button className="btn-secondary" type="button" onClick={() => setApproveUnlockOpen(false)}>Cancel</button>
+              <button className="btn-primary" type="button" onClick={approveUnlock}><i className="ti ti-lock-open"></i> Approve unlock</button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Deny unlock request (DM/Admin) — Fix 2 */}
+      {denyOpen && (
+        <div className="sr-modal-overlay" onClick={() => { setDenyOpen(false); setDenyNote(""); }}>
+          <div className="sr-modal" onClick={(e) => e.stopPropagation()} role="dialog" aria-modal="true" aria-label="Deny unlock request">
+            <div className="sr-modal-title"><i className="ti ti-x"></i> Deny unlock request?</div>
+            <div className="sr-modal-body">
+              <p style={{ margin: "0 0 var(--space-3)" }}>The form will remain locked. Add a note explaining the denial (optional).</p>
+              <textarea className="compose-textarea" placeholder="Note (optional)…" value={denyNote} onChange={(e) => setDenyNote(e.target.value)} />
+            </div>
+            <div className="sr-modal-actions">
+              <button className="btn-secondary" type="button" onClick={() => { setDenyOpen(false); setDenyNote(""); }}>Cancel</button>
+              <button className="btn-primary danger" type="button" onClick={denyUnlock}>Deny request</button>
             </div>
           </div>
         </div>

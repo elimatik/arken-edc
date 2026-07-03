@@ -25,6 +25,7 @@ type AuditType =
   | "data_entry" | "change_reason" | "edit_check"
   | "query_raised" | "query_responded" | "query_resolved"
   | "sdv" | "form_submitted" | "form_locked" | "form_reverted" | "submission_withdrawn"
+  | "unlock_requested" | "form_unlocked" | "unlock_denied"
   | "randomization" | "consent" | "protocol_deviation"
   | "subject_enrolled" | "subject_withdrawn" | "unblinding" | "database_lock" | "database_unlock" | "drug_supply" | "login";
 type FilterCat = "data_entry" | "query" | "sdv" | "status_change" | "form_lock" | "randomization" | "consent" | "deviation" | "unblinding" | "database_lock" | "drug_supply" | "login";
@@ -40,6 +41,9 @@ const TYPE_META: Record<AuditType, { label: string; cls: string; icon: string; c
   form_submitted:    { label: "Form Submitted",     cls: "at-submit",    icon: "send",            cat: "status_change" },
   form_reverted:     { label: "Form Reverted",       cls: "at-submit",    icon: "arrow-back-up",   cat: "status_change" },
   submission_withdrawn: { label: "Submission Withdrawn", cls: "at-withdraw", icon: "arrow-back-up", cat: "status_change" },
+  unlock_requested:  { label: "Unlock Requested",     cls: "at-lock",      icon: "lock-open",       cat: "form_lock" },
+  form_unlocked:     { label: "Form Unlocked",        cls: "at-lock",      icon: "lock-open",       cat: "form_lock" },
+  unlock_denied:     { label: "Unlock Denied",        cls: "at-lock",      icon: "lock",            cat: "form_lock" },
   form_locked:       { label: "Form Locked",        cls: "at-lock",      icon: "lock",            cat: "form_lock" },
   randomization:     { label: "Randomization",      cls: "at-rand",      icon: "arrows-shuffle",  cat: "randomization" },
   consent:           { label: "Consent Obtained",   cls: "at-consent",   icon: "file-check",      cat: "consent" },
@@ -234,16 +238,24 @@ function buildAuditEvents(dataset: Dataset, studyId: string, baseNow: number): A
       details: `${fo.field.label} changed from ${d.old_value} to ${d.new_value}`, statusBefore: d.status });
   }
 
-  // 2b — Form lifecycle: reverts (finalized → in-work) and withdrawn submissions.
+  // 2b — Form lifecycle: reverts, withdrawn submissions, and unlock request/approve/deny.
   for (const a of dataset.formAudits) {
     const ctx = ctxOfInstance(a.form_instance_id); if (!ctx) continue;
     const noField = { fieldId: null, fieldLabel: "", fieldCode: "" };
-    push({ ts: a.created_at, type: a.action === "revert" ? "form_reverted" : "submission_withdrawn",
-      user: mkUser(a.author_name, a.author_role), ...ctx, ...noField,
-      oldValue: null, newValue: null, reason: a.reason || undefined,
-      details: a.action === "revert"
-        ? `${ctx.formName} reverted from ${a.from_status} to in-work`
-        : `${ctx.formName} submission withdrawn — returned to in-work`,
+    const type: AuditType =
+      a.action === "revert" ? "form_reverted"
+      : a.action === "withdraw" ? "submission_withdrawn"
+      : a.action === "unlock_request" ? "unlock_requested"
+      : a.action === "unlock_approved" ? "form_unlocked"
+      : "unlock_denied";
+    const details =
+      a.action === "revert" ? `${ctx.formName} reverted from ${a.from_status} to in-work`
+      : a.action === "withdraw" ? `${ctx.formName} submission withdrawn — returned to in-work`
+      : a.action === "unlock_request" ? `Unlock requested for ${ctx.formName}${a.reason ? ` — reason: ${a.reason}` : ""}${a.description ? ` — ${a.description}` : ""}`
+      : a.action === "unlock_approved" ? `${ctx.formName} unlocked — request approved${a.reason ? ` (original reason: ${a.reason})` : ""}`
+      : `Unlock request denied for ${ctx.formName}${a.note ? ` — ${a.note}` : ""}`;
+    push({ ts: a.created_at, type, user: mkUser(a.author_name, a.author_role), ...ctx, ...noField,
+      oldValue: null, newValue: null, reason: a.reason || undefined, details,
       statusBefore: a.from_status, statusAfter: a.to_status });
   }
 
