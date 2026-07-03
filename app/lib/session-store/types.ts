@@ -188,9 +188,25 @@ export interface DeltaRecordRow {
   author_name: string;
   author_role: string;
   created_at: string;
-  // "logged" = auto-logged change with no reason required (Audit toggle OFF); it is
-  // recorded to the audit trail but never blocks submit or shows a Δ reason prompt.
-  status: "pending" | "responded" | "approved" | "logged";
+  // "pending_reason" = edited with the Audit toggle OFF — the change is logged and
+  // shows an amber "edited" indicator, but the reason is collected in a batch at
+  // "Submit for review" rather than immediately (unlike "pending", toggle ON).
+  status: "pending" | "responded" | "approved" | "pending_reason";
+}
+
+// Session-only form lifecycle audit — a revert (finalized → in-work, DM/Admin) or a
+// withdrawn submission (in-review → in-work, CRC). Surfaced in the Audit Trail.
+export interface FormAuditRow {
+  id: string;
+  form_instance_id: string;
+  subject_id: string | null;
+  action: "revert" | "withdraw";
+  from_status: string;
+  to_status: string;
+  reason: string;
+  author_name: string;
+  author_role: string;
+  created_at: string;
 }
 
 export interface MembershipRow {
@@ -420,6 +436,7 @@ export interface Dataset {
   editChecks: EditCheckRow[];
   sdvRecords: SdvRecordRow[];
   deltaRecords: DeltaRecordRow[];
+  formAudits: FormAuditRow[]; // session-only form revert / withdraw log (Audit Trail)
   unblindings: UnblindingRow[]; // session-only emergency-unblinding log
   studyLocks: StudyLockRow[]; // session-only database-lock log
   conMeds: ConMedRow[]; // session-only concomitant-medication seed
@@ -448,6 +465,7 @@ export const EMPTY_DATASET: Dataset = {
   editChecks: [],
   sdvRecords: [],
   deltaRecords: [],
+  formAudits: [],
   unblindings: [],
   studyLocks: [],
   conMeds: [],

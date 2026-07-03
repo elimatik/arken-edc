@@ -130,10 +130,10 @@ const STATUS_FLOW: Record<string, { next: string; label: string; roles: string[]
 const STATUS_RANK: Record<string, number> = { empty: 0, in_work: 1, in_review: 2, reviewed: 3, finalized: 4, locked: 5 };
 // Human label for a sidebar status icon (tooltip).
 const ICON_LABEL: Record<SidebarIcon, string> = {
-  empty: "Empty", inwork: "In-Work", inreview: "In-Review", reviewed: "Reviewed", final: "Finalized", queried: "Open query",
+  empty: "Empty", inwork: "In-work", inreview: "In-Review", reviewed: "Reviewed", final: "Finalized", queried: "Open query",
 };
 const STATUS_LABEL: Record<string, string> = {
-  empty: "Empty", in_work: "In-Work", in_review: "In-Review", reviewed: "Reviewed", finalized: "Finalized", locked: "Locked",
+  empty: "Empty", in_work: "In-work", in_review: "In-Review", reviewed: "Reviewed", finalized: "Finalized", locked: "Locked",
 };
 
 // Predefined change reasons (Study preferences → Settings). Drives the item-1
@@ -282,6 +282,14 @@ export function SubjectRecord({ studyId, subjectId, initialFormId, initialPanelF
   useEffect(() => { setReasonAllEdits(getReasonAllEdits()); }, []);
   // Item 7 — required fields left empty on a submit attempt (inline errors + scroll).
   const [requiredErrors, setRequiredErrors] = useState<Set<string>>(new Set());
+  // Part 2 (toggle OFF) — "Change reasons required" batch panel shown at submit, one
+  // reason per edited field; keyed by delta record id → chosen reason.
+  const [reasonBatch, setReasonBatch] = useState<{ recordId: string; label: string; prev: string; next: string }[] | null>(null);
+  const [reasonBatchInputs, setReasonBatchInputs] = useState<Record<string, string>>({});
+  // Part 4 — finalized "Revert to in-work" (DM/Admin) + CRC "Withdraw submission".
+  const [revertOpen, setRevertOpen] = useState(false);
+  const [revertReason, setRevertReason] = useState("");
+  const [withdrawOpen, setWithdrawOpen] = useState(false);
 
   useEffect(() => {
     if (!toast) return;
@@ -596,12 +604,16 @@ export function SubjectRecord({ studyId, subjectId, initialFormId, initialPanelF
   //   • no records                → null       (original entry, nothing to explain)
   function deltaStateFor(fieldId: string, fvId: string | undefined): "pending" | "responded" | "approved" | null {
     if (editingFieldId === fieldId) return null; // actively typing → settle on blur
-    // "logged" deltas (auto-logged, no reason) never surface a Δ reason prompt — they
-    // live only in the audit trail, so exclude them from the field-level state.
-    const recs = fvId ? dataset.deltaRecords.filter((r) => r.field_value_id === fvId && r.status !== "logged") : [];
+    // "pending_reason" deltas (toggle OFF — reason collected at submission) never
+    // surface a Δ prompt; they show an amber "edited" chip and live in the audit trail.
+    const recs = fvId ? dataset.deltaRecords.filter((r) => r.field_value_id === fvId && r.status !== "pending_reason") : [];
     if (recs.length === 0) return null;
     if (recs.some((r) => r.status === "pending")) return "pending";
     return recs.every((r) => r.status === "approved") ? "approved" : "responded";
+  }
+  // Toggle-OFF "edited" indicator — a Δ awaiting its reason at submission time.
+  function hasPendingReason(fvId: string | undefined): boolean {
+    return !!fvId && dataset.deltaRecords.some((r) => r.field_value_id === fvId && r.status === "pending_reason");
   }
 
   // ─── Form status (empty → in_work → in_review → reviewed → finalized → locked) ─
@@ -620,6 +632,11 @@ export function SubjectRecord({ studyId, subjectId, initialFormId, initialPanelF
   const flow = STATUS_FLOW[currentStatus];
   const canAdvance = !!flow && flow.roles.includes(activeRole);
   const allSdvComplete = formInstanceList.length > 0 && formInstanceList.every((i) => i.sdv_complete);
+  const isAdmin = activeRole === "Admin";
+  // Part 4 — CRC may withdraw an in-review submission only until SDV has begun; any
+  // SDV record on this form's instances (verified or reset) hides the withdraw action.
+  const formInstIds = new Set(formInstanceList.map((i) => i.id));
+  const formHasSdv = dataset.sdvRecords.some((r) => formInstIds.has(r.form_instance_id));
 
   // SDV progress (header bar) — counts verified SDV-eligible cells across every
   // instance of the form (so a repeating form sums all its entries).
@@ -1162,7 +1179,7 @@ export function SubjectRecord({ studyId, subjectId, initialFormId, initialPanelF
   // and no-op changes (prev === next), so the very first value never raises a Δ and a
   // same-value "change" is never recorded. Each call captures its own old→new pair, so
   // A→B→C without reasons yields two records (A→B, B→C) — multi-transition tracking.
-  function recordTransition(d: Dataset, fvId: string, prev: string, next: string, id?: string, status: "pending" | "logged" = "pending") {
+  function recordTransition(d: Dataset, fvId: string, prev: string, next: string, id?: string, status: "pending" | "pending_reason" = "pending") {
     if (prev === "" || prev === next) return;
     d.deltaRecords.push({
       id: id ?? newId(),
@@ -1212,7 +1229,7 @@ export function SubjectRecord({ studyId, subjectId, initialFormId, initialPanelF
       }
       // Δ (discrete controls only): every change of an already-saved field records its
       // own pending transition (prev → value). First entry / no-op changes are skipped.
-      if (recordChange) recordTransition(d, fv.id, prev, value, reasonRecordId, reasonAllEdits ? "pending" : "logged");
+      if (recordChange) recordTransition(d, fv.id, prev, value, reasonRecordId, reasonAllEdits ? "pending" : "pending_reason");
 
       // Live EDIT CHECK (not a query): out of range → raise/keep an open edit check;
       // back in range → resolve it. Discrete controls evaluate on change; free-text /
@@ -1233,10 +1250,9 @@ export function SubjectRecord({ studyId, subjectId, initialFormId, initialPanelF
         if (subj) subj.ineligible = fail;
       }
     });
-    if (isSavedEdit) {
-      if (reasonAllEdits && reasonRecordId) { setReasonNavWarn(false); setReasonPanel({ recordId: reasonRecordId, field, prev: prevOutside, next: value }); }
-      else setToast("Field updated");
-    }
+    // Toggle ON → open the blocking reason panel now. Toggle OFF → the "pending_reason"
+    // Δ just written shows an amber "edited" chip; the reason is collected at submit.
+    if (isSavedEdit && reasonAllEdits && reasonRecordId) { setReasonNavWarn(false); setReasonPanel({ recordId: reasonRecordId, field, prev: prevOutside, next: value }); }
   }
 
   // Out-of-range → raise/keep an open edit check; back in range → resolve it. Never
@@ -1285,12 +1301,9 @@ export function SubjectRecord({ studyId, subjectId, initialFormId, initialPanelF
     const reasonRecordId = isSavedEdit ? newId() : undefined;
     update((d: Dataset) => {
       const f = d.fieldValues.find((v) => v.id === fv.id);
-      if (f) recordTransition(d, f.id, snap.value, cur, reasonRecordId, reasonAllEdits ? "pending" : "logged");
+      if (f) recordTransition(d, f.id, snap.value, cur, reasonRecordId, reasonAllEdits ? "pending" : "pending_reason");
     });
-    if (isSavedEdit) {
-      if (reasonAllEdits && reasonRecordId) { setReasonNavWarn(false); setReasonPanel({ recordId: reasonRecordId, field, prev: snap.value, next: cur }); }
-      else setToast("Field updated");
-    }
+    if (isSavedEdit && reasonAllEdits && reasonRecordId) { setReasonNavWarn(false); setReasonPanel({ recordId: reasonRecordId, field, prev: snap.value, next: cur }); }
   }
 
   // ─── Change reason (Δ) ──────────────────────────────────────────────────────
@@ -1354,6 +1367,12 @@ export function SubjectRecord({ studyId, subjectId, initialFormId, initialPanelF
       }
     }
     setRequiredErrors(new Set());
+    // Part 2 (toggle OFF) — at "Submit for review", collect the deferred change
+    // reasons for every edited field first. Blocks submit until all are provided.
+    if (currentStatus === "in_work") {
+      const pend = collectPendingReasonDeltas();
+      if (pend.length) { setReasonBatchInputs({}); setReasonBatch(pend); return; }
+    }
     if (flow.esign) {
       setLockModalOpen(true); // Lock requires e-signature confirmation
       return;
@@ -1373,6 +1392,67 @@ export function SubjectRecord({ studyId, subjectId, initialFormId, initialPanelF
     });
     setLockPassword("");
     setLockModalOpen(false);
+  }
+  // Part 2 — every "pending_reason" Δ on this form's instances (toggle OFF edits
+  // awaiting their reason), mapped to a display row for the batch reason panel.
+  function collectPendingReasonDeltas() {
+    const instIds = new Set(formInstanceList.map((i) => i.id));
+    const out: { recordId: string; label: string; prev: string; next: string }[] = [];
+    for (const r of dataset.deltaRecords) {
+      if (r.status !== "pending_reason") continue;
+      const fv = dataset.fieldValues.find((v) => v.id === r.field_value_id);
+      if (!fv || !instIds.has(fv.form_instance_id)) continue;
+      const fld = dataset.formFields.find((f) => f.id === fv.form_field_id);
+      out.push({ recordId: r.id, label: fld?.label ?? "Field", prev: r.old_value, next: r.new_value });
+    }
+    return out;
+  }
+  // Part 2 — record all batch reasons (pending_reason → responded) AND advance to
+  // In-Review in one update, then toast. Only reachable from the submit gate.
+  function submitWithReasons() {
+    const batch = reasonBatch;
+    if (!batch || !batch.every((b) => (reasonBatchInputs[b.recordId] ?? "").trim())) return;
+    const ids = new Set(formInstanceList.map((i) => i.id));
+    update((d: Dataset) => {
+      for (const b of batch) {
+        const r = d.deltaRecords.find((x) => x.id === b.recordId);
+        if (r && r.status === "pending_reason") { r.reason = (reasonBatchInputs[b.recordId] ?? "").trim(); r.author_name = ndaName; r.author_role = activeRole; r.status = "responded"; }
+      }
+      for (const inst of d.formInstances) if (ids.has(inst.id)) inst.status = "in_review";
+    });
+    setReasonBatch(null); setReasonBatchInputs({});
+    setToast("Reasons recorded — submitted for review");
+  }
+  // Part 4 — revert a finalized form back to In-Work (DM/Admin), logged with a reason.
+  function confirmRevert() {
+    if (!revertReason) return;
+    const insts = formInstanceList;
+    update((d: Dataset) => {
+      const now = new Date().toISOString();
+      for (const inst of insts) {
+        const di = d.formInstances.find((i) => i.id === inst.id);
+        if (!di) continue;
+        d.formAudits.push({ id: newId(), form_instance_id: di.id, subject_id: subjectId, action: "revert", from_status: di.status, to_status: "in_work", reason: revertReason, author_name: ndaName, author_role: activeRole, created_at: now });
+        di.status = "in_work";
+      }
+    });
+    setRevertOpen(false); setRevertReason("");
+    setToast("Form reverted to in-work");
+  }
+  // Part 4 — CRC withdraws an in-review submission before any SDV has started.
+  function confirmWithdraw() {
+    const insts = formInstanceList;
+    update((d: Dataset) => {
+      const now = new Date().toISOString();
+      for (const inst of insts) {
+        const di = d.formInstances.find((i) => i.id === inst.id);
+        if (!di) continue;
+        d.formAudits.push({ id: newId(), form_instance_id: di.id, subject_id: subjectId, action: "withdraw", from_status: di.status, to_status: "in_work", reason: "", author_name: ndaName, author_role: activeRole, created_at: now });
+        di.status = "in_work";
+      }
+    });
+    setWithdrawOpen(false);
+    setToast("Submission withdrawn — form returned to In-work");
   }
 
   // A field must be clean to verify: no open edit check, no pending change reason,
@@ -2162,18 +2242,36 @@ export function SubjectRecord({ studyId, subjectId, initialFormId, initialPanelF
                 >
                   Submit for Review
                 </button>
-              ) : flow ? (
-                <button
-                  className="btn-primary"
-                  type="button"
-                  disabled={!canAdvance}
-                  onClick={advanceStatus}
-                  title={canAdvance ? undefined : `${flow.label} — not permitted for ${activeRole}`}
-                >
-                  {flow.esign && <i className="ti ti-lock"></i>}
-                  {flow.label}
-                </button>
-              ) : null}
+              ) : (
+                <>
+                  {/* CRC can withdraw an in-review submission before SDV starts. */}
+                  {currentStatus === "in_review" && activeRole === "CRC" && !formHasSdv && (
+                    <button className="btn-secondary" type="button" onClick={() => setWithdrawOpen(true)}>Withdraw submission</button>
+                  )}
+                  {/* DM/Admin can revert a finalized form back to In-Work. */}
+                  {currentStatus === "finalized" && (isAdmin || activeRole === "DM") && (
+                    <button className="btn-secondary" type="button" onClick={() => setRevertOpen(true)}>Revert to in-work</button>
+                  )}
+                  {/* Locked — DM/Admin see a disabled request-unlock affordance. */}
+                  {currentStatus === "locked" && (isAdmin || activeRole === "DM") && (
+                    <button className="btn-secondary" type="button" disabled title="Contact your Data Manager to unlock this form.">Request unlock</button>
+                  )}
+                  {/* Flow advance (Mark Reviewed / Finalize / Lock). On a finalized form
+                      only DM/Admin (who can Lock) see it — other roles get no action. */}
+                  {flow && (currentStatus !== "finalized" || isAdmin || activeRole === "DM") && (
+                    <button
+                      className="btn-primary"
+                      type="button"
+                      disabled={!canAdvance}
+                      onClick={advanceStatus}
+                      title={canAdvance ? undefined : `${flow.label} — not permitted for ${activeRole}`}
+                    >
+                      {flow.esign && <i className="ti ti-lock"></i>}
+                      {flow.label}
+                    </button>
+                  )}
+                </>
+              )}
             </div>
           </div>
         </div>
@@ -2669,6 +2767,7 @@ export function SubjectRecord({ studyId, subjectId, initialFormId, initialPanelF
                   <label className="field-label">
                     {field.label}
                     {field.is_required && <span className="field-req"> *</span>}
+                    {hasPendingReason(fv?.id) && <span className="field-edited-chip" title="Edited — a change reason is required at submission"><i className="ti ti-pencil"></i> edited</span>}
                   </label>
                   <div className="field-row">
                     {renderControl(field, value, raised, !!ec || (!!oor && !dispQ))}
@@ -3048,10 +3147,10 @@ export function SubjectRecord({ studyId, subjectId, initialFormId, initialPanelF
                 </div>
               );
             }
-            // Auto-logged (toggle OFF) → an audit-only card, no reason, no approval.
-            if (r.status === "logged") {
+            // Edited with toggle OFF → reason pending, collected at submission.
+            if (r.status === "pending_reason") {
               return (
-                <div className="delta-entry" key={r.id}>
+                <div className="delta-entry pending" key={r.id}>
                   <div className="delta-entry-change">
                     <span className="delta-entry-old">{r.old_value || "—"}</span>
                     <span className="delta-entry-arrow">→</span>
@@ -3062,7 +3161,7 @@ export function SubjectRecord({ studyId, subjectId, initialFormId, initialPanelF
                     <span className="delta-entry-ts">{r.created_at.slice(0, 16).replace("T", " ")}</span>
                   </div>
                   <div className="delta-entry-foot">
-                    <span className="delta-status-badge ds-answered">Auto-logged — no reason required</span>
+                    <span className="delta-status-badge ds-change-required">Reason required at submission</span>
                   </div>
                 </div>
               );
@@ -3132,6 +3231,69 @@ export function SubjectRecord({ studyId, subjectId, initialFormId, initialPanelF
           </>
         )}
       </div>
+
+      {/* Change reasons required — batch panel at submit (Part 2, toggle OFF) */}
+      {reasonBatch && (
+        <div className="sr-modal-overlay" onClick={() => { setReasonBatch(null); setReasonBatchInputs({}); }}>
+          <div className="sr-modal rfc-batch-modal" onClick={(e) => e.stopPropagation()} role="dialog" aria-modal="true" aria-label="Change reasons required">
+            <div className="sr-modal-title"><i className="ti ti-history"></i> Change reasons required</div>
+            <div className="sr-modal-body">
+              <p style={{ margin: "0 0 var(--space-3)" }}>{reasonBatch.length} field{reasonBatch.length === 1 ? " was" : "s were"} edited after being saved. Per 21 CFR Part 11, a reason is required for each before this form can be submitted.</p>
+              <div className="rfc-batch-list">
+                {reasonBatch.map((b) => (
+                  <div className="rfc-batch-row" key={b.recordId}>
+                    <div className="rfc-batch-field">{b.label}</div>
+                    <div className="rfc-change"><span className="rfc-mono">{b.prev || "—"}</span><span className="rfc-arrow">→</span><span className="rfc-mono">{b.next || "—"}</span></div>
+                    <select className="sr-modal-input" style={{ marginBottom: 0 }} value={reasonBatchInputs[b.recordId] ?? ""} onChange={(e) => setReasonBatchInputs((prev) => ({ ...prev, [b.recordId]: e.target.value }))}>
+                      <option value="">Select a reason…</option>
+                      {CHANGE_REASONS.map((r) => <option key={r} value={r}>{r}</option>)}
+                    </select>
+                  </div>
+                ))}
+              </div>
+            </div>
+            <div className="sr-modal-actions">
+              <button className="btn-secondary" type="button" onClick={() => { setReasonBatch(null); setReasonBatchInputs({}); }}>Cancel</button>
+              <button className="btn-primary" type="button" disabled={!reasonBatch.every((b) => (reasonBatchInputs[b.recordId] ?? "").trim())} onClick={submitWithReasons}>Save reasons &amp; submit</button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Revert to in-work (finalized → in_work, DM/Admin) — Part 4 */}
+      {revertOpen && (
+        <div className="sr-modal-overlay" onClick={() => { setRevertOpen(false); setRevertReason(""); }}>
+          <div className="sr-modal" onClick={(e) => e.stopPropagation()} role="dialog" aria-modal="true" aria-label="Revert form to in-work">
+            <div className="sr-modal-title"><i className="ti ti-arrow-back-up"></i> Revert form to in-work?</div>
+            <div className="sr-modal-body">
+              <p style={{ margin: "0 0 var(--space-3)" }}>The form will become editable again. A reason is required. This action will be logged in the audit trail.</p>
+              <label className="rfc-reason-label">Reason</label>
+              <select className="sr-modal-input" value={revertReason} onChange={(e) => setRevertReason(e.target.value)}>
+                <option value="">Select a reason…</option>
+                {CHANGE_REASONS.map((r) => <option key={r} value={r}>{r}</option>)}
+              </select>
+            </div>
+            <div className="sr-modal-actions">
+              <button className="btn-secondary" type="button" onClick={() => { setRevertOpen(false); setRevertReason(""); }}>Cancel</button>
+              <button className="btn-primary" type="button" disabled={!revertReason} onClick={confirmRevert}><i className="ti ti-arrow-back-up"></i> Revert</button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Withdraw submission (in_review → in_work, CRC before SDV) — Part 4 */}
+      {withdrawOpen && (
+        <div className="sr-modal-overlay" onClick={() => setWithdrawOpen(false)}>
+          <div className="sr-modal" onClick={(e) => e.stopPropagation()} role="dialog" aria-modal="true" aria-label="Withdraw submission">
+            <div className="sr-modal-title"><i className="ti ti-arrow-back-up"></i> Withdraw this submission?</div>
+            <div className="sr-modal-body">The form will return to In-work status. You can re-submit when ready.</div>
+            <div className="sr-modal-actions">
+              <button className="btn-secondary" type="button" onClick={() => setWithdrawOpen(false)}>Cancel</button>
+              <button className="btn-primary" type="button" onClick={confirmWithdraw}><i className="ti ti-arrow-back-up"></i> Withdraw</button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* E-signature modal (Finalized → Locked) */}
       {lockModalOpen && (

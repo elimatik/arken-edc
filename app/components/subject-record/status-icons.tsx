@@ -17,10 +17,10 @@ export function iconForInstance(s: string | undefined): SidebarIcon {
 // Worst-first ordering (a group / repeating form rolls up to its weakest child).
 export const ICON_RANK: Record<SidebarIcon, number> = { queried: 0, empty: 1, inwork: 2, inreview: 3, reviewed: 4, final: 5 };
 export const ICON_LABEL: Record<SidebarIcon, string> = {
-  empty: "Empty", inwork: "In-Work", inreview: "In-Review", reviewed: "Reviewed", final: "Finalized", queried: "Open query",
+  empty: "Empty", inwork: "In-work", inreview: "In-Review", reviewed: "Reviewed", final: "Finalized", queried: "Open query",
 };
 export const STATUS_LABEL: Record<string, string> = {
-  empty: "Empty", in_work: "In-Work", in_review: "In-Review", reviewed: "Reviewed", finalized: "Finalized", locked: "Locked",
+  empty: "Empty", in_work: "In-work", in_review: "In-Review", reviewed: "Reviewed", finalized: "Finalized", locked: "Locked",
 };
 
 // In-Review — amber right-half "half-moon".

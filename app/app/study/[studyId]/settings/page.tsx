@@ -1531,7 +1531,6 @@ function AuditSignaturesSection({ studyId, dataset, onToast }: { studyId: string
   const toggleSig = (id: string) => setSigForms((s) => { const n = new Set(s); if (n.has(id)) n.delete(id); else n.add(id); return n; });
 
   // Card 3 — Audit trail behaviour.
-  const [reasonSignedLocked, setReasonSignedLocked] = useState(true);
   // Persisted (session-scoped) so the Subject Record's reason-for-change behaviour
   // can read it — ON forces a blocking reason panel, OFF auto-logs silently.
   const [reasonAllEdits, setReasonAllEdits] = useState(false);
@@ -1593,13 +1592,12 @@ function AuditSignaturesSection({ studyId, dataset, onToast }: { studyId: string
               <div className="settings-row-desc">Every field change is logged with timestamp, user, and reason for change. Cannot be disabled.</div>
             </div>
           </div>
-          <ToggleRow on={reasonSignedLocked} onToggle={() => { setReasonSignedLocked(!reasonSignedLocked); onToast("Setting saved"); }} label="Reason for change required on edits to signed/locked records" desc="A change reason is captured for any edit after a record is signed or locked." />
           {/* Row 3 — read-only timestamp format */}
           <div className="settings-row">
             <div><div className="settings-row-label">Timestamp format</div><div className="settings-row-desc">Regulatory requirement — not editable</div></div>
             <div className="settings-row-value"><span className="set-badge set-badge-blue">UTC (Coordinated Universal Time)</span></div>
           </div>
-          <ToggleRow on={reasonAllEdits} onToggle={() => { const next = !reasonAllEdits; setReasonAllEdits(next); setReasonAllEditsPref(next); onToast("Setting saved"); }} label="Require reason for change on all field edits (not just post-signature)" desc="When OFF, reason is only required on edits after signature/lock." />
+          <ToggleRow on={reasonAllEdits} onToggle={() => { const next = !reasonAllEdits; setReasonAllEdits(next); setReasonAllEditsPref(next); onToast("Setting saved"); }} label="Require users to enter a change reason immediately after editing data" desc="When disabled, the change reason can be entered any time before form submission." />
         </div>
       </div>
 

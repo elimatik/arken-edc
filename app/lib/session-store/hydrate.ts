@@ -783,6 +783,7 @@ export async function hydrateFromSupabase(): Promise<Dataset> {
     editChecks,
     sdvRecords: sdvWithSeed,
     deltaRecords: [], // session-only — not sourced from Supabase
+    formAudits: [], // session-only — form revert / withdraw log
     unblindings: [], // session-only — emergency-unblinding log
     studyLocks: [], // session-only — database-lock log
     conMeds, // session-only — seeded concomitant medications
