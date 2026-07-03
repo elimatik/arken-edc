@@ -911,9 +911,9 @@ export function SubjectRecord({ studyId, subjectId, initialFormId, initialPanelF
   function renderEntryControl(field: FormFieldRow, instId: string) {
     const v = entryVal(instId, field.id);
     const t = field.field_type;
-    // Fix 1 — finalized/locked repeating log entries render as plain document text.
-    const isAutoEntry = t === "calculated" || !!field.validation?.readonlyAuto || !!field.validation?.autoFromArm;
-    if (docReadOnly && !isAutoEntry && field.code !== "test_article") return renderDocValue(field, v);
+    // Fix 2 — finalized/locked repeating entries stay visible but non-interactive:
+    // text-like → readOnly attribute, selects → disabled (same as the main grid).
+    const roE = readOnly || docReadOnly;
     // Re-treatment Log — Test article: read-only, auto from the subject's arm (item 1).
     if (field.code === "test_article") {
       const drug = BR_ARM_TO_DRUG[brArmCode(subject?.randomization_arm)] ?? subject?.randomization_arm ?? "—";
@@ -933,7 +933,7 @@ export function SubjectRecord({ studyId, subjectId, initialFormId, initialPanelF
       const opts = Array.from(lots.values());
       if (!opts.length) return <div style={{ fontSize: "var(--text-xs)", color: "var(--amber-700)", background: "var(--amber-50)", border: "1px solid var(--amber-200)", borderRadius: "var(--radius-md)", padding: "4px 8px" }}>No available lots for this treatment arm — contact inventory manager</div>;
       return (
-        <select className="field-select" value={v} disabled={readOnly} onChange={(e) => setEntryVal(instId, field, e.target.value)}>
+        <select className="field-select" value={v} disabled={roE} onChange={(e) => setEntryVal(instId, field, e.target.value)}>
           <option value="">Select lot…</option>
           {opts.map((l) => <option key={l.lot} value={l.lot}>{l.lot} · {l.drug} · {l.count} vials remaining</option>)}
         </select>
@@ -958,7 +958,7 @@ export function SubjectRecord({ studyId, subjectId, initialFormId, initialPanelF
       const mgkg = BR_ARM_MGKG[brArmCode(subject?.randomization_arm)] ?? 2.5;
       const dose = !Number.isNaN(w) && w ? Math.round((w * mgkg / 100) * 10) / 10 : 0;
       return (
-        <select className="field-select" value={v} disabled={readOnly} onChange={(e) => { setEntryVal(instId, field, e.target.value); if (e.target.value) dispenseUnitToSubject(e.target.value, "Re-treatment", instId, dose); }}>
+        <select className="field-select" value={v} disabled={roE} onChange={(e) => { setEntryVal(instId, field, e.target.value); if (e.target.value) dispenseUnitToSubject(e.target.value, "Re-treatment", instId, dose); }}>
           <option value="">Select unit…</option>
           {hasCurrent && <option value={v}>{v} · administered</option>}
           {units.map((u) => <option key={u.id} value={u.id}>{u.id} · {u.initialVol} {u.unit} remaining · Available</option>)}
@@ -984,26 +984,26 @@ export function SubjectRecord({ studyId, subjectId, initialFormId, initialPanelF
     if (field.validation?.coded) {
       return (
         <div className="coded-field">
-          <input className="field-input" type="text" value={v} disabled={readOnly} onChange={(e) => setEntryVal(instId, field, e.target.value)} />
+          <input className="field-input" type="text" value={v} readOnly={roE} onChange={(e) => setEntryVal(instId, field, e.target.value)} />
           <button className="lookup-btn" type="button" title="Look up coded term (VeDDRA)" onClick={() => { setLookupSearch(""); setLookupField(field); setLookupInstId(instId); }}>
             <i className="ti ti-search"></i> Look up
           </button>
         </div>
       );
     }
-    if (t === "textarea") return <textarea className="field-input" style={{ height: 60, fontFamily: "var(--font-sans)" }} value={v} disabled={readOnly} onChange={(e) => setEntryVal(instId, field, e.target.value)} />;
-    if (t === "date" || t === "datetime") return <input className="field-input field-date" type="date" value={v} disabled={readOnly} onChange={(e) => setEntryVal(instId, field, e.target.value)} />;
+    if (t === "textarea") return <textarea className="field-input" style={{ height: 60, fontFamily: "var(--font-sans)" }} value={v} readOnly={roE} onChange={(e) => setEntryVal(instId, field, e.target.value)} />;
+    if (t === "date" || t === "datetime") return <input className="field-input field-date" type="date" value={v} readOnly={roE} onChange={(e) => setEntryVal(instId, field, e.target.value)} />;
     if (t === "select" || t === "radio") {
       const opts = field.options ?? (t === "radio" ? ["Yes", "No"] : []);
       return (
-        <select className="field-select" value={v} disabled={readOnly} onChange={(e) => setEntryVal(instId, field, e.target.value)}>
+        <select className="field-select" value={v} disabled={roE} onChange={(e) => setEntryVal(instId, field, e.target.value)}>
           <option value="">—</option>
           {opts.map((o) => <option key={o} value={o}>{o}</option>)}
         </select>
       );
     }
-    if (t === "number" || t === "integer") return <input className="field-input" type="number" value={v} disabled={readOnly} onChange={(e) => setEntryVal(instId, field, e.target.value)} />;
-    return <input className="field-input" type="text" value={v} disabled={readOnly} onChange={(e) => setEntryVal(instId, field, e.target.value)} />;
+    if (t === "number" || t === "integer") return <input className="field-input" type="number" value={v} readOnly={roE} onChange={(e) => setEntryVal(instId, field, e.target.value)} />;
+    return <input className="field-input" type="text" value={v} readOnly={roE} onChange={(e) => setEntryVal(instId, field, e.target.value)} />;
   }
 
   // Visual section dividers (item 10). Forms can declare explicit per-field
@@ -1825,29 +1825,6 @@ export function SubjectRecord({ studyId, subjectId, initialFormId, initialPanelF
     setFieldValue(totalField, anyHasVal ? String(sum) : "", true, false, true);
   }
 
-  // Fix 1 — plain-text read-only rendering of a field value for a finalized/locked
-  // "document" view: text/number/date/select/radio → text; checkbox/multiselect →
-  // read-only ticks; textarea → a text block. Empty → an em-dash.
-  function renderDocValue(field: FormFieldRow, value: string) {
-    const type = field.field_type;
-    if (value == null || value.trim() === "") return <div className="field-doc empty">—</div>;
-    if (type === "multiselect" || type === "checkbox") {
-      const sel = parseMulti(value);
-      return (
-        <div className="field-doc-checks">
-          {(field.options ?? []).map((o) => (
-            <span key={o} className={`doc-check${sel.includes(o) ? " on" : ""}`}>
-              <i className={`ti ${sel.includes(o) ? "ti-square-check-filled" : "ti-square"}`}></i> {o}
-            </span>
-          ))}
-        </div>
-      );
-    }
-    if (type === "textarea") return <div className="field-doc field-doc-block">{value}</div>;
-    const unit = (type === "number" || type === "integer") && field.unit ? ` ${field.unit}` : "";
-    return <div className="field-doc">{value}{unit}</div>;
-  }
-
   function renderControl(field: FormFieldRow, value: string, queried: boolean, editcheck = false) {
     // Discrete controls write directly and settle on change → record the transition
     // atomically (pre-edit → new) and evaluate the edit check. Text/number inputs write
@@ -1860,14 +1837,13 @@ export function SubjectRecord({ studyId, subjectId, initialFormId, initialPanelF
     // Edit check turns the input amber (amber-200 border + amber-50 bg); an open query
     // uses the deeper-amber .query. Edit check takes precedence (mutually exclusive).
     const stateCls = editcheck ? " editcheck" : queried ? " query" : "";
-    const ro = readOnly;
+    // Fix 2 — read-only "document" mode (finalized || locked): fields stay VISIBLE with
+    // the same layout/structure, just non-interactive. Text-like inputs use the readOnly
+    // attribute (muted value, no cursor/focus via CSS); selects / checkboxes / radios /
+    // file use disabled. AUTO/calculated fields keep their existing display.
+    const ro = readOnly || docReadOnly;
     const type = field.field_type;
     const isCoded = !!field.validation?.coded;
-
-    // Fix 1 — finalized / locked → a read-only document. Every non-auto field renders
-    // as plain display text (AUTO / calculated fields keep their existing rendering).
-    const isAutoField = type === "calculated" || !!field.validation?.readonlyAuto || !!field.validation?.autoFromArm;
-    if (docReadOnly && !isAutoField) return renderDocValue(field, value);
 
     // Pen / Lot ID — a select sourced from the study's pens (livestock_group only).
     if (field.code === "pen_lot_id" && isLivestockGroup) {
@@ -1999,7 +1975,7 @@ export function SubjectRecord({ studyId, subjectId, initialFormId, initialPanelF
     }
     // textarea
     if (type === "textarea") {
-      return <textarea className="field-input" style={{ height: 60, fontFamily: "var(--font-sans)" }} value={value} disabled={ro} onChange={(e) => typeChange(e.target.value)} onFocus={onFocus} onBlur={onBlur} />;
+      return <textarea className="field-input" style={{ height: 60, fontFamily: "var(--font-sans)" }} value={value} readOnly={ro} onChange={(e) => typeChange(e.target.value)} onFocus={onFocus} onBlur={onBlur} />;
     }
     // yes/no radio → two-button toggle
     if (type === "radio") {
@@ -2057,7 +2033,7 @@ export function SubjectRecord({ studyId, subjectId, initialFormId, initialPanelF
     if (isCoded) {
       return (
         <div className="coded-field">
-          <input className={`field-input${stateCls}`} style={{ fontFamily: "var(--font-sans)" }} value={value} disabled={ro} onChange={(e) => typeChange(e.target.value)} onFocus={onFocus} onBlur={onBlur} />
+          <input className={`field-input${stateCls}`} style={{ fontFamily: "var(--font-sans)" }} value={value} readOnly={ro} onChange={(e) => typeChange(e.target.value)} onFocus={onFocus} onBlur={onBlur} />
           <button
             type="button"
             className="lookup-btn"
@@ -2077,7 +2053,7 @@ export function SubjectRecord({ studyId, subjectId, initialFormId, initialPanelF
           type={type === "datetime" ? "datetime-local" : "date"}
           className={`field-input field-date${stateCls}`}
           value={value}
-          disabled={ro}
+          readOnly={ro}
           onChange={(e) => commit(e.target.value)}
           onClick={(e) => { try { (e.currentTarget as HTMLInputElement & { showPicker?: () => void }).showPicker?.(); } catch { /* not supported */ } }}
         />
@@ -2091,7 +2067,7 @@ export function SubjectRecord({ studyId, subjectId, initialFormId, initialPanelF
         inputMode={mono ? "decimal" : undefined}
         style={mono ? undefined : { fontFamily: "var(--font-sans)" }}
         value={value}
-        disabled={ro}
+        readOnly={ro}
         onChange={(e) => typeChange(e.target.value)}
         onFocus={onFocus}
         onBlur={onBlur}
