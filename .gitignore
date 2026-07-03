@@ -4,3 +4,10 @@
 # Next.js build output (any location)
 .next/
 **/.next/
+
+# Stray root-level Next.js/npm scaffolding (the app lives in app/)
+node_modules/
+/package.json
+/package-lock.json
+/tsconfig.json
+/next-env.d.ts
