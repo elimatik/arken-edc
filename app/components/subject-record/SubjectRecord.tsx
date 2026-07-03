@@ -11,7 +11,6 @@ import { evaluateField, rangeLabel } from "@/lib/forms/validation";
 import { isStudyLocked } from "@/lib/study-lock";
 import { subjectAeList } from "@/lib/reports-data";
 import { buildVisits, addDays } from "@/lib/visits-data";
-import { getReasonAllEdits } from "@/lib/audit-settings";
 import { addNotification } from "@/lib/notifications-data";
 import { codingIndex, codedDisplay, normalizeTerm } from "@/lib/coding-data";
 import { LOCK_TOOLTIP } from "@/lib/use-study-locked";
@@ -274,24 +273,8 @@ export function SubjectRecord({ studyId, subjectId, initialFormId, initialPanelF
   const [closeModalOpen, setCloseModalOpen] = useState(false); // "Close without response" modal
   const [closeReason, setCloseReason] = useState("");
   const [toast, setToast] = useState<string | null>(null);
-  // Item 1 — "Reason for change" slide-in panel (21 CFR Part 11). Opens when a
-  // previously-saved value is edited AND the Audit setting "require reason on all
-  // edits" is ON. The change is already committed; the reason is mandatory (no
-  // cancel) and blocks navigation/further edits until saved.
-  const [reasonPanel, setReasonPanel] = useState<{ recordId: string; field: FormFieldRow; prev: string; next: string } | null>(null);
-  const [reasonSelect, setReasonSelect] = useState("");
-  const [reasonOther, setReasonOther] = useState("");
-  const [reasonNavWarn, setReasonNavWarn] = useState(false); // amber "provide a reason first" warning
-  // Audit toggle — read once on mount (re-mounts on route change, so navigating from
-  // Settings picks up the latest value). ON = blocking panel, OFF = silent auto-log.
-  const [reasonAllEdits, setReasonAllEdits] = useState(false);
-  useEffect(() => { setReasonAllEdits(getReasonAllEdits()); }, []);
   // Item 7 — required fields left empty on a submit attempt (inline errors + scroll).
   const [requiredErrors, setRequiredErrors] = useState<Set<string>>(new Set());
-  // Part 2 (toggle OFF) — "Change reasons required" batch panel shown at submit, one
-  // reason per edited field; keyed by delta record id → chosen reason.
-  const [reasonBatch, setReasonBatch] = useState<{ recordId: string; label: string; prev: string; next: string }[] | null>(null);
-  const [reasonBatchInputs, setReasonBatchInputs] = useState<Record<string, string>>({});
   // Part 4 — finalized "Revert to in-work" (DM/Admin) + CRC "Withdraw submission".
   const [revertOpen, setRevertOpen] = useState(false);
   const [revertReason, setRevertReason] = useState("");
@@ -522,7 +505,7 @@ export function SubjectRecord({ studyId, subjectId, initialFormId, initialPanelF
         key={item.id}
         id={`sb-form-${item.id}`}
         className={`form-item${item.id === activeFormId && !aeView ? " active" : ""}${item.icon === "final" ? " done" : ""}`}
-        onClick={() => guardedSelectForm(item.id)}
+        onClick={() => { setSelectedFormId(item.id); setAeView(false); }}
         title={item.name}
         type="button"
       >
@@ -619,17 +602,10 @@ export function SubjectRecord({ studyId, subjectId, initialFormId, initialPanelF
   //   • no records                → null       (original entry, nothing to explain)
   function deltaStateFor(fieldId: string, fvId: string | undefined): "pending" | "responded" | "approved" | null {
     if (editingFieldId === fieldId) return null; // actively typing → settle on blur
-    // "pending_reason" deltas (toggle OFF — reason collected at submission) never
-    // surface a Δ prompt; they show an amber "edited" chip and live in the audit trail.
-    const recs = fvId ? dataset.deltaRecords.filter((r) => r.field_value_id === fvId && r.status !== "pending_reason") : [];
+    const recs = fvId ? dataset.deltaRecords.filter((r) => r.field_value_id === fvId) : [];
     if (recs.length === 0) return null;
     if (recs.some((r) => r.status === "pending")) return "pending";
     return recs.every((r) => r.status === "approved") ? "approved" : "responded";
-  }
-  // Toggle-OFF unresolved Δ — the delta record awaiting its reason (surfaces the red
-  // Δ button on the field; the user clicks it to open the reason panel when ready).
-  function pendingReasonDeltaFor(fvId: string | undefined) {
-    return fvId ? dataset.deltaRecords.find((r) => r.field_value_id === fvId && r.status === "pending_reason") : undefined;
   }
 
   // ─── Form status (empty → in_work → in_review → reviewed → finalized → locked) ─
@@ -1204,10 +1180,10 @@ export function SubjectRecord({ studyId, subjectId, initialFormId, initialPanelF
   // and no-op changes (prev === next), so the very first value never raises a Δ and a
   // same-value "change" is never recorded. Each call captures its own old→new pair, so
   // A→B→C without reasons yields two records (A→B, B→C) — multi-transition tracking.
-  function recordTransition(d: Dataset, fvId: string, prev: string, next: string, id?: string, status: "pending" | "pending_reason" = "pending") {
+  function recordTransition(d: Dataset, fvId: string, prev: string, next: string) {
     if (prev === "" || prev === next) return;
     d.deltaRecords.push({
-      id: id ?? newId(),
+      id: newId(),
       field_value_id: fvId,
       old_value: prev,
       new_value: next,
@@ -1215,7 +1191,7 @@ export function SubjectRecord({ studyId, subjectId, initialFormId, initialPanelF
       author_name: ndaName,
       author_role: activeRole,
       created_at: new Date().toISOString(),
-      status, // "pending" (reason required) or "logged" (auto-logged, no reason)
+      status: "pending",
     });
   }
 
@@ -1224,18 +1200,8 @@ export function SubjectRecord({ studyId, subjectId, initialFormId, initialPanelF
   // date / file), whose every change is an atomic commit → record the transition now.
   // Text inputs pass false (they would record a half-typed entry) and instead record
   // one transition per focus→blur edit via recordTextEdit().
-  function setFieldValue(field: FormFieldRow, value: string, recordChange = false, skipCheck = false, suppressReasonModal = false) {
+  function setFieldValue(field: FormFieldRow, value: string, recordChange = false, skipCheck = false) {
     if (readOnly || docReadOnly) return; // locked / finalized forms + the ePRO stub are read-only
-    // Item 1 (toggle ON) — a pending reason panel blocks any further edit until it's
-    // saved: surface the amber "provide a reason first" warning and drop the edit.
-    if (reasonPanel && reasonAllEdits) { setReasonNavWarn(true); return; }
-    // Editing a previously-saved value records a Δ. When the Audit toggle is ON we
-    // pre-generate the id so the reason panel can key onto the exact pending record
-    // (the update() mutator runs asynchronously, so we can't read it back); when OFF
-    // the change is auto-"logged" (no reason, non-blocking) with a brief toast.
-    const prevOutside = fvFor(field.id)?.value ?? "";
-    const isSavedEdit = recordChange && !suppressReasonModal && prevOutside !== "" && prevOutside !== value;
-    const reasonRecordId = isSavedEdit ? newId() : undefined;
     update((d: Dataset) => {
       let inst = d.formInstances.find((i) => i.subject_id === subjectId && i.form_id === field.form_id);
       if (!inst) {
@@ -1254,7 +1220,7 @@ export function SubjectRecord({ studyId, subjectId, initialFormId, initialPanelF
       }
       // Δ (discrete controls only): every change of an already-saved field records its
       // own pending transition (prev → value). First entry / no-op changes are skipped.
-      if (recordChange) recordTransition(d, fv.id, prev, value, reasonRecordId, reasonAllEdits ? "pending" : "pending_reason");
+      if (recordChange) recordTransition(d, fv.id, prev, value);
 
       // Live EDIT CHECK (not a query): out of range → raise/keep an open edit check;
       // back in range → resolve it. Discrete controls evaluate on change; free-text /
@@ -1275,9 +1241,6 @@ export function SubjectRecord({ studyId, subjectId, initialFormId, initialPanelF
         if (subj) subj.ineligible = fail;
       }
     });
-    // Toggle ON → open the blocking reason panel now. Toggle OFF → the "pending_reason"
-    // Δ just written shows an amber "edited" chip; the reason is collected at submit.
-    if (isSavedEdit && reasonAllEdits && reasonRecordId) { setReasonNavWarn(false); setReasonPanel({ recordId: reasonRecordId, field, prev: prevOutside, next: value }); }
   }
 
   // Out-of-range → raise/keep an open edit check; back in range → resolve it. Never
@@ -1320,15 +1283,10 @@ export function SubjectRecord({ studyId, subjectId, initialFormId, initialPanelF
     if (!fv) return;
     const cur = fv.value ?? "";
     if (cur === snap.value) return; // no net change this edit
-    // Item 1 — editing a previously-saved text value: reason panel (toggle ON) or a
-    // silent auto-log (OFF). First entry (snap.value === "") is skipped either way.
-    const isSavedEdit = snap.value !== "";
-    const reasonRecordId = isSavedEdit ? newId() : undefined;
     update((d: Dataset) => {
       const f = d.fieldValues.find((v) => v.id === fv.id);
-      if (f) recordTransition(d, f.id, snap.value, cur, reasonRecordId, reasonAllEdits ? "pending" : "pending_reason");
+      if (f) recordTransition(d, f.id, snap.value, cur);
     });
-    if (isSavedEdit && reasonAllEdits && reasonRecordId) { setReasonNavWarn(false); setReasonPanel({ recordId: reasonRecordId, field, prev: snap.value, next: cur }); }
   }
 
   // ─── Change reason (Δ) ──────────────────────────────────────────────────────
@@ -1358,30 +1316,6 @@ export function SubjectRecord({ studyId, subjectId, initialFormId, initialPanelF
       if (r) r.status = "approved";
     });
   }
-  // Item 1 — commit the mandatory reason for an in-flight edit (pending Δ → responded)
-  // + close the panel + toast. No cancel: the change is already committed.
-  function saveReasonPanel() {
-    const m = reasonPanel;
-    if (!m) return;
-    const reasonText = (reasonSelect === "__other__" ? reasonOther : reasonSelect).trim();
-    if (!reasonText) return;
-    update((d: Dataset) => {
-      const r = d.deltaRecords.find((x) => x.id === m.recordId);
-      // Resolves both an immediate "pending" (toggle ON) and a deferred
-      // "pending_reason" (toggle OFF — Δ clicked by the user) → responded.
-      if (r && (r.status === "pending" || r.status === "pending_reason")) { r.reason = reasonText; r.author_name = ndaName; r.author_role = activeRole; r.status = "responded"; }
-    });
-    setReasonPanel(null); setReasonSelect(""); setReasonOther(""); setReasonNavWarn(false);
-    setToast("Reason recorded");
-  }
-  // Toggle OFF — the reason panel is dismissable (the Δ stays on the field until the
-  // reason is saved; the submit gate catches any that are still unresolved).
-  function closeReasonPanel() { setReasonPanel(null); setReasonSelect(""); setReasonOther(""); setReasonNavWarn(false); }
-  // Item 1 — a pending reason panel blocks navigation: guard the sidebar/form switch.
-  function guardedSelectForm(id: string) {
-    if (reasonPanel && reasonAllEdits) { setReasonNavWarn(true); return; }
-    setSelectedFormId(id); setAeView(false);
-  }
 
   // ─── Form status transitions (persist via update()) ─────────────────────────
   function advanceStatus() {
@@ -1397,12 +1331,6 @@ export function SubjectRecord({ studyId, subjectId, initialFormId, initialPanelF
       }
     }
     setRequiredErrors(new Set());
-    // Part 2 (toggle OFF) — at "Submit for review", collect the deferred change
-    // reasons for every edited field first. Blocks submit until all are provided.
-    if (currentStatus === "in_work") {
-      const pend = collectPendingReasonDeltas();
-      if (pend.length) { setReasonBatchInputs({}); setReasonBatch(pend); return; }
-    }
     if (flow.esign) {
       setLockModalOpen(true); // Lock requires e-signature confirmation
       return;
@@ -1422,36 +1350,6 @@ export function SubjectRecord({ studyId, subjectId, initialFormId, initialPanelF
     });
     setLockPassword("");
     setLockModalOpen(false);
-  }
-  // Part 2 — every "pending_reason" Δ on this form's instances (toggle OFF edits
-  // awaiting their reason), mapped to a display row for the batch reason panel.
-  function collectPendingReasonDeltas() {
-    const instIds = new Set(formInstanceList.map((i) => i.id));
-    const out: { recordId: string; label: string; prev: string; next: string }[] = [];
-    for (const r of dataset.deltaRecords) {
-      if (r.status !== "pending_reason") continue;
-      const fv = dataset.fieldValues.find((v) => v.id === r.field_value_id);
-      if (!fv || !instIds.has(fv.form_instance_id)) continue;
-      const fld = dataset.formFields.find((f) => f.id === fv.form_field_id);
-      out.push({ recordId: r.id, label: fld?.label ?? "Field", prev: r.old_value, next: r.new_value });
-    }
-    return out;
-  }
-  // Part 2 — record all batch reasons (pending_reason → responded) AND advance to
-  // In-Review in one update, then toast. Only reachable from the submit gate.
-  function submitWithReasons() {
-    const batch = reasonBatch;
-    if (!batch || !batch.every((b) => (reasonBatchInputs[b.recordId] ?? "").trim())) return;
-    const ids = new Set(formInstanceList.map((i) => i.id));
-    update((d: Dataset) => {
-      for (const b of batch) {
-        const r = d.deltaRecords.find((x) => x.id === b.recordId);
-        if (r && r.status === "pending_reason") { r.reason = (reasonBatchInputs[b.recordId] ?? "").trim(); r.author_name = ndaName; r.author_role = activeRole; r.status = "responded"; }
-      }
-      for (const inst of d.formInstances) if (ids.has(inst.id)) inst.status = "in_review";
-    });
-    setReasonBatch(null); setReasonBatchInputs({});
-    setToast("Reasons recorded — submitted for review");
   }
   // Part 4 — revert a finalized form back to In-Work (DM/Admin), logged with a reason.
   function confirmRevert() {
@@ -1813,16 +1711,14 @@ export function SubjectRecord({ studyId, subjectId, initialFormId, initialPanelF
   // is cleared the total is left blank again, restoring manual entry.
   function commitCadesiSub(subField: FormFieldRow, totalField: FormFieldRow, subs: FormFieldRow[], value: string) {
     if (readOnly || docReadOnly) return;
-    // Compound derived write (subtotal → auto-recomputed total) — suppress the item-1
-    // reason modal on both writes; the Δ panel still tracks the transitions.
-    setFieldValue(subField, value, true, false, true);
+    setFieldValue(subField, value, true);
     const rawOf = (s: FormFieldRow) => (s.id === subField.id ? value : (fvFor(s.id)?.value ?? ""));
     const anyHasVal = subs.some((s) => rawOf(s).trim() !== "");
     const sum = subs.reduce((acc, s) => {
       const n = Number(rawOf(s));
       return acc + (rawOf(s).trim() !== "" && !Number.isNaN(n) ? n : 0);
     }, 0);
-    setFieldValue(totalField, anyHasVal ? String(sum) : "", true, false, true);
+    setFieldValue(totalField, anyHasVal ? String(sum) : "", true);
   }
 
   function renderControl(field: FormFieldRow, value: string, queried: boolean, editcheck = false) {
@@ -2104,7 +2000,7 @@ export function SubjectRecord({ studyId, subjectId, initialFormId, initialPanelF
   const subjOpenQueries = dataset.queries.filter((q) => subjInstIds.has(q.form_instance_id) && q.status !== "resolved").length;
   const aeFormIds = new Set(dataset.forms.filter((f) => f.study_id === studyId && /adverse event/i.test(f.name)).map((f) => f.id));
   const aeCount = dataset.formInstances.filter((i) => i.subject_id === subjectId && aeFormIds.has(i.form_id) && dataset.fieldValues.some((v) => v.form_instance_id === i.id && v.value)).length;
-  const goToForm = (id: string) => { if (reasonPanel && reasonAllEdits) { setReasonNavWarn(true); return; } setSelectedFormId(id); setTimelineOpen(false); setAeView(false); };
+  const goToForm = (id: string) => { setSelectedFormId(id); setTimelineOpen(false); setAeView(false); };
 
   return (
     <div className="sr-screen">
@@ -2860,7 +2756,6 @@ export function SubjectRecord({ studyId, subjectId, initialFormId, initialPanelF
               const sdvRec = sdvRecordFor(fv?.id);
               const verified = !!sdvRec;
               const dState = deltaStateFor(field.id, fv?.id);
-              const prDelta = readOnly ? undefined : pendingReasonDeltaFor(fv?.id); // toggle-OFF unresolved Δ
               const showInteractiveSdv = isSdvEligible(field) && !readOnly && modeSdv && canSdv; // CRA verifies; DM is read-only
               const showStaticSdv = isSdvEligible(field) && verified && !showInteractiveSdv; // verified badge (incl. DM read-only view)
               const sdvBlock = sdvBlockReason(field, fv?.id); // null if clean
@@ -2897,18 +2792,6 @@ export function SubjectRecord({ studyId, subjectId, initialFormId, initialPanelF
                     )}
                     {!readOnly && dState && (
                       <button className={`delta-btn ${dState}`} onClick={() => setDeltaField(field)} title={deltaTitle} type="button">
-                        Δ
-                      </button>
-                    )}
-                    {/* Toggle OFF — a saved value was edited; the red Δ opens the reason
-                        panel (non-blocking) so the user can add the reason when ready. */}
-                    {prDelta && (
-                      <button
-                        className="delta-btn pending"
-                        onClick={() => { setReasonNavWarn(false); setReasonSelect(""); setReasonOther(""); setReasonPanel({ recordId: prDelta.id, field, prev: prDelta.old_value, next: prDelta.new_value }); }}
-                        title="Change reason required — click to add"
-                        type="button"
-                      >
                         Δ
                       </button>
                     )}
@@ -3269,25 +3152,6 @@ export function SubjectRecord({ studyId, subjectId, initialFormId, initialPanelF
                 </div>
               );
             }
-            // Edited with toggle OFF → reason pending, collected at submission.
-            if (r.status === "pending_reason") {
-              return (
-                <div className="delta-entry pending" key={r.id}>
-                  <div className="delta-entry-change">
-                    <span className="delta-entry-old">{r.old_value || "—"}</span>
-                    <span className="delta-entry-arrow">→</span>
-                    <span className="delta-entry-new">{r.new_value || "—"}</span>
-                  </div>
-                  <div className="delta-entry-meta">
-                    <span>{r.author_name} · {r.author_role}</span>
-                    <span className="delta-entry-ts">{r.created_at.slice(0, 16).replace("T", " ")}</span>
-                  </div>
-                  <div className="delta-entry-foot">
-                    <span className="delta-status-badge ds-change-required">Reason required at submission</span>
-                  </div>
-                </div>
-              );
-            }
             // Responded / approved → always a card.
             return (
               <div className="delta-entry" key={r.id}>
@@ -3314,75 +3178,6 @@ export function SubjectRecord({ studyId, subjectId, initialFormId, initialPanelF
           })}
         </div>
       </div>
-
-      {/* Reason for change — slide-in panel (21 CFR Part 11, toggle ON) — item 1.
-          The change is already committed. Toggle ON: mandatory (no cancel), overlay
-          click warns, blocks navigation until saved. Toggle OFF: opened by clicking
-          the field's red Δ, dismissable (overlay/close), non-blocking. */}
-      <div className={`panel-overlay${reasonPanel ? " open" : ""}`} onClick={() => { if (!reasonPanel) return; if (reasonAllEdits) setReasonNavWarn(true); else closeReasonPanel(); }}></div>
-      <div className={`slide-panel${reasonPanel ? " open" : ""}`}>
-        {reasonPanel && (
-          <>
-            <div className="panel-header">
-              <div className="panel-header-left"><div className="panel-title">Reason for change{reasonAllEdits ? " required" : ""}</div></div>
-              {/* Toggle ON → no close (mandatory). Toggle OFF → dismissable. */}
-              {!reasonAllEdits && <button className="panel-close" onClick={closeReasonPanel} type="button"><i className="ti ti-x"></i></button>}
-            </div>
-            <div className="field-context">
-              <div className="fc-label">Field</div>
-              <div className="rfc-field-name">{reasonPanel.field.label}</div>
-              <div className="rfc-change">
-                <span className="rfc-mono">{reasonPanel.prev || "—"}</span>
-                <span className="rfc-arrow">→</span>
-                <span className="rfc-mono">{reasonPanel.next || "—"}</span>
-              </div>
-            </div>
-            {reasonNavWarn && (
-              <div className="rfc-navwarn"><i className="ti ti-alert-triangle"></i> Please provide a reason for this change before continuing</div>
-            )}
-            <div className="compose-area">
-              <label className="rfc-reason-label">Reason for change</label>
-              <select className="sr-modal-input" value={reasonSelect} onChange={(e) => setReasonSelect(e.target.value)}>
-                <option value="">Select a reason…</option>
-                {CHANGE_REASONS.map((r) => <option key={r} value={r}>{r}</option>)}
-                <option value="__other__">Other (specify)</option>
-              </select>
-              {reasonSelect === "__other__" && (
-                <textarea className="compose-textarea" style={{ marginBottom: "var(--space-3)" }} placeholder="Specify the reason for this change…" value={reasonOther} onChange={(e) => setReasonOther(e.target.value)} />
-              )}
-              <button className="btn-primary" type="button" style={{ width: "100%" }} disabled={!reasonSelect || (reasonSelect === "__other__" && !reasonOther.trim())} onClick={saveReasonPanel}>Save reason</button>
-            </div>
-          </>
-        )}
-      </div>
-
-      {/* Change reasons required — batch panel at submit (Part 2, toggle OFF) */}
-      {reasonBatch && (
-        <div className="sr-modal-overlay" onClick={() => { setReasonBatch(null); setReasonBatchInputs({}); }}>
-          <div className="sr-modal rfc-batch-modal" onClick={(e) => e.stopPropagation()} role="dialog" aria-modal="true" aria-label="Change reasons required">
-            <div className="sr-modal-title"><i className="ti ti-history"></i> Change reasons required</div>
-            <div className="sr-modal-body">
-              <p style={{ margin: "0 0 var(--space-3)" }}>{reasonBatch.length} field{reasonBatch.length === 1 ? " was" : "s were"} edited after being saved. Per 21 CFR Part 11, a reason is required for each before this form can be submitted.</p>
-              <div className="rfc-batch-list">
-                {reasonBatch.map((b) => (
-                  <div className="rfc-batch-row" key={b.recordId}>
-                    <div className="rfc-batch-field">{b.label}</div>
-                    <div className="rfc-change"><span className="rfc-mono">{b.prev || "—"}</span><span className="rfc-arrow">→</span><span className="rfc-mono">{b.next || "—"}</span></div>
-                    <select className="sr-modal-input" style={{ marginBottom: 0 }} value={reasonBatchInputs[b.recordId] ?? ""} onChange={(e) => setReasonBatchInputs((prev) => ({ ...prev, [b.recordId]: e.target.value }))}>
-                      <option value="">Select a reason…</option>
-                      {CHANGE_REASONS.map((r) => <option key={r} value={r}>{r}</option>)}
-                    </select>
-                  </div>
-                ))}
-              </div>
-            </div>
-            <div className="sr-modal-actions">
-              <button className="btn-secondary" type="button" onClick={() => { setReasonBatch(null); setReasonBatchInputs({}); }}>Cancel</button>
-              <button className="btn-primary" type="button" disabled={!reasonBatch.every((b) => (reasonBatchInputs[b.recordId] ?? "").trim())} onClick={submitWithReasons}>Save reasons &amp; submit</button>
-            </div>
-          </div>
-        </div>
-      )}
 
       {/* Revert to in-work (finalized → in_work, DM/Admin) — Part 4 */}
       {revertOpen && (

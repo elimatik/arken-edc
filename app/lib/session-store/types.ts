@@ -188,10 +188,7 @@ export interface DeltaRecordRow {
   author_name: string;
   author_role: string;
   created_at: string;
-  // "pending_reason" = edited with the Audit toggle OFF — the change is logged and
-  // shows an amber "edited" indicator, but the reason is collected in a batch at
-  // "Submit for review" rather than immediately (unlike "pending", toggle ON).
-  status: "pending" | "responded" | "approved" | "pending_reason";
+  status: "pending" | "responded" | "approved";
 }
 
 // Session-only form lifecycle audit — a revert (finalized → in-work, DM/Admin) or a
