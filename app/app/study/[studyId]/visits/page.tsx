@@ -10,7 +10,7 @@
 // ════════════════════════════════════════════════════════════════════════════
 
 import { useMemo, useState } from "react";
-import { useParams, useRouter } from "next/navigation";
+import { useParams, useRouter, useSearchParams } from "next/navigation";
 import { useShell } from "@/components/shell/ShellContext";
 import { useStudySession } from "@/lib/session-store/SessionStore";
 import { useTableSort } from "@/lib/useTableSort";
@@ -79,7 +79,9 @@ export default function VisitsPage() {
 
   const [tab, setTab] = useState<TabKey>("upcoming");
   const [search, setSearch] = useState("");
-  const [statusF, setStatusF] = useState("all");
+  // Honour a ?status= deep-link from the dashboard Visit-compliance card (overdue / due_week).
+  const searchParams = useSearchParams();
+  const [statusF, setStatusF] = useState(() => searchParams.get("status") ?? "all");
   const [siteF, setSiteF] = useState("all");
   const { sort, toggle, setSort } = useTableSort(null); // sorting is via column headers only
 

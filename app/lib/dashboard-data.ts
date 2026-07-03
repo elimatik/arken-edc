@@ -28,6 +28,33 @@ export function subjectCounts(dataset: Dataset, studyId: string): SubjectCounts 
   return { total: subs.length, active: c("active"), completed: c("completed"), withdrawn: c("withdrawn"), screening: c("screening") };
 }
 
+// Screen-failure stats — screened = enrolled (randomized) + failures; a failure is
+// a subject that went through screening (status 'screening') but was never randomized.
+export interface ScreenFailureStats { screened: number; enrolled: number; failures: number; pct: number }
+export function screenFailureStats(dataset: Dataset, studyId: string): ScreenFailureStats {
+  const subs = dataset.subjects.filter((s) => s.study_id === studyId);
+  const enrolled = subs.filter((s) => !!s.randomization_arm).length;
+  const failures = subs.filter((s) => !s.randomization_arm && s.status === "screening").length;
+  const screened = enrolled + failures;
+  return { screened, enrolled, failures, pct: screened ? (failures / screened) * 100 : 0 };
+}
+
+// SAE 24-hour reporting compliance (serious reports only). Overdue = the SAE report
+// to the sponsor was filed >24h after PI awareness, or is still unfiled >24h later.
+export interface SaeCompliance { total: number; onTime: number; overdue: number }
+export function saeCompliance(dataset: Dataset, studyId: string): SaeCompliance {
+  const today = todayISO();
+  const reports = (dataset.saeReports ?? []).filter((r) => r.study_id === studyId && r.serious !== false);
+  let onTime = 0, overdue = 0;
+  for (const r of reports) {
+    const aware = r.pi_aware_date || r.onset_date;
+    const notified = r.sponsor_notified_date;
+    const isOverdue = notified ? dayDiff(aware, notified) > 1 : (aware ? dayDiff(aware, today) > 1 : false);
+    if (isOverdue) overdue++; else onTime++;
+  }
+  return { total: reports.length, onTime, overdue };
+}
+
 // Open (open + responded) queries, study-scoped, skipping orphans whose field value
 // no longer resolves — same rule the Queries screen uses.
 export function openQueryCount(dataset: Dataset, studyId: string): number {
@@ -162,6 +189,41 @@ export function sdvProgressBySite(dataset: Dataset, studyId: string): SiteFormPr
     const verified = dataset.sdvRecords.filter((r) => r.status === "verified" && instIds.has(r.form_instance_id)).length;
     return { siteId: site.id, code: site.code, name: site.name, completed: verified, total, pct: total ? Math.round((verified / total) * 100) : 0 };
   }).sort((a, b) => a.pct - b.pct);
+}
+
+// Data completeness — filled field_values vs expected fields, per site + overall.
+// Expected = editable (non-calculated) form fields per instance; filled capped at
+// expected per instance so repeating forms can't exceed 100%. Approximate but
+// derived entirely from real values.
+export interface DataCompleteness { overall: { filled: number; expected: number; pct: number }; sites: { siteId: string; code: string; name: string; filled: number; expected: number; pct: number }[] }
+export function dataCompletenessBySite(dataset: Dataset, studyId: string): DataCompleteness {
+  const sites = dataset.sites.filter((s) => s.study_id === studyId).slice().sort((a, b) => a.code.localeCompare(b.code));
+  const subById = new Map(dataset.subjects.map((s) => [s.id, s]));
+  const fieldCountByForm = new Map<string, number>();
+  for (const f of dataset.formFields) {
+    if (f.field_type === "calculated") continue;
+    fieldCountByForm.set(f.form_id, (fieldCountByForm.get(f.form_id) ?? 0) + 1);
+  }
+  const filledByInst = new Map<string, number>();
+  for (const v of dataset.fieldValues) {
+    if (v.value == null || v.value === "") continue;
+    filledByInst.set(v.form_instance_id, (filledByInst.get(v.form_instance_id) ?? 0) + 1);
+  }
+  const insts = subjectInstances(dataset, studyId);
+  const perSite = sites.map((site) => {
+    let filled = 0, expected = 0;
+    for (const inst of insts) {
+      if (subById.get(inst.subject_id!)?.site_id !== site.id) continue;
+      const exp = fieldCountByForm.get(inst.form_id) ?? 0;
+      if (exp === 0) continue;
+      expected += exp;
+      filled += Math.min(filledByInst.get(inst.id) ?? 0, exp);
+    }
+    return { siteId: site.id, code: site.code, name: site.name, filled, expected, pct: expected ? Math.round((filled / expected) * 100) : 0 };
+  });
+  const filled = perSite.reduce((s, x) => s + x.filled, 0);
+  const expected = perSite.reduce((s, x) => s + x.expected, 0);
+  return { overall: { filled, expected, pct: expected ? Math.round((filled / expected) * 100) : 0 }, sites: perSite };
 }
 
 // ─── BR-2502 specific ───────────────────────────────────────────────────────

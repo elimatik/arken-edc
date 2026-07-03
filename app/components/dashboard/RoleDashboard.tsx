@@ -13,6 +13,7 @@ import {
   pendingDeltaCount, visitCompliance, upcomingVisits, formProgressBySite, sdvProgressBySite, queryWorklist,
   brMorbidity, brMortality, brRetreatment, brMeanDart, brEnrollmentBySite, editChecksBySite,
   phFlockHealth, phMeanFcr, phMeanAdg, phFeedAnalysisStatus,
+  screenFailureStats, saeCompliance, dataCompletenessBySite,
   type SiteEnrollment, type SiteFormProgress, type RatePct,
 } from "@/lib/dashboard-data";
 import type { Dataset } from "@/lib/session-store/types";
@@ -229,7 +230,18 @@ function EnrollmentArmBar({ ctx }: { ctx: CardCtx }) {
   const legs = hide
     ? [{ c: "var(--blue-400)", t: `Enrolled — ${enrolled}` }, ...remLeg]
     : [...arms.map((a, i) => ({ c: ARM_COLORS[i % ARM_COLORS.length], t: `${a.label} — ${a.count}` })), ...remLeg];
-  return <EnrollBar cur={enrolled} tgt={target} pct={pct} segs={segs} legs={legs} />;
+  const sf = screenFailureStats(ctx.dataset, ctx.studyId);
+  const sfColor = sf.pct < 20 ? "var(--green-600)" : sf.pct <= 30 ? "var(--amber-700)" : "var(--red-600)";
+  return (
+    <>
+      <EnrollBar cur={enrolled} tgt={target} pct={pct} segs={segs} legs={legs} />
+      {sf.screened > 0 && (
+        <div className="card-note" style={{ padding: "var(--space-2) 0 0" }}>
+          Screened: <span className="mono">{sf.screened}</span> · Enrolled: <span className="mono">{sf.enrolled}</span> · Screen failures: <span className="mono" style={{ color: sfColor, fontWeight: 500 }}>{sf.failures} ({Math.round(sf.pct)}%)</span>
+        </div>
+      )}
+    </>
+  );
 }
 
 function SiteEnrollCard({ ctx }: { ctx: CardCtx }) {
@@ -287,6 +299,94 @@ function SiteComparisonCard({ ctx }: { ctx: CardCtx }) {
   );
 }
 
+// Safety card — AE / SAE counts + 24h SAE reporting compliance (DM + PI).
+function SafetyComplianceCard({ ctx }: { ctx: CardCtx }) {
+  const sc = saeCompliance(ctx.dataset, ctx.studyId);
+  const aes = ctx.agg.aes;
+  return (
+    <Card title="Safety" icon="ti-shield-exclamation">
+      <div className="safety-list">
+        <SafetyItem tone={aes > 0 ? "s-warn" : "s-good"} icon="ti-alert-triangle" title="Adverse events" sub="Reported across all sites" count={String(aes)} />
+        <SafetyItem
+          tone={sc.overdue > 0 ? "s-crit" : sc.total > 0 ? "s-warn" : "s-good"}
+          icon="ti-circle-check" title="Serious AEs (SAEs)"
+          sub={sc.total > 0 ? `${sc.onTime} reported on time · ${sc.overdue} overdue (>24h)` : "None reported"}
+          count={String(sc.total)}
+        />
+      </div>
+      {sc.overdue > 0 && (
+        <div className="sae-overdue-chip"><i className="ti ti-alert-triangle"></i> {sc.overdue} SAE report{sc.overdue > 1 ? "s" : ""} overdue — 24h SLA exceeded</div>
+      )}
+    </Card>
+  );
+}
+
+// Data completeness card — big % + progress bar + per-site bars (DM).
+function DataCompletenessCard({ ctx }: { ctx: CardCtx }) {
+  const dc = dataCompletenessBySite(ctx.dataset, ctx.studyId);
+  const col = (p: number) => (p >= 90 ? "var(--green-600)" : p >= 75 ? "var(--amber-700)" : "var(--red-600)");
+  return (
+    <Card title="Data completeness" icon="ti-database">
+      <div style={{ display: "flex", alignItems: "baseline", gap: "var(--space-2)", padding: "var(--space-2) 0 var(--space-1)" }}>
+        <span style={{ fontSize: "28px", fontWeight: 700, fontFamily: "var(--font-mono)", color: col(dc.overall.pct), lineHeight: 1 }}>{dc.overall.pct}%</span>
+      </div>
+      <div className="dash-bar-track" style={{ marginBottom: "var(--space-2)" }}><div className="dash-bar-fill" style={{ width: `${dc.overall.pct}%`, background: col(dc.overall.pct) }}></div></div>
+      <div className="card-note" style={{ padding: "0 0 var(--space-3)" }}>{dc.overall.filled.toLocaleString()} of {dc.overall.expected.toLocaleString()} expected fields completed across all sites</div>
+      {dc.sites.map((r) => (
+        <div className="dash-bar" key={r.siteId}>
+          <div className="dash-bar-hdr"><span className="dash-bar-name">{r.code} · {r.name}</span><span className="dash-bar-count">{r.pct}%</span></div>
+          <div className="dash-bar-track"><div className={`dash-bar-fill${r.pct < 75 ? " low" : ""}`} style={{ width: `${r.pct}%` }}></div></div>
+        </div>
+      ))}
+    </Card>
+  );
+}
+
+// Visit compliance card — two stats (upcoming 7d · overdue), each linking to Visits.
+function VisitComplianceCard({ ctx }: { ctx: CardCtx }) {
+  const vc = visitCompliance(ctx.dataset, ctx.studyId);
+  const upcoming = vc.dueThisWeek + vc.dueToday;
+  const base = `/study/${ctx.studyId}/visits`;
+  return (
+    <Card title="Visit compliance" icon="ti-calendar-stats">
+      <div className="vcomp-grid">
+        <Link href={`${base}?status=due_week`} className="vcomp-stat">
+          <span className="vcomp-num" style={{ color: "var(--blue-600)" }}>{upcoming}</span>
+          <span className="vcomp-lbl">Upcoming (7 days)</span>
+        </Link>
+        <Link href={`${base}?status=overdue`} className="vcomp-stat">
+          <span className="vcomp-num" style={{ color: vc.overdue > 0 ? "var(--red-600)" : "var(--color-text-primary)" }}>{vc.overdue}</span>
+          <span className="vcomp-lbl">Overdue</span>
+        </Link>
+      </div>
+    </Card>
+  );
+}
+
+// Randomization arm balance — blinding-aware (Treatment A/B for blinded PI/CA-0801).
+function ArmBalanceCard({ ctx }: { ctx: CardCtx }) {
+  const hide = shouldHideArms(ctx.dataset, ctx.studyId, ctx.role);
+  const arms = ctx.agg.arms;
+  if (arms.length === 0) return null;
+  const total = arms.reduce((a, x) => a + x.count, 0) || 1;
+  const display = arms.map((a, i) => ({ label: hide ? `Treatment ${String.fromCharCode(65 + i)}` : a.label, count: a.count }));
+  return (
+    <Card title="Randomization balance" icon="ti-scale">
+      <div className="arm-list">
+        {display.map((a, i) => (
+          <div key={i}>
+            <div className="arm-hdr"><span className="arm-label">{a.label}</span><span className="arm-count">{a.count} subjects</span></div>
+            <div className="arm-track"><div className="arm-fill" style={{ width: `${Math.round((a.count / total) * 100)}%`, background: ARM_COLORS[i % ARM_COLORS.length] }}></div></div>
+          </div>
+        ))}
+        <div style={{ fontSize: "var(--text-xs)", color: "var(--color-text-tertiary)", marginTop: "var(--space-2)" }}>
+          {hide ? `Arms masked — ${ctx.studyCode} is blinded for your role.` : "Real arm labels (open-label study)."}
+        </div>
+      </div>
+    </Card>
+  );
+}
+
 // ─── Card registry ──────────────────────────────────────────────────────────
 const ALL: Role[] = ["CRC", "CRA", "DM", "PI", "Admin"];
 const CARD_REGISTRY: Record<string, DashCardDef> = {
@@ -296,6 +396,10 @@ const CARD_REGISTRY: Record<string, DashCardDef> = {
   brd_outcomes:      { id: "brd_outcomes", name: "BRD outcomes", desc: "Morbidity / re-treatment / mortality", icon: "ti-virus", cat: "Clinical", roles: ["CRC", "CRA", "DM", "PI"], study: "BR-2502", render: (c) => <BrdOutcomesCard dataset={c.dataset} /> },
   flock_health:      { id: "flock_health", name: "Flock health", desc: "Birds / mortality / FCR / ADG", icon: "ti-feather", cat: "Clinical", roles: ["CRC", "CRA", "DM", "PI"], study: "PH-2401", render: (c) => <PhFlockHealthCard dataset={c.dataset} /> },
   data_completeness: { id: "data_completeness", name: "Data entry progress", desc: "Form completion by site", icon: "ti-database", cat: "Data quality", roles: ["CRC", "CRA", "DM"], render: (c) => <SiteProgressCard rows={formProgressBySite(c.dataset, c.studyId)} title="Data entry progress" icon="ti-forms" /> },
+  data_completeness_pct: { id: "data_completeness_pct", name: "Data completeness", desc: "% of expected fields completed, by site", icon: "ti-database", cat: "Data quality", roles: ["DM"], render: (c) => <DataCompletenessCard ctx={c} /> },
+  safety:            { id: "safety", name: "Safety", desc: "AE / SAE + 24h reporting compliance", icon: "ti-shield-exclamation", cat: "Clinical", roles: ["DM", "PI"], render: (c) => <SafetyComplianceCard ctx={c} /> },
+  visit_compliance:  { id: "visit_compliance", name: "Visit compliance", desc: "Upcoming (7d) + overdue counts", icon: "ti-calendar-stats", cat: "Clinical", roles: ["CRC", "CRA", "PI", "DM"], render: (c) => <VisitComplianceCard ctx={c} /> },
+  arm_balance:       { id: "arm_balance", name: "Randomization balance", desc: "Per-arm counts (blinding-aware)", icon: "ti-scale", cat: "Clinical", roles: ["PI", "DM", "CRA"], render: (c) => <ArmBalanceCard ctx={c} /> },
   sdv_progress:      { id: "sdv_progress", name: "SDV progress", desc: "Source-verified fields by site", icon: "ti-shield-check", cat: "Data quality", roles: ["CRA", "DM"], render: (c) => <SiteProgressCard rows={sdvProgressBySite(c.dataset, c.studyId)} title="SDV progress" icon="ti-shield-check" suffix="fields" /> },
   open_queries:      { id: "open_queries", name: "Open queries", desc: "Query counts by status", icon: "ti-message-report", cat: "Data quality", roles: ["CRC", "CRA", "DM"], render: (c) => <OpenQueriesCountCard dataset={c.dataset} studyId={c.studyId} /> },
   query_worklist:    { id: "query_worklist", name: "Query worklist", desc: "Oldest open queries", icon: "ti-list-check", cat: "Data quality", roles: ["CRA", "DM"], render: (c) => <QueryWorklistCard dataset={c.dataset} studyId={c.studyId} /> },
@@ -316,10 +420,10 @@ function cardAvailable(def: DashCardDef, role: Role, studyCode: string): boolean
 function defaultLayout(role: Role, studyCode: string): DashLayout {
   const studyClinical = studyCode === "BR-2502" ? "brd_outcomes" : studyCode === "PH-2401" ? "flock_health" : null;
   const base: Record<string, DashLayout> = {
-    CRC: { left: [studyClinical ?? "enrollment", "data_completeness"], right: ["upcoming_visits", "open_queries", "visit_windows"] },
-    CRA: { left: ["sdv_progress", "enrollment", ...(studyClinical ? [studyClinical] : [])], right: ["query_worklist", "visit_windows"] },
-    PI:  { left: ["enrollment", "visit_windows", ...(studyClinical ? [studyClinical] : [])], right: ["upcoming_visits", "key_milestones"] },
-    DM:  { left: [...(studyClinical ? [studyClinical] : ["lock_readiness"]), "data_completeness"], right: ["query_worklist", "visit_windows"] },
+    CRC: { left: [studyClinical ?? "enrollment", "data_completeness"], right: ["upcoming_visits", "open_queries", "visit_compliance", "visit_windows"] },
+    CRA: { left: ["sdv_progress", "enrollment", ...(studyClinical ? [studyClinical] : [])], right: ["query_worklist", "visit_compliance", "visit_windows"] },
+    PI:  { left: ["enrollment", "arm_balance", "safety", "visit_windows", ...(studyClinical ? [studyClinical] : [])], right: ["upcoming_visits", "visit_compliance", "key_milestones"] },
+    DM:  { left: [...(studyClinical ? [studyClinical] : ["lock_readiness"]), "safety", "data_completeness_pct", "data_completeness"], right: ["query_worklist", "visit_compliance", "visit_windows"] },
     Admin: { left: ["study_status", "study_lock"], right: ["audit_health", "lock_readiness"] },
   };
   const lay = base[role] ?? { left: ["enrollment"], right: [] };
