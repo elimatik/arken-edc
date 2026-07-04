@@ -2220,7 +2220,8 @@ export function SubjectRecord({ studyId, subjectId, initialFormId, initialPanelF
                 Only the auto-generated Production Summary (read-only) has no toolbar. */}
             <div className="form-actions" style={isSummaryForm ? { display: "none" } : undefined}>
               {/* A change reason still open (pending / answered, not yet approved)
-                  blocks Submit for review + Finalize; the alert sits left, buttons right. */}
+                  blocks Submit for review + Finalize; alert sits in the footer cluster,
+                  immediately left of Remarks (whole cluster right-aligned). */}
               {!subjectClosed && !modeSdv && hasOpenDeltas && (currentStatus === "in_work" || !!flow) && (
                 <span className="submit-block-note"><i className="ti ti-circle-exclamation"></i> Resolve all change reasons before submitting</span>
               )}

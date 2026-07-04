@@ -122,10 +122,11 @@
 /* Form header + fields */
 .form-header { display: flex; align-items: center; justify-content: space-between; gap: var(--space-4); flex-wrap: wrap; }
 .form-title { font-size: var(--text-lg); font-weight: var(--weight-medium); }
-.form-actions { display: flex; flex: 1; align-items: center; justify-content: flex-end; gap: var(--space-2); flex-wrap: wrap; }
-/* "Resolve all change reasons before submitting" — inline on the LEFT of the footer
-   row; margin-right:auto pushes the button group to the right (buttons stay grouped). */
-.submit-block-note { margin-right: auto; display: flex; align-items: center; gap: var(--space-1); font-size: var(--text-sm); font-weight: var(--weight-medium); color: var(--red-600); }
+.form-actions { display: flex; align-items: center; gap: var(--space-2); flex-wrap: wrap; }
+/* "Resolve all change reasons before submitting" — sits in the footer button cluster
+   (first item, immediately left of Remarks); the whole cluster is right-aligned by
+   the form-header's space-between. */
+.submit-block-note { display: flex; align-items: center; gap: var(--space-1); font-size: var(--text-sm); font-weight: var(--weight-medium); color: var(--red-600); }
 .submit-block-note i { font-size: 15px; flex-shrink: 0; }
 .section-title { font-size: var(--text-xs); font-weight: var(--weight-medium); text-transform: uppercase; letter-spacing: var(--tracking-caps); color: var(--color-text-tertiary); padding-bottom: var(--space-2); border-bottom: 1px solid var(--color-border-subtle); margin-bottom: var(--space-4); }
 /* In-form section divider — a full-width label above a cluster of fields (item 10). */
