@@ -25,7 +25,7 @@ type AuditType =
   | "data_entry" | "change_reason" | "edit_check"
   | "query_raised" | "query_responded" | "query_resolved"
   | "sdv" | "form_submitted" | "form_locked" | "form_reverted" | "submission_withdrawn"
-  | "unlock_requested" | "form_unlocked" | "unlock_denied" | "sdv_revoked" | "field_notdone"
+  | "unlock_requested" | "form_unlocked" | "unlock_denied" | "sdv_revoked" | "field_notdone" | "visit_rescheduled"
   | "randomization" | "consent" | "protocol_deviation"
   | "subject_enrolled" | "subject_withdrawn" | "unblinding" | "database_lock" | "database_unlock" | "drug_supply" | "login";
 type FilterCat = "data_entry" | "query" | "sdv" | "status_change" | "form_lock" | "randomization" | "consent" | "deviation" | "unblinding" | "database_lock" | "drug_supply" | "login";
@@ -46,6 +46,7 @@ const TYPE_META: Record<AuditType, { label: string; cls: string; icon: string; c
   unlock_denied:     { label: "Unlock Denied",        cls: "at-lock",      icon: "lock",            cat: "form_lock" },
   sdv_revoked:       { label: "SDV Revoked",          cls: "at-sdv",       icon: "shield-x",        cat: "sdv" },
   field_notdone:     { label: "Field Not Done",       cls: "at-entry",     icon: "square-off",      cat: "data_entry" },
+  visit_rescheduled: { label: "Visit Rescheduled",    cls: "at-submit",    icon: "calendar-event",  cat: "status_change" },
   form_locked:       { label: "Form Locked",        cls: "at-lock",      icon: "lock",            cat: "form_lock" },
   randomization:     { label: "Randomization",      cls: "at-rand",      icon: "arrows-shuffle",  cat: "randomization" },
   consent:           { label: "Consent Obtained",   cls: "at-consent",   icon: "file-check",      cat: "consent" },
@@ -251,6 +252,7 @@ function buildAuditEvents(dataset: Dataset, studyId: string, baseNow: number): A
       : a.action === "unlock_approved" ? "form_unlocked"
       : a.action === "unlock_denied" ? "unlock_denied"
       : a.action === "sdv_revoked" ? "sdv_revoked"
+      : a.action === "visit_rescheduled" ? "visit_rescheduled"
       : "field_notdone";
     const details =
       a.action === "revert" ? `${ctx.formName} reverted from ${a.from_status} to in-work`
@@ -259,6 +261,7 @@ function buildAuditEvents(dataset: Dataset, studyId: string, baseNow: number): A
       : a.action === "unlock_approved" ? `${ctx.formName} unlocked — request approved${a.reason ? ` (original reason: ${a.reason})` : ""}`
       : a.action === "unlock_denied" ? `Unlock request denied for ${ctx.formName}${a.note ? ` — ${a.note}` : ""}`
       : a.action === "sdv_revoked" ? `SDV verification revoked on ${a.reason}${a.description ? ` — ${a.description}` : ""}`
+      : a.action === "visit_rescheduled" ? `${a.description || "Visit rescheduled"}${a.reason ? ` — reason: ${a.reason}` : ""}`
       : `Field "${a.reason}" marked as ${a.description || "Not done"}`;
     push({ ts: a.created_at, type, user: mkUser(a.author_name, a.author_role), ...ctx, ...noField,
       oldValue: null, newValue: null, reason: a.reason || undefined, details,

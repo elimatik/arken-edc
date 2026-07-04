@@ -201,7 +201,7 @@ export interface FormAuditRow {
   id: string;
   form_instance_id: string;
   subject_id: string | null;
-  action: "revert" | "withdraw" | "unlock_request" | "unlock_approved" | "unlock_denied" | "sdv_revoked" | "field_notdone";
+  action: "revert" | "withdraw" | "unlock_request" | "unlock_approved" | "unlock_denied" | "sdv_revoked" | "field_notdone" | "visit_rescheduled";
   from_status: string;
   to_status: string;
   reason: string;
