@@ -197,6 +197,21 @@ function isSdvEligible(field: FormFieldRow): boolean {
   return !["file", "calculated", "textarea"].includes(field.field_type);
 }
 
+// Fix 7 — SDV coverage plan (heuristic, no settings UI). Primary-endpoint / safety /
+// dosing / date fields need 100% SDV; secondary/comment/non-critical fields are
+// partial; derived/AUTO/system fields are not required. Displayed as a small badge
+// in the SDV field view to communicate the plan without a plan-upload UI.
+type SdvCoverage = "full" | "partial" | "nr";
+const SDV_FULL_RE = /(dart|cadesi|fcr|body_weight|weight|adg|temp|adverse|(^|_)ae(_|$)|dose|vial|unit_id|lot|kit|visit_date|admin|(^|_)date(_|$))/;
+const SDV_PARTIAL_RE = /(comment|note|remark|secondary|observation|attitude|appetite|hydration|bcs|other|score_note)/;
+function sdvCoverageOf(field: FormFieldRow): SdvCoverage {
+  if (!isSdvEligible(field) || field.validation?.readonlyAuto || field.validation?.autoFromArm) return "nr";
+  const c = (field.code ?? "").toLowerCase();
+  if (SDV_FULL_RE.test(c)) return "full";
+  if (SDV_PARTIAL_RE.test(c)) return "partial";
+  return "full"; // default: verify normally
+}
+
 // VeDDRA dictionary coding lives on AE + ConMed forms. The panel field is a
 // READ-ONLY display of the DM's coding (done centrally in the Coding module),
 // rendered after the verbatim term (AE description / ConMed medication).
@@ -281,6 +296,7 @@ export function SubjectRecord({ studyId, subjectId, initialFormId, initialPanelF
   const [closeModalOpen, setCloseModalOpen] = useState(false); // "Close without response" modal
   const [closeReason, setCloseReason] = useState("");
   const [toast, setToast] = useState<string | null>(null);
+  const [sdvVerifyAllOpen, setSdvVerifyAllOpen] = useState(false); // Fix 2 — "Verify all remaining" confirm
   // Item 7 — required fields left empty on a submit attempt (inline errors + scroll).
   const [requiredErrors, setRequiredErrors] = useState<Set<string>>(new Set());
   // Fix 1 — the field whose "N/A" reason popover is open, + the "Other" free text.
@@ -1553,25 +1569,51 @@ export function SubjectRecord({ studyId, subjectId, initialFormId, initialPanelF
       }
     });
   }
-  // Bulk-verify every clean SDV-eligible field that HAS a saved value on the active
-  // form (CRA). Empty/never-entered fields and un-clean fields are skipped (item 5).
-  function verifyAll() {
-    if (!canSdv || locked) return;
-    // Repeating forms verify every entry's fields; one-time forms, the single instance.
-    const ids = formInstanceList.map((i) => i.id);
-    if (ids.length === 0) return; // nothing entered → nothing to verify
-    update((d: Dataset) => {
-      for (const instId of ids) {
-        for (const f of fields.filter(isSdvEligible)) {
-          const fv = d.fieldValues.find((v) => v.form_instance_id === instId && v.form_field_id === f.id);
-          if (!fv || (fv.value ?? "") === "") continue; // only fields with a saved value
-          if (sdvBlockReason(f, fv.id)) continue; // skip un-clean fields
-          const rec = d.sdvRecords.find((r) => r.field_value_id === fv.id);
-          if (rec) { rec.status = "verified"; rec.verified_by_name = ndaName; rec.verified_at = todayISO(); }
-          else d.sdvRecords.push({ id: newId(), form_instance_id: fv.form_instance_id, field_value_id: fv.id, status: "verified", verified_by_name: ndaName, verified_at: todayISO() });
-        }
+  // The clean, SDV-eligible, still-unverified fields "Verify all remaining" would act
+  // on — used both to count for the confirm dialog and to skip queried/un-clean fields.
+  function sdvRemainingFields(): { instId: string; fvId: string }[] {
+    const out: { instId: string; fvId: string }[] = [];
+    for (const inst of formInstanceList) {
+      for (const f of fields.filter(isSdvEligible)) {
+        const fv = dataset.fieldValues.find((v) => v.form_instance_id === inst.id && v.form_field_id === f.id);
+        if (!fv || (fv.value ?? "") === "") continue; // only fields with a saved value
+        if (sdvBlockReason(f, fv.id)) continue; // skip un-clean fields (incl. queried — Fix 2)
+        if (dataset.sdvRecords.find((r) => r.field_value_id === fv.id)?.status === "verified") continue; // already verified
+        out.push({ instId: inst.id, fvId: fv.id });
       }
+    }
+    return out;
+  }
+  // True while any field on the form has an unresolved query (a discrepancy) — such a
+  // form can't auto-mark SDV-complete after a bulk verify.
+  function formHasOpenQuery(): boolean {
+    return formInstanceList.some((inst) =>
+      fields.some((f) => {
+        const fv = dataset.fieldValues.find((v) => v.form_instance_id === inst.id && v.form_field_id === f.id);
+        const q = fv ? fieldQueryFor(fv.id) : undefined;
+        return q && q.status !== "resolved";
+      }),
+    );
+  }
+  // Bulk-verify every clean SDV-eligible field that HAS a saved value (CRA). Queried /
+  // un-clean / empty fields are skipped (Fix 2). Returns the count verified; on confirm
+  // the form auto-marks SDV-complete when no queried field remains.
+  function confirmVerifyAll() {
+    if (!canSdv || locked) return;
+    const targets = sdvRemainingFields();
+    if (targets.length === 0) { setSdvVerifyAllOpen(false); return; }
+    update((d: Dataset) => {
+      for (const t of targets) {
+        const fv = d.fieldValues.find((v) => v.id === t.fvId);
+        if (!fv) continue;
+        const rec = d.sdvRecords.find((r) => r.field_value_id === fv.id);
+        if (rec) { rec.status = "verified"; rec.verified_by_name = ndaName; rec.verified_at = todayISO(); }
+        else d.sdvRecords.push({ id: newId(), form_instance_id: fv.form_instance_id, field_value_id: fv.id, status: "verified", verified_by_name: ndaName, verified_at: todayISO() });
+      }
+      if (!formHasOpenQuery()) { const ids = new Set(formInstanceList.map((i) => i.id)); for (const inst of d.formInstances) if (ids.has(inst.id)) inst.sdv_complete = true; }
     });
+    setToast(`${targets.length} field${targets.length === 1 ? "" : "s"} verified`);
+    setSdvVerifyAllOpen(false);
   }
   // Mark this form's source-data verification complete (item 6) — every entry for a
   // repeating form, the single instance otherwise.
@@ -2301,8 +2343,8 @@ export function SubjectRecord({ studyId, subjectId, initialFormId, initialPanelF
               {/* SDV toolbar — only in SDV mode, hidden for closed (completed/withdrawn) subjects */}
               {modeSdv && !subjectClosed && (
                 <>
-                  <button className="btn-secondary" type="button" disabled={!canSdv} onClick={verifyAll} title={canSdv ? "Verify all entered fields" : "SDV verify — CRA only"}>
-                    Verify all
+                  <button className="btn-secondary" type="button" disabled={!canSdv} onClick={() => setSdvVerifyAllOpen(true)} title={canSdv ? "Verify all remaining unverified fields" : "SDV verify — CRA only"}>
+                    Verify all remaining
                   </button>
                   <button className="btn-primary" type="button" disabled={!canSdv} onClick={markSdvComplete} title={allSdvComplete ? "SDV marked complete" : "Mark source-data verification complete for this form"}>
                     {allSdvComplete ? <><i className="ti ti-shield-check-filled"></i> SDV complete</> : "Mark SDV complete"}
@@ -2865,6 +2907,8 @@ export function SubjectRecord({ studyId, subjectId, initialFormId, initialPanelF
                   <label className="field-label">
                     {field.label}
                     {field.is_required && <span className="field-req"> *</span>}
+                    {/* Fix 7 — SDV coverage plan badge (SDV mode only) */}
+                    {modeSdv && (() => { const cov = sdvCoverageOf(field); return <span className={`sdv-cov sdv-cov-${cov}`} title={cov === "full" ? "100% SDV required" : cov === "partial" ? "Partial SDV" : "SDV not required"}>{cov === "full" ? "100%" : cov === "partial" ? "Partial" : "N/R"}</span>; })()}
                     {naDone && <span className="na-badge" title={naReason}>N/A</span>}
                     {/* Fix 1 — mark/clear "Not done / N/A". The N/A link appears on hover. */}
                     {naEligible && (naDone ? (
@@ -3345,6 +3389,20 @@ export function SubjectRecord({ studyId, subjectId, initialFormId, initialPanelF
           </div>
         </div>
       )}
+
+      {/* Verify all remaining SDV fields (CRA/DM) — Fix 2 */}
+      {sdvVerifyAllOpen && (() => { const n = sdvRemainingFields().length; return (
+        <div className="sr-modal-overlay" onClick={() => setSdvVerifyAllOpen(false)}>
+          <div className="sr-modal" onClick={(e) => e.stopPropagation()} role="dialog" aria-modal="true" aria-label="Verify all remaining fields">
+            <div className="sr-modal-title"><i className="ti ti-shield-check-filled"></i> Verify all remaining fields?</div>
+            <div className="sr-modal-body">This confirms that all {n} unverified field{n === 1 ? "" : "s"} match the source documents. Queried fields are not affected. This action will be logged in the audit trail.</div>
+            <div className="sr-modal-actions">
+              <button className="btn-secondary" type="button" onClick={() => setSdvVerifyAllOpen(false)}>Cancel</button>
+              <button className="btn-primary" type="button" disabled={n === 0} onClick={confirmVerifyAll}><i className="ti ti-shield-check-filled"></i> Verify all</button>
+            </div>
+          </div>
+        </div>
+      ); })()}
 
       {/* Request form unlock (locked → request) — Fix 2 */}
       {unlockOpen && (

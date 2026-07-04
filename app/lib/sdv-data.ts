@@ -28,6 +28,7 @@ export interface SdvWorklistRow {
   totalRequiredFields: number;
   openQueries: number;
   lastUpdated: string;
+  lastActivity: string; // most recent SDV verify OR query on this form (for aging) — "" if none
 }
 
 export type FieldSdvStatus = "unverified" | "verified" | "queried" | "not-req";
@@ -78,7 +79,9 @@ export function buildSdvWorklist(dataset: Dataset, studyId: string): SdvWorklist
 
   const queriedFvIds = new Set(dataset.queries.filter((q) => q.status !== "resolved" && q.field_value_id).map((q) => q.field_value_id!));
   const openQByInst = new Map<string, number>();
+  const lastQueryByInst = new Map<string, string>(); // latest query created_at per instance
   for (const q of dataset.queries) {
+    if (q.created_at && (q.created_at > (lastQueryByInst.get(q.form_instance_id) ?? ""))) lastQueryByInst.set(q.form_instance_id, q.created_at.slice(0, 10));
     if (q.status === "resolved") continue;
     openQByInst.set(q.form_instance_id, (openQByInst.get(q.form_instance_id) ?? 0) + 1);
   }
@@ -104,6 +107,8 @@ export function buildSdvWorklist(dataset: Dataset, studyId: string): SdvWorklist
       ? "complete"
       : "partial";
     const lastSdv = fields.map((f) => ix.sdvByFv.get(f.id)?.verified_at).filter(Boolean).sort().at(-1) ?? "";
+    const lastQ = lastQueryByInst.get(inst.id) ?? "";
+    const lastActivity = lastSdv > lastQ ? lastSdv : lastQ;
 
     rows.push({
       formInstanceId: inst.id,
@@ -119,6 +124,7 @@ export function buildSdvWorklist(dataset: Dataset, studyId: string): SdvWorklist
       totalRequiredFields: total,
       openQueries: openQByInst.get(inst.id) ?? 0,
       lastUpdated: lastSdv,
+      lastActivity,
     });
   }
   return rows;

@@ -120,3 +120,30 @@
 .sdv-act.query:hover { background: var(--amber-50); }
 .sdv-act.queried { border-color: var(--red-200); color: var(--red-600); background: var(--red-50); }
 .sdv-notreq-txt { font-size: var(--text-xs); color: var(--color-text-tertiary); }
+
+/* ═══ SDV module improvements (stat strip, progress tone, aging, certificate) ═══ */
+
+/* Header action cluster + certificate button */
+.sdv-header-actions { display: flex; align-items: center; gap: var(--space-2); }
+
+/* Stat strip */
+.sdv-stat-strip { display: flex; border-bottom: 1px solid var(--color-border); background: var(--color-surface); flex-shrink: 0; }
+.sdv-stat { flex: 1; padding: var(--space-3) var(--space-5); border-right: 1px solid var(--color-border); }
+.sdv-stat:last-child { border-right: none; }
+.sdv-stat-val { font-size: 22px; font-weight: var(--weight-medium); font-family: var(--font-mono); color: var(--color-text-primary); line-height: 1.1; }
+.sdv-stat-val.green { color: var(--green-600); }
+.sdv-stat-val.amber { color: var(--amber-700); }
+.sdv-stat-val.red { color: var(--red-600); }
+.sdv-stat-of { font-size: 14px; color: var(--color-text-tertiary); }
+.sdv-stat-lbl { font-size: var(--text-xs); color: var(--color-text-tertiary); margin-top: 4px; }
+.sdv-stat-sub { color: var(--color-text-placeholder); }
+
+/* Fix 1 — progress-bar tone by SDV status */
+.sdv-prog-fill.tone-green { background: var(--green-500); }
+.sdv-prog-fill.tone-amber { background: var(--amber-400); }
+.sdv-prog-fill.tone-slate { background: var(--slate-300); }
+
+/* Fix 5 — aging (idle) indicator on the form cell */
+.sdv-aging { margin-left: 6px; font-size: 14px; vertical-align: middle; cursor: help; }
+.sdv-aging-amber { color: var(--amber-600, #d97706); }
+.sdv-aging-red { color: var(--red-600); }
