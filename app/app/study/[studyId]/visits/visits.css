@@ -85,19 +85,10 @@
 .vs-sponsor { flex: 1; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: var(--space-3); padding: var(--space-8) var(--space-5); text-align: center; }
 .vs-sponsor-sub { font-size: var(--text-sm); color: var(--color-text-secondary); max-width: 640px; line-height: 1.6; }
 
-/* ═══ Visits module improvements (compliance, grouping, PD, reschedule) ═══ */
+/* ═══ Visits module improvements (compliance, PD, reschedule) ═══ */
 
 /* Stat strip sub-line (compliance "X of Y on time") */
 .vs-stat-sub { color: var(--color-text-placeholder); }
-
-/* Fix 3 — grouped subject row (multiple overdue/due visits) */
-.vs-grouprow { cursor: pointer; background: var(--color-page-bg); }
-.vs-grouprow:hover { background: var(--color-hover-bg); }
-.vs-group-count { display: inline-flex; align-items: center; gap: 5px; font-size: var(--text-sm); font-weight: var(--weight-medium); color: var(--red-700, #b91c1c); }
-.vs-group-count i { color: var(--red-600); }
-.vs-subrow { background: var(--color-surface); }
-.vs-subrow > td:first-child { padding-left: var(--space-8); }
-.vs-subrow-tick { display: inline-block; width: 14px; height: 14px; border-left: 1px solid var(--color-border); border-bottom: 1px solid var(--color-border); border-bottom-left-radius: 3px; margin-left: var(--space-2); opacity: 0.6; }
 
 /* Row action cluster + icon button */
 .vs-row-actions { display: flex; align-items: center; gap: var(--space-1); white-space: nowrap; }

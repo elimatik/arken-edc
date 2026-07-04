@@ -14,7 +14,7 @@
 // it appears in the Audit Trail.
 // ════════════════════════════════════════════════════════════════════════════
 
-import { Fragment, useMemo, useState } from "react";
+import { useMemo, useState } from "react";
 import { useParams, useRouter, useSearchParams } from "next/navigation";
 import { useShell } from "@/components/shell/ShellContext";
 import { useStudySession } from "@/lib/session-store/SessionStore";
@@ -120,11 +120,7 @@ export default function VisitsPage() {
   const [siteF, setSiteF] = useState("all");
   const { sort, toggle, setSort } = useTableSort(null); // sorting is via column headers only
 
-  // Fix 3 — expand/collapse for subjects with multiple overdue/due visits.
-  const [expanded, setExpanded] = useState<Set<string>>(new Set());
-  const toggleExpand = (subjectId: string) => setExpanded((s) => { const n = new Set(s); if (n.has(subjectId)) n.delete(subjectId); else n.add(subjectId); return n; });
-
-  // Fix 6 — component-state reschedules (keyed by visit id) + PD flags from overrides.
+  // Reschedules (component-state, keyed by visit id) + PD flags from overrides.
   const [reschedules, setReschedules] = useState<Record<string, Reschedule>>({});
   const [pdFlagged, setPdFlagged] = useState<Set<string>>(new Set());
   const [rsRow, setRsRow] = useState<VisitRow | null>(null);
@@ -213,19 +209,6 @@ export default function VisitsPage() {
     });
   }, [upcomingAll, search, statusF, siteF, sort, today, reschedules]); // eslint-disable-line react-hooks/exhaustive-deps
 
-  // Fix 3 — group Tab-1 rows by subject (order preserved from the sorted list). A
-  // subject with ≥2 rows renders as an expandable parent; single-row subjects stay flat.
-  const upcomingGroups = useMemo(() => {
-    const idx = new Map<string, { subjectId: string; subjectCode: string; siteName: string; rows: VisitRow[] }>();
-    const order: string[] = [];
-    for (const r of upcoming) {
-      let g = idx.get(r.subjectId);
-      if (!g) { g = { subjectId: r.subjectId, subjectCode: r.subjectCode, siteName: r.siteName, rows: [] }; idx.set(r.subjectId, g); order.push(r.subjectId); }
-      g.rows.push(r);
-    }
-    return order.map((id) => idx.get(id)!);
-  }, [upcoming]);
-
   // ─── Tab 2 filter + sort ────────────────────────────────────────────────────
   const history = useMemo(() => {
     const q = search.toLowerCase().trim();
@@ -293,15 +276,15 @@ export default function VisitsPage() {
 
   const th = (label: string, key: string, width?: number) => <SortTh label={label} sortKey={key} sort={sort} onSort={toggle} style={width ? { width } : undefined} />;
 
-  // A single Tab-1 visit line (used both as a flat row and as an indented sub-row).
-  const renderVisitRow = (r: VisitRow, sub: boolean) => {
+  // A single Tab-1 visit line.
+  const renderVisitRow = (r: VisitRow) => {
     const s = upStatusOf(eff(r), today); const meta = UP_META[s.key];
     const rs = reschedules[r.id];
     const pd = pdFlagged.has(r.id);
     return (
-      <tr key={r.id} className={sub ? "vs-subrow" : ""}>
-        <td>{sub ? <span className="vs-subrow-tick" /> : <span className="vs-subj" onClick={() => gotoRecord(r)} title="Open subject record">{r.subjectCode}</span>}</td>
-        <td>{sub ? "" : <span className="vs-site">{r.siteName}</span>}</td>
+      <tr key={r.id}>
+        <td><span className="vs-subj" onClick={() => gotoRecord(r)} title="Open subject record">{r.subjectCode}</span></td>
+        <td><span className="vs-site">{r.siteName}</span></td>
         <td>
           <span className="vs-visit" title={visitLabel(r)}>{visitLabel(r)}</span>
           {pd && <span className="vs-pd-chip" title="Protocol deviation required" onClick={() => setPdModal({ subjectId: r.subjectId, visitName: visitLabel(r) })}><i className="ti ti-flag"></i> PD required</span>}
@@ -396,30 +379,7 @@ export default function VisitsPage() {
                     {th("Days", "days", 80)}<th style={{ width: 120 }}>Action</th>
                   </tr></thead>
                   <tbody>
-                    {upcomingGroups.map((g) => {
-                      if (g.rows.length === 1) return renderVisitRow(g.rows[0], false);
-                      // Grouped subject — expandable parent row (Fix 3).
-                      const isOpen = expanded.has(g.subjectId);
-                      const overdueCount = g.rows.filter((r) => upStatusOf(eff(r), today).key === "overdue").length;
-                      const dueCount = g.rows.filter((r) => { const k = upStatusOf(eff(r), today).key; return k === "due_today" || k === "due_week"; }).length;
-                      const worst = g.rows.reduce((acc, r) => Math.min(acc, UP_META[upStatusOf(eff(r), today).key].rank), 3);
-                      const worstKey = (Object.keys(UP_META) as UpStatus[]).find((k) => UP_META[k].rank === worst) ?? "upcoming";
-                      const chipCount = overdueCount || dueCount || g.rows.length;
-                      const chipWord = overdueCount ? "overdue" : dueCount ? "due" : "upcoming";
-                      return (
-                        <Fragment key={g.subjectId}>
-                          <tr className="vs-grouprow" onClick={() => toggleExpand(g.subjectId)}>
-                            <td><span className="vs-subj" onClick={(e) => { e.stopPropagation(); router.push(`/study/${studyId}/data-entry/${g.subjectId}`); }} title="Open subject record">{g.subjectCode}</span></td>
-                            <td><span className="vs-site">{g.siteName}</span></td>
-                            <td><span className="vs-group-count"><i className="ti ti-alert-triangle" style={{ fontSize: 12 }}></i> {chipCount} {chipWord} {T.visitsWord}</span></td>
-                            <td colSpan={3}><span className={`vs-chip ${UP_META[worstKey].cls}`}>{upLabel(worstKey)}</span></td>
-                            <td></td>
-                            <td><button className="vs-act vs-act-icon" type="button" title={isOpen ? "Collapse" : "Expand"} onClick={(e) => { e.stopPropagation(); toggleExpand(g.subjectId); }}><i className={`ti ti-chevron-${isOpen ? "up" : "down"}`}></i></button></td>
-                          </tr>
-                          {isOpen && g.rows.map((r) => renderVisitRow(r, true))}
-                        </Fragment>
-                      );
-                    })}
+                    {upcoming.map((r) => renderVisitRow(r))}
                   </tbody>
                 </table>
               )
