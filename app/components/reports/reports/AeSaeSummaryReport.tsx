@@ -6,7 +6,7 @@
 import { useMemo, useState } from "react";
 import { useStudySession } from "@/lib/session-store/SessionStore";
 import type { ReportProps } from "@/app/study/[studyId]/reports/page";
-import { Section, StatGrid, StatTile, EmptyNote, ReportCsvButton, fmtDate } from "@/components/reports/ReportKit";
+import { Section, StatGrid, StatTile, EmptyNote, ReportCsvButton, DrillCount, fmtDate } from "@/components/reports/ReportKit";
 import { buildAeRoster, safetySummary, aeBySite, aeByArm, dartDistribution, brWithdrawalBlocks, type AeRow } from "@/lib/reports-data";
 
 const SEV_CLS: Record<string, string> = { mild: "ms-done", moderate: "ms-active", severe: "ms-crit", "life-threatening": "ms-crit" };
@@ -55,10 +55,18 @@ export function AeSaeSummaryReport({ studyId, aggregate, hideArms }: ReportProps
       {aggregate ? (
         <Section title="Adverse events by site" icon="alert-octagon">
           {d.aes.length > 0 ? (
-            <table className="rpt-table">
-              <thead><tr><th>Site</th><th>AEs</th><th>SAEs</th></tr></thead>
-              <tbody>{d.bySite.map((r) => <tr key={r.siteName}><td>{r.siteName}</td><td className="mono">{r.aeCount}</td><td className={`mono${r.saeCount > 0 ? " cell-crit" : ""}`}>{r.saeCount}</td></tr>)}</tbody>
-            </table>
+            <>
+              <p className="rpt-drill-hint">Click a site&apos;s AE count to reveal those events (subject IDs are omitted in the aggregate view).</p>
+              <div className="rpt-drill-row">
+                {d.bySite.map((r) => (
+                  <DrillCount key={r.siteName}
+                    count={<span>{r.siteName}: <strong>{r.aeCount}</strong> {r.aeCount === 1 ? "AE" : "AEs"}{r.saeCount > 0 && <> · <span className="cell-crit">{r.saeCount} SAE</span></>}</span>}
+                    label={`AEs at ${r.siteName}`} studyId={studyId} slug="ae_by_site"
+                    headers={["Subject", "Verbatim term", "Severity", "Causality", "Outcome"]}
+                    rows={d.aes.filter((a) => a.siteName === r.siteName).map((a) => ["—", a.description, a.severity, a.causality, a.outcome])} />
+                ))}
+              </div>
+            </>
           ) : <EmptyNote>No adverse events recorded for this study.</EmptyNote>}
         </Section>
       ) : (
