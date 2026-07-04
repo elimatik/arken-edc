@@ -7,7 +7,7 @@ import { useTableSort } from "@/lib/useTableSort";
 import { getStudyTypeConfig } from "@/lib/study-type-config";
 import { SortTh } from "@/components/common/SortTh";
 import type { ReportProps } from "@/app/study/[studyId]/reports/page";
-import { Section, Funnel, ExportCsvButton, fmtDate } from "@/components/reports/ReportKit";
+import { Section, Funnel, ExportCsvButton, DrillCount, fmtDate } from "@/components/reports/ReportKit";
 import {
   dispositions, dispositionFunnel, armBalance, screenFailureReasons,
   armLabeler, buildSubjectIndex, type Disposition,
@@ -71,6 +71,20 @@ export function EnrollmentDispositionReport({ studyId, aggregate, hideArms }: Re
     return f ? arr.sort((a, b) => f(a).localeCompare(f(b)) * dir) : arr;
   }, [d, sort]);
 
+  // Fix 1 — per-status subject lists for the click-through drill-down.
+  const drillHeaders = showArm ? ["Subject", "Arm", "Site", "Status", "Enrollment", "Exit reason"] : ["Subject", "Site", "Status", "Enrollment", "Exit reason"];
+  const drill = useMemo(() => {
+    const mk = (fn: (x: Disposition) => boolean): (string | number | null)[][] => d.disp.filter(fn).map((x) =>
+      showArm ? [x.subjectCode, d.label(x.arm), `${x.siteCode} · ${x.siteName}`, x.status, x.enrollDate, x.exitReason] : [x.subjectCode, `${x.siteCode} · ${x.siteName}`, x.status, x.enrollDate, x.exitReason]);
+    return {
+      enrolled: mk((x) => x.status !== "screening" && !x.isScreenFailure),
+      active: mk((x) => x.status === "active"),
+      completed: mk((x) => x.status === "completed"),
+      withdrawn: mk((x) => x.status === "withdrawn"),
+      screenfail: mk((x) => x.isScreenFailure),
+    };
+  }, [d, showArm]);
+
   const csvHeaders = showArm
     ? ["Subject", "Arm", "Site", "Status", "Enrollment date", "Exit date", "Exit reason"]
     : ["Subject", "Site", "Status", "Enrollment date", "Exit date", "Exit reason"];
@@ -102,6 +116,19 @@ export function EnrollmentDispositionReport({ studyId, aggregate, hideArms }: Re
           { label: "Screen fails", value: d.funnel.screenFailures, tone: "crit" },
         ]} />
       </Section>
+
+      {!aggregate && (
+        <Section title={`${unit} disposition drill-down`} icon="list-search">
+          <p className="rpt-drill-hint">Click a count to reveal the underlying {isPen ? "pens" : "subjects"}.</p>
+          <div className="rpt-drill-row">
+            <DrillCount count={<span>Enrolled: <strong>{drill.enrolled.length}</strong></span>} label={fLabel("Enrolled")} studyId={studyId} slug="enrollment_enrolled" headers={drillHeaders} rows={drill.enrolled} />
+            <DrillCount count={<span>Active: <strong>{drill.active.length}</strong></span>} label={fLabel("Active")} studyId={studyId} slug="enrollment_active" headers={drillHeaders} rows={drill.active} />
+            <DrillCount count={<span>Completed: <strong>{drill.completed.length}</strong></span>} label={fLabel("Completed")} studyId={studyId} slug="enrollment_completed" headers={drillHeaders} rows={drill.completed} />
+            <DrillCount count={<span>Withdrawn: <strong>{drill.withdrawn.length}</strong></span>} label={fLabel("Withdrawn")} studyId={studyId} slug="enrollment_withdrawn" headers={drillHeaders} rows={drill.withdrawn} />
+            <DrillCount count={<span>Screen fails: <strong>{drill.screenfail.length}</strong></span>} label="Screen failures" studyId={studyId} slug="enrollment_screenfail" headers={drillHeaders} rows={drill.screenfail} />
+          </div>
+        </Section>
+      )}
 
       <Section title={`${unit} disposition`} icon="users" action={!aggregate && <ExportCsvButton studyCode={study.code} slug="enrollment_disposition" headers={csvHeaders} rows={csvRows} />}>
         {aggregate ? (

@@ -1,6 +1,6 @@
 "use client";
 
-import type { ReactNode } from "react";
+import { useState, type ReactNode } from "react";
 import { downloadCsv, csvFilename, reportCsvHeaderRows } from "@/lib/reports-data";
 import { useStudySession } from "@/lib/session-store/SessionStore";
 import { useShell } from "@/components/shell/ShellContext";
@@ -138,6 +138,40 @@ export function ReportCsvButton({ studyId, slug, headers, rows, siteLabel }: { s
     <button className="rpt-csv-btn" type="button" onClick={onClick} disabled={rows.length === 0}>
       <i className="ti ti-download"></i> Export CSV
     </button>
+  );
+}
+
+// Click-through drill-down (Fix 1). Renders a count as a blue underlined link; a
+// click expands an inline bordered table below it (the underlying list), with a
+// Collapse link and an "Export this list" button (study-header-block CSV).
+export function DrillCount({ count, label, studyId, slug, headers, rows, className }: {
+  count: ReactNode; label: string; studyId: string; slug: string;
+  headers: string[]; rows: (string | number | null)[][]; className?: string;
+}) {
+  const [open, setOpen] = useState(false);
+  return (
+    <div className="rpt-drill-block">
+      <span className={`rpt-drill-link${className ? ` ${className}` : ""}`} role="button" tabIndex={0}
+        onClick={() => rows.length > 0 && setOpen((o) => !o)}
+        onKeyDown={(e) => { if ((e.key === "Enter" || e.key === " ") && rows.length > 0) { e.preventDefault(); setOpen((o) => !o); } }}>
+        {count}
+      </span>
+      {open && (
+        <div className="rpt-drill-panel">
+          <div className="rpt-drill-head">
+            <span>{label} · {rows.length}</span>
+            <div className="rpt-drill-actions">
+              <ReportCsvButton studyId={studyId} slug={slug} headers={headers} rows={rows} />
+              <button type="button" className="rpt-drill-collapse" onClick={() => setOpen(false)}><i className="ti ti-chevron-up" style={{ fontSize: 12 }}></i> Collapse</button>
+            </div>
+          </div>
+          <table className="rpt-table">
+            <thead><tr>{headers.map((h) => <th key={h}>{h}</th>)}</tr></thead>
+            <tbody>{rows.map((r, i) => <tr key={i}>{r.map((c, j) => <td key={j} className={j === 0 ? "mono" : ""}>{c ?? "—"}</td>)}</tr>)}</tbody>
+          </table>
+        </div>
+      )}
+    </div>
   );
 }
 
