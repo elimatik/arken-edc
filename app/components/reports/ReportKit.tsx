@@ -1,7 +1,10 @@
 "use client";
 
 import type { ReactNode } from "react";
-import { downloadCsv, csvFilename } from "@/lib/reports-data";
+import { downloadCsv, csvFilename, reportCsvHeaderRows } from "@/lib/reports-data";
+import { useStudySession } from "@/lib/session-store/SessionStore";
+import { useShell } from "@/components/shell/ShellContext";
+import { useNdaName } from "@/lib/use-nda-name";
 
 // Section card — every report is a stack of these. `noBreak` keeps the heading
 // glued to its content across print page breaks.
@@ -105,6 +108,23 @@ export function EmptyNote({ children }: { children: ReactNode }) {
 export function ExportCsvButton({ studyCode, slug, headers, rows }: { studyCode: string; slug: string; headers: string[]; rows: (string | number | null)[][] }) {
   return (
     <button className="rpt-csv-btn" type="button" onClick={() => downloadCsv(csvFilename(studyCode, slug), headers, rows)} disabled={rows.length === 0}>
+      <i className="ti ti-download"></i> Export CSV
+    </button>
+  );
+}
+
+// Export button that prepends the standard study header block to the CSV (study /
+// protocol / generated-by / date / site filter). Use for all report exports.
+export function ReportCsvButton({ studyId, slug, headers, rows, siteLabel }: { studyId: string; slug: string; headers: string[]; rows: (string | number | null)[][]; siteLabel?: string }) {
+  const { dataset } = useStudySession();
+  const { study, activeRole } = useShell();
+  const userName = useNdaName();
+  const onClick = () => {
+    const meta = reportCsvHeaderRows(dataset, studyId, activeRole, userName, siteLabel ?? "All sites");
+    downloadCsv(csvFilename(study.code, slug), headers, [...meta, ...rows]);
+  };
+  return (
+    <button className="rpt-csv-btn" type="button" onClick={onClick} disabled={rows.length === 0}>
       <i className="ti ti-download"></i> Export CSV
     </button>
   );

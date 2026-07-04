@@ -220,3 +220,23 @@
   body.printing-sdv-cert .sdv-cert, body.printing-sdv-cert .sdv-cert * { visibility: visible !important; }
   body.printing-sdv-cert .sdv-cert { display: block !important; position: fixed; inset: 0; margin: 0; padding: 8mm; background: #fff; }
 }
+
+/* ═══ Reports module improvements — filters, sortable headers, listings ═══ */
+.rpt-filters { display: flex; align-items: center; gap: var(--space-2); margin-bottom: var(--space-3); flex-wrap: wrap; }
+.rpt-search { display: flex; align-items: center; gap: var(--space-2); height: 32px; padding: 0 var(--space-3); border: 1px solid var(--color-border); border-radius: var(--radius-md); background: var(--color-surface); flex: 0 1 240px; min-width: 160px; }
+.rpt-search i { font-size: 14px; color: var(--color-text-placeholder); flex-shrink: 0; }
+.rpt-search input { border: none; outline: none; font-size: var(--text-sm); font-family: var(--font-sans); color: var(--color-text-primary); background: transparent; flex: 1; min-width: 0; }
+.rpt-select { height: 32px; padding: 0 26px 0 var(--space-2); font-size: var(--text-sm); font-family: var(--font-sans); border: 1px solid var(--color-border); border-radius: var(--radius-md); background: var(--color-surface); color: var(--color-text-primary); cursor: pointer; }
+.rpt-filter-count { font-size: var(--text-xs); color: var(--color-text-tertiary); white-space: nowrap; margin-left: auto; }
+.rpt-table th.rpt-sortable { cursor: pointer; user-select: none; white-space: nowrap; }
+.rpt-table th.rpt-sortable:hover { color: var(--color-text-primary); }
+.rpt-sort-icon { font-size: 12px; margin-left: 3px; opacity: 0.7; vertical-align: middle; }
+
+/* Fix 1 — inline click-through expansion panel below a report card */
+.rpt-drill-link { color: var(--blue-600); cursor: pointer; text-decoration: underline; text-underline-offset: 2px; font-weight: var(--weight-medium); }
+.rpt-drill-link:hover { color: var(--blue-700, #0f4c8a); }
+.rpt-drill-panel { margin-top: var(--space-3); border: 1px solid var(--color-border); border-radius: var(--radius-md); overflow: hidden; }
+.rpt-drill-head { display: flex; align-items: center; justify-content: space-between; padding: var(--space-2) var(--space-3); background: var(--color-page-bg); border-bottom: 1px solid var(--color-border); font-size: var(--text-sm); font-weight: var(--weight-medium); }
+.rpt-drill-actions { display: flex; align-items: center; gap: var(--space-3); }
+.rpt-drill-collapse { color: var(--blue-600); cursor: pointer; font-size: var(--text-xs); background: none; border: none; }
+.rpt-drill-panel .rpt-table { margin: 0; }

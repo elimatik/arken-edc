@@ -19,6 +19,8 @@ import { QueryEditCheckReport } from "@/components/reports/reports/QueryEditChec
 import { AeSaeSummaryReport } from "@/components/reports/reports/AeSaeSummaryReport";
 import { ConMedLogReport } from "@/components/reports/reports/ConMedLogReport";
 import { SdvCompletionReport } from "@/components/reports/reports/SdvCompletionReport";
+import { QueryListingReport } from "@/components/reports/reports/QueryListingReport";
+import { ProtocolDeviationsReport } from "@/components/reports/reports/ProtocolDeviationsReport";
 import "./reports.css";
 
 export interface ReportProps {
@@ -37,6 +39,8 @@ const RENDERERS: Record<ReportId, (p: ReportProps) => JSX.Element> = {
   "safety-ae": AeSaeSummaryReport,
   "conmed-log": ConMedLogReport,
   "sdv-completion": SdvCompletionReport,
+  "query-listing": QueryListingReport,
+  "protocol-deviations": ProtocolDeviationsReport,
 };
 
 export default function ReportsPage() {
