@@ -1,6 +1,6 @@
 "use client";
 
-import { Fragment, useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useRouter, useParams } from "next/navigation";
 import { useShell } from "@/components/shell/ShellContext";
 import { useStudySession } from "@/lib/session-store/SessionStore";
@@ -85,7 +85,8 @@ interface AnimalRow {
   overdueQueries: number; // open queries older than 14 days
   lastVisit: string | null;
   ineligible: boolean;
-  visitState: "overdue" | "due" | null; // most-urgent pending visit (Fix 1)
+  overdueVisitName: string | null; // most urgent overdue visit — drives the ! icon + tooltip
+  overdueVisitDate: string | null;
   screenFailure: boolean; // screening + completed Screening, no Randomization (Fix 3)
   fcr: number | null; // most recent FCR — PH-2401 (Fix 5)
   cadesi: number | null; // most recent CADESI-04 — CA-0801 (Fix 6)
@@ -154,7 +155,6 @@ export default function AnimalsPage() {
   const [colOpen, setColOpen] = useState(false);
   const [hiddenCols, setHiddenCols] = useState<Set<string>>(new Set());
   const [queryPanelFor, setQueryPanelFor] = useState<AnimalRow | null>(null);
-  const [collapsedBarns, setCollapsedBarns] = useState<Set<string>>(new Set()); // Fix 4 (all expanded by default)
   const colWrapRef = useRef<HTMLDivElement>(null);
 
   // The topbar site picker drives the site filter (and resets barn/pen).
@@ -251,14 +251,12 @@ export default function AnimalsPage() {
         if (ca && dayDiff(ca, today) > 14) overdueQueries++;
       }
 
-      // Fix 1 — most urgent pending visit: overdue (past window end) beats due (window open).
-      let visitState: "overdue" | "due" | null = null;
+      // Fix 1 — the first overdue visit (past its window end) for an active subject.
+      let overdueVisit: { name: string; date: string } | null = null;
       if (["active", "enrolled", "randomized"].includes(s.status)) {
         for (const v of visitsBySubject.get(s.id) ?? []) {
-          if (v.completed) continue;
-          const end = addDays(v.targetDate, v.window), start = addDays(v.targetDate, -v.window);
-          if (today > end) { visitState = "overdue"; break; }
-          if (today >= start && today <= end) visitState = "due";
+          if (v.completed || overdueVisit) continue;
+          if (today > addDays(v.targetDate, v.window)) overdueVisit = { name: v.visitName, date: v.targetDate };
         }
       }
 
@@ -303,7 +301,8 @@ export default function AnimalsPage() {
         overdueQueries,
         lastVisit: byCode["visit_date"] ?? null,
         ineligible: !!s.ineligible,
-        visitState,
+        overdueVisitName: overdueVisit?.name ?? null,
+        overdueVisitDate: overdueVisit?.date ?? null,
         screenFailure,
         fcr: numOf(latestByCode["fcr_this_period"]?.value),
         cadesi: numOf(latestByCode["cadesi04_score"]?.value),
@@ -515,22 +514,7 @@ export default function AnimalsPage() {
       .sort((a, b) => (a.q.created_at ?? "") < (b.q.created_at ?? "") ? 1 : -1);
   }, [queryPanelFor, dataset.formInstances, dataset.queries, dataset.queryMessages]);
 
-  // ─── Fix 4 — group PH-2401 pens under their house/barn (collapsible) ─────────
-  const groupByBarn = studyType === "livestock_group" && filtered.some((r) => r.barnId);
-  const barnGroups = useMemo(() => {
-    if (!groupByBarn) return [] as { key: string; name: string; rows: AnimalRow[] }[];
-    const map = new Map<string, { key: string; name: string; rows: AnimalRow[] }>();
-    for (const r of filtered) {
-      const key = r.barnId ?? "__none__";
-      let g = map.get(key);
-      if (!g) { g = { key, name: r.barnName || "Unassigned", rows: [] }; map.set(key, g); }
-      g.rows.push(r);
-    }
-    return Array.from(map.values());
-  }, [groupByBarn, filtered]);
-  const toggleBarn = (key: string) => setCollapsedBarns((prev) => { const n = new Set(prev); if (n.has(key)) n.delete(key); else n.add(key); return n; });
-
-  // A single subject/pen table row — reused by the flat list and the grouped view.
+  // A single subject/pen table row.
   const renderRow = (r: AnimalRow) => {
     const pct = r.formsTotal > 0 ? Math.round((r.formsDone / r.formsTotal) * 100) : 0;
     const isSel = selected.has(r.subjectId);
@@ -807,23 +791,6 @@ export default function AnimalsPage() {
                   </div>
                 </td>
               </tr>
-            ) : groupByBarn ? (
-              // Fix 4 — collapsible house/barn sections (PH-2401).
-              barnGroups.map((g) => {
-                const collapsed = collapsedBarns.has(g.key);
-                return (
-                  <Fragment key={g.key}>
-                    <tr className="an-group-header" onClick={() => toggleBarn(g.key)}>
-                      <td colSpan={visibleColumns.length + 2}>
-                        <i className={`ti ti-chevron-${collapsed ? "right" : "down"}`} style={{ fontSize: 14 }}></i>
-                        <span className="an-group-name">{g.name}</span>
-                        <span className="an-group-count">{g.rows.length} {g.rows.length === 1 ? "pen" : "pens"}</span>
-                      </td>
-                    </tr>
-                    {!collapsed && g.rows.map(renderRow)}
-                  </Fragment>
-                );
-              })
             ) : (
               filtered.map(renderRow)
             )}
@@ -895,23 +862,20 @@ function renderCell(
       const withdrawTip = r.status === "withdrawn"
         ? (r.withdrawalReason ? `Withdrawn: ${r.withdrawalReason}${r.withdrawalDate ? ` · ${fmtDate(r.withdrawalDate)}` : ""}` : "Withdrawn — no reason recorded")
         : undefined;
+      // Fix 3 — ineligible / screen-failure subjects show a single "Ineligible" badge
+      // (no stage detail). Fix 5 — one horizontal line: primary badge + optional ! icon.
+      const ineligible = r.ineligible || r.screenFailure;
       return (
-        <span style={{ display: "inline-flex", alignItems: "center", gap: "var(--space-1)", flexWrap: "wrap" }}>
-          {/* Fix 3 — screen failure replaces the plain "Screening" badge with a red one. */}
-          {r.screenFailure ? (
-            <span className="badge badge-screenfail" title="Completed screening but not randomized — screen failure">
-              <i className="ti ti-user-x" style={{ fontSize: "11px" }}></i> Screen failure
-            </span>
+        <span style={{ display: "inline-flex", alignItems: "center", gap: "var(--space-1)", whiteSpace: "nowrap" }}>
+          {ineligible ? (
+            <span className="badge badge-ineligible" title="Did not meet eligibility criteria — see the subject record for detail">Ineligible</span>
           ) : (
             <span className={`badge ${BADGE_CLS[r.status] || "badge-pending"}`} title={withdrawTip}>{statusLabel(r.status)}</span>
           )}
-          {/* Fix 1 — most urgent pending visit. */}
-          {r.visitState === "overdue" && <span className="an-visit-chip overdue" title="A scheduled visit is past its window">Overdue</span>}
-          {r.visitState === "due" && <span className="an-visit-chip due" title="A scheduled visit is due">Due</span>}
-          {r.ineligible && (
-            <span className="badge badge-ineligible" title="Does not meet inclusion criteria — PI review required">
-              <i className="ti ti-alert-triangle" style={{ fontSize: "11px" }}></i> Ineligible
-            </span>
+          {/* Fix 1 — overdue visit → a small red ! icon with a tooltip (no chip).
+              Suppressed for ineligible rows (Fix 3: single badge only). */}
+          {!ineligible && r.overdueVisitName && (
+            <i className="ti ti-alert-circle an-overdue-icon" title={`Visit overdue — ${r.overdueVisitName} was due ${fmtDate(r.overdueVisitDate)}`}></i>
           )}
         </span>
       );
@@ -959,12 +923,15 @@ function renderCell(
     // Fix 7 — days on study; amber within 14 days of planned end.
     case "day":
       return r.dayOnStudy == null ? <span className="muted">—</span> : <span className={`mono${r.dayNearEnd ? " an-day-near" : ""}`} title={r.dayNearEnd ? "Approaching planned study end" : undefined}>D{r.dayOnStudy}</span>;
-    // Fix 2 — open query count; amber, red when any is > 14 days old.
+    // Fix 2 — open-query count as a compact number pill; amber, red when any is > 14 days old.
     case "queries":
       if (r.queries === 0) return <span className="cell-num">—</span>;
       return (
-        <span className={`an-query-badge${r.overdueQueries > 0 ? " overdue" : ""}`} title={r.overdueQueries > 0 ? `${r.overdueQueries} query${r.overdueQueries === 1 ? "" : " (each)"} overdue (> 14 days)` : undefined}>
-          {r.queries} quer{r.queries === 1 ? "y" : "ies"}
+        <span
+          className={`an-query-badge${r.overdueQueries > 0 ? " overdue" : ""}`}
+          title={r.overdueQueries > 0 ? `${r.queries} open · ${r.overdueQueries} overdue (> 14 days)` : `${r.queries} open quer${r.queries === 1 ? "y" : "ies"}`}
+        >
+          {r.queries}
         </span>
       );
     default:
