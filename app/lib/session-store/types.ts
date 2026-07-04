@@ -133,6 +133,8 @@ export interface FieldValueRow {
   form_instance_id: string;
   form_field_id: string;
   value: string | null;
+  notDone?: boolean; // documented "Not done / N/A" instead of a value (session-only)
+  notDoneReason?: string; // the reason shown/recorded, e.g. "Not done — equipment failure"
 }
 
 export interface QueryRow {
@@ -197,7 +199,7 @@ export interface FormAuditRow {
   id: string;
   form_instance_id: string;
   subject_id: string | null;
-  action: "revert" | "withdraw" | "unlock_request" | "unlock_approved" | "unlock_denied" | "sdv_revoked";
+  action: "revert" | "withdraw" | "unlock_request" | "unlock_approved" | "unlock_denied" | "sdv_revoked" | "field_notdone";
   from_status: string;
   to_status: string;
   reason: string;

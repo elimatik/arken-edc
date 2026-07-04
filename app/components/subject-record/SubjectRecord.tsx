@@ -142,6 +142,13 @@ const CHANGE_REASONS = [
   "Data entry error", "Transcription error from source document", "Protocol deviation correction",
   "Clarification from investigator", "Lab result correction", "Unit of measure error", "Date/time correction",
 ];
+// "Not done / N/A" reasons — documenting why a field couldn't be completed.
+const NOT_DONE_REASONS = [
+  "Not done — equipment failure",
+  "Not done — subject non-compliant",
+  "Not done — not applicable at this visit",
+  "Not done — value to be confirmed",
+];
 // Reasons offered when requesting an unlock of a locked form (Fix 2).
 const UNLOCK_REASONS = [
   "Data entry error", "Transcription error", "New source data available",
@@ -275,6 +282,9 @@ export function SubjectRecord({ studyId, subjectId, initialFormId, initialPanelF
   const [toast, setToast] = useState<string | null>(null);
   // Item 7 — required fields left empty on a submit attempt (inline errors + scroll).
   const [requiredErrors, setRequiredErrors] = useState<Set<string>>(new Set());
+  // Fix 1 — the field whose "N/A" reason popover is open, + the "Other" free text.
+  const [naField, setNaField] = useState<FormFieldRow | null>(null);
+  const [naOther, setNaOther] = useState("");
   // Part 4 — finalized "Revert to in-work" (DM/Admin) + CRC "Withdraw submission".
   const [revertOpen, setRevertOpen] = useState(false);
   const [revertReason, setRevertReason] = useState("");
@@ -294,6 +304,17 @@ export function SubjectRecord({ studyId, subjectId, initialFormId, initialPanelF
     const t = setTimeout(() => setToast(null), 2500);
     return () => clearTimeout(t);
   }, [toast]);
+
+  // Fix 1 — close the N/A reason popover on an outside click.
+  useEffect(() => {
+    if (!naField) return;
+    const onDoc = (e: MouseEvent) => {
+      const t = e.target as Element | null;
+      if (!t?.closest?.(".na-popover") && !t?.closest?.(".na-link")) setNaField(null);
+    };
+    document.addEventListener("click", onDoc);
+    return () => document.removeEventListener("click", onDoc);
+  }, [naField]);
 
   // Deep-link from the Queries screen: once hydrated, open the query/EC panel on
   // the linked field (kind = edit_check if it carries an open edit check, else query).
@@ -565,6 +586,9 @@ export function SubjectRecord({ studyId, subjectId, initialFormId, initialPanelF
 
   const fvFor = (fieldId: string) =>
     instance ? dataset.fieldValues.find((v) => v.form_instance_id === instance.id && v.form_field_id === fieldId) : undefined;
+  // Fix 1 — a field documented "Not done / N/A" counts as complete (not blank).
+  const naDoneFor = (fieldId: string) => !!fvFor(fieldId)?.notDone;
+  const instFvNotDone = (instId: string, fieldId: string) => !!dataset.fieldValues.find((v) => v.form_instance_id === instId && v.form_field_id === fieldId)?.notDone;
   // Field-level conditional display (validation.showIf): the field shows only when
   // the referenced field's value matches — read from this form first (same-instance
   // dependency, e.g. "verified = Yes"), else any value the subject carries (cross-
@@ -1268,6 +1292,34 @@ export function SubjectRecord({ studyId, subjectId, initialFormId, initialPanelF
     }
   }
 
+  // Fix 1 — mark a field "Not done / N/A" with a reason (documented, not blank). The
+  // value is cleared, any open edit check resolved, and the act logged to the audit
+  // trail. Cleared via clearNotDone() to restore the field to editable.
+  function setNotDone(field: FormFieldRow, reason: string) {
+    if (readOnly || docReadOnly) return;
+    update((d: Dataset) => {
+      let inst = d.formInstances.find((i) => i.subject_id === subjectId && i.form_id === field.form_id);
+      if (!inst) { inst = { id: newId(), form_id: field.form_id, subject_id: subjectId, status: "in_work" }; d.formInstances.push(inst); }
+      else if (inst.status === "empty") inst.status = "in_work";
+      let fv = d.fieldValues.find((v) => v.form_instance_id === inst!.id && v.form_field_id === field.id);
+      if (!fv) { fv = { id: newId(), form_instance_id: inst.id, form_field_id: field.id, value: "" }; d.fieldValues.push(fv); }
+      fv.value = ""; fv.notDone = true; fv.notDoneReason = reason;
+      const ec = d.editChecks.find((e) => e.field_value_id === fv!.id && e.status === "open"); if (ec) ec.status = "resolved";
+      d.formAudits.push({ id: newId(), form_instance_id: inst.id, subject_id: subjectId, action: "field_notdone", from_status: "", to_status: "not_done", reason: field.code, description: reason, author_name: ndaName, author_role: activeRole, created_at: new Date().toISOString() });
+    });
+    setNaField(null); setNaOther("");
+    setToast("Field marked as Not done");
+  }
+  function clearNotDone(field: FormFieldRow) {
+    if (readOnly || docReadOnly) return;
+    setNaField(null); setNaOther("");
+    update((d: Dataset) => {
+      const inst = d.formInstances.find((i) => i.subject_id === subjectId && i.form_id === field.form_id);
+      const fv = inst ? d.fieldValues.find((v) => v.form_instance_id === inst.id && v.form_field_id === field.id) : undefined;
+      if (fv) { fv.notDone = false; fv.notDoneReason = undefined; }
+    });
+  }
+
   // Out-of-range → raise/keep an open edit check; back in range → resolve it. Never
   // raises a new check if the field already has a (converted) live query.
   function evalEditCheckInline(d: Dataset, inst: { id: string }, fv: { id: string }, field: FormFieldRow, value: string) {
@@ -1482,10 +1534,9 @@ export function SubjectRecord({ studyId, subjectId, initialFormId, initialPanelF
   function toggleSdv(field: FormFieldRow) {
     if (!canSdv || locked) return;
     const fv0 = fvFor(field.id);
-    // A field must carry a saved, non-empty value before it can be verified (items
-    // 5/6) — SDV confirms entered data against source, so there is nothing to verify
-    // on an empty field. Never create a field value on verify.
-    if (!fv0 || (fv0.value ?? "") === "") return;
+    // A field must carry a saved, non-empty value — OR be marked "Not done / N/A"
+    // (verify-as-not-applicable) — before it can be verified. Never create a value here.
+    if (!fv0 || ((fv0.value ?? "") === "" && !fv0.notDone)) return;
     if (sdvBlockReason(field, fv0.id)) return; // field not clean
     update((d: Dataset) => {
       const fv = d.fieldValues.find((v) => v.id === fv0.id);
@@ -1654,17 +1705,17 @@ export function SubjectRecord({ studyId, subjectId, initialFormId, initialPanelF
   // unresolved edit checks, pending change reasons, or empty required fields — but
   // NOT by open manual queries (those don't block).
   const instFvId = (instId: string, fieldId: string) => dataset.fieldValues.find((v) => v.form_instance_id === instId && v.form_field_id === fieldId)?.id;
-  const instHasData = (instId: string) => fields.some((f) => entryVal(instId, f.id).trim() !== "");
+  const instHasData = (instId: string) => fields.some((f) => entryVal(instId, f.id).trim() !== "" || instFvNotDone(instId, f.id));
   const instOpenEC = (instId: string) => fields.some((f) => { const id = instFvId(instId, f.id); return !!id && !!dataset.editChecks.find((e) => e.field_value_id === id && e.status === "open"); });
   // Open delta = a change reason not yet APPROVED — i.e. "pending" (change required)
   // OR "responded" (answered, awaiting DM). Both block submit/finalize; only DM
   // approval (→ "approved") clears it. Scoped to the current form's field values.
   const instOpenDelta = (instId: string) => fields.some((f) => { const id = instFvId(instId, f.id); return !!id && dataset.deltaRecords.some((r) => r.field_value_id === id && (r.status === "pending" || r.status === "responded")); });
-  const instEmptyRequired = (instId: string) => fields.some((f) => f.is_required && isFieldVisible(f) && entryVal(instId, f.id).trim() === "");
+  const instEmptyRequired = (instId: string) => fields.some((f) => f.is_required && isFieldVisible(f) && entryVal(instId, f.id).trim() === "" && !instFvNotDone(instId, f.id));
 
   const formHasData = isRepeatingForm
     ? repeatingEntries.some((i) => instHasData(i.id))
-    : fields.some((f) => (fvFor(f.id)?.value ?? "") !== "");
+    : fields.some((f) => (fvFor(f.id)?.value ?? "") !== "" || naDoneFor(f.id));
   const hasOpenEditCheck = isRepeatingForm
     ? repeatingEntries.some((i) => instOpenEC(i.id))
     : fields.some((f) => !!editCheckFor(fvFor(f.id)?.id));
@@ -1673,7 +1724,7 @@ export function SubjectRecord({ studyId, subjectId, initialFormId, initialPanelF
     : fields.some((f) => { const s = deltaStateFor(f.id, fvFor(f.id)?.id); return s === "pending" || s === "responded"; });
   const hasEmptyRequired = isRepeatingForm
     ? repeatingEntries.some((i) => instEmptyRequired(i.id))
-    : fields.some((f) => f.is_required && isFieldVisible(f) && (fvFor(f.id)?.value ?? "") === "");
+    : fields.some((f) => f.is_required && isFieldVisible(f) && (fvFor(f.id)?.value ?? "") === "" && !naDoneFor(f.id));
   // ─── Withdrawal-period food-safety HARD block (BR-2502) ─────────────────────
   // An animal still inside its drug withdrawal period must NOT be marked Shipped
   // (cleared for slaughter). Hard block — the CRC cannot override; only a DM can,
@@ -1765,7 +1816,8 @@ export function SubjectRecord({ studyId, subjectId, initialFormId, initialPanelF
     // the same layout/structure, just non-interactive. Text-like inputs use the readOnly
     // attribute (muted value, no cursor/focus via CSS); selects / checkboxes / radios /
     // file use disabled. AUTO/calculated fields keep their existing display.
-    const ro = readOnly || docReadOnly;
+    // Fix 1 — a field marked "Not done / N/A" is disabled (documented, not editable).
+    const ro = readOnly || docReadOnly || naDoneFor(field.id);
     const type = field.field_type;
     const isCoded = !!field.validation?.coded;
 
@@ -2798,19 +2850,42 @@ export function SubjectRecord({ studyId, subjectId, initialFormId, initialPanelF
               const helpHint = field.validation?.hint ?? null; // persistent help text (score-scale legend, etc.)
               const isWide = field.field_type === "textarea" || field.field_type === "multiselect";
               const deltaTitle = dState === "approved" ? "Change approved by DM" : dState === "responded" ? "Change reason submitted — awaiting DM review" : "Change reason required";
-              // Item 7 — this required field was left empty on a submit attempt.
-              const reqMissing = requiredErrors.has(field.id) && (value ?? "").trim() === "";
+              // Fix 1 — "Not done / N/A" state. Eligible on any editable, non-calculated,
+              // non-AUTO field.
+              const naDone = !!fv?.notDone;
+              const naReason = fv?.notDoneReason ?? "";
+              const naEligible = !readOnly && !docReadOnly && field.field_type !== "calculated" && !field.validation?.readonlyAuto && !field.validation?.autoFromArm;
+              // Item 7 — this required field was left empty on a submit attempt (N/A counts as done).
+              const reqMissing = requiredErrors.has(field.id) && (value ?? "").trim() === "" && !naDone;
               return (
                 <Fragment key={field.id}>
                   {showSection && <div className="form-section-title">{section}</div>}
-                <div id={`sr-field-${field.id}`} className={`field${isWide ? " full" : ""}${readOnly || docReadOnly ? " state-locked" : ""}${reqMissing ? " field-required-missing" : ""}`}>
+                <div id={`sr-field-${field.id}`} className={`field${isWide ? " full" : ""}${readOnly || docReadOnly ? " state-locked" : ""}${reqMissing ? " field-required-missing" : ""}${naEligible ? " na-host" : ""}`}>
                   <label className="field-label">
                     {field.label}
                     {field.is_required && <span className="field-req"> *</span>}
+                    {naDone && <span className="na-badge" title={naReason}>N/A</span>}
+                    {/* Fix 1 — mark/clear "Not done / N/A". The N/A link appears on hover. */}
+                    {naEligible && (naDone ? (
+                      <button type="button" className="na-link na-clear" onClick={() => clearNotDone(field)}>Clear N/A</button>
+                    ) : (
+                      <button type="button" className="na-link" onClick={() => { setNaOther(""); setNaField((cur) => (cur?.id === field.id ? null : field)); }}>N/A</button>
+                    ))}
+                    {naField?.id === field.id && (
+                      <div className="na-popover" onClick={(e) => e.stopPropagation()}>
+                        {NOT_DONE_REASONS.map((rn) => (
+                          <button key={rn} type="button" className="na-option" onClick={() => setNotDone(field, rn)}>{rn}</button>
+                        ))}
+                        <div className="na-other">
+                          <input className="na-other-input" placeholder="Other (specify)…" value={naOther} onChange={(e) => setNaOther(e.target.value)} onKeyDown={(e) => { if (e.key === "Enter" && naOther.trim()) setNotDone(field, `Not done — ${naOther.trim()}`); }} />
+                          <button type="button" className="na-option na-save" disabled={!naOther.trim()} onClick={() => setNotDone(field, `Not done — ${naOther.trim()}`)}>Save</button>
+                        </div>
+                      </div>
+                    )}
                   </label>
                   <div className="field-row">
                     {renderControl(field, value, raised, !!ec || (!!oor && !dispQ))}
-                    {showInteractiveSdv && (
+                    {!naDone && showInteractiveSdv && (
                       <button
                         className={`sdv-btn visible${verified ? " verified" : ""}${(sdvBlock || value.trim() === "") && !verified ? " blocked" : ""}`}
                         onClick={() => toggleSdv(field)}
@@ -2821,9 +2896,17 @@ export function SubjectRecord({ studyId, subjectId, initialFormId, initialPanelF
                         <i className={`ti ${verified ? "ti-shield-check-filled" : "ti-shield"}`}></i>
                       </button>
                     )}
-                    {showStaticSdv && (
+                    {!naDone && showStaticSdv && (
                       <span className="sdv-static" title="SDV verified"><i className="ti ti-shield-check-filled"></i></span>
                     )}
+                    {/* Fix 1 — N/A field: a distinct "–" shield (verified-as-not-applicable when a CRA confirms). */}
+                    {naDone && isSdvEligible(field) && (showInteractiveSdv ? (
+                      <button className={`sdv-btn visible sdv-na${verified ? " verified" : ""}`} onClick={() => toggleSdv(field)} disabled={!canSdv} title={verified ? "Verified as not applicable — click to undo" : "Verify as not applicable"} type="button">
+                        <i className="ti ti-shield-off"></i>
+                      </button>
+                    ) : (
+                      <span className={`sdv-static sdv-na${verified ? " verified" : ""}`} title={verified ? "Verified as not applicable" : "Marked not applicable"}><i className="ti ti-shield-off"></i></span>
+                    ))}
                     {!readOnly && dState && (
                       <button className={`delta-btn ${dState}`} onClick={() => setDeltaField(field)} title={deltaTitle} type="button">
                         Δ
@@ -2883,6 +2966,8 @@ export function SubjectRecord({ studyId, subjectId, initialFormId, initialPanelF
                   {reqMissing && (
                     <span className="field-required-error"><i className="ti ti-alert-triangle"></i> This field is required</span>
                   )}
+                  {/* Fix 1 — the recorded "Not done" reason, in tertiary text. */}
+                  {naDone && <span className="na-reason-text">{naReason || "Not done"}</span>}
                   {modeSdv && verified && (
                     <span className="sdv-verified-note">
                       Verified by {sdvRec?.verified_by_name ?? ndaName} · {sdvRec?.verified_at ?? todayISO()}
