@@ -92,6 +92,7 @@ interface AnimalRow {
   cadesi: number | null; // most recent CADESI-04 — CA-0801 (Fix 6)
   dayOnStudy: number | null; // days since randomization / enrollment (Fix 7)
   dayNearEnd: boolean; // within 14 days of planned study end (Fix 7 amber)
+  enrollDate: string | null; // randomization/enrollment anchor date (export)
   withdrawalReason: string | null; // Fix 8 tooltip
   withdrawalDate: string | null;
 }
@@ -150,15 +151,51 @@ export default function AnimalsPage() {
   const [siteFilter, setSiteFilter] = useState<string>("");
   const [barnFilter, setBarnFilter] = useState("");
   const [penFilter, setPenFilter] = useState("");
-  const { sort, toggle: toggleSort } = useTableSort(null); // null → default order (by ID)
+  const { sort, toggle: toggleSort, setSort } = useTableSort(null); // null → default order (by ID)
   const [selected, setSelected] = useState<Set<string>>(new Set());
   const [colOpen, setColOpen] = useState(false);
   const [hiddenCols, setHiddenCols] = useState<Set<string>>(new Set());
   const [queryPanelFor, setQueryPanelFor] = useState<AnimalRow | null>(null);
+  const [toast, setToast] = useState<string | null>(null);
   const colWrapRef = useRef<HTMLDivElement>(null);
 
-  // The topbar site picker drives the site filter (and resets barn/pen).
+  // ─── Fix 2 — persist the filter/sort state per study within the session ─────
+  const filterKey = `arken_animals_filters_${studyId}`;
+  const filtersRestored = useRef(false);
+  const firstSiteSync = useRef(true);
+  // Restore once on mount (post-hydration, so no SSR mismatch). No saved state →
+  // fall back to the topbar's selected site.
   useEffect(() => {
+    if (filtersRestored.current) return;
+    filtersRestored.current = true;
+    try {
+      const raw = sessionStorage.getItem(filterKey);
+      if (raw) {
+        const f = JSON.parse(raw);
+        if (typeof f.search === "string") setSearch(f.search);
+        if (typeof f.status === "string") setStatusFilter(f.status);
+        if (typeof f.arm === "string") setArmFilter(f.arm);
+        if (typeof f.site === "string") setSiteFilter(f.site);
+        if (typeof f.barn === "string") setBarnFilter(f.barn);
+        if (typeof f.pen === "string") setPenFilter(f.pen);
+        if (f.sort && typeof f.sort.col === "string") setSort(f.sort);
+      } else {
+        setSiteFilter(selectedSiteId ?? "");
+      }
+    } catch { /* ignore corrupt storage */ }
+  }, [filterKey, selectedSiteId, setSort]);
+  // Save on any filter/sort change.
+  useEffect(() => {
+    if (!filtersRestored.current) return;
+    try {
+      sessionStorage.setItem(filterKey, JSON.stringify({ search, status: statusFilter, arm: armFilter, site: siteFilter, barn: barnFilter, pen: penFilter, sort }));
+    } catch { /* ignore quota */ }
+  }, [filterKey, search, statusFilter, armFilter, siteFilter, barnFilter, penFilter, sort]);
+
+  // The topbar site picker drives the site filter (and resets barn/pen) — but NOT on
+  // the first render (that would clobber the restored/persisted site filter).
+  useEffect(() => {
+    if (firstSiteSync.current) { firstSiteSync.current = false; return; }
     setSiteFilter(selectedSiteId ?? "");
     setBarnFilter("");
     setPenFilter("");
@@ -308,6 +345,7 @@ export default function AnimalsPage() {
         cadesi: numOf(latestByCode["cadesi04_score"]?.value),
         dayOnStudy,
         dayNearEnd: dayOnStudy != null && studyMaxDay > 0 && dayOnStudy >= studyMaxDay - 14,
+        enrollDate: startDate,
         withdrawalReason: s.status === "withdrawn" ? (byCode["withdrawal_reason"] || byCode["reason_for_withdrawal"] || null) : null,
         withdrawalDate: s.status === "withdrawn" ? (byCode["withdrawal_date"] || byCode["completion_date"] || null) : null,
       };
@@ -493,6 +531,45 @@ export default function AnimalsPage() {
     });
   }
 
+  // ─── Fix 3 — CSV export of the CURRENT filtered list (blinding-aware via r.arm) ─
+  function exportCsv() {
+    const headers = ["Subject ID", "Status", "Arm/Group", "Site", "Barn", "Pen", "Enrollment date", "Days on study", "Forms complete %", "Open queries", "Last visit date", "Withdrawal reason"];
+    const esc = (v: string) => (/[",\n]/.test(v) ? `"${v.replace(/"/g, '""')}"` : v);
+    const lines = filtered.map((r) => {
+      const pct = r.formsTotal > 0 ? Math.round((r.formsDone / r.formsTotal) * 100) : 0;
+      return [
+        r.code,
+        r.ineligible || r.screenFailure ? "Ineligible" : statusLabel(r.status),
+        r.arm || "",
+        r.siteName === "—" ? "" : r.siteName,
+        r.barnName,
+        r.penName,
+        r.enrollDate ?? "",
+        r.dayOnStudy != null ? String(r.dayOnStudy) : "",
+        `${pct}%`,
+        String(r.queries),
+        r.lastVisit ? r.lastVisit.slice(0, 10) : "",
+        r.withdrawalReason ?? "",
+      ].map((v) => esc(String(v))).join(",");
+    });
+    const csv = [headers.join(","), ...lines].join("\r\n");
+    const blob = new Blob(["﻿" + csv], { type: "text/csv;charset=utf-8;" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = `arken-${study.code}-subjects-${todayISO()}.csv`;
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+    URL.revokeObjectURL(url);
+    setToast(`Exported ${filtered.length} subject${filtered.length === 1 ? "" : "s"} to CSV`);
+  }
+  useEffect(() => {
+    if (!toast) return;
+    const t = setTimeout(() => setToast(null), 2500);
+    return () => clearTimeout(t);
+  }, [toast]);
+
   const siteLabel = siteFilter ? siteOptions.find((s) => s.id === siteFilter)?.name ?? "All sites" : "All sites";
   const allChecked = filtered.length > 0 && filtered.every((r) => selected.has(r.subjectId));
   const someChecked = filtered.some((r) => selected.has(r.subjectId));
@@ -566,7 +643,7 @@ export default function AnimalsPage() {
             </div>
           </div>
           <div className="an-actions">
-            <button className="btn-secondary" type="button">
+            <button className="btn-secondary" type="button" onClick={exportCsv} disabled={filtered.length === 0} title="Download the current filtered list as CSV">
               <i className="ti ti-download"></i> Export
             </button>
             <button className="btn-secondary" type="button">
@@ -835,6 +912,8 @@ export default function AnimalsPage() {
           onClose={() => setQueryPanelFor(null)}
         />
       )}
+
+      {toast && <div className="an-toast" role="status">{toast}</div>}
     </div>
   );
 }
