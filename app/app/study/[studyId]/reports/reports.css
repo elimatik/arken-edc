@@ -240,3 +240,12 @@
 .rpt-drill-actions { display: flex; align-items: center; gap: var(--space-3); }
 .rpt-drill-collapse { color: var(--blue-600); cursor: pointer; font-size: var(--text-xs); background: none; border: none; }
 .rpt-drill-panel .rpt-table { margin: 0; }
+
+/* Report tabs (underline style — mirrors Inventory/Queries module tabs) */
+.rpt-tabs { display: flex; gap: var(--space-1); border-bottom: 1px solid var(--color-border); margin-bottom: var(--space-3); }
+.rpt-tab { display: inline-flex; align-items: center; gap: var(--space-2); padding: var(--space-2) var(--space-3); font-size: var(--text-sm); font-weight: var(--weight-medium); color: var(--color-text-tertiary); background: none; border: none; border-bottom: 2px solid transparent; cursor: pointer; white-space: nowrap; }
+.rpt-tab:hover { color: var(--color-text-primary); }
+.rpt-tab.active { color: var(--color-text-primary); border-bottom-color: var(--color-text-primary); }
+.rpt-tab-count { display: inline-flex; align-items: center; justify-content: center; min-width: 18px; height: 18px; padding: 0 5px; border-radius: var(--radius-full); font-size: 10px; font-weight: var(--weight-bold); font-family: var(--font-mono); background: var(--color-page-bg); color: var(--color-text-secondary); }
+.rpt-tab-count.tc-crit { background: var(--red-50); color: var(--red-600); }
+.rpt-crit-chips { display: flex; flex-wrap: wrap; gap: 3px; }

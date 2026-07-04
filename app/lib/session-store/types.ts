@@ -260,6 +260,12 @@ export interface SaeReportRow {
   veddra_code: string; // coded AE term (VeDDRA)
   veddra_coding: "coded" | "pending" | "excluded";
   serious?: boolean; // default true; false = a seeded non-serious AE (e.g. excluded minor reaction)
+  // CIOMS clinical-depth fields (v63) — realistic values seeded for every event.
+  causality?: string; // Related | Possibly related | Not related | Unknown
+  action_taken?: string; // Drug withdrawn | Dose reduced | No action | Other
+  expectedness?: string; // Expected | Unexpected
+  serious_criteria?: string[]; // SAEs — which ICH seriousness criteria apply
+  regulatory_report_date?: string | null; // SAEs — date the regulatory report was filed
 }
 
 // Concomitant medication — a medicine a subject takes alongside the investigational

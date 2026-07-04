@@ -605,9 +605,30 @@ export interface AeRow {
   subjectCode: string; siteName: string; arm: string | null; description: string; onsetDate: string | null;
   severity: string; relatedness: string; status: string; outcome: string; serious: boolean; saeCriterion: string | null;
   veddraCode: string; veddraCoding: "coded" | "pending" | "excluded"; // coded AE term (VeDDRA)
+  // CIOMS clinical-depth columns (Fix 4).
+  causality: string; actionTaken: string; expectedness: string; seriousCriteria: string[]; resolved: boolean;
   // SAE reporting timeline — populated only for seeded SAE records (null otherwise).
   piAwareDate: string | null; sponsorNotifiedDate: string | null; reportDueDate: string | null;
-  daysToNotify: number | null; filedOnTime: FiledStatus | null;
+  daysToNotify: number | null; filedOnTime: FiledStatus | null; regulatoryReportDate: string | null;
+}
+// Normalise causality to the CIOMS 4-way scale used in the roster.
+function normalizeCausality(raw: string | undefined): string {
+  const v = (raw ?? "").toLowerCase().trim();
+  if (!v) return "Unknown";
+  if (/possibl/.test(v)) return "Possibly related";
+  if (/not related|unrelated|unlikely|no relation/.test(v)) return "Not related";
+  if (/related|probabl|definit|certain/.test(v)) return "Related";
+  return "Unknown";
+}
+// Normalise outcome to the CIOMS scale.
+function normalizeOutcome(raw: string | undefined): string {
+  const v = (raw ?? "").toLowerCase().trim();
+  if (!v || v === "—") return "Unknown";
+  if (/fatal|death|died/.test(v)) return "Fatal";
+  if (/recovering|resolving|improving/.test(v)) return "Recovering";
+  if (/not recovered|ongoing|unresolved|persist/.test(v)) return "Not recovered";
+  if (/recovered|resolved|recover/.test(v)) return "Recovered";
+  return raw ?? "Unknown";
 }
 const SAE_YES = new Set(["yes", "true", "y", "1", "serious"]);
 
@@ -664,9 +685,13 @@ export function buildAeRoster(dataset: Dataset, studyId: string): AeRow[] {
       description: desc, onsetDate: vals.get("ae_onset_date") ?? vals.get("ae_start_date") ?? null,
       severity: vals.get("severity") ?? "—", relatedness: normalizeRelatedness(vals.get("relatedness") ?? vals.get("relationship")),
       status: vals.get("ongoing") === "Yes" ? "Ongoing" : (vals.get("outcome") ? "Closed" : "Open"),
-      outcome: vals.get("outcome") ?? "—", serious, saeCriterion: saeCriterionOf(vals, serious),
+      outcome: normalizeOutcome(vals.get("outcome")), serious, saeCriterion: saeCriterionOf(vals, serious),
       veddraCode: excluded ? "N/A — excluded from coding" : coded ?? desc, veddraCoding: excluded ? "excluded" : coded ? "coded" : "pending",
-      piAwareDate: null, sponsorNotifiedDate: null, reportDueDate: null, daysToNotify: null, filedOnTime: null,
+      causality: normalizeCausality(vals.get("causality") ?? vals.get("relatedness") ?? vals.get("relationship")),
+      actionTaken: vals.get("action_taken") ?? "No action", expectedness: vals.get("expectedness") ?? "Expected",
+      seriousCriteria: serious ? [saeCriterionOf(vals, serious) ?? "Other medically important"] : [],
+      resolved: /recovered|resolved|closed/i.test(vals.get("outcome") ?? "") || vals.get("ongoing") === "No",
+      piAwareDate: null, sponsorNotifiedDate: null, reportDueDate: null, daysToNotify: null, filedOnTime: null, regulatoryReportDate: null,
     });
   }
 
@@ -687,10 +712,15 @@ export function buildAeRoster(dataset: Dataset, studyId: string): AeRow[] {
       subjectCode: subj.subject_code, siteName: subj.site_id ? siteById.get(subj.site_id)?.name ?? "—" : "—",
       arm: subj.randomization_arm, description: sae.description, onsetDate: sae.onset_date,
       severity: sae.severity, relatedness: normalizeRelatedness(sae.relatedness),
-      status: sae.outcome && sae.outcome !== "Ongoing" ? "Closed" : "Ongoing", outcome: sae.outcome,
+      status: sae.outcome && sae.outcome !== "Ongoing" ? "Closed" : "Ongoing", outcome: normalizeOutcome(sae.outcome),
       serious: sae.serious ?? true, saeCriterion: (sae.serious ?? true) ? sae.sae_criterion : null,
       veddraCode: sae.veddra_code ?? sae.description, veddraCoding: sae.veddra_coding ?? "pending",
+      causality: normalizeCausality(sae.causality ?? sae.relatedness),
+      actionTaken: sae.action_taken ?? "No action", expectedness: sae.expectedness ?? "Unexpected",
+      seriousCriteria: sae.serious_criteria ?? ((sae.serious ?? true) && sae.sae_criterion ? [sae.sae_criterion] : []),
+      resolved: /recovered|resolved/i.test(sae.outcome ?? ""),
       piAwareDate: sae.pi_aware_date, sponsorNotifiedDate: sae.sponsor_notified_date, reportDueDate, daysToNotify, filedOnTime,
+      regulatoryReportDate: sae.regulatory_report_date ?? null,
     });
   }
   // The Coding module is the source of truth for VeDDRA — override each row's
