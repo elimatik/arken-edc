@@ -23,7 +23,9 @@ export type ReportId =
   | "conmed-log"
   | "sdv-completion"
   | "query-listing"
-  | "protocol-deviations";
+  | "protocol-deviations"
+  | "randomization"
+  | "drug-accountability";
 
 export const REPORT_CATEGORIES = [
   "Study Overview & Enrollment",
@@ -81,6 +83,12 @@ export const REPORT_CATALOG: ReportMeta[] = [
   { id: "protocol-deviations", title: "Protocol Deviations", slug: "protocol_deviations", category: "Safety & Regulatory", icon: "alert-triangle",
     description: "All protocol deviations — major/minor category, description, discovery date, impact, and status.",
     roles: ["CRA", "DM", "PI", "Admin", "Sponsor"], hasCsv: true },
+  { id: "randomization", title: "Randomization", slug: "randomization", category: "Study Overview & Enrollment", icon: "arrows-shuffle",
+    description: "The randomization list — subject, arm, date, method, and block — with an arm-balance check.",
+    roles: ["CRA", "DM", "PI", "Admin"], hasCsv: true },
+  { id: "drug-accountability", title: "Drug Accountability", slug: "drug_accountability", category: "Site Performance", icon: "clipboard-check",
+    description: "Investigational-product reconciliation per treatment group and site — received, dispensed, returned, destroyed, remaining.",
+    roles: ["CRA", "DM", "Admin"], hasCsv: true },
 ];
 
 export function reportsForRole(role: Role): ReportMeta[] {
@@ -1109,6 +1117,70 @@ function findAssignedCrc(dataset: Dataset, studyId: string, siteCode: string): s
   const users = usersForStudy(study?.code);
   const crc = users.find((u) => u.role === "CRC" && u.status === "active" && (u.siteCodes.length === 0 || u.siteCodes.includes(siteCode)));
   return crc?.name ?? "—";
+}
+
+// ─── Randomization (Fix 6) — the randomization list + arm balance ────────────
+export interface RandomizationRow {
+  seq: number; subjectCode: string; subjectId: string; siteName: string; siteId: string | null;
+  armCode: string; randDate: string | null; method: string; block: string; randomizedBy: string;
+}
+export function randomizationRows(dataset: Dataset, studyId: string): RandomizationRow[] {
+  const ix = buildSubjectIndex(dataset, studyId);
+  const siteById = new Map(dataset.sites.map((s) => [s.id, s]));
+  const first = (sid: string, code: string) => ix.byCode.get(sid)?.get(code)?.[0] ?? null;
+  const rows = ix.subjects
+    .filter((s) => s.randomization_arm)
+    .map((s) => {
+      const site = s.site_id ? siteById.get(s.site_id) : undefined;
+      const randDate = s.randomized_at?.slice(0, 10) ?? first(s.id, "randomization_date") ?? first(s.id, "assigned_date");
+      return {
+        subjectCode: s.subject_code, subjectId: s.id,
+        siteName: site ? `${site.code} · ${site.name}` : "—", siteId: s.site_id ?? null,
+        armCode: s.randomization_arm ?? "—", randDate,
+        method: first(s.id, "randomization_method") ?? first(s.id, "assigned_method") ?? "Permuted block",
+        block: first(s.id, "block_number") ?? first(s.id, "block") ?? "—",
+        randomizedBy: s.randomized_by ?? first(s.id, "randomized_by") ?? first(s.id, "confirmed_by") ?? "—",
+      };
+    })
+    .sort((a, b) => (a.randDate ?? "").localeCompare(b.randDate ?? "") || a.subjectCode.localeCompare(b.subjectCode));
+  return rows.map((r, i) => ({ seq: i + 1, ...r }));
+}
+export interface RandBalanceRow { arm: string; actual: number; expected: number }
+export function randomizationBalance(rows: RandomizationRow[]): RandBalanceRow[] {
+  const arms = Array.from(new Set(rows.map((r) => r.armCode))).sort();
+  const expected = rows.length / Math.max(1, arms.length);
+  return arms.map((arm) => ({ arm, actual: rows.filter((r) => r.armCode === arm).length, expected: Math.round(expected * 10) / 10 }));
+}
+
+// ─── Drug Accountability (Fix 7) — vial/kit reconciliation per group per site ─
+export interface DrugAccountabilityRow {
+  group: string; siteName: string; siteId: string | null;
+  received: number; dispensed: number; returned: number; destroyed: number; remaining: number;
+  accountabilityPct: number; status: "Balanced" | "Outstanding";
+}
+export function drugAccountability(dataset: Dataset, studyId: string): DrugAccountabilityRow[] {
+  const siteById = new Map(dataset.sites.map((s) => [s.id, s]));
+  const buckets = new Map<string, { group: string; siteId: string | null; received: number; dispensed: number; returned: number; destroyed: number; remaining: number }>();
+  for (const v of dataset.vials) {
+    if (v.studyId !== studyId) continue;
+    const key = `${v.treatmentGroup}|${v.siteId ?? "—"}`;
+    let b = buckets.get(key);
+    if (!b) { b = { group: v.treatmentGroup, siteId: v.siteId, received: 0, dispensed: 0, returned: 0, destroyed: 0, remaining: 0 }; buckets.set(key, b); }
+    b.received += 1;
+    if (v.status === "removed" || v.status === "unusable") b.destroyed += 1;
+    else if (v.status === "returned") b.returned += 1;
+    else if (v.status === "athome" || v.status === "depleted") b.dispensed += 1;
+    else b.remaining += 1; // available
+  }
+  return Array.from(buckets.values()).map((b) => {
+    const site = b.siteId ? siteById.get(b.siteId) : undefined;
+    const pct = b.received ? Math.round(((b.dispensed + b.returned + b.destroyed) / b.received) * 100) : 0;
+    return {
+      group: b.group, siteName: site ? `${site.code} · ${site.name}` : "—", siteId: b.siteId,
+      received: b.received, dispensed: b.dispensed, returned: b.returned, destroyed: b.destroyed, remaining: b.remaining,
+      accountabilityPct: pct, status: (b.remaining === 0 ? "Balanced" : "Outstanding") as "Balanced" | "Outstanding",
+    };
+  }).sort((a, b) => a.group.localeCompare(b.group) || a.siteName.localeCompare(b.siteName));
 }
 
 // ─── Protocol Deviations (Fix 3) — from the seeded protocolDeviations table ───

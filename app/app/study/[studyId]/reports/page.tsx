@@ -21,6 +21,8 @@ import { ConMedLogReport } from "@/components/reports/reports/ConMedLogReport";
 import { SdvCompletionReport } from "@/components/reports/reports/SdvCompletionReport";
 import { QueryListingReport } from "@/components/reports/reports/QueryListingReport";
 import { ProtocolDeviationsReport } from "@/components/reports/reports/ProtocolDeviationsReport";
+import { RandomizationReport } from "@/components/reports/reports/RandomizationReport";
+import { DrugAccountabilityReport } from "@/components/reports/reports/DrugAccountabilityReport";
 import "./reports.css";
 
 export interface ReportProps {
@@ -41,6 +43,8 @@ const RENDERERS: Record<ReportId, (p: ReportProps) => JSX.Element> = {
   "sdv-completion": SdvCompletionReport,
   "query-listing": QueryListingReport,
   "protocol-deviations": ProtocolDeviationsReport,
+  "randomization": RandomizationReport,
+  "drug-accountability": DrugAccountabilityReport,
 };
 
 export default function ReportsPage() {
