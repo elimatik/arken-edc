@@ -105,9 +105,20 @@ export function EmptyNote({ children }: { children: ReactNode }) {
   return <div className="rpt-empty"><i className="ti ti-info-circle"></i> {children}</div>;
 }
 
+// Retrofitted (Fix 8/CSV) to prepend the standard study-header block to every CSV
+// — resolves studyId from the active study's code, so the ~7 existing reports pick
+// up the header with no per-file change.
 export function ExportCsvButton({ studyCode, slug, headers, rows }: { studyCode: string; slug: string; headers: string[]; rows: (string | number | null)[][] }) {
+  const { dataset } = useStudySession();
+  const { study, activeRole } = useShell();
+  const userName = useNdaName();
+  const onClick = () => {
+    const studyId = dataset.studies.find((s) => s.code === study.code)?.id ?? "";
+    const meta = reportCsvHeaderRows(dataset, studyId, activeRole, userName, "All sites");
+    downloadCsv(csvFilename(studyCode, slug), headers, [...meta, ...rows]);
+  };
   return (
-    <button className="rpt-csv-btn" type="button" onClick={() => downloadCsv(csvFilename(studyCode, slug), headers, rows)} disabled={rows.length === 0}>
+    <button className="rpt-csv-btn" type="button" onClick={onClick} disabled={rows.length === 0}>
       <i className="ti ti-download"></i> Export CSV
     </button>
   );

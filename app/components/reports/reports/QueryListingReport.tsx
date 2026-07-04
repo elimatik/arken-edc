@@ -17,6 +17,7 @@ export function QueryListingReport({ studyId }: ReportProps) {
   const { dataset } = useStudySession();
   const rows = useMemo(() => queryListingRows(dataset, studyId), [dataset, studyId]);
 
+  const [tab, setTab] = useState<"open" | "closed">("open");
   const [statusF, setStatusF] = useState("all");
   const [siteF, setSiteF] = useState("all");
   const [ageF, setAgeF] = useState("all");
@@ -24,10 +25,13 @@ export function QueryListingReport({ studyId }: ReportProps) {
   const { sort, toggle } = useTableSort(null);
 
   const siteOptions = useMemo(() => Array.from(new Map(rows.filter((r) => r.siteId).map((r) => [r.siteId!, r.siteName])).entries()).sort((a, b) => a[1].localeCompare(b[1])), [rows]);
+  const isClosed = (s: string) => s === "resolved" || s === "closed";
 
   const filtered = useMemo(() => {
     const q = search.toLowerCase().trim();
     const out = rows.filter((r) => {
+      if (tab === "open" && isClosed(r.status)) return false;
+      if (tab === "closed" && !isClosed(r.status)) return false;
       if (statusF !== "all" && r.status !== statusF) return false;
       if (siteF !== "all" && r.siteId !== siteF) return false;
       if (ageF === "lt7" && !(r.ageDays < 7)) return false;
@@ -47,7 +51,7 @@ export function QueryListingReport({ studyId }: ReportProps) {
         default: return 0;
       }
     });
-  }, [rows, statusF, siteF, ageF, search, sort]);
+  }, [rows, tab, statusF, siteF, ageF, search, sort]);
 
   const csvHeaders = ["Query ID", "Subject", "Site", "Form", "Field", "Status", "Age (days)", "Raised by", "Raised date", "Last response", "Assigned to (CRC)"];
   const csvRows = filtered.map((r: QueryListingRow) => [r.code, r.subjectCode, r.siteName, r.formName, r.fieldLabel, STATUS_LABEL[r.status] ?? r.status, r.ageDays, r.raisedBy, r.raisedDate ?? "—", r.lastResponseDate ?? "—", r.assignedCrc]);
@@ -61,6 +65,7 @@ export function QueryListingReport({ studyId }: ReportProps) {
 
   return (
     <>
+      <div className="rpt-note"><i className="ti ti-info-circle"></i> This report is a static snapshot for monitoring-visit documentation and regulatory submissions. For real-time query management, use the Queries module.</div>
       <Section title="Query summary" icon="list-details">
         <StatGrid>
           <StatTile value={rows.length} label="Total queries" />
@@ -71,7 +76,11 @@ export function QueryListingReport({ studyId }: ReportProps) {
         </StatGrid>
       </Section>
 
-      <Section title="Query listing" icon="table" action={<ReportCsvButton studyId={studyId} slug="query_listing" headers={csvHeaders} rows={csvRows} siteLabel={siteLabel} />}>
+      <Section title="Query listing" icon="table" action={<ReportCsvButton studyId={studyId} slug={tab === "open" ? "query_listing_open" : "query_listing_closed"} headers={csvHeaders} rows={csvRows} siteLabel={siteLabel} />}>
+        <div className="rpt-tabs">
+          <button className={`rpt-tab${tab === "open" ? " active" : ""}`} type="button" onClick={() => setTab("open")}>Open queries <span className="rpt-tab-count">{rows.filter((r) => !isClosed(r.status)).length}</span></button>
+          <button className={`rpt-tab${tab === "closed" ? " active" : ""}`} type="button" onClick={() => setTab("closed")}>Closed queries <span className="rpt-tab-count">{rows.filter((r) => isClosed(r.status)).length}</span></button>
+        </div>
         <div className="rpt-filters">
           <div className="rpt-search"><i className="ti ti-search"></i><input type="search" placeholder="Search subject, query, field…" value={search} onChange={(e) => setSearch(e.target.value)} /></div>
           <select className="rpt-select" value={statusF} onChange={(e) => setStatusF(e.target.value)}>
