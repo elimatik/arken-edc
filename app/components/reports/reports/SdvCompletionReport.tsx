@@ -4,7 +4,7 @@ import { useEffect, useMemo, useState } from "react";
 import { useStudySession } from "@/lib/session-store/SessionStore";
 import { useShell } from "@/components/shell/ShellContext";
 import type { ReportProps } from "@/app/study/[studyId]/reports/page";
-import { Section, StatGrid, StatTile, BarList, EmptyNote, ExportCsvButton, fmtDate, type Tone } from "@/components/reports/ReportKit";
+import { Section, StatGrid, StatTile, BarList, EmptyNote, ExportCsvButton, ReportCsvButton, fmtDate, type Tone } from "@/components/reports/ReportKit";
 import { sdvProgress, sdvProgressBySite } from "@/lib/dashboard-data";
 import { studyHeader } from "@/lib/reports-data";
 import { buildSdvWorklist, getFormSdvFields, type FormSdvStatus } from "@/lib/sdv-data";
@@ -21,6 +21,7 @@ export function SdvCompletionReport({ studyId }: ReportProps) {
   const { dataset } = useStudySession();
   const { study, activeRole } = useShell();
   const [filter, setFilter] = useState<"all" | FormSdvStatus>("all");
+  const [tab, setTab] = useState<"summary" | "unverified">("summary");
   const canSeeUnverified = activeRole === "DM" || activeRole === "Admin";
 
   const d = useMemo(() => {
@@ -106,6 +107,12 @@ export function SdvCompletionReport({ studyId }: ReportProps) {
         ) : <EmptyNote>No SDV-eligible data for this study.</EmptyNote>}
       </Section>
 
+      <div className="rpt-tabs">
+        <button className={`rpt-tab${tab === "summary" ? " active" : ""}`} type="button" onClick={() => setTab("summary")}>Completion Summary</button>
+        {canSeeUnverified && <button className={`rpt-tab${tab === "unverified" ? " active" : ""}`} type="button" onClick={() => setTab("unverified")}>Unverified Fields — CRA action list <span className="rpt-tab-count tc-crit">{d.unverified.length}</span></button>}
+      </div>
+
+      {tab === "summary" && (
       <Section title="SDV completion" icon="list-check" action={
         <div className="rpt-section-controls">
           <div className="rpt-seg">
@@ -138,9 +145,11 @@ export function SdvCompletionReport({ studyId }: ReportProps) {
           </table>
         ) : <EmptyNote>No forms match this filter.</EmptyNote>}
       </Section>
+      )}
 
-      {canSeeUnverified && (
-        <Section title="Unverified fields — CRA action list" icon="shield-x">
+      {tab === "unverified" && canSeeUnverified && (
+        <Section title="Unverified fields — CRA action list" icon="shield-x"
+          action={<ReportCsvButton studyId={studyId} slug="sdv_unverified" headers={["Subject", "Form", "Field", "Entered by"]} rows={d.unverified.map((u) => [u.subjectCode, u.formName, u.fieldName, u.enteredBy])} />}>
           {d.unverified.length > 0 ? (
             <table className="rpt-table">
               <thead><tr><th>Subject</th><th>Form</th><th>Field</th><th>Entered by</th></tr></thead>
