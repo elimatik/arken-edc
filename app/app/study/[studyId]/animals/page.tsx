@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useRef, useState } from "react";
+import { Fragment, useEffect, useMemo, useRef, useState } from "react";
 import { useRouter, useParams } from "next/navigation";
 import { useShell } from "@/components/shell/ShellContext";
 import { useStudySession } from "@/lib/session-store/SessionStore";
@@ -12,7 +12,15 @@ import { shouldHideArmForSubject } from "@/lib/study-config";
 import { getStudyTypeConfig } from "@/lib/study-type-config";
 import { useTableSort } from "@/lib/useTableSort";
 import { SortTh } from "@/components/common/SortTh";
+import { buildVisits, addDays, VISIT_WINDOWS } from "@/lib/visits-data";
 import "./animals.css";
+
+const todayISO = () => new Date().toISOString().slice(0, 10);
+const dayDiff = (fromISO: string, toISO: string) => Math.round((Date.parse(toISO.slice(0, 10)) - Date.parse(fromISO.slice(0, 10))) / 86_400_000);
+// FCR (feed conversion, PH-2401) → colour band. Lower is better.
+function fcrTone(v: number): string { return v <= 1.8 ? "good" : v <= 2.0 ? "warn" : "alert"; }
+// CADESI-04 (canine derm severity, CA-0801) → Mild / Moderate / Severe band.
+function cadesiTone(v: number): string { return v < 25 ? "good" : v <= 60 ? "warn" : "alert"; }
 
 // ─── Status → shared badge class (mirrors the Data Entry drill-down) ─────────
 const BADGE_CLS: Record<string, string> = {
@@ -74,8 +82,17 @@ interface AnimalRow {
   formsDone: number;
   formsTotal: number;
   queries: number; // open (unresolved) queries
+  overdueQueries: number; // open queries older than 14 days
   lastVisit: string | null;
   ineligible: boolean;
+  visitState: "overdue" | "due" | null; // most-urgent pending visit (Fix 1)
+  screenFailure: boolean; // screening + completed Screening, no Randomization (Fix 3)
+  fcr: number | null; // most recent FCR — PH-2401 (Fix 5)
+  cadesi: number | null; // most recent CADESI-04 — CA-0801 (Fix 6)
+  dayOnStudy: number | null; // days since randomization / enrollment (Fix 7)
+  dayNearEnd: boolean; // within 14 days of planned study end (Fix 7 amber)
+  withdrawalReason: string | null; // Fix 8 tooltip
+  withdrawalDate: string | null;
 }
 
 interface ColumnDef {
@@ -137,6 +154,7 @@ export default function AnimalsPage() {
   const [colOpen, setColOpen] = useState(false);
   const [hiddenCols, setHiddenCols] = useState<Set<string>>(new Set());
   const [queryPanelFor, setQueryPanelFor] = useState<AnimalRow | null>(null);
+  const [collapsedBarns, setCollapsedBarns] = useState<Set<string>>(new Set()); // Fix 4 (all expanded by default)
   const colWrapRef = useRef<HTMLDivElement>(null);
 
   // The topbar site picker drives the site filter (and resets barn/pen).
@@ -171,6 +189,33 @@ export default function AnimalsPage() {
 
     // form_field_id → code, for resolving demographic / visit values.
     const codeByField = new Map(dataset.formFields.map((f) => [f.id, f.code]));
+    const instById = new Map(dataset.formInstances.map((i) => [i.id, i]));
+    const formSeqById = new Map(studyForms.map((f) => [f.id, f.sequence]));
+
+    // Fix 1 — pending visits per subject (from the visit schedule).
+    const visitsBySubject = new Map<string, ReturnType<typeof buildVisits>>();
+    for (const v of buildVisits(dataset, studyId)) {
+      const arr = visitsBySubject.get(v.subjectId); if (arr) arr.push(v); else visitsBySubject.set(v.subjectId, [v]);
+    }
+    const today = todayISO();
+    // Fix 2 — query age from its earliest message (QueryRow carries no created_at once hydrated).
+    const queryCreatedAt = new Map<string, string>();
+    for (const m of dataset.queryMessages) {
+      const cur = queryCreatedAt.get(m.query_id);
+      if (!cur || m.created_at < cur) queryCreatedAt.set(m.query_id, m.created_at);
+    }
+    // Fix 3 — Screening / Randomization forms (for the screen-failure test). CA-0801's
+    // screening leaves are named "Physical Examination" etc. under a "Screening" group,
+    // so match the leaf name OR its parent group's name.
+    const formNameById = new Map(studyForms.map((f) => [f.id, f.name]));
+    const screeningFormIds = new Set(studyForms.filter((f) => {
+      const parentName = f.parent_form_id ? (formNameById.get(f.parent_form_id) ?? "") : "";
+      return (/screening|brd case/i.test(f.name) || /screening/i.test(parentName)) && !/randomi/i.test(f.name);
+    }).map((f) => f.id));
+    const randomFormIds = new Set(studyForms.filter((f) => /randomi[sz]ation|allocation/i.test(f.name)).map((f) => f.id));
+    // Fix 7 — planned study end = the last scheduled visit day for this study.
+    const winDays = Object.keys(VISIT_WINDOWS[studyRow.code] ?? {}).map(Number);
+    const studyMaxDay = winDays.length ? Math.max(...winDays) : 0;
 
     const subjects = dataset.subjects
       .filter((s) => s.study_id === studyId)
@@ -182,18 +227,49 @@ export default function AnimalsPage() {
       const instanceIds = new Set(instances.map((i) => i.id));
       const formsDone = instances.filter((i) => isComplete(i.status)).length;
 
-      // Field values for this subject, keyed by the field's code.
+      // Field values for this subject: first value per code + the LATEST value per
+      // code (by form sequence — later forms are more recent), used for FCR / CADESI.
       const byCode: Record<string, string> = {};
+      const latestByCode: Record<string, { value: string; seq: number }> = {};
       dataset.fieldValues.forEach((v) => {
         if (!instanceIds.has(v.form_instance_id) || !v.value) return;
         const code = codeByField.get(v.form_field_id);
-        if (code && !byCode[code]) byCode[code] = v.value;
+        if (!code) return;
+        if (!byCode[code]) byCode[code] = v.value;
+        const seq = formSeqById.get(instById.get(v.form_instance_id)?.form_id ?? "") ?? 0;
+        const cur = latestByCode[code];
+        if (!cur || seq > cur.seq) latestByCode[code] = { value: v.value, seq };
       });
+      const numOf = (raw: string | undefined) => (raw != null && raw !== "" && !Number.isNaN(Number(raw)) ? Number(raw) : null);
 
-      // Open (unresolved) queries on this subject's instances.
-      const queries = dataset.queries.filter(
-        (q) => instanceIds.has(q.form_instance_id) && q.status !== "resolved",
-      ).length;
+      // Open (unresolved) queries + how many are older than 14 days (Fix 2).
+      let queries = 0, overdueQueries = 0;
+      for (const q of dataset.queries) {
+        if (!instanceIds.has(q.form_instance_id) || q.status === "resolved") continue;
+        queries++;
+        const ca = q.created_at ?? queryCreatedAt.get(q.id);
+        if (ca && dayDiff(ca, today) > 14) overdueQueries++;
+      }
+
+      // Fix 1 — most urgent pending visit: overdue (past window end) beats due (window open).
+      let visitState: "overdue" | "due" | null = null;
+      if (["active", "enrolled", "randomized"].includes(s.status)) {
+        for (const v of visitsBySubject.get(s.id) ?? []) {
+          if (v.completed) continue;
+          const end = addDays(v.targetDate, v.window), start = addDays(v.targetDate, -v.window);
+          if (today > end) { visitState = "overdue"; break; }
+          if (today >= start && today <= end) visitState = "due";
+        }
+      }
+
+      // Fix 3 — screen failure: completed Screening but no Randomization form instance.
+      const screenFailure = s.status === "screening"
+        && instances.some((i) => screeningFormIds.has(i.form_id) && isComplete(i.status))
+        && !instances.some((i) => randomFormIds.has(i.form_id));
+
+      // Fix 7 — days on study since randomization (else enrollment / placement / consent).
+      const startDate = byCode["randomization_date"] || byCode["enrollment_date"] || byCode["placement_date"] || byCode["consent_date"] || byCode["screening_date"] || null;
+      const dayOnStudy = startDate ? Math.max(0, dayDiff(startDate, today)) : null;
 
       // Demographic columns resolve from the first matching field code present
       // in the subject's values (codes differ across study protocols).
@@ -224,8 +300,17 @@ export default function AnimalsPage() {
         formsDone,
         formsTotal: leafFormCount,
         queries,
+        overdueQueries,
         lastVisit: byCode["visit_date"] ?? null,
         ineligible: !!s.ineligible,
+        visitState,
+        screenFailure,
+        fcr: numOf(latestByCode["fcr_this_period"]?.value),
+        cadesi: numOf(latestByCode["cadesi04_score"]?.value),
+        dayOnStudy,
+        dayNearEnd: dayOnStudy != null && studyMaxDay > 0 && dayOnStudy >= studyMaxDay - 14,
+        withdrawalReason: s.status === "withdrawn" ? (byCode["withdrawal_reason"] || byCode["reason_for_withdrawal"] || null) : null,
+        withdrawalDate: s.status === "withdrawn" ? (byCode["withdrawal_date"] || byCode["completion_date"] || null) : null,
       };
     });
   }, [ready, studyRow, dataset, studyId, activeRole]);
@@ -248,6 +333,12 @@ export default function AnimalsPage() {
       { key: "status", label: "Status", sortable: true },
       { key: "arm", label: "Group / Arm", sortable: true },
       { key: "location", label: isCompanion ? "Site" : "Location", sortable: false },
+    );
+    // Study-specific clinical columns (Fix 5/6): FCR for PH pens, CADESI for CA dogs.
+    if (studyType === "livestock_group") cols.push({ key: "fcr", label: "FCR", sortable: true });
+    if (isCompanion) cols.push({ key: "cadesi", label: "CADESI", sortable: true });
+    cols.push(
+      { key: "day", label: "Day", sortable: true }, // days on study (Fix 7)
       { key: "forms", label: "Forms", sortable: true },
       { key: "lastVisit", label: "Last visit", sortable: true },
       { key: "queries", label: "Queries", sortable: true },
@@ -343,6 +434,9 @@ export default function AnimalsPage() {
         case "weight": av = parseFloat(a.weight) || 0; bv = parseFloat(b.weight) || 0; break;
         case "forms": av = a.formsDone; bv = b.formsDone; break;
         case "queries": av = a.queries; bv = b.queries; break;
+        case "fcr": av = a.fcr ?? -1; bv = b.fcr ?? -1; break;
+        case "cadesi": av = a.cadesi ?? -1; bv = b.cadesi ?? -1; break;
+        case "day": av = a.dayOnStudy ?? -1; bv = b.dayOnStudy ?? -1; break;
         case "sex": av = a.sex; bv = b.sex; break;
         case "age": av = parseFloat(a.age) || a.age; bv = parseFloat(b.age) || b.age; break;
         case "breed": av = a.breed; bv = b.breed; break;
@@ -366,13 +460,14 @@ export default function AnimalsPage() {
     const completed = filtered.filter((r) => r.status === "completed").length;
     const openQ = filtered.reduce((a, r) => a + r.queries, 0);
     const ineligible = filtered.filter((r) => r.ineligible).length;
+    const screenFailures = filtered.filter((r) => r.screenFailure).length;
     const formsPct =
       total > 0
         ? Math.round(
             (filtered.reduce((a, r) => a + (r.formsTotal ? r.formsDone / r.formsTotal : 0), 0) / total) * 100,
           )
         : 0;
-    return { total, activeCount, completed, openQ, ineligible, formsPct };
+    return { total, activeCount, completed, openQ, ineligible, screenFailures, formsPct };
   }, [filtered]);
 
   // ─── Handlers ──────────────────────────────────────────────────────────────
@@ -419,6 +514,49 @@ export default function AnimalsPage() {
       })
       .sort((a, b) => (a.q.created_at ?? "") < (b.q.created_at ?? "") ? 1 : -1);
   }, [queryPanelFor, dataset.formInstances, dataset.queries, dataset.queryMessages]);
+
+  // ─── Fix 4 — group PH-2401 pens under their house/barn (collapsible) ─────────
+  const groupByBarn = studyType === "livestock_group" && filtered.some((r) => r.barnId);
+  const barnGroups = useMemo(() => {
+    if (!groupByBarn) return [] as { key: string; name: string; rows: AnimalRow[] }[];
+    const map = new Map<string, { key: string; name: string; rows: AnimalRow[] }>();
+    for (const r of filtered) {
+      const key = r.barnId ?? "__none__";
+      let g = map.get(key);
+      if (!g) { g = { key, name: r.barnName || "Unassigned", rows: [] }; map.set(key, g); }
+      g.rows.push(r);
+    }
+    return Array.from(map.values());
+  }, [groupByBarn, filtered]);
+  const toggleBarn = (key: string) => setCollapsedBarns((prev) => { const n = new Set(prev); if (n.has(key)) n.delete(key); else n.add(key); return n; });
+
+  // A single subject/pen table row — reused by the flat list and the grouped view.
+  const renderRow = (r: AnimalRow) => {
+    const pct = r.formsTotal > 0 ? Math.round((r.formsDone / r.formsTotal) * 100) : 0;
+    const isSel = selected.has(r.subjectId);
+    return (
+      <tr key={r.subjectId} className={r.ineligible ? "row-critical" : ""} onClick={() => openSubject(r)}>
+        <td onClick={(e) => e.stopPropagation()}>
+          <input type="checkbox" className="row-check" checked={isSel} onChange={(e) => toggleRow(r.subjectId, e.target.checked)} />
+        </td>
+        {visibleColumns.map((c) => (
+          <td key={c.key}>{renderCell(c.key, r, pct, isCompanion)}</td>
+        ))}
+        <td>
+          <div className="row-actions">
+            <button className="btn-icon" title="Open subject record" type="button" onClick={(e) => { e.stopPropagation(); openSubject(r); }}>
+              <i className="ti ti-clipboard-list"></i>
+            </button>
+            {canRaise && (
+              <button className="btn-icon" title="Raise query" type="button" onClick={(e) => { e.stopPropagation(); setQueryPanelFor(r); }}>
+                <i className="ti ti-message-report"></i>
+              </button>
+            )}
+          </div>
+        </td>
+      </tr>
+    );
+  };
 
   // ─── Render ────────────────────────────────────────────────────────────────
   if (!ready) {
@@ -492,6 +630,10 @@ export default function AnimalsPage() {
         <div className="an-stat-item">
           <div className={`an-stat-val${stats.ineligible > 0 ? " alert" : ""}`}>{stats.ineligible}</div>
           <div className="an-stat-lbl">Ineligible</div>
+        </div>
+        <div className="an-stat-item">
+          <div className={`an-stat-val${stats.screenFailures > 0 ? " alert" : ""}`}>{stats.screenFailures}</div>
+          <div className="an-stat-lbl">Screen failures</div>
         </div>
         <div className="an-stat-item">
           <div className="an-stat-val">{stats.formsPct}%</div>
@@ -665,58 +807,25 @@ export default function AnimalsPage() {
                   </div>
                 </td>
               </tr>
-            ) : (
-              filtered.map((r) => {
-                const pct = r.formsTotal > 0 ? Math.round((r.formsDone / r.formsTotal) * 100) : 0;
-                const isSel = selected.has(r.subjectId);
+            ) : groupByBarn ? (
+              // Fix 4 — collapsible house/barn sections (PH-2401).
+              barnGroups.map((g) => {
+                const collapsed = collapsedBarns.has(g.key);
                 return (
-                  <tr
-                    key={r.subjectId}
-                    className={r.ineligible ? "row-critical" : ""}
-                    onClick={() => openSubject(r)}
-                  >
-                    <td onClick={(e) => e.stopPropagation()}>
-                      <input
-                        type="checkbox"
-                        className="row-check"
-                        checked={isSel}
-                        onChange={(e) => toggleRow(r.subjectId, e.target.checked)}
-                      />
-                    </td>
-                    {visibleColumns.map((c) => (
-                      <td key={c.key}>{renderCell(c.key, r, pct, isCompanion)}</td>
-                    ))}
-                    <td>
-                      <div className="row-actions">
-                        <button
-                          className="btn-icon"
-                          title="Open subject record"
-                          type="button"
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            openSubject(r);
-                          }}
-                        >
-                          <i className="ti ti-clipboard-list"></i>
-                        </button>
-                        {canRaise && (
-                          <button
-                            className="btn-icon"
-                            title="Raise query"
-                            type="button"
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              setQueryPanelFor(r);
-                            }}
-                          >
-                            <i className="ti ti-message-report"></i>
-                          </button>
-                        )}
-                      </div>
-                    </td>
-                  </tr>
+                  <Fragment key={g.key}>
+                    <tr className="an-group-header" onClick={() => toggleBarn(g.key)}>
+                      <td colSpan={visibleColumns.length + 2}>
+                        <i className={`ti ti-chevron-${collapsed ? "right" : "down"}`} style={{ fontSize: 14 }}></i>
+                        <span className="an-group-name">{g.name}</span>
+                        <span className="an-group-count">{g.rows.length} {g.rows.length === 1 ? "pen" : "pens"}</span>
+                      </td>
+                    </tr>
+                    {!collapsed && g.rows.map(renderRow)}
+                  </Fragment>
                 );
               })
+            ) : (
+              filtered.map(renderRow)
             )}
           </tbody>
         </table>
@@ -781,10 +890,24 @@ function renderCell(
       return <span className="muted">{r.breed || "—"}</span>;
     case "weight":
       return <span className="mono">{r.weight || "—"}</span>;
-    case "status":
+    case "status": {
+      // Fix 8 — withdrawal reason/date on the Withdrawn badge (hover tooltip).
+      const withdrawTip = r.status === "withdrawn"
+        ? (r.withdrawalReason ? `Withdrawn: ${r.withdrawalReason}${r.withdrawalDate ? ` · ${fmtDate(r.withdrawalDate)}` : ""}` : "Withdrawn — no reason recorded")
+        : undefined;
       return (
         <span style={{ display: "inline-flex", alignItems: "center", gap: "var(--space-1)", flexWrap: "wrap" }}>
-          <span className={`badge ${BADGE_CLS[r.status] || "badge-pending"}`}>{statusLabel(r.status)}</span>
+          {/* Fix 3 — screen failure replaces the plain "Screening" badge with a red one. */}
+          {r.screenFailure ? (
+            <span className="badge badge-screenfail" title="Completed screening but not randomized — screen failure">
+              <i className="ti ti-user-x" style={{ fontSize: "11px" }}></i> Screen failure
+            </span>
+          ) : (
+            <span className={`badge ${BADGE_CLS[r.status] || "badge-pending"}`} title={withdrawTip}>{statusLabel(r.status)}</span>
+          )}
+          {/* Fix 1 — most urgent pending visit. */}
+          {r.visitState === "overdue" && <span className="an-visit-chip overdue" title="A scheduled visit is past its window">Overdue</span>}
+          {r.visitState === "due" && <span className="an-visit-chip due" title="A scheduled visit is due">Due</span>}
           {r.ineligible && (
             <span className="badge badge-ineligible" title="Does not meet inclusion criteria — PI review required">
               <i className="ti ti-alert-triangle" style={{ fontSize: "11px" }}></i> Ineligible
@@ -792,6 +915,7 @@ function renderCell(
           )}
         </span>
       );
+    }
     case "arm":
       return <span className="muted" style={{ fontSize: "var(--text-xs)" }}>{r.arm || "—"}</span>;
     case "location":
@@ -826,9 +950,22 @@ function renderCell(
       );
     case "lastVisit":
       return <span className="mono" style={{ fontSize: "var(--text-xs)" }}>{fmtDate(r.lastVisit)}</span>;
+    // Fix 5 — FCR (PH-2401), colour-banded (≤1.8 good / ≤2.0 warn / >2.0 alert).
+    case "fcr":
+      return r.fcr == null ? <span className="muted">—</span> : <span className={`an-metric ${fcrTone(r.fcr)}`}>{r.fcr.toFixed(2)}</span>;
+    // Fix 6 — CADESI-04 (CA-0801), Mild / Moderate / Severe banding.
+    case "cadesi":
+      return r.cadesi == null ? <span className="muted">—</span> : <span className={`an-metric ${cadesiTone(r.cadesi)}`}>{r.cadesi}</span>;
+    // Fix 7 — days on study; amber within 14 days of planned end.
+    case "day":
+      return r.dayOnStudy == null ? <span className="muted">—</span> : <span className={`mono${r.dayNearEnd ? " an-day-near" : ""}`} title={r.dayNearEnd ? "Approaching planned study end" : undefined}>D{r.dayOnStudy}</span>;
+    // Fix 2 — open query count; amber, red when any is > 14 days old.
     case "queries":
+      if (r.queries === 0) return <span className="cell-num">—</span>;
       return (
-        <span className={`cell-num${r.queries > 0 ? " warn" : ""}`}>{r.queries > 0 ? r.queries : "—"}</span>
+        <span className={`an-query-badge${r.overdueQueries > 0 ? " overdue" : ""}`} title={r.overdueQueries > 0 ? `${r.overdueQueries} query${r.overdueQueries === 1 ? "" : " (each)"} overdue (> 14 days)` : undefined}>
+          {r.queries} quer{r.queries === 1 ? "y" : "ies"}
+        </span>
       );
     default:
       return "—";

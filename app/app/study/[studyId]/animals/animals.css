@@ -80,6 +80,31 @@
 .badge-hold { background: var(--amber-50); border-color: var(--amber-200); color: var(--amber-700); }
 .badge-closed { background: var(--slate-50); border-color: var(--slate-200); color: var(--slate-600); }
 .badge-ineligible { background: var(--red-50); border-color: var(--red-200); color: var(--red-600); }
+.badge-screenfail { background: var(--red-50); border-color: var(--red-200); color: var(--red-600); }
+
+/* Visit-urgency chip on a subject row (Fix 1) */
+.an-visit-chip { display: inline-flex; align-items: center; height: 18px; padding: 0 6px; border-radius: var(--radius-full); font-size: 10px; font-weight: var(--weight-bold); text-transform: uppercase; letter-spacing: 0.02em; border: 1px solid; white-space: nowrap; }
+.an-visit-chip.overdue { background: var(--red-50); border-color: var(--red-200); color: var(--red-600); }
+.an-visit-chip.due { background: var(--amber-50); border-color: var(--amber-200); color: var(--amber-700); }
+
+/* Open-query-count badge (Fix 2) — amber, red when any query is > 14 days old */
+.an-query-badge { display: inline-flex; align-items: center; height: 20px; padding: 0 var(--space-2); border-radius: var(--radius-full); font-size: var(--text-xs); font-weight: var(--weight-medium); border: 1px solid; white-space: nowrap; background: var(--amber-50); border-color: var(--amber-200); color: var(--amber-700); }
+.an-query-badge.overdue { background: var(--red-50); border-color: var(--red-200); color: var(--red-600); }
+
+/* Clinical-metric cells — FCR / CADESI (Fix 5/6) + days-near-end (Fix 7) */
+.an-metric { font-family: var(--font-mono); font-size: var(--text-sm); font-weight: var(--weight-medium); }
+.an-metric.good { color: var(--green-600); }
+.an-metric.warn { color: var(--amber-700); }
+.an-metric.alert { color: var(--orange-700); }
+.an-day-near { color: var(--amber-700); font-weight: var(--weight-medium); }
+
+/* House/barn group header row (Fix 4) */
+.an-table tbody tr.an-group-header { background: var(--color-page-bg); cursor: pointer; }
+.an-table tbody tr.an-group-header:hover { background: var(--color-hover-bg); }
+.an-table tbody tr.an-group-header td { padding: var(--space-2) var(--space-5); font-size: var(--text-xs); font-weight: var(--weight-bold); color: var(--color-text-secondary); }
+.an-table tbody tr.an-group-header td i { vertical-align: -2px; margin-right: 2px; color: var(--color-text-tertiary); }
+.an-group-name { text-transform: uppercase; letter-spacing: var(--tracking-caps); }
+.an-group-count { margin-left: var(--space-2); font-weight: var(--weight-medium); color: var(--color-text-tertiary); text-transform: none; letter-spacing: normal; }
 
 /* ─── Table ── */
 .an-table-wrap { flex: 1; overflow-y: auto; }
