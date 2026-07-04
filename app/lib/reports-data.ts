@@ -25,7 +25,10 @@ export type ReportId =
   | "query-listing"
   | "protocol-deviations"
   | "randomization"
-  | "drug-accountability";
+  | "drug-accountability"
+  | "subject-data-listing"
+  | "ph-production-pen"
+  | "ph-feed-conversion";
 
 export const REPORT_CATEGORIES = [
   "Study Overview & Enrollment",
@@ -44,6 +47,7 @@ export interface ReportMeta {
   icon: string; // Tabler icon (no `ti ti-` prefix)
   roles: Role[]; // roles that may open the report
   hasCsv: boolean; // a primary table is CSV-exportable
+  studies?: string[]; // study codes this report applies to (undefined = all studies)
 }
 
 // Role access mirrors the spec matrix. Sponsor is "aggregate only" (no subject
@@ -89,10 +93,19 @@ export const REPORT_CATALOG: ReportMeta[] = [
   { id: "drug-accountability", title: "Drug Accountability", slug: "drug_accountability", category: "Site Performance", icon: "clipboard-check",
     description: "Investigational-product reconciliation per treatment group and site — received, dispensed, returned, destroyed, remaining.",
     roles: ["CRA", "DM", "Admin"], hasCsv: true },
+  { id: "subject-data-listing", title: "Subject Data Listing", slug: "subject_data_listing", category: "Data Quality & Integrity", icon: "table-options",
+    description: "One row per subject — the key primary-endpoint values across visits, with study-specific columns.",
+    roles: ["CRA", "DM", "PI", "Admin"], hasCsv: true },
+  { id: "ph-production-pen", title: "Production Performance by Pen", slug: "ph_production_pen", category: "Site Performance", icon: "chart-histogram",
+    description: "Per-pen production performance — phase FCR, final weight, feed consumed, and mortality.",
+    roles: ["CRA", "DM", "PI", "Admin", "Sponsor"], hasCsv: true, studies: ["PH-2401"] },
+  { id: "ph-feed-conversion", title: "Feed Conversion Summary", slug: "ph_feed_conversion", category: "Site Performance", icon: "scale",
+    description: "Feed conversion per production phase — Control vs Phytogenic, the primary efficacy comparison.",
+    roles: ["CRA", "DM", "PI", "Admin", "Sponsor"], hasCsv: true, studies: ["PH-2401"] },
 ];
 
-export function reportsForRole(role: Role): ReportMeta[] {
-  return REPORT_CATALOG.filter((r) => r.roles.includes(role));
+export function reportsForRole(role: Role, studyCode?: string): ReportMeta[] {
+  return REPORT_CATALOG.filter((r) => r.roles.includes(role) && (!r.studies || (studyCode != null && r.studies.includes(studyCode))));
 }
 export function reportById(id: string): ReportMeta | undefined {
   return REPORT_CATALOG.find((r) => r.id === id);
@@ -1148,6 +1161,123 @@ function findAssignedCrc(dataset: Dataset, studyId: string, siteCode: string): s
   const crc = users.find((u) => u.role === "CRC" && u.status === "active" && (u.siteCodes.length === 0 || u.siteCodes.includes(siteCode)));
   return crc?.name ?? "—";
 }
+
+// ─── Subject Data Listing (Fix 5) + PH production (Fix 9) ────────────────────
+const dayFromFormName = (name?: string): number | null => {
+  if (!name) return null;
+  const d = name.match(/Day\s+(\d+)/i); if (d) return Number(d[1]);
+  const w = name.match(/Week\s+(\d+)/i); if (w) return Number(w[1]) * 7;
+  if (/follow-?up\s*4/i.test(name)) return 56;
+  if (/follow-?up\s*3/i.test(name)) return 42;
+  if (/follow-?up\s*2/i.test(name)) return 28;
+  if (/follow-?up\s*1/i.test(name)) return 14;
+  if (/baseline|screening|enrol/i.test(name)) return 0;
+  if (/end of study|final|eos/i.test(name)) return 84;
+  return null;
+};
+// subjectId → (visit day → endpoint value) for the given field codes.
+function endpointsByDay(dataset: Dataset, studyId: string, codes: Set<string>): Map<string, Map<number, string>> {
+  const formById = new Map(dataset.forms.map((f) => [f.id, f]));
+  const fieldById = new Map(dataset.formFields.map((f) => [f.id, f]));
+  const byInst = new Map<string, string[]>();
+  for (const v of dataset.fieldValues) {
+    if (!v.value) continue;
+    const c = fieldById.get(v.form_field_id)?.code;
+    if (!c || !codes.has(c)) continue;
+    (byInst.get(v.form_instance_id) ?? byInst.set(v.form_instance_id, []).get(v.form_instance_id)!).push(v.value);
+  }
+  const res = new Map<string, Map<number, string>>();
+  for (const inst of subjectInstances(dataset, studyId)) {
+    const list = byInst.get(inst.id);
+    if (!list || !inst.subject_id) continue;
+    const form = formById.get(inst.form_id);
+    const parent = form?.parent_form_id ? formById.get(form.parent_form_id) : undefined;
+    const day = dayFromFormName(form?.name) ?? dayFromFormName(parent?.name);
+    if (day == null) continue;
+    let m = res.get(inst.subject_id);
+    if (!m) { m = new Map(); res.set(inst.subject_id, m); }
+    for (const val of list) m.set(day, val);
+  }
+  return res;
+}
+
+export interface BrSubjectDataRow { subjectCode: string; subjectId: string; arm: string; siteName: string; dart: Record<number, string>; cure: string; withdrawalDate: string | null }
+export function brSubjectDataRows(dataset: Dataset, studyId: string): BrSubjectDataRow[] {
+  const ix = buildSubjectIndex(dataset, studyId);
+  const siteById = new Map(dataset.sites.map((s) => [s.id, s]));
+  const dartByDay = endpointsByDay(dataset, studyId, new Set(["dart_score"]));
+  return ix.subjects.map((s) => {
+    const days = dartByDay.get(s.id) ?? new Map();
+    const dart: Record<number, string> = {};
+    for (const day of [0, 3, 7, 14, 28]) dart[day] = days.get(day) ?? "—";
+    const last = [28, 14, 7, 3, 0].map((d) => days.get(d)).find(Boolean);
+    const cure = last == null ? "—" : Number(last) <= 3 ? "Yes" : "No";
+    return {
+      subjectCode: s.subject_code, subjectId: s.id, arm: s.randomization_arm ?? "—",
+      siteName: s.site_id ? siteById.get(s.site_id)?.name ?? "—" : "—",
+      dart, cure, withdrawalDate: ix.byCode.get(s.id)?.get("withdrawal_date")?.[0] ?? null,
+    };
+  }).sort((a, b) => a.subjectCode.localeCompare(b.subjectCode));
+}
+
+export interface CaSubjectDataRow { subjectCode: string; subjectId: string; armCode: string; siteName: string; cadesi: Record<number, string>; pctChange: number | null; responder: string }
+const CADESI_CODES = new Set(["cadesi04_score", "cadesi_total", "cadesi_score", "cadesi04_total", "cadesi"]);
+export function caSubjectDataRows(dataset: Dataset, studyId: string): CaSubjectDataRow[] {
+  const ix = buildSubjectIndex(dataset, studyId);
+  const siteById = new Map(dataset.sites.map((s) => [s.id, s]));
+  const cadesiByDay = endpointsByDay(dataset, studyId, CADESI_CODES);
+  return ix.subjects.map((s) => {
+    const days = cadesiByDay.get(s.id) ?? new Map();
+    const cadesi: Record<number, string> = {};
+    for (const day of [0, 14, 28, 42, 56]) cadesi[day] = days.get(day) ?? "—";
+    const base = Number(days.get(0)); const fu4 = Number(days.get(56)) || Number(days.get(42)) || Number(days.get(28));
+    const pctChange = base > 0 && Number.isFinite(fu4) ? Math.round(((fu4 - base) / base) * 100) : null;
+    const responder = base > 0 && Number.isFinite(fu4) ? ((base - fu4) / base >= 0.5 ? "Yes" : "No") : "—";
+    return {
+      subjectCode: s.subject_code, subjectId: s.id, armCode: s.randomization_arm ?? "—",
+      siteName: s.site_id ? siteById.get(s.site_id)?.name ?? "—" : "—", cadesi, pctChange, responder,
+    };
+  }).sort((a, b) => a.subjectCode.localeCompare(b.subjectCode));
+}
+
+export interface PhPenRow {
+  penCode: string; penId: string; house: string; arm: string;
+  starterFcr: number | null; growerFcr: number | null; finisherFcr: number | null; overallFcr: number | null;
+  finalWeight: number | null; feedConsumed: number | null; mortalityCount: number; mortalityPct: number | null;
+}
+export function phPenProduction(dataset: Dataset, studyId: string): PhPenRow[] {
+  const ix = buildSubjectIndex(dataset, studyId);
+  const fcrByDay = endpointsByDay(dataset, studyId, new Set(["fcr_this_period"]));
+  const num = (sid: string, code: string, agg: "max" | "min" | "sum" | "first"): number | null => {
+    const arr = (ix.byCode.get(sid)?.get(code) ?? []).map(Number).filter((n) => Number.isFinite(n));
+    if (!arr.length) return null;
+    if (agg === "sum") return arr.reduce((s, n) => s + n, 0);
+    if (agg === "min") return Math.min(...arr);
+    if (agg === "first") return arr[0];
+    return Math.max(...arr);
+  };
+  const phaseAvg = (days: Map<number, string> | undefined, dayList: number[]): number | null => {
+    if (!days) return null;
+    const vals = dayList.map((d) => Number(days.get(d))).filter((n) => Number.isFinite(n) && n > 0);
+    return vals.length ? Math.round((vals.reduce((s, n) => s + n, 0) / vals.length) * 100) / 100 : null;
+  };
+  return ix.subjects.map((s) => {
+    const days = fcrByDay.get(s.id);
+    const placed = num(s.id, "birds_placed", "max") ?? 0;
+    const mortality = (num(s.id, "mortality_since_last", "sum") ?? 0) + (num(s.id, "death_count", "sum") ?? 0);
+    const penWeight = num(s.id, "total_pen_weight", "max");
+    const alive = num(s.id, "birds_alive", "min") ?? (placed - mortality);
+    return {
+      penCode: s.subject_code, penId: s.id, house: ix.byCode.get(s.id)?.get("house")?.[0] ?? "—", arm: s.randomization_arm ?? "—",
+      starterFcr: phaseAvg(days, [7, 14]), growerFcr: phaseAvg(days, [21, 28]), finisherFcr: phaseAvg(days, [35, 42]),
+      overallFcr: num(s.id, "cumulative_fcr", "max"),
+      finalWeight: penWeight && alive > 0 ? Math.round((penWeight / alive) * 100) / 100 : null,
+      feedConsumed: num(s.id, "feed_added", "sum"), mortalityCount: mortality,
+      mortalityPct: placed > 0 ? Math.round((mortality / placed) * 1000) / 10 : null,
+    };
+  }).sort((a, b) => a.penCode.localeCompare(b.penCode));
+}
+export interface PhPhaseRow { phase: string; arm: string; avgFcr: number | null; feedConsumed: number | null; weightGain: number | null }
 
 // ─── Randomization (Fix 6) — the randomization list + arm balance ────────────
 export interface RandomizationRow {

@@ -23,6 +23,9 @@ import { QueryListingReport } from "@/components/reports/reports/QueryListingRep
 import { ProtocolDeviationsReport } from "@/components/reports/reports/ProtocolDeviationsReport";
 import { RandomizationReport } from "@/components/reports/reports/RandomizationReport";
 import { DrugAccountabilityReport } from "@/components/reports/reports/DrugAccountabilityReport";
+import { SubjectDataListingReport } from "@/components/reports/reports/SubjectDataListingReport";
+import { PhProductionPenReport } from "@/components/reports/reports/PhProductionPenReport";
+import { PhFeedConversionReport } from "@/components/reports/reports/PhFeedConversionReport";
 import "./reports.css";
 
 export interface ReportProps {
@@ -45,6 +48,9 @@ const RENDERERS: Record<ReportId, (p: ReportProps) => JSX.Element> = {
   "protocol-deviations": ProtocolDeviationsReport,
   "randomization": RandomizationReport,
   "drug-accountability": DrugAccountabilityReport,
+  "subject-data-listing": SubjectDataListingReport,
+  "ph-production-pen": PhProductionPenReport,
+  "ph-feed-conversion": PhFeedConversionReport,
 };
 
 export default function ReportsPage() {
@@ -54,7 +60,7 @@ export default function ReportsPage() {
   const { activeRole, study } = useShell();
   const { dataset, ready } = useStudySession();
 
-  const available = useMemo(() => reportsForRole(activeRole), [activeRole]);
+  const available = useMemo(() => reportsForRole(activeRole, study.code), [activeRole, study.code]);
   const allowed = available.length > 0; // CRC has none → redirect
 
   useEffect(() => {
