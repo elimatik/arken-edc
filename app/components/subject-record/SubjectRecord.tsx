@@ -2219,6 +2219,11 @@ export function SubjectRecord({ studyId, subjectId, initialFormId, initialPanelF
                 repeating (log) forms, whose status/SDV roll up across every entry.
                 Only the auto-generated Production Summary (read-only) has no toolbar. */}
             <div className="form-actions" style={isSummaryForm ? { display: "none" } : undefined}>
+              {/* A change reason still open (pending / answered, not yet approved)
+                  blocks Submit for review + Finalize; the alert sits left, buttons right. */}
+              {!subjectClosed && !modeSdv && hasOpenDeltas && (currentStatus === "in_work" || !!flow) && (
+                <span className="submit-block-note"><i className="ti ti-circle-exclamation"></i> Resolve all change reasons before submitting</span>
+              )}
               <div className="remarks-wrap">
                 <button className="btn-secondary" onClick={() => setRemarksOpen((o) => !o)} type="button">
                   Remarks: {[modeQueries && "Queries", modeSdv && "SDV mode"].filter(Boolean).join(", ") || "Off"}
@@ -2305,11 +2310,6 @@ export function SubjectRecord({ studyId, subjectId, initialFormId, initialPanelF
                     </button>
                   )}
                 </>
-              )}
-              {/* A change reason still open (pending / answered, not yet approved)
-                  blocks Submit for review + Finalize until it is resolved. */}
-              {!subjectClosed && !modeSdv && hasOpenDeltas && (currentStatus === "in_work" || !!flow) && (
-                <span className="submit-block-note"><i className="ti ti-alert-circle"></i> Resolve all change reasons before submitting</span>
               )}
             </div>
           </div>
