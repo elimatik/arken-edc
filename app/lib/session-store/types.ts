@@ -141,10 +141,11 @@ export interface QueryRow {
   id: string;
   form_instance_id: string;
   field_value_id: string | null;
-  status: string; // open | responded | resolved
+  status: string; // open | responded | resolved | closed
   title: string;
   from_edit_check?: boolean; // true when this query was converted from an edit check
   created_at?: string; // for chronological ordering of multiple queries on a field
+  priority?: string; // routine | urgent | critical (manual queries; default routine)
 }
 
 // Auto-raised validation alert (out-of-range), distinct from a manual query.
@@ -156,6 +157,7 @@ export interface EditCheckRow {
   message: string;
   status: string; // open | resolved | converted
   created_at: string;
+  converted_to?: string; // query id this EC was converted into (status === "converted")
 }
 
 export interface QueryMessageRow {

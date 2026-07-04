@@ -15,6 +15,7 @@ import { useRouter } from "next/navigation";
 import { useSearchParams } from "next/navigation";
 import { useShell } from "@/components/shell/ShellContext";
 import { STUDY_RULES_SEED } from "@/lib/notifications-data";
+import { QUERY_TEMPLATES } from "@/lib/query-templates";
 import { useStudySession } from "@/lib/session-store/SessionStore";
 import type { Dataset } from "@/lib/session-store/types";
 import type { Role } from "@/lib/permissions";
@@ -1273,13 +1274,7 @@ const PREF_CHANGE_REASONS = [
   "Data entry error", "Transcription error from source document", "Protocol deviation correction",
   "Clarification from investigator", "Lab result correction", "Unit of measure error", "Date/time correction",
 ];
-const PREF_QUERY_TEMPLATES = [
-  "Please clarify this value — it appears inconsistent with other records for this subject.",
-  "This value is outside the protocol-defined range. Please confirm or correct.",
-  "Missing data: this field is required for this visit. Please complete.",
-  "Please confirm the date — it appears to conflict with the visit schedule.",
-  "Adverse event severity does not match the narrative description. Please reconcile.",
-];
+const PREF_QUERY_TEMPLATES = QUERY_TEMPLATES;
 const PREF_SUBJECT_COLS: { id: string; label: string; show: boolean; removable: boolean }[] = [
   { id: "subject_id", label: "Subject ID", show: true, removable: false },
   { id: "age", label: "Age", show: true, removable: true },

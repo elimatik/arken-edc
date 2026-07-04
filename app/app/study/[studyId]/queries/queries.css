@@ -124,3 +124,63 @@
 
 .qy-toast { position: fixed; bottom: var(--space-5); left: 50%; transform: translateX(-50%); display: flex; align-items: center; gap: var(--space-2); padding: var(--space-3) var(--space-4); background: var(--color-text-primary); color: #fff; border-radius: var(--radius-md); box-shadow: 0 8px 24px rgba(0, 0, 0, 0.22); font-size: var(--text-sm); z-index: 400; }
 .qy-toast i { color: var(--green-400, #4ade80); }
+
+/* ═══ Queries module improvements (aging, bulk, new-query, re-open, rules) ═══ */
+
+/* Header action cluster */
+.qy-header-actions { display: flex; align-items: center; gap: var(--space-2); }
+
+/* Fix 1 — Age column, SLA-toned (green < 7d · amber 7–14d · red > 14d) */
+.qy-age { font-family: var(--font-mono); font-size: var(--text-sm); font-weight: var(--weight-medium); }
+.qy-age-green { color: var(--green-600); }
+.qy-age-amber { color: var(--amber-700); }
+.qy-age-red { color: var(--red-600); }
+.qy-panel-age { font-size: var(--text-xs); font-weight: var(--weight-medium); font-family: var(--font-mono); }
+
+/* Priority chip (urgent / critical) — sits inline before the query text */
+.qy-prio { display: inline-block; margin-right: 6px; padding: 0 5px; border-radius: var(--radius-sm); font-size: 10px; font-weight: var(--weight-medium); border: 1px solid; vertical-align: middle; }
+.qy-prio-urgent { background: var(--amber-50); border-color: var(--amber-200); color: var(--amber-700); }
+.qy-prio-critical { background: var(--red-50); border-color: var(--red-200); color: var(--red-600); }
+
+/* Fix 5 — Assigned CRC cell (name over the pending-action verb) */
+.qy-crc { display: block; font-size: var(--text-sm); color: var(--color-text-primary); font-weight: var(--weight-medium); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+td .qy-crc + .qy-assign-verb { display: block; margin-left: 0; }
+
+/* Closed / converted status chips */
+.qc-closed { background: var(--slate-50, #f8fafc); border-color: var(--slate-200, #e2e8f0); color: var(--slate-500, #64748b); }
+.qc-converted { background: var(--blue-50, #eff6ff); border-color: var(--blue-200, #bfdbfe); color: var(--blue-600); }
+.qy-conv-to { margin-left: 6px; font-family: var(--font-mono); font-size: 10px; color: var(--blue-600); }
+
+/* Fix 4 — Rule cell in the Edit Checks table (Expected X · Entered Y) */
+.qy-rule { display: inline-flex; align-items: center; gap: 5px; font-size: var(--text-xs); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 260px; }
+.qy-rule-exp { color: var(--color-text-secondary); font-family: var(--font-mono); }
+.qy-rule-sep { color: var(--color-text-placeholder); }
+.qy-rule-act { color: var(--red-600); font-family: var(--font-mono); font-weight: var(--weight-medium); }
+
+/* Fix 4 — Rule context block in the slide-in panel */
+.qy-rule-block { margin: 0 var(--space-4) var(--space-3); padding: var(--space-3); background: var(--amber-50); border: 1px solid var(--amber-200); border-radius: var(--radius-md); display: flex; flex-direction: column; gap: 5px; flex-shrink: 0; }
+.qy-rule-block-title { display: flex; align-items: center; gap: 5px; font-size: var(--text-xs); font-weight: var(--weight-medium); text-transform: uppercase; letter-spacing: var(--tracking-caps); color: var(--amber-700); margin-bottom: 2px; }
+.qy-rule-block-title i { font-size: 13px; }
+.qy-rule-block-row { display: flex; align-items: baseline; gap: var(--space-2); }
+.qy-rule-block-lbl { flex-shrink: 0; min-width: 62px; font-size: var(--text-xs); color: var(--color-text-tertiary); text-transform: uppercase; letter-spacing: var(--tracking-caps); font-weight: var(--weight-medium); }
+.qy-rule-block-val { font-size: var(--text-sm); color: var(--color-text-primary); }
+.qy-rule-block-entered { font-family: var(--font-mono); font-size: var(--text-sm); font-weight: var(--weight-medium); color: var(--red-600); }
+
+/* Fix 7 — Bulk action bar (mirrors the Animals list bar) */
+.qy-bulkbar { display: flex; align-items: center; gap: var(--space-3); padding: var(--space-2) var(--space-5); background: var(--blue-50, #eff6ff); border-bottom: 1px solid var(--blue-200, #bfdbfe); flex-shrink: 0; }
+.qy-bulkbar-count { font-size: var(--text-sm); font-weight: var(--weight-medium); color: var(--color-text-primary); }
+.qy-bulkbar-clear { margin-left: auto; background: none; border: none; font-size: var(--text-sm); color: var(--blue-600); cursor: pointer; text-decoration: underline; text-underline-offset: 2px; }
+.qy-table th input[type="checkbox"], .qy-table td input[type="checkbox"] { cursor: pointer; width: 15px; height: 15px; accent-color: var(--color-cta-bg); }
+
+/* Fix 3 — Re-open block at the top of the compose area */
+.qy-reopen { padding-bottom: var(--space-3); margin-bottom: var(--space-3); border-bottom: 1px dashed var(--color-border); }
+.qy-reopen-btn { display: inline-flex; align-items: center; gap: 5px; height: 30px; padding: 0 var(--space-3); font-size: var(--text-sm); font-weight: var(--weight-medium); font-family: var(--font-sans); border: 1px solid var(--amber-200); background: var(--amber-50); color: var(--amber-700); border-radius: var(--radius-md); cursor: pointer; }
+.qy-reopen-btn:hover { background: var(--amber-100, #fef3c7); }
+
+/* Fix 6/8 — New-query modal cascade grid */
+.qy-nq-modal { width: 520px; max-width: 92vw; }
+.qy-nq-grid { display: grid; grid-template-columns: 1fr 1fr; gap: var(--space-3); margin-top: var(--space-3); }
+.qy-nq-field { display: flex; flex-direction: column; gap: 4px; }
+.qy-nq-full { grid-column: 1 / -1; }
+.qy-nq-lbl { display: inline-flex; align-items: center; gap: 4px; font-size: var(--text-xs); font-weight: var(--weight-medium); color: var(--color-text-secondary); text-transform: uppercase; letter-spacing: var(--tracking-caps); }
+.qy-nq-field .qy-select { width: 100%; }

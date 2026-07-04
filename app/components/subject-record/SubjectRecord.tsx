@@ -12,6 +12,7 @@ import { isStudyLocked } from "@/lib/study-lock";
 import { subjectAeList } from "@/lib/reports-data";
 import { buildVisits, addDays } from "@/lib/visits-data";
 import { addNotification } from "@/lib/notifications-data";
+import { QUERY_TEMPLATES } from "@/lib/query-templates";
 import { codingIndex, codedDisplay, normalizeTerm } from "@/lib/coding-data";
 import { LOCK_TOOLTIP } from "@/lib/use-study-locked";
 import { RandomizationPanel } from "./RandomizationPanel";
@@ -3145,6 +3146,12 @@ export function SubjectRecord({ studyId, subjectId, initialFormId, initialPanelF
             canRaise ? (
               <>
                 <div className="compose-context"><i className="ti ti-flag-check"></i> This query is resolved — raise a new query if a fresh issue remains (as {activeRole})</div>
+                <label className="qtpl-picker"><i className="ti ti-file-text"></i> Use template
+                  <select className="qtpl-select" value="" onChange={(e) => { if (e.target.value) setReply(e.target.value); }}>
+                    <option value="">Select a template…</option>
+                    {QUERY_TEMPLATES.map((t, k) => <option key={k} value={t}>{t.length > 60 ? `${t.slice(0, 60)}…` : t}</option>)}
+                  </select>
+                </label>
                 <textarea className="compose-textarea" placeholder="Describe a new issue with this value…" value={reply} onChange={(e) => setReply(e.target.value)}></textarea>
                 <div className="compose-btns">
                   <span className="compose-sub">Opens a new query</span>
@@ -3158,6 +3165,12 @@ export function SubjectRecord({ studyId, subjectId, initialFormId, initialPanelF
             canRaise ? (
               <>
                 <div className="compose-context"><i className="ti ti-user-circle"></i> Raising as {activeRole}</div>
+                <label className="qtpl-picker"><i className="ti ti-file-text"></i> Use template
+                  <select className="qtpl-select" value="" onChange={(e) => { if (e.target.value) setReply(e.target.value); }}>
+                    <option value="">Select a template…</option>
+                    {QUERY_TEMPLATES.map((t, k) => <option key={k} value={t}>{t.length > 60 ? `${t.slice(0, 60)}…` : t}</option>)}
+                  </select>
+                </label>
                 <textarea className="compose-textarea" placeholder="Describe the issue with this value…" value={reply} onChange={(e) => setReply(e.target.value)}></textarea>
                 <div className="compose-btns">
                   <span className="compose-sub">Shift+Enter for new line</span>
