@@ -6,7 +6,7 @@ import { useShell } from "@/components/shell/ShellContext";
 import { useTableSort } from "@/lib/useTableSort";
 import { SortTh } from "@/components/common/SortTh";
 import type { ReportProps } from "@/app/study/[studyId]/reports/page";
-import { Section, StatGrid, StatTile, ProportionBar, EmptyNote, ExportCsvButton, fmtDate } from "@/components/reports/ReportKit";
+import { Section, StatGrid, StatTile, ProportionBar, EmptyNote, ReportCsvButton, fmtDate } from "@/components/reports/ReportKit";
 import { visitComplianceRows, visitComplianceSummary, type VisitStatus, type VisitComplianceRow } from "@/lib/reports-data";
 
 const STATUS_META: Record<VisitStatus, { label: string; cls: string }> = {
@@ -20,15 +20,18 @@ export function VisitComplianceReport({ studyId }: ReportProps) {
   const { dataset } = useStudySession();
   const { study } = useShell();
   const { sort, toggle } = useTableSort(null);
-  const [filter, setFilter] = useState<"all" | VisitStatus>("all");
+  const [tab, setTab] = useState<"risk" | "done">("risk");
 
   const { rows, summary } = useMemo(() => {
     const rows = visitComplianceRows(dataset, studyId);
     return { rows, summary: visitComplianceSummary(rows) };
   }, [dataset, studyId]);
 
+  // Tab 1 "Overdue & At risk" = not yet completed (overdue / pending). Tab 2
+  // "Completed visits" = a visit was recorded (on-time / outside window).
+  const isDone = (s: VisitStatus) => s === "on-time" || s === "outside";
   const filtered = useMemo(() => {
-    const arr = rows.filter((r) => filter === "all" || r.status === filter);
+    const arr = rows.filter((r) => (tab === "done" ? isDone(r.status) : !isDone(r.status)));
     const dir = sort?.dir === "asc" ? 1 : -1;
     if (sort) {
       const by: Record<string, (x: VisitComplianceRow) => string | number> = {
@@ -38,14 +41,13 @@ export function VisitComplianceReport({ studyId }: ReportProps) {
       const f = by[sort.col];
       if (f) return arr.sort((a, b) => { const va = f(a), vb = f(b); return (typeof va === "number" ? (va as number) - (vb as number) : String(va).localeCompare(String(vb))) * dir; });
     }
-    // Default: worst (most overdue / most outside) first.
     return arr.sort((a, b) => Math.abs(b.daysFromTarget ?? 0) - Math.abs(a.daysFromTarget ?? 0));
-  }, [rows, filter, sort]);
+  }, [rows, tab, sort]);
 
-  const overdue = useMemo(() => rows.filter((r) => r.status === "overdue").sort((a, b) => (b.daysFromTarget ?? 0) - (a.daysFromTarget ?? 0)), [rows]);
-
+  const riskCount = rows.filter((r) => !isDone(r.status)).length;
+  const doneCount = rows.filter((r) => isDone(r.status)).length;
   const csvHeaders = ["Subject", "Site", "Visit", "Target date", "Window (±d)", "Actual date", "Days from target", "Status"];
-  const csvRows = rows.map((v) => [v.subjectCode, v.siteName, v.visitName, v.targetDate, v.window, v.actualDate, v.daysFromTarget, STATUS_META[v.status].label]);
+  const csvRows = filtered.map((v) => [v.subjectCode, v.siteName, v.visitName, v.targetDate, v.window, v.actualDate, v.daysFromTarget, STATUS_META[v.status].label]);
 
   return (
     <>
@@ -69,16 +71,12 @@ export function VisitComplianceReport({ studyId }: ReportProps) {
         ) : <EmptyNote>No scheduled visits for this study.</EmptyNote>}
       </Section>
 
-      <Section title="Visit compliance" icon="calendar-check" action={
-        <div className="rpt-section-controls">
-          <div className="rpt-seg">
-            {(["all", "on-time", "outside", "overdue"] as const).map((k) => (
-              <button key={k} type="button" className={`rpt-seg-btn${filter === k ? " active" : ""}`} onClick={() => setFilter(k)}>{k === "all" ? "All" : STATUS_META[k].label}</button>
-            ))}
-          </div>
-          <ExportCsvButton studyCode={study.code} slug="visit_compliance" headers={csvHeaders} rows={csvRows} />
+      <Section title="Visit compliance" icon="calendar-check"
+        action={<ReportCsvButton studyId={studyId} slug={tab === "risk" ? "visit_compliance_overdue" : "visit_compliance_completed"} headers={csvHeaders} rows={csvRows} />}>
+        <div className="rpt-tabs">
+          <button className={`rpt-tab${tab === "risk" ? " active" : ""}`} type="button" onClick={() => setTab("risk")}>Overdue &amp; At risk <span className="rpt-tab-count tc-crit">{riskCount}</span></button>
+          <button className={`rpt-tab${tab === "done" ? " active" : ""}`} type="button" onClick={() => setTab("done")}>Completed visits <span className="rpt-tab-count">{doneCount}</span></button>
         </div>
-      }>
         {filtered.length > 0 ? (
           <table className="rpt-table">
             <thead><tr>
@@ -108,20 +106,6 @@ export function VisitComplianceReport({ studyId }: ReportProps) {
           </table>
         ) : <EmptyNote>No visits match this filter.</EmptyNote>}
       </Section>
-
-      {overdue.length > 0 && (
-        <Section title="Overdue visits — action required" icon="alert-triangle">
-          <div className="rpt-action-banner"><i className="ti ti-phone"></i> Overdue {overdue.length} {overdue.length === 1 ? "visit" : "visits"} — contact the site coordinator to reschedule.</div>
-          <table className="rpt-table">
-            <thead><tr><th>Subject</th><th>Site</th><th>Visit</th><th>Target date</th><th>Days overdue</th></tr></thead>
-            <tbody>
-              {overdue.map((v) => (
-                <tr key={v.id}><td className="mono">{v.subjectCode}</td><td>{v.siteName}</td><td>{v.visitName}</td><td className="mono">{fmtDate(v.targetDate)}</td><td className="mono cell-crit">{v.daysFromTarget}d</td></tr>
-              ))}
-            </tbody>
-          </table>
-        </Section>
-      )}
 
       <p className="rpt-footnote">Visit windows per {study.code} protocol. A visit is overdue when today exceeds the target date + window end; a visit still within its window is not overdue even if past the target date.</p>
     </>
