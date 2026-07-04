@@ -1529,9 +1529,6 @@ function AuditSignaturesSection({ studyId, dataset, onToast }: { studyId: string
   });
   const toggleSig = (id: string) => setSigForms((s) => { const n = new Set(s); if (n.has(id)) n.delete(id); else n.add(id); return n; });
 
-  // Card 3 — Audit trail behaviour.
-  const [reasonSignedLocked, setReasonSignedLocked] = useState(true);
-
   return (
     <>
       <div className="section-header">
@@ -1588,7 +1585,6 @@ function AuditSignaturesSection({ studyId, dataset, onToast }: { studyId: string
               <div className="settings-row-desc">Every field change is logged with timestamp, user, and reason for change. Cannot be disabled.</div>
             </div>
           </div>
-          <ToggleRow on={reasonSignedLocked} onToggle={() => { setReasonSignedLocked(!reasonSignedLocked); onToast("Setting saved"); }} label="Reason for change required on edits to signed/locked records" desc="A change reason is captured for any edit after a record is signed or locked." />
           {/* Row 3 — read-only timestamp format */}
           <div className="settings-row">
             <div><div className="settings-row-label">Timestamp format</div><div className="settings-row-desc">Regulatory requirement — not editable</div></div>
