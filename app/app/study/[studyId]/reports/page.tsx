@@ -95,6 +95,8 @@ export default function ReportsPage() {
   useEffect(() => {
     setGeneratedAt(new Date().toLocaleString("en-GB", { day: "2-digit", month: "short", year: "numeric", hour: "2-digit", minute: "2-digit" }).replace(",", ""));
   }, [activeId]);
+  const [toast, setToast] = useState<string | null>(null);
+  useEffect(() => { if (!toast) return; const t = setTimeout(() => setToast(null), 2800); return () => clearTimeout(t); }, [toast]);
 
   if (!ready) return <div className="rpt-screen"><div className="rpt-loading"><i className="ti ti-loader-2"></i> Loading…</div></div>;
   if (!allowed) return <div className="rpt-screen"><div className="rpt-loading">Redirecting…</div></div>;
@@ -145,6 +147,7 @@ export default function ReportsPage() {
                 initial={savedActive ? savedActive.config : pendingCfg}
                 source={savedActive ? "saved" : pendingCfg ? "ai" : "manual"}
                 onSaved={refreshSaved}
+                onToast={setToast}
               />
             </div>
           </>
@@ -179,6 +182,7 @@ export default function ReportsPage() {
           </>
         )}
       </div>
+      {toast && <div className="crb-toast" role="status"><i className="ti ti-circle-check"></i> {toast}</div>}
     </div>
   );
 }

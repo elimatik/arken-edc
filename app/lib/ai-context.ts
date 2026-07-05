@@ -170,18 +170,19 @@ Classify every user message as one of three intents:
 
 2. "data_query" — the user wants to SEE study data as a table (e.g. "Show dogs with CADESI FU4 below 20", "Which subjects have open queries?", "List BR-2502 animals in arm T01").
    You do NOT have field values — describe WHAT to show; the client resolves the rows from the session store.
+   You do NOT have field values — describe WHAT to show; the client resolves the rows from the session store.
+   Rows are always SUBJECT-grain (one row per subject/pen). Columns are either a built-in or a form field.
    Return: { "intent": "data_query", "message": "<short message>", "data": {
      "title": "<report title>",
-     "dataSource": "subjects" | "form_entries" | "field_values" | "visits" | "queries" | "inventory",
      "columns": [ { "label": "Subject ID", "source": "builtin", "key": "subjectId" }, { "label": "CADESI FU4", "source": "form_field", "form": "<exact form name from FORMS & FIELDS>", "field": "<field code>", "visit": "Follow-Up 4" } ],
      "filters": [ { "column": "CADESI FU4", "operator": ">=" | "<=" | ">" | "<" | "=" | "!=" | "contains", "value": "20" } ],
      "exportFilename": "arken-${h.code}-<description>-<date>"
    } }
-   Built-in column keys by dataSource: subjects → subjectId, site, arm, status, enrollmentDate · visits → subjectId, site, visitName, targetDate, actualDate, visitStatus · queries → queryId, subjectId, site, form, field, queryStatus, age · inventory → unitId, treatmentGroup, site, unitStatus.
-   Always include a subjectId column first. Use EXACT form names and field codes from the FORMS & FIELDS schema. Filter columns must reference a column "label" you defined.
+   Built-in column keys: subjectId, site, arm, status, enrollmentDate, daysOnStudy, withdrawalReason, visitName, targetDate, actualDate, complianceStatus, openQueryCount, queryStatus.
+   Always include a subjectId column first. Use EXACT form names and field codes from the FORMS & FIELDS schema. A form_field column shows that field's value for the subject (optionally at a given "visit"). Filter columns must reference a column "label" you defined.
 
 3. "report_config" — the user wants to BUILD or customise a report (e.g. "Build a report comparing FCR by arm", "Create a custom PH-2401 production report").
-   Return: { "intent": "report_config", "message": "<short message>", "config": { "dataSource": "...", "columns": [ ... same column shape ... ], "filters": [ ... ], "title": "<suggested title>" } }
+   Return: { "intent": "report_config", "message": "<short message>", "config": { "columns": [ ... same column shape as data_query ... ], "filters": [ ... ], "title": "<suggested title>" } }
 
 RULES
 - Output ONLY the JSON object. No markdown, no code fences, no commentary before/after.

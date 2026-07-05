@@ -8,7 +8,7 @@ import type { Role } from "@/lib/permissions";
 import { matchResponse, SUGGESTIONS, ROLE_LABEL, aiScope, type AIResponse } from "@/lib/ai-responses";
 import { buildAIContext } from "@/lib/ai-context";
 import { ReportCsvButton } from "@/components/reports/ReportKit";
-import { resolveReport, setPendingConfig, type ReportConfig, type ResolvedReport, type DataSource } from "@/lib/report-builder";
+import { resolveReport, setPendingConfig, colId, type ReportConfig, type ReportColumn, type ResolvedReport } from "@/lib/report-builder";
 import "./ai.css";
 
 // A data_query / report_config message (the AI returns a query plan; the client
@@ -36,8 +36,9 @@ function msgToPlain(m: Msg): string {
 }
 
 // Parse the model's JSON response (tolerant of stray prose / code fences).
+interface AiCol { label?: string; source?: string; key?: string; form?: string; field?: string; visit?: string }
+interface AiConfigPayload { title?: string; columns?: AiCol[]; filters?: ReportConfig["filters"]; exportFilename?: string }
 interface AiParsed { intent: "question" | "data_query" | "report_config"; message?: string; response?: string; data?: AiConfigPayload; config?: AiConfigPayload }
-interface AiConfigPayload { title?: string; dataSource?: string; columns?: ReportConfig["columns"]; filters?: ReportConfig["filters"]; exportFilename?: string }
 function parseAiJson(text: string): AiParsed | null {
   let t = text.trim();
   const fence = t.match(/```(?:json)?\s*([\s\S]*?)```/);
@@ -49,10 +50,13 @@ function parseAiJson(text: string): AiParsed | null {
     return o && typeof o === "object" && o.intent ? o : null;
   } catch { return null; }
 }
-const VALID_SOURCES: DataSource[] = ["subjects", "form_entries", "field_values", "visits", "queries", "inventory"];
+// Map an AI column payload (built-in key OR form/field, value aspect) → the builder model.
 function toConfig(p: AiConfigPayload | undefined): ReportConfig {
-  const ds = (p?.dataSource && VALID_SOURCES.includes(p.dataSource as DataSource) ? p.dataSource : "subjects") as DataSource;
-  return { dataSource: ds, columns: Array.isArray(p?.columns) ? p!.columns : [], filters: Array.isArray(p?.filters) ? p!.filters : [], title: p?.title };
+  const columns: ReportColumn[] = (Array.isArray(p?.columns) ? p!.columns : []).map((c): ReportColumn => {
+    if (c.source === "form_field" && c.form && c.field) return { id: colId(), label: c.label ?? `${c.form} → ${c.field}`, kind: "field", form: c.form, field: c.field, fieldLabel: c.field, aspect: "value", visit: c.visit };
+    return { id: colId(), label: c.label ?? c.key ?? "Column", kind: "builtin", builtinKey: c.key ?? "subjectId" };
+  });
+  return { columns, filters: Array.isArray(p?.filters) ? p!.filters : [], title: p?.title };
 }
 
 // Path 2 — POST the unmatched question to the server proxy (which holds the API key).
