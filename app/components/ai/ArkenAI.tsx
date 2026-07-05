@@ -177,7 +177,7 @@ export function ArkenAI({ open, onClose }: { open: boolean; onClose: () => void 
             thread.map((m, i) => (
               <div key={i} className={`ai-msg ${m.role}`}>
                 <div className="ai-msg-label">{m.role === "user" ? "You" : `Arken AI · ${ROLE_LABEL[activeRole]} scope`}</div>
-                <div className="ai-msg-bubble">
+                <div className={`ai-msg-bubble${"kind" in m ? " ai-msg-bubble-card" : ""}`}>
                   {m.role === "user" ? m.text
                     : "kind" in m && m.kind === "data" ? <DataCard msg={m} studyId={study.id} onOpen={() => openInBuilder(m.config)} />
                     : "kind" in m && m.kind === "config" ? <ConfigCard msg={m} onOpen={() => openInBuilder(m.config)} />
