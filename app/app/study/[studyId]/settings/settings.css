@@ -37,7 +37,7 @@
 .settings-row-value { flex: 1; min-width: 0; }
 
 /* Form elements */
-.set-select { height: 36px; padding: 0 28px 0 var(--space-3); font-size: var(--text-sm); font-family: var(--font-sans); border: 1px solid var(--color-border); border-radius: var(--radius-md); background: var(--color-surface); cursor: pointer; appearance: none; background-image: url("data:image/svg+xml,%3Csvg width='8' height='12' viewBox='0 0 8 12' fill='none'%3E%3Cpath d='M1 1L6 6L1 11' stroke='%236D7480' stroke-width='1.5' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E"); background-repeat: no-repeat; background-position: right 10px center; outline: none; }
+.set-select { height: 36px; padding: 0 36px 0 var(--space-3); font-size: var(--text-sm); font-family: var(--font-sans); border: 1px solid var(--color-border); border-radius: var(--radius-md); background: var(--color-surface); cursor: pointer; appearance: none; background-image: url("data:image/svg+xml,%3Csvg width='8' height='12' viewBox='0 0 8 12' fill='none'%3E%3Cpath d='M1 1L6 6L1 11' stroke='%236D7480' stroke-width='1.5' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E"); background-repeat: no-repeat; background-position: right 10px center; outline: none; }
 
 /* Buttons */
 .set-btn-primary { display: inline-flex; align-items: center; gap: 4px; height: 32px; padding: 0 var(--space-3); font-size: var(--text-sm); font-weight: 500; font-family: var(--font-sans); border: none; border-radius: var(--radius-md); background: var(--color-cta-bg); color: #fff; cursor: pointer; white-space: nowrap; }
