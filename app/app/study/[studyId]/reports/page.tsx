@@ -83,13 +83,16 @@ export default function ReportsPage() {
     if (sel.kind === "report" && !available.some((r) => r.id === sel.id)) setSel({ kind: "report", id: available[0]?.id ?? "study-status" });
   }, [available, sel]);
 
-  // On mount: load saved reports; consume a pending Arken Insights config (or ?custom=1).
+  // Load saved reports + consume a pending Arken Insights config (or ?custom=1).
+  // Re-runs on ?custom= changes so "Open in report builder" works even when the
+  // Reports page is already mounted.
+  const qs = searchParams.toString();
   useEffect(() => {
     setSavedReports(loadSavedReports(studyId));
     const pend = takePendingConfig();
     if (pend) { setPendingCfg(pend); setSel({ kind: "custom" }); }
     else if (searchParams.get("custom") === "1" && canCustom) setSel({ kind: "custom" });
-  }, [studyId]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [studyId, qs]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const [generatedAt, setGeneratedAt] = useState("");
   useEffect(() => {

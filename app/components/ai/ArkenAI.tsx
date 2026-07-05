@@ -146,7 +146,7 @@ export function ArkenAI({ open, onClose }: { open: boolean; onClose: () => void 
   function openInBuilder(config: ReportConfig) {
     setPendingConfig(config);
     onClose();
-    router.push(`/study/${study.id}/reports?custom=1`);
+    router.push(`/study/${study.id}/reports?custom=1&r=${Date.now()}`);
   }
 
   function onKey(e: React.KeyboardEvent<HTMLTextAreaElement>) {
