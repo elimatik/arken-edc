@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo } from "react";
+import { useMemo, useState } from "react";
 import { useStudySession } from "@/lib/session-store/SessionStore";
 import { useShell } from "@/components/shell/ShellContext";
 import type { ReportProps } from "@/app/study/[studyId]/reports/page";
@@ -13,6 +13,7 @@ const pctTone = (p: number): Tone => (p < 50 ? "crit" : p < 70 ? "warn" : "good"
 export function DataCompletenessReport({ studyId }: ReportProps) {
   const { dataset } = useStudySession();
   const { study } = useShell();
+  const [tab, setTab] = useState<"byform" | "missing">("byform");
 
   const d = useMemo(() => {
     const fp = formProgress(dataset, studyId);
@@ -26,6 +27,8 @@ export function DataCompletenessReport({ studyId }: ReportProps) {
 
   const csvHeaders = ["Form", "Submitted", "Missing required", "Pending", "Locked"];
   const csvRows = d.byForm.map((f) => [f.formName, f.submitted, f.missingRequired, f.pending, f.locked]);
+  const missingHeaders = ["Subject", "Site", "Form", "Field"];
+  const missingRows = d.missing.map((m) => [m.subjectCode, m.siteName, m.formName, m.fieldLabel]);
 
   return (
     <>
@@ -44,25 +47,31 @@ export function DataCompletenessReport({ studyId }: ReportProps) {
         ) : <EmptyNote>No site data.</EmptyNote>}
       </Section>
 
-      <Section title="Completeness by form type" icon="forms" action={<ExportCsvButton studyCode={study.code} slug="data_completeness" headers={csvHeaders} rows={csvRows} />}>
-        <table className="rpt-table">
-          <thead><tr><th>Form</th><th>Submitted</th><th>Missing required</th><th>Pending</th><th>Locked</th></tr></thead>
-          <tbody>
-            {d.byForm.map((f) => (
-              <tr key={f.formCode}>
-                <td>{f.formName}</td>
-                <td className="mono">{f.submitted}</td>
-                <td className={`mono${f.missingRequired > 0 ? " cell-crit" : ""}`}>{f.missingRequired}</td>
-                <td className={`mono${f.pending > 0 ? " cell-warn" : ""}`}>{f.pending}</td>
-                <td className="mono">{f.locked}</td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
-      </Section>
+      <Section title="Data completeness" icon="checklist"
+        action={tab === "byform"
+          ? <ExportCsvButton studyCode={study.code} slug="data_completeness_by_form" headers={csvHeaders} rows={csvRows} />
+          : <ExportCsvButton studyCode={study.code} slug="data_completeness_missing" headers={missingHeaders} rows={missingRows} />}>
+        <div className="rpt-tabs">
+          <button className={`rpt-tab${tab === "byform" ? " active" : ""}`} type="button" onClick={() => setTab("byform")}>Completeness by form type</button>
+          <button className={`rpt-tab${tab === "missing" ? " active" : ""}`} type="button" onClick={() => setTab("missing")}>Missing data detail <span className="rpt-tab-count tc-crit">{d.missing.length}</span></button>
+        </div>
 
-      <Section title="Missing data detail" icon="list-search">
-        {d.missing.length > 0 ? (
+        {tab === "byform" ? (
+          <table className="rpt-table">
+            <thead><tr><th>Form</th><th>Submitted</th><th>Missing required</th><th>Pending</th><th>Locked</th></tr></thead>
+            <tbody>
+              {d.byForm.map((f) => (
+                <tr key={f.formCode}>
+                  <td>{f.formName}</td>
+                  <td className="mono">{f.submitted}</td>
+                  <td className={`mono${f.missingRequired > 0 ? " cell-crit" : ""}`}>{f.missingRequired}</td>
+                  <td className={`mono${f.pending > 0 ? " cell-warn" : ""}`}>{f.pending}</td>
+                  <td className="mono">{f.locked}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        ) : d.missing.length > 0 ? (
           <>
             <div className="rpt-action-banner"><i className="ti ti-clipboard-x"></i> {d.missing.length} required {d.missing.length === 1 ? "field" : "fields"} empty on submitted forms — query or complete each.</div>
             <table className="rpt-table">

@@ -257,3 +257,6 @@
 .rpt-drill-row .rpt-drill-block { flex: 0 0 auto; }
 .rpt-drill-row .rpt-drill-block:has(.rpt-drill-panel) { flex: 1 1 100%; }
 .rpt-drill-link { font-size: var(--text-sm); }
+/* Fix 1 — wrap long VeDDRA coded terms in the ConMed log instead of stretching the table */
+.rpt-vedra-wrap { white-space: normal; word-break: break-word; max-width: 180px; }
+.rpt-vedra-wrap .mono { white-space: normal; word-break: break-word; }

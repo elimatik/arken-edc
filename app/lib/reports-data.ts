@@ -274,6 +274,26 @@ export function screenFailureReasons(dataset: Dataset, studyId: string, ix: Subj
   return Array.from(counts.entries()).map(([reason, count]) => ({ reason, count })).sort((a, b) => b.count - a.count);
 }
 
+// Per-subject screen-failure detail (Fix 5 tab 3) — reason, date, and the failed
+// eligibility criterion where documented.
+export interface ScreenFailDetailRow { subjectCode: string; siteCode: string; siteName: string; reason: string; date: string | null; criterion: string }
+export function screenFailureDetail(dataset: Dataset, studyId: string, ix: SubjectIndex): ScreenFailDetailRow[] {
+  const siteById = new Map(dataset.sites.map((s) => [s.id, s]));
+  const out: ScreenFailDetailRow[] = [];
+  for (const s of ix.subjects) {
+    const m = ix.byCode.get(s.id);
+    if (!isScreenFailure(s, m)) continue;
+    const site = s.site_id ? siteById.get(s.site_id) : undefined;
+    out.push({
+      subjectCode: s.subject_code, siteCode: site?.code ?? "—", siteName: site?.name ?? "—",
+      reason: first(m, "screen_fail_reason", "ineligibility_reason", "exclusion_reason", "withdrawal_reason") ?? "Did not meet eligibility criteria",
+      date: first(m, "screening_date", "screen_fail_date", "consent_date", "enrollment_date") ?? null,
+      criterion: first(m, "failed_criterion", "criterion_failed", "exclusion_criterion", "eligibility_criterion") ?? "—",
+    });
+  }
+  return out.sort((a, b) => a.subjectCode.localeCompare(b.subjectCode));
+}
+
 // Arm split for the enrolment bar (count enrolled per arm, in stable order).
 export function enrollmentByArm(disp: Disposition[], label: (a: string | null) => string): { arm: string; count: number }[] {
   const map = new Map<string, number>();

@@ -77,6 +77,19 @@ export function QueryEditCheckReport({ studyId }: ReportProps) {
         <p className="rpt-footnote">Query density = open queries per 100 CRF fields. Industry benchmark: &lt; 2 per 100 fields indicates high data quality. Density &gt; 5 per 100 fields warrants site investigation. Ratings: &lt; 2 Excellent · 2–5 Acceptable · 5–10 Review needed · &gt; 10 Action required.</p>
       </Section>
 
+      <Section title="Resolution rate by site" icon="building-hospital">
+        {d.bySite.length > 0 ? (
+          <table className="rpt-table">
+            <thead><tr><th>Site</th><th>Raised</th><th>Resolved</th><th>Open</th><th>Avg days to resolve</th></tr></thead>
+            <tbody>
+              {d.bySite.map((s) => (
+                <tr key={s.code}><td>{s.code} · {s.name}</td><td className="mono">{s.raised}</td><td className="mono">{s.resolved}</td><td className={`mono${s.open > 0 ? " cell-warn" : ""}`}>{s.open}</td><td className="mono">{s.avgDays == null ? "—" : `${s.avgDays}d`}</td></tr>
+              ))}
+            </tbody>
+          </table>
+        ) : <EmptyNote>No queries raised for this study.</EmptyNote>}
+      </Section>
+
       <Section title="Query aging" icon="clock-hour-4" action={<ExportCsvButton studyCode={study.code} slug="query_edit_check" headers={csvHeaders} rows={csvRows} />}>
         {d.aging.length > 0 ? (
           <table className="rpt-table">
@@ -98,19 +111,6 @@ export function QueryEditCheckReport({ studyId }: ReportProps) {
                   </tr>
                 );
               })}
-            </tbody>
-          </table>
-        ) : <EmptyNote>No queries raised for this study.</EmptyNote>}
-      </Section>
-
-      <Section title="Resolution rate by site" icon="building-hospital">
-        {d.bySite.length > 0 ? (
-          <table className="rpt-table">
-            <thead><tr><th>Site</th><th>Raised</th><th>Resolved</th><th>Open</th><th>Avg days to resolve</th></tr></thead>
-            <tbody>
-              {d.bySite.map((s) => (
-                <tr key={s.code}><td>{s.code} · {s.name}</td><td className="mono">{s.raised}</td><td className="mono">{s.resolved}</td><td className={`mono${s.open > 0 ? " cell-warn" : ""}`}>{s.open}</td><td className="mono">{s.avgDays == null ? "—" : `${s.avgDays}d`}</td></tr>
-              ))}
             </tbody>
           </table>
         ) : <EmptyNote>No queries raised for this study.</EmptyNote>}
