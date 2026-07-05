@@ -139,27 +139,16 @@ export default function ReportsPage() {
       <div className="rpt-main" id="rpt-print-area">
         {isCustom ? (
           <>
-            <div className="rpt-header rpt-header-slim">
-              <div className="rpt-header-text">
-                <div className="rpt-eyebrow">Custom report</div>
-                <div className="rpt-meta">
-                  <span><i className="ti ti-flask"></i> {study.code} · {study.name}</span>
-                  <span><i className="ti ti-user-shield"></i> {activeRole}</span>
-                </div>
-              </div>
-            </div>
-            <div className="rpt-body">
-              <CustomReportBuilder
-                key={sel.kind === "saved" ? sel.id : pendingCfg ? "ai" : "new"}
-                studyId={studyId}
-                initial={savedActive ? savedActive.config : pendingCfg}
-                source={savedActive ? "saved" : pendingCfg ? "ai" : "manual"}
-                savedReport={savedActive ?? null}
-                onSaved={refreshSaved}
-                onDelete={deleteSaved}
-                onToast={setToast}
-              />
-            </div>
+            <CustomReportBuilder
+              key={sel.kind === "saved" ? sel.id : pendingCfg ? "ai" : "new"}
+              studyId={studyId}
+              initial={savedActive ? savedActive.config : pendingCfg}
+              source={savedActive ? "saved" : pendingCfg ? "ai" : "manual"}
+              savedReport={savedActive ?? null}
+              onSaved={refreshSaved}
+              onDelete={deleteSaved}
+              onToast={setToast}
+            />
           </>
         ) : (
           <>
