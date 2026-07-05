@@ -11,7 +11,7 @@ import { reportsForRole, reportById, isAggregateRole, type ReportId } from "@/li
 import { shouldHideArms } from "@/lib/study-config";
 import { ReportSidebar } from "@/components/reports/ReportSidebar";
 import { CustomReportBuilder } from "@/components/reports/CustomReportBuilder";
-import { loadSavedReports, takePendingConfig, type SavedReport, type ReportConfig } from "@/lib/report-builder";
+import { loadSavedReports, persistSavedReports, takePendingConfig, type SavedReport, type ReportConfig } from "@/lib/report-builder";
 import { StudyStatusReport } from "@/components/reports/reports/StudyStatusReport";
 import { EnrollmentDispositionReport } from "@/components/reports/reports/EnrollmentDispositionReport";
 import { SitePerformanceReport } from "@/components/reports/reports/SitePerformanceReport";
@@ -111,6 +111,13 @@ export default function ReportsPage() {
   const hideArms = shouldHideArms(dataset, studyId, activeRole);
   const Renderer = RENDERERS[activeId];
   function refreshSaved() { setSavedReports(loadSavedReports(studyId)); }
+  function deleteSaved(id: string) {
+    const next = savedReports.filter((r) => r.id !== id);
+    setSavedReports(next);
+    persistSavedReports(studyId, next);
+    if (sel.kind === "saved" && sel.id === id) setSel({ kind: "custom" });
+    setToast("Report deleted");
+  }
 
   return (
     <div className="rpt-screen">
@@ -127,16 +134,14 @@ export default function ReportsPage() {
         savedReports={savedReports}
         savedActiveId={sel.kind === "saved" ? sel.id : null}
         onSelectSaved={(id) => setSel({ kind: "saved", id })}
-        onDeleteSaved={(id) => { const next = savedReports.filter((r) => r.id !== id); setSavedReports(next); import("@/lib/report-builder").then((m) => m.persistSavedReports(studyId, next)); if (sel.kind === "saved" && sel.id === id) setSel({ kind: "custom" }); }}
+        onDeleteSaved={deleteSaved}
       />
       <div className="rpt-main" id="rpt-print-area">
         {isCustom ? (
           <>
-            <div className="rpt-header">
+            <div className="rpt-header rpt-header-slim">
               <div className="rpt-header-text">
-                <div className="rpt-eyebrow">Custom</div>
-                <h1 className="rpt-title">{savedActive ? savedActive.name : "Custom report"}</h1>
-                <p className="rpt-desc">{savedActive ? savedActive.description || "Saved custom report." : "Build a report — pick a data source, add columns and filters, preview and export."}</p>
+                <div className="rpt-eyebrow">Custom report</div>
                 <div className="rpt-meta">
                   <span><i className="ti ti-flask"></i> {study.code} · {study.name}</span>
                   <span><i className="ti ti-user-shield"></i> {activeRole}</span>
@@ -149,7 +154,9 @@ export default function ReportsPage() {
                 studyId={studyId}
                 initial={savedActive ? savedActive.config : pendingCfg}
                 source={savedActive ? "saved" : pendingCfg ? "ai" : "manual"}
+                savedReport={savedActive ?? null}
                 onSaved={refreshSaved}
+                onDelete={deleteSaved}
                 onToast={setToast}
               />
             </div>

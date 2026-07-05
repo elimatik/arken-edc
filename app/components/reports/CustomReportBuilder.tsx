@@ -14,14 +14,17 @@ import {
   type ReportColumn, type ReportFilter, type ReportConfig, type FieldAspect, type SavedReport, type FieldType,
 } from "@/lib/report-builder";
 
-export function CustomReportBuilder({ studyId, initial, source = "manual", onSaved, onToast }: {
-  studyId: string; initial?: ReportConfig | null; source?: "ai" | "saved" | "manual"; onSaved?: () => void; onToast?: (msg: string) => void;
+export function CustomReportBuilder({ studyId, initial, source = "manual", savedReport, onSaved, onDelete, onToast }: {
+  studyId: string; initial?: ReportConfig | null; source?: "ai" | "saved" | "manual"; savedReport?: SavedReport | null;
+  onSaved?: () => void; onDelete?: (id: string) => void; onToast?: (msg: string) => void;
 }) {
   const { dataset } = useStudySession();
   const { activeRole } = useShell();
 
   const [columns, setColumns] = useState<ReportColumn[]>(initial?.columns?.length ? withIds(initial.columns) : [...LOCKED_COLUMNS]);
   const [filters, setFilters] = useState<ReportFilter[]>(initial?.filters ?? []);
+  const [title, setTitle] = useState(initial?.title?.trim() || "Untitled report");
+  const [editingTitle, setEditingTitle] = useState(false);
   const prepopulated = source === "ai";
   const forms = useMemo(() => pickableForms(dataset, studyId), [dataset, studyId]);
 
@@ -32,12 +35,14 @@ export function CustomReportBuilder({ studyId, initial, source = "manual", onSav
   const [pSearch, setPSearch] = useState("");
   const [pAspects, setPAspects] = useState<Set<FieldAspect>>(new Set<FieldAspect>(["value"]));
   const [saveOpen, setSaveOpen] = useState(false);
-  const [saveName, setSaveName] = useState(source === "ai" && initial?.title ? initial.title : "");
-  const [saveDesc, setSaveDesc] = useState("");
+  const [saveName, setSaveName] = useState("");
+  const [saveDesc, setSaveDesc] = useState(savedReport?.description ?? "");
   const [resetOpen, setResetOpen] = useState(false);
+  const [deleteOpen, setDeleteOpen] = useState(false);
   const dragFrom = useRef<number | null>(null);
 
-  const config: ReportConfig = useMemo(() => ({ columns, filters, title: initial?.title }), [columns, filters, initial?.title]);
+  const namedTitle = title.trim() && title.trim() !== "Untitled report" ? title.trim() : "";
+  const config: ReportConfig = useMemo(() => ({ columns, filters, title: namedTitle || undefined }), [columns, filters, namedTitle]);
 
   // Debounced preview (300ms).
   const [preview, setPreview] = useState<ReturnType<typeof resolveReport>>({ columns: [], rows: [], total: 0 });
@@ -56,7 +61,7 @@ export function CustomReportBuilder({ studyId, initial, source = "manual", onSav
   }
   function addFieldAspects() {
     if (!pForm || !pField) return;
-    const added: ReportColumn[] = Array.from(pAspects).map((a) => ({ id: colId(), label: `${pForm.name} → ${pField.label} → ${ASPECT_LABEL[a]}`, kind: "field", form: pForm.name, field: pField.code, fieldLabel: pField.label, aspect: a }));
+    const added: ReportColumn[] = Array.from(pAspects).map((a) => ({ id: colId(), label: `${pField.label} — ${ASPECT_LABEL[a]}`, kind: "field", form: pForm.name, field: pField.code, fieldLabel: pField.label, aspect: a }));
     setColumns((c) => [...c, ...added]);
     setPickerOpen(false);
   }
@@ -74,17 +79,38 @@ export function CustomReportBuilder({ studyId, initial, source = "manual", onSav
   const filterType = (label: string): FieldType => { const col = columns.find((c) => c.label === label); return col ? columnFieldType(dataset, studyId, col) : "text"; };
 
   function doReset() { setColumns([...LOCKED_COLUMNS]); setFilters([]); setResetOpen(false); }
+  function commitTitle() { setEditingTitle(false); if (!title.trim()) setTitle("Untitled report"); }
+  function openSave() { setSaveName(namedTitle); setSaveOpen(true); }
   function confirmSave() {
     if (!saveName.trim()) return;
     const report: SavedReport = { id: `cr-${Math.random().toString(36).slice(2, 8)}`, name: saveName.trim(), description: saveDesc.trim(), config: { columns, filters, title: saveName.trim() }, createdAt: studyId };
     persistSavedReports(studyId, [...loadSavedReports(studyId), report]);
-    setSaveOpen(false); onSaved?.(); onToast?.(`Report saved — ${report.name}`);
+    setTitle(report.name); setSaveOpen(false); onSaved?.(); onToast?.(`Report saved — ${report.name}`);
   }
+  function confirmDelete() { if (savedReport) onDelete?.(savedReport.id); setDeleteOpen(false); }
 
   const csvRows = preview.rows.map((r) => preview.columns.map((c) => r[c] ?? ""));
 
   return (
     <div className="crb">
+      {/* Header row — editable title (left) + actions (right) */}
+      <div className="crb-header-row">
+        {editingTitle ? (
+          <input className="crb-title-input" autoFocus value={title} onChange={(e) => setTitle(e.target.value)} onBlur={commitTitle} onKeyDown={(e) => { if (e.key === "Enter") { e.preventDefault(); commitTitle(); } }} />
+        ) : (
+          <button type="button" className={`crb-title${namedTitle ? "" : " untitled"}`} onClick={() => setEditingTitle(true)} title="Edit report title">
+            {title}<i className="ti ti-pencil crb-title-pencil"></i>
+          </button>
+        )}
+        <div className="crb-header-actions">
+          <ReportCsvButton studyId={studyId} slug="custom" headers={preview.columns} rows={csvRows} />
+          <button type="button" className="crb-btn" onClick={openSave} disabled={columns.length === 0}><i className="ti ti-device-floppy"></i> Save report</button>
+          {source === "saved" && savedReport && (
+            <button type="button" className="crb-btn crb-btn-danger" onClick={() => setDeleteOpen(true)}><i className="ti ti-trash"></i> Delete report</button>
+          )}
+        </div>
+      </div>
+
       {prepopulated && <div className="crb-banner"><i className="ti ti-sparkles"></i> Pre-populated from your Arken Insights request. Review and adjust before exporting.</div>}
 
       {/* Columns */}
@@ -152,11 +178,9 @@ export function CustomReportBuilder({ studyId, initial, source = "manual", onSav
         )}
       </div>
 
-      {/* Actions */}
+      {/* Actions — Reset only (Export + Save live in the header row) */}
       <div className="crb-actionbar">
-        <ReportCsvButton studyId={studyId} slug="custom" headers={preview.columns} rows={csvRows} />
-        <button type="button" className="crb-btn" onClick={() => setSaveOpen(true)} disabled={columns.length === 0}><i className="ti ti-device-floppy"></i> Save report</button>
-        <button type="button" className="crb-btn crb-btn-ghost" onClick={() => setResetOpen(true)}><i className="ti ti-refresh"></i> Reset</button>
+        <button type="button" className="crb-reset-link" onClick={() => setResetOpen(true)}><i className="ti ti-refresh"></i> Reset</button>
       </div>
 
       {/* 3-step column picker */}
@@ -250,6 +274,20 @@ export function CustomReportBuilder({ studyId, initial, source = "manual", onSav
             <div className="sr-modal-actions" style={{ marginTop: "var(--space-4)" }}>
               <button className="crb-btn crb-btn-ghost" type="button" onClick={() => setResetOpen(false)}>Cancel</button>
               <button className="crb-btn" type="button" onClick={doReset}>Reset</button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Delete confirm (saved reports only) */}
+      {deleteOpen && savedReport && (
+        <div className="sr-modal-overlay" onClick={() => setDeleteOpen(false)}>
+          <div className="sr-modal" onClick={(e) => e.stopPropagation()} role="dialog" aria-modal="true">
+            <div className="sr-modal-title"><i className="ti ti-trash"></i> Delete “{savedReport.name}”?</div>
+            <div className="sr-modal-body">This cannot be undone.</div>
+            <div className="sr-modal-actions" style={{ marginTop: "var(--space-4)" }}>
+              <button className="crb-btn crb-btn-ghost" type="button" onClick={() => setDeleteOpen(false)}>Cancel</button>
+              <button className="crb-btn crb-btn-danger" type="button" onClick={confirmDelete}><i className="ti ti-trash"></i> Delete report</button>
             </div>
           </div>
         </div>
