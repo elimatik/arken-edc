@@ -4,7 +4,7 @@
 // subject's value + metadata. The Arken Insights AI emits a column/filter config
 // (never values); this resolver runs it against the session store, blinding-aware.
 // ════════════════════════════════════════════════════════════════════════════
-import type { Dataset } from "@/lib/session-store/types";
+import type { Dataset, FieldValidation } from "@/lib/session-store/types";
 import type { Role } from "@/lib/permissions";
 import { shouldHideArmForSubject } from "@/lib/study-config";
 import { buildVisits } from "@/lib/visits-data";
@@ -235,11 +235,30 @@ function filterActive(f: ReportFilter): boolean {
   return f.value !== "";
 }
 
+const NUMERIC_CODE_RE = /score|dart|cadesi|fcr|adg|weight|temp|heart_rate|resp_rate|pulse|(^|_)count|dose|(^|_)mg(_|$)|(^|_)kg(_|$)|(^|_)ml(_|$)|(^|_)rate|bcs|percent|(^|_)pct|volume|(^|_)vol|(^|_)qty|quantity|body_condition/i;
+// Detect the operand type of a form field. field_type wins; otherwise numeric is
+// inferred from a unit, a numeric validation (vital / min-max / CADESI / DART), or a
+// numeric-looking code — so calculated numerics (DART, CADESI, dose) get number ops.
+function detectFieldType(ff: { field_type: string; unit: string | null; validation: FieldValidation | null; code: string; label: string }): FieldType {
+  const t = ff.field_type;
+  if (t === "number" || t === "integer") return "number";
+  if (t === "date") return "date";
+  if (t === "select" || t === "radio") return "select";
+  if (t === "boolean" || t === "checkbox" || t === "bool") return "boolean";
+  const v = ff.validation;
+  if ((ff.unit && ff.unit.trim()) || (v && (v.vital || v.min != null || v.max != null || v.cadesiTotal || v.cadesiSub || v.dartSource))) return "number";
+  if (NUMERIC_CODE_RE.test(ff.code) || NUMERIC_CODE_RE.test(ff.label ?? "")) return "number";
+  return "text";
+}
 export function columnFieldType(dataset: Dataset, studyId: string, col: ReportColumn): FieldType {
   if (col.kind === "builtin") return BUILTIN_TYPE[col.builtinKey ?? ""] ?? "text";
   if (col.aspect && col.aspect !== "value") return col.aspect.endsWith("_at") ? "date" : "text";
-  const f = pickableForms(dataset, studyId).find((x) => x.name === col.form)?.fields.find((x) => x.code === col.field);
-  return f?.type ?? "text";
+  for (const form of dataset.forms) {
+    if (form.study_id !== studyId || form.name !== col.form) continue;
+    const ff = dataset.formFields.find((x) => x.form_id === form.id && x.code === col.field);
+    if (ff) return detectFieldType(ff);
+  }
+  return "text";
 }
 
 export interface ResolvedReport { columns: string[]; rows: Record<string, string>[]; total: number }

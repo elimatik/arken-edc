@@ -134,7 +134,6 @@ export default function ReportsPage() {
         savedReports={savedReports}
         savedActiveId={sel.kind === "saved" ? sel.id : null}
         onSelectSaved={(id) => setSel({ kind: "saved", id })}
-        onDeleteSaved={deleteSaved}
       />
       <div className="rpt-main" id="rpt-print-area">
         {isCustom ? (

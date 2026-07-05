@@ -394,7 +394,10 @@
 
 /* Run-mode toolbar */
 .crb-toolbar { display: flex; align-items: center; gap: var(--space-2); flex-wrap: wrap; padding-bottom: var(--space-3); border-bottom: 1px solid var(--color-border); }
-.crb-pill { height: 32px; padding: 0 28px 0 var(--space-3); font-size: var(--text-sm); border: 1px solid var(--color-border); border-radius: var(--radius-full); background: var(--color-surface); color: var(--color-text-primary); cursor: pointer; }
+.crb-pill { height: 32px; padding: 0 28px 0 var(--space-3); font-size: var(--text-sm); border: 1px solid var(--color-border); border-radius: var(--radius-md); background: var(--color-surface); color: var(--color-text-primary); cursor: pointer; }
+/* Fix 3 — custom-report header buttons all match at 30px */
+.crb-head-btns .rpt-btn, .crb-head-btns .rpt-csv-btn, .crb-head-btns .crb-btn { height: 30px; padding-top: 0; padding-bottom: 0; box-sizing: border-box; font-size: var(--text-sm); }
+.crb-head-btns .rpt-btn, .crb-head-btns .rpt-csv-btn { padding-left: var(--space-3); padding-right: var(--space-3); }
 .crb-daterange { display: inline-flex; align-items: center; gap: 6px; font-size: var(--text-sm); color: var(--color-text-tertiary); }
 .crb-date { height: 32px; padding: 0 var(--space-2); font-size: var(--text-sm); border: 1px solid var(--color-border); border-radius: var(--radius-md); background: var(--color-surface); color: var(--color-text-primary); }
 .crb-run-btn { margin-left: auto; }

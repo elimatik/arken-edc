@@ -13,7 +13,7 @@ import type { Dataset } from "@/lib/session-store/types";
 
 export function ReportSidebar({
   reports, activeId, onSelect, role, studyCode, studyId,
-  canCustom, customActive, onSelectCustom, savedReports, savedActiveId, onSelectSaved, onDeleteSaved,
+  canCustom, customActive, onSelectCustom, savedReports, savedActiveId, onSelectSaved,
 }: {
   reports: ReportMeta[];
   activeId: ReportId;
@@ -27,7 +27,6 @@ export function ReportSidebar({
   savedReports: SavedReport[];
   savedActiveId: string | null;
   onSelectSaved: (id: string) => void;
-  onDeleteSaved: (id: string) => void;
 }) {
   const { dataset } = useStudySession();
   const canExportAll = role === "DM" || role === "Admin";
@@ -78,7 +77,6 @@ export function ReportSidebar({
                     <i className="ti ti-bookmark"></i>
                     <span className="rpt-cat-item-name">{r.name}</span>
                     <span className="rpt-saved-badge">Custom</span>
-                    <button type="button" className="rpt-saved-del" title="Delete saved report" onClick={(e) => { e.stopPropagation(); if (confirm(`Delete saved report "${r.name}"?`)) onDeleteSaved(r.id); }}><i className="ti ti-trash"></i></button>
                   </div>
                 ))}
               </>
