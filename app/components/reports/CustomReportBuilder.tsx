@@ -15,8 +15,8 @@ import { buildAeRoster, buildSubjectIndex } from "@/lib/reports-data";
 import { buildVisits, addDays } from "@/lib/visits-data";
 import { buildSdvWorklist } from "@/lib/sdv-data";
 import {
-  ASPECT_GROUPS, ASPECT_LABEL, BUILTIN_GROUPS, LOCKED_COLUMNS, OPERATORS, isLockedColumn, colId,
-  pickableForms, resolveReport, columnFieldType, loadSavedReports, persistSavedReports,
+  ASPECT_GROUPS, ASPECT_LABEL, BUILTIN_GROUPS, LOCKED_COLUMNS, OPERATORS, NO_VALUE_OPS, TWO_VALUE_OPS, DAYS_OPS,
+  isLockedColumn, colId, pickableForms, resolveReport, columnFieldType, loadSavedReports, persistSavedReports,
   type ReportColumn, type ReportFilter, type ReportConfig, type FieldAspect, type SavedReport, type FieldType,
 } from "@/lib/report-builder";
 
@@ -211,17 +211,30 @@ export function CustomReportBuilder({ studyId, initial, source = "manual", saved
         {filters.length === 0 ? <div className="crb-filter-empty">No conditions — all rows shown.</div> : (
           <div className="crb-filters">
             {filters.map((f, i) => {
-              const ops = OPERATORS[filterType(f.column)];
+              const ft = filterType(f.column);
+              const ops = OPERATORS[ft];
+              const baseType = ft === "number" ? "number" : ft === "date" ? "date" : "text";
               return (
                 <div key={i} className="crb-filter-row">
                   {i > 0 && <span className="crb-filter-and">AND</span>}
-                  <select className="crb-select" value={f.column} onChange={(e) => setFilter(i, { column: e.target.value, operator: OPERATORS[filterType(e.target.value)][0].op })}>
+                  <select className="crb-select" value={f.column} onChange={(e) => setFilter(i, { column: e.target.value, operator: OPERATORS[filterType(e.target.value)][0].op, value: "", value2: "" })}>
                     {columns.map((c) => <option key={c.id} value={c.label}>{c.label}</option>)}
                   </select>
-                  <select className="crb-select" value={f.operator} onChange={(e) => setFilter(i, { operator: e.target.value })}>
+                  <select className="crb-select" value={f.operator} onChange={(e) => setFilter(i, { operator: e.target.value, ...(TWO_VALUE_OPS.has(e.target.value) ? {} : { value2: "" }) })}>
                     {ops.map((o) => <option key={o.op} value={o.op}>{o.label}</option>)}
                   </select>
-                  <input className="crb-filter-val" type={filterType(f.column) === "number" ? "number" : filterType(f.column) === "date" ? "date" : "text"} value={f.value} onChange={(e) => setFilter(i, { value: e.target.value })} placeholder="value" />
+                  {NO_VALUE_OPS.has(f.operator) ? null
+                    : TWO_VALUE_OPS.has(f.operator) ? (
+                      <>
+                        <input className="crb-filter-val crb-filter-val-sm" type={baseType} value={f.value} onChange={(e) => setFilter(i, { value: e.target.value })} placeholder="from" />
+                        <span className="crb-filter-and">and</span>
+                        <input className="crb-filter-val crb-filter-val-sm" type={baseType} value={f.value2 ?? ""} onChange={(e) => setFilter(i, { value2: e.target.value })} placeholder="to" />
+                      </>
+                    ) : DAYS_OPS.has(f.operator) ? (
+                      <><input className="crb-filter-val crb-filter-val-sm" type="number" value={f.value} onChange={(e) => setFilter(i, { value: e.target.value })} placeholder="X" /><span className="crb-filter-and">days</span></>
+                    ) : (
+                      <input className="crb-filter-val" type={f.operator === "one_of" || f.operator === "not_one_of" ? "text" : baseType} value={f.value} onChange={(e) => setFilter(i, { value: e.target.value })} placeholder={f.operator === "one_of" || f.operator === "not_one_of" ? "a, b, c" : "value"} />
+                    )}
                   <button type="button" className="crb-col-x" onClick={() => removeFilter(i)} aria-label="Remove condition"><i className="ti ti-x"></i></button>
                 </div>
               );
@@ -391,15 +404,20 @@ export function CustomReportBuilder({ studyId, initial, source = "manual", saved
 
       {/* Save modal */}
       {saveOpen && (
-        <div className="sr-modal-overlay" onClick={() => setSaveOpen(false)}>
-          <div className="sr-modal" onClick={(e) => e.stopPropagation()} role="dialog" aria-modal="true">
-            <div className="sr-modal-title"><i className="ti ti-device-floppy"></i> Save report</div>
-            <label className="crb-modal-lbl">Report name <span style={{ color: "var(--red-600)" }}>*</span></label>
-            <input className="crb-filter-val" style={{ width: "100%" }} placeholder="Untitled report" value={saveName} onChange={(e) => setSaveName(e.target.value)} autoFocus />
-            <label className="crb-modal-lbl" style={{ marginTop: "var(--space-2)" }}>Description</label>
-            <textarea className="sr-modal-input" placeholder="Optional — describe what this report shows" value={saveDesc} onChange={(e) => setSaveDesc(e.target.value)} />
-            <div className="crb-save-note"><i className="ti ti-info-circle"></i> This report will be added to your saved reports list in the sidebar.</div>
-            <div className="sr-modal-actions" style={{ marginTop: "var(--space-4)" }}>
+        <div className="crb-modal-overlay" onClick={() => setSaveOpen(false)}>
+          <div className="crb-modal" onClick={(e) => e.stopPropagation()} role="dialog" aria-modal="true">
+            <div className="crb-modal-header">
+              <span className="crb-modal-title">Save report</span>
+              <button type="button" className="crb-modal-close" onClick={() => setSaveOpen(false)} aria-label="Close"><i className="ti ti-x"></i></button>
+            </div>
+            <div className="crb-modal-body">
+              <label className="crb-modal-lbl">Report name <span style={{ color: "var(--red-600)" }}>*</span></label>
+              <input className="crb-modal-input" placeholder="e.g. CADESI responders by site" value={saveName} onChange={(e) => setSaveName(e.target.value)} autoFocus />
+              <label className="crb-modal-lbl" style={{ marginTop: "var(--space-3)" }}>Description</label>
+              <textarea className="crb-modal-input crb-modal-textarea" placeholder="Optional — describe what this report shows" value={saveDesc} onChange={(e) => setSaveDesc(e.target.value)} />
+              <div className="crb-save-note"><i className="ti ti-info-circle"></i> This report will be added to your saved reports list in the sidebar.</div>
+            </div>
+            <div className="crb-modal-footer">
               <button className="crb-btn crb-btn-ghost" type="button" onClick={() => setSaveOpen(false)}>Cancel</button>
               <button className="crb-btn" type="button" disabled={!saveName.trim()} onClick={confirmSave}>Save &amp; add to sidebar</button>
             </div>
@@ -409,11 +427,11 @@ export function CustomReportBuilder({ studyId, initial, source = "manual", saved
 
       {/* Reset confirm */}
       {resetOpen && (
-        <div className="sr-modal-overlay" onClick={() => setResetOpen(false)}>
-          <div className="sr-modal" onClick={(e) => e.stopPropagation()} role="dialog" aria-modal="true">
-            <div className="sr-modal-title"><i className="ti ti-refresh"></i> Reset this report?</div>
-            <div className="sr-modal-body">All columns and conditions will be cleared.</div>
-            <div className="sr-modal-actions" style={{ marginTop: "var(--space-4)" }}>
+        <div className="crb-modal-overlay" onClick={() => setResetOpen(false)}>
+          <div className="crb-modal" onClick={(e) => e.stopPropagation()} role="dialog" aria-modal="true">
+            <div className="crb-modal-header"><span className="crb-modal-title">Reset this report?</span><button type="button" className="crb-modal-close" onClick={() => setResetOpen(false)} aria-label="Close"><i className="ti ti-x"></i></button></div>
+            <div className="crb-modal-body">All columns and conditions will be cleared.</div>
+            <div className="crb-modal-footer">
               <button className="crb-btn crb-btn-ghost" type="button" onClick={() => setResetOpen(false)}>Cancel</button>
               <button className="crb-btn" type="button" onClick={doReset}>Reset</button>
             </div>
@@ -423,11 +441,11 @@ export function CustomReportBuilder({ studyId, initial, source = "manual", saved
 
       {/* Delete confirm */}
       {deleteOpen && saved && (
-        <div className="sr-modal-overlay" onClick={() => setDeleteOpen(false)}>
-          <div className="sr-modal" onClick={(e) => e.stopPropagation()} role="dialog" aria-modal="true">
-            <div className="sr-modal-title"><i className="ti ti-trash"></i> Delete “{saved.name}”?</div>
-            <div className="sr-modal-body">This cannot be undone.</div>
-            <div className="sr-modal-actions" style={{ marginTop: "var(--space-4)" }}>
+        <div className="crb-modal-overlay" onClick={() => setDeleteOpen(false)}>
+          <div className="crb-modal" onClick={(e) => e.stopPropagation()} role="dialog" aria-modal="true">
+            <div className="crb-modal-header"><span className="crb-modal-title">Delete “{saved.name}”?</span><button type="button" className="crb-modal-close" onClick={() => setDeleteOpen(false)} aria-label="Close"><i className="ti ti-x"></i></button></div>
+            <div className="crb-modal-body">This cannot be undone.</div>
+            <div className="crb-modal-footer">
               <button className="crb-btn crb-btn-ghost" type="button" onClick={() => setDeleteOpen(false)}>Cancel</button>
               <button className="crb-btn crb-btn-danger" type="button" onClick={confirmDelete}><i className="ti ti-trash"></i> Delete report</button>
             </div>

@@ -414,3 +414,19 @@
 .crb-focus-note { display: flex; align-items: center; gap: 6px; font-size: var(--text-sm); color: var(--color-text-secondary); }
 .crb-focus-clear { background: none; border: none; color: var(--blue-600); cursor: pointer; font-size: var(--text-xs); text-decoration: underline; }
 .crb-run-table { border: 1px solid var(--color-border); border-radius: var(--radius-md); }
+
+/* ═══ Custom builder — real modal (reports page doesn't load subject-record.css) ═══ */
+.crb-modal-overlay { position: fixed; inset: 0; background: rgba(0, 0, 0, 0.3); display: flex; align-items: center; justify-content: center; z-index: 200; padding: var(--space-4); }
+.crb-modal { width: 480px; max-width: 100%; background: var(--color-surface); border-radius: var(--radius-lg); box-shadow: 0 16px 48px rgba(0, 0, 0, 0.28); display: flex; flex-direction: column; max-height: 90vh; }
+.crb-modal-header { display: flex; align-items: center; justify-content: space-between; padding: var(--space-4) var(--space-5); border-bottom: 1px solid var(--color-border); }
+.crb-modal-title { font-size: var(--text-lg); font-weight: var(--weight-medium); color: var(--color-text-primary); }
+.crb-modal-close { background: none; border: none; color: var(--color-text-tertiary); cursor: pointer; display: flex; padding: 2px; }
+.crb-modal-close:hover { color: var(--color-text-primary); }
+.crb-modal-body { padding: var(--space-5); overflow-y: auto; font-size: var(--text-sm); color: var(--color-text-secondary); }
+.crb-modal-input { width: 100%; padding: var(--space-2) var(--space-3); font-size: var(--text-sm); font-family: var(--font-sans); border: 1px solid var(--color-border); border-radius: var(--radius-md); background: var(--color-surface); color: var(--color-text-primary); outline: none; }
+.crb-modal-input:focus { border-color: var(--blue-400); }
+.crb-modal-textarea { min-height: 72px; resize: vertical; margin-top: 0; }
+.crb-modal-footer { display: flex; justify-content: flex-end; gap: var(--space-2); padding: var(--space-4) var(--space-5); border-top: 1px solid var(--color-border); }
+
+/* Two-value / days condition inputs */
+.crb-filter-val-sm { flex: 0 1 110px; }

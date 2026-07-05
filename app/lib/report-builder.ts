@@ -27,7 +27,7 @@ export interface ReportColumn {
   aspect?: FieldAspect; // field column — what to show
   visit?: string;
 }
-export interface ReportFilter { column: string; operator: string; value: string }
+export interface ReportFilter { column: string; operator: string; value: string; value2?: string }
 export interface ReportConfig { columns: ReportColumn[]; filters: ReportFilter[]; title?: string }
 export interface SavedReport { id: string; name: string; description: string; config: ReportConfig; createdAt: string }
 
@@ -66,13 +66,35 @@ export const LOCKED_COLUMNS: ReportColumn[] = [
 ];
 export const isLockedColumn = (c: ReportColumn) => c.kind === "builtin" && (c.builtinKey === "subjectId" || c.builtinKey === "site");
 
-export type FieldType = "text" | "number" | "date" | "select";
+export type FieldType = "text" | "number" | "date" | "select" | "boolean";
+const EMPTY_OPS = [{ op: "is_empty", label: "is empty" }, { op: "is_not_empty", label: "is not empty" }];
 export const OPERATORS: Record<FieldType, { op: string; label: string }[]> = {
-  text: [{ op: "contains", label: "contains" }, { op: "=", label: "is" }, { op: "!=", label: "is not" }],
-  select: [{ op: "=", label: "is" }, { op: "!=", label: "is not" }],
-  number: [{ op: "=", label: "=" }, { op: "!=", label: "≠" }, { op: ">", label: ">" }, { op: ">=", label: "≥" }, { op: "<", label: "<" }, { op: "<=", label: "≤" }],
-  date: [{ op: "=", label: "on" }, { op: ">", label: "after" }, { op: "<", label: "before" }],
+  text: [
+    { op: "=", label: "equals" }, { op: "!=", label: "does not equal" },
+    { op: "contains", label: "contains" }, { op: "not_contains", label: "does not contain" },
+    { op: "starts_with", label: "starts with" }, { op: "ends_with", label: "ends with" }, ...EMPTY_OPS,
+  ],
+  number: [
+    { op: "=", label: "equals" }, { op: "!=", label: "does not equal" },
+    { op: ">", label: "is greater than" }, { op: ">=", label: "is greater than or equal to" },
+    { op: "<", label: "is less than" }, { op: "<=", label: "is less than or equal to" },
+    { op: "between", label: "is between" }, ...EMPTY_OPS,
+  ],
+  date: [
+    { op: "=", label: "equals" }, { op: "before", label: "is before" }, { op: "after", label: "is after" },
+    { op: "between", label: "is between" }, { op: "in_last_days", label: "is in the last X days" },
+    { op: "in_next_days", label: "is in the next X days" }, ...EMPTY_OPS,
+  ],
+  select: [
+    { op: "=", label: "equals" }, { op: "!=", label: "does not equal" },
+    { op: "one_of", label: "is one of" }, { op: "not_one_of", label: "is not one of" }, ...EMPTY_OPS,
+  ],
+  boolean: [{ op: "is_true", label: "is true" }, { op: "is_false", label: "is false" }],
 };
+// Operators that need no value / two values / a "days" number — the builder renders inputs accordingly.
+export const NO_VALUE_OPS = new Set(["is_empty", "is_not_empty", "is_true", "is_false"]);
+export const TWO_VALUE_OPS = new Set(["between"]);
+export const DAYS_OPS = new Set(["in_last_days", "in_next_days"]);
 
 // ─── Persistence (sessionStorage) ────────────────────────────────────────────
 const PENDING_KEY = "arken_pending_report_config";
@@ -115,7 +137,7 @@ export function pickableForms(dataset: Dataset, studyId: string): { name: string
   }
   return order.filter((n, i) => order.indexOf(n) === i).map((n) => ({ name: n, fields: byName.get(n) ?? [] })).filter((f) => f.fields.length > 0);
 }
-function normType(t: string): FieldType { return t === "number" || t === "integer" ? "number" : t === "date" ? "date" : t === "select" || t === "radio" ? "select" : "text"; }
+function normType(t: string): FieldType { return t === "number" || t === "integer" ? "number" : t === "date" ? "date" : t === "select" || t === "radio" ? "select" : t === "boolean" || t === "checkbox" || t === "bool" ? "boolean" : "text"; }
 
 export function visitDayOf(label: string | undefined): number | null {
   if (!label) return null;
@@ -165,20 +187,52 @@ function buildIndex(dataset: Dataset, studyId: string): Map<string, Map<string, 
   return idx;
 }
 
-function matches(cellValue: string, op: string, target: string): boolean {
+const isEmptyVal = (a: string) => a === "" || a === "—";
+const TRUEY = new Set(["yes", "true", "1", "y", "verified", "complete", "on time"]);
+function shiftDays(iso: string, n: number): string { const d = new Date(`${iso}T00:00:00Z`); d.setUTCDate(d.getUTCDate() + n); return d.toISOString().slice(0, 10); }
+function matchFilter(cellValue: string, f: ReportFilter, today: string): boolean {
   const a = cellValue ?? "";
-  const nA = Number(a), nB = Number(target);
-  const numeric = a !== "" && target !== "" && Number.isFinite(nA) && Number.isFinite(nB);
-  switch (op) {
-    case "contains": return a.toLowerCase().includes(target.toLowerCase());
-    case "=": return numeric ? nA === nB : a.toLowerCase() === target.toLowerCase();
-    case "!=": return numeric ? nA !== nB : a.toLowerCase() !== target.toLowerCase();
-    case ">": return numeric ? nA > nB : a > target;
-    case ">=": return numeric ? nA >= nB : a >= target;
-    case "<": return numeric ? nA < nB : a < target;
-    case "<=": return numeric ? nA <= nB : a <= target;
+  const t = f.value ?? "", t2 = f.value2 ?? "";
+  const lc = a.toLowerCase();
+  const nA = Number(a), nB = Number(t);
+  const numeric = a !== "" && t !== "" && Number.isFinite(nA) && Number.isFinite(nB);
+  const cmp = (op: ">" | ">=" | "<" | "<=", x: string) => {
+    const nx = Number(x); const num = a !== "" && x !== "" && Number.isFinite(nA) && Number.isFinite(nx);
+    if (op === ">") return num ? nA > nx : a > x;
+    if (op === ">=") return num ? nA >= nx : a >= x;
+    if (op === "<") return num ? nA < nx : a < x;
+    return num ? nA <= nx : a <= x;
+  };
+  switch (f.operator) {
+    case "is_empty": return isEmptyVal(a);
+    case "is_not_empty": return !isEmptyVal(a);
+    case "is_true": return TRUEY.has(lc);
+    case "is_false": return !isEmptyVal(a) && !TRUEY.has(lc);
+    case "=": return numeric ? nA === nB : lc === t.toLowerCase();
+    case "!=": return numeric ? nA !== nB : lc !== t.toLowerCase();
+    case "contains": return lc.includes(t.toLowerCase());
+    case "not_contains": return !lc.includes(t.toLowerCase());
+    case "starts_with": return lc.startsWith(t.toLowerCase());
+    case "ends_with": return lc.endsWith(t.toLowerCase());
+    case ">": return cmp(">", t);
+    case ">=": return cmp(">=", t);
+    case "<": case "before": return cmp("<", t);
+    case "<=": return cmp("<=", t);
+    case "after": return cmp(">", t);
+    case "between": return cmp(">=", t) && cmp("<=", t2);
+    case "in_last_days": { const x = Number(t); if (!Number.isFinite(x) || isEmptyVal(a)) return false; return a >= shiftDays(today, -x) && a <= today; }
+    case "in_next_days": { const x = Number(t); if (!Number.isFinite(x) || isEmptyVal(a)) return false; return a >= today && a <= shiftDays(today, x); }
+    case "one_of": return t.split(",").map((s) => s.trim().toLowerCase()).filter(Boolean).includes(lc);
+    case "not_one_of": return !t.split(",").map((s) => s.trim().toLowerCase()).filter(Boolean).includes(lc);
     default: return true;
   }
+}
+// True when a filter is "ready" (has the value(s) its operator needs).
+function filterActive(f: ReportFilter): boolean {
+  if (!f.column) return false;
+  if (NO_VALUE_OPS.has(f.operator)) return true;
+  if (TWO_VALUE_OPS.has(f.operator)) return f.value !== "" && (f.value2 ?? "") !== "";
+  return f.value !== "";
 }
 
 export function columnFieldType(dataset: Dataset, studyId: string, col: ReportColumn): FieldType {
@@ -278,7 +332,7 @@ export function resolveReport(dataset: Dataset, studyId: string, config: ReportC
     const rec: Record<string, string> = {};
     for (const col of config.columns) rec[col.label] = col.kind === "builtin" ? resolveBuiltin(s, col.builtinKey ?? "") : resolveField(s.id, col);
     let keep = true;
-    for (const f of config.filters) { if (!f.column || f.value === "") continue; if (!matches(rec[f.column] ?? "", f.operator, f.value)) { keep = false; break; } }
+    for (const f of config.filters) { if (!filterActive(f)) continue; if (!matchFilter(rec[f.column] ?? "", f, today)) { keep = false; break; } }
     if (keep) rows.push(rec);
   }
   return { columns: config.columns.map((c) => c.label), rows, total: rows.length };
