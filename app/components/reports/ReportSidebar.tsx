@@ -7,11 +7,13 @@ import {
   queryAging, armLabeler, downloadCsv, csvFilename, buildConMedLog,
 } from "@/lib/reports-data";
 import { buildSdvWorklist } from "@/lib/sdv-data";
+import type { SavedReport } from "@/lib/report-builder";
 import type { Role } from "@/lib/permissions";
 import type { Dataset } from "@/lib/session-store/types";
 
 export function ReportSidebar({
   reports, activeId, onSelect, role, studyCode, studyId,
+  canCustom, customActive, onSelectCustom, savedReports, savedActiveId, onSelectSaved, onDeleteSaved,
 }: {
   reports: ReportMeta[];
   activeId: ReportId;
@@ -19,6 +21,13 @@ export function ReportSidebar({
   role: Role;
   studyCode: string;
   studyId: string;
+  canCustom: boolean;
+  customActive: boolean;
+  onSelectCustom: () => void;
+  savedReports: SavedReport[];
+  savedActiveId: string | null;
+  onSelectSaved: (id: string) => void;
+  onDeleteSaved: (id: string) => void;
 }) {
   const { dataset } = useStudySession();
   const canExportAll = role === "DM" || role === "Admin";
@@ -58,6 +67,29 @@ export function ReportSidebar({
             </div>
           );
         })}
+
+        {canCustom && (
+          <div className="rpt-cat">
+            {savedReports.length > 0 && (
+              <>
+                <div className="rpt-cat-label">Saved reports</div>
+                {savedReports.map((r) => (
+                  <div key={r.id} className={`rpt-cat-item rpt-saved-item${r.id === savedActiveId ? " active" : ""}`} onClick={() => onSelectSaved(r.id)}>
+                    <i className="ti ti-bookmark"></i>
+                    <span className="rpt-cat-item-name">{r.name}</span>
+                    <span className="rpt-saved-badge">Custom</span>
+                    <button type="button" className="rpt-saved-del" title="Delete saved report" onClick={(e) => { e.stopPropagation(); if (confirm(`Delete saved report "${r.name}"?`)) onDeleteSaved(r.id); }}><i className="ti ti-trash"></i></button>
+                  </div>
+                ))}
+              </>
+            )}
+            <div className="rpt-cat-label">Build</div>
+            <button type="button" className={`rpt-cat-item${customActive ? " active" : ""}`} onClick={onSelectCustom}>
+              <i className="ti ti-table-plus"></i>
+              <span className="rpt-cat-item-name">Custom report</span>
+            </button>
+          </div>
+        )}
       </nav>
       {canExportAll && (
         <button className="rpt-export-all" type="button" onClick={exportAll}>

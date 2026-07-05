@@ -4,12 +4,14 @@
 // scoped: each role sees only its permitted reports; CRC (data-entry only) is
 // redirected away. All report content derives from the session store.
 import { useEffect, useMemo, useState } from "react";
-import { useRouter, useParams } from "next/navigation";
+import { useRouter, useParams, useSearchParams } from "next/navigation";
 import { useShell } from "@/components/shell/ShellContext";
 import { useStudySession } from "@/lib/session-store/SessionStore";
 import { reportsForRole, reportById, isAggregateRole, type ReportId } from "@/lib/reports-data";
 import { shouldHideArms } from "@/lib/study-config";
 import { ReportSidebar } from "@/components/reports/ReportSidebar";
+import { CustomReportBuilder } from "@/components/reports/CustomReportBuilder";
+import { loadSavedReports, takePendingConfig, type SavedReport, type ReportConfig } from "@/lib/report-builder";
 import { StudyStatusReport } from "@/components/reports/reports/StudyStatusReport";
 import { EnrollmentDispositionReport } from "@/components/reports/reports/EnrollmentDispositionReport";
 import { SitePerformanceReport } from "@/components/reports/reports/SitePerformanceReport";
@@ -67,11 +69,27 @@ export default function ReportsPage() {
     if (ready && !allowed) router.replace(`/study/${studyId}`);
   }, [ready, allowed, router, studyId]);
 
-  const [activeId, setActiveId] = useState<ReportId>(available[0]?.id ?? "study-status");
+  // Selection: a pre-built report, the empty custom builder, or a saved report.
+  type Sel = { kind: "report"; id: ReportId } | { kind: "custom" } | { kind: "saved"; id: string };
+  const [sel, setSel] = useState<Sel>({ kind: "report", id: available[0]?.id ?? "study-status" });
+  const activeId = sel.kind === "report" ? sel.id : available[0]?.id ?? "study-status";
+  const canCustom = activeRole !== "CRC"; // CRC has no Reports access anyway
+  const [savedReports, setSavedReports] = useState<SavedReport[]>([]);
+  const [pendingCfg, setPendingCfg] = useState<ReportConfig | null>(null);
+  const searchParams = useSearchParams();
+
   // Keep the selection valid when the role (and thus the catalog) changes.
   useEffect(() => {
-    if (!available.some((r) => r.id === activeId)) setActiveId(available[0]?.id ?? "study-status");
-  }, [available, activeId]);
+    if (sel.kind === "report" && !available.some((r) => r.id === sel.id)) setSel({ kind: "report", id: available[0]?.id ?? "study-status" });
+  }, [available, sel]);
+
+  // On mount: load saved reports; consume a pending Arken Insights config (or ?custom=1).
+  useEffect(() => {
+    setSavedReports(loadSavedReports(studyId));
+    const pend = takePendingConfig();
+    if (pend) { setPendingCfg(pend); setSel({ kind: "custom" }); }
+    else if (searchParams.get("custom") === "1" && canCustom) setSel({ kind: "custom" });
+  }, [studyId]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const [generatedAt, setGeneratedAt] = useState("");
   useEffect(() => {
@@ -81,22 +99,57 @@ export default function ReportsPage() {
   if (!ready) return <div className="rpt-screen"><div className="rpt-loading"><i className="ti ti-loader-2"></i> Loading…</div></div>;
   if (!allowed) return <div className="rpt-screen"><div className="rpt-loading">Redirecting…</div></div>;
 
+  const isCustom = sel.kind === "custom" || sel.kind === "saved";
+  const savedActive = sel.kind === "saved" ? savedReports.find((r) => r.id === sel.id) : undefined;
   const meta = reportById(activeId);
   const aggregate = isAggregateRole(activeRole);
   const hideArms = shouldHideArms(dataset, studyId, activeRole);
   const Renderer = RENDERERS[activeId];
+  function refreshSaved() { setSavedReports(loadSavedReports(studyId)); }
 
   return (
     <div className="rpt-screen">
       <ReportSidebar
         reports={available}
         activeId={activeId}
-        onSelect={setActiveId}
+        onSelect={(id) => setSel({ kind: "report", id })}
         role={activeRole}
         studyCode={study.code}
         studyId={studyId}
+        canCustom={canCustom}
+        customActive={sel.kind === "custom"}
+        onSelectCustom={() => { setPendingCfg(null); setSel({ kind: "custom" }); }}
+        savedReports={savedReports}
+        savedActiveId={sel.kind === "saved" ? sel.id : null}
+        onSelectSaved={(id) => setSel({ kind: "saved", id })}
+        onDeleteSaved={(id) => { const next = savedReports.filter((r) => r.id !== id); setSavedReports(next); import("@/lib/report-builder").then((m) => m.persistSavedReports(studyId, next)); if (sel.kind === "saved" && sel.id === id) setSel({ kind: "custom" }); }}
       />
       <div className="rpt-main" id="rpt-print-area">
+        {isCustom ? (
+          <>
+            <div className="rpt-header">
+              <div className="rpt-header-text">
+                <div className="rpt-eyebrow">Custom</div>
+                <h1 className="rpt-title">{savedActive ? savedActive.name : "Custom report"}</h1>
+                <p className="rpt-desc">{savedActive ? savedActive.description || "Saved custom report." : "Build a report — pick a data source, add columns and filters, preview and export."}</p>
+                <div className="rpt-meta">
+                  <span><i className="ti ti-flask"></i> {study.code} · {study.name}</span>
+                  <span><i className="ti ti-user-shield"></i> {activeRole}</span>
+                </div>
+              </div>
+            </div>
+            <div className="rpt-body">
+              <CustomReportBuilder
+                key={sel.kind === "saved" ? sel.id : pendingCfg ? "ai" : "new"}
+                studyId={studyId}
+                initial={savedActive ? savedActive.config : pendingCfg}
+                source={savedActive ? "saved" : pendingCfg ? "ai" : "manual"}
+                onSaved={refreshSaved}
+              />
+            </div>
+          </>
+        ) : (
+          <>
         {meta && (
           <div className="rpt-header">
             <div className="rpt-header-text">
@@ -123,6 +176,8 @@ export default function ReportsPage() {
         <div className="rpt-body">
           {Renderer && <Renderer studyId={studyId} aggregate={aggregate} hideArms={hideArms} />}
         </div>
+          </>
+        )}
       </div>
     </div>
   );
