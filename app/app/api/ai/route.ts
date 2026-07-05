@@ -38,7 +38,7 @@ export async function POST(req: Request) {
     const r = await fetch("https://api.anthropic.com/v1/messages", {
       method: "POST",
       headers: { "content-type": "application/json", "x-api-key": apiKey, "anthropic-version": "2023-06-01" },
-      body: JSON.stringify({ model: MODEL, max_tokens: 1000, system: context, messages }),
+      body: JSON.stringify({ model: MODEL, max_tokens: 1500, system: context, messages }),
       signal: controller.signal,
     });
     if (!r.ok) return NextResponse.json({ error: `Upstream ${r.status}` }, { status: 502 });

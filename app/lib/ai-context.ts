@@ -15,7 +15,9 @@ import {
 } from "@/lib/dashboard-data";
 import { sitePerformance, buildAeRoster, studyHeader, milestones } from "@/lib/reports-data";
 import { buildCodingWorklist } from "@/lib/coding-data";
-import { isStudyBlinded } from "@/lib/study-config";
+import { isStudyBlinded, shouldHideArms, shouldHideArmForSubject } from "@/lib/study-config";
+import { armLabeler } from "@/lib/reports-data";
+import { buildFieldSchema } from "@/lib/report-builder";
 import { ROLE_LABEL, aiScope } from "@/lib/ai-responses";
 
 const pct = (n: number, d: number) => (d ? Math.round((n / d) * 100) : 0);
@@ -69,6 +71,18 @@ export function buildAIContext({ dataset, studyId, role, siteId, siteName, today
   // Blinding.
   const blinded = isStudyBlinded(dataset, studyId);
   const blindedRoles = blinded ? "CRC, CRA, Sponsor" : "none — this is an open-label study";
+
+  // ── Field schema + subject/site roster for intent → real-field mapping ──
+  // The schema is form/field/type only — NO field values leave the client. Arm is
+  // masked here exactly as the resolver masks it, so blinded roles never see arms.
+  const fieldSchema = buildFieldSchema(dataset, studyId);
+  const hideArms = shouldHideArms(dataset, studyId, role);
+  const mask = armLabeler(dataset, studyId, hideArms);
+  const armFor = (s: { id: string; randomization_arm: string | null }) =>
+    s.randomization_arm == null ? "—" : shouldHideArmForSubject(dataset, studyId, role, s.id) ? mask(s.randomization_arm) : s.randomization_arm;
+  const studySubjects = dataset.subjects.filter((s) => s.study_id === studyId && !(role === "CRC" && siteId && s.site_id !== siteId));
+  const subjectRoster = studySubjects.map((s) => `${s.subject_code} (${s.ineligible ? "ineligible" : s.status}, ${armFor(s)})`).join("; ");
+  const siteList = dataset.sites.filter((s) => s.study_id === studyId).map((s) => `${s.code} · ${s.name}`).join("; ");
 
   // Role flags (mirror the keyword-path gates).
   const isCRC = role === "CRC";
@@ -139,13 +153,41 @@ ${safety}
 SITES
 ${sites}
 ${coding}
-INSTRUCTIONS
-- Answer only using the data above. Do not invent numbers.
-- Keep answers concise: 1-3 sentences or a short table.
-- If the question requires data not in the summary above, say "I don't have that level of detail — check the relevant screen."
-- Never reveal arm assignments or treatment-group data to blinded roles. Blinded roles on this study: ${blindedRoles}.
-- Format tables as plain text with | separators if needed.
-- Do not use markdown headers or bullet points — plain sentences only.
-- You are not a general-purpose assistant. Stay focused on this study's data.
+STUDY SITES (for data queries)
+  ${siteList}
+
+SUBJECTS (id, status, arm — arm already masked for your role; never de-mask)
+  ${subjectRoster || "none"}
+
+FORMS & FIELDS (for mapping requests to real fields — no values, structure only)
+${JSON.stringify(fieldSchema)}
+
+INTENT CLASSIFICATION — respond with a SINGLE JSON object, nothing else (no prose, no markdown fences).
+Classify every user message as one of three intents:
+
+1. "question" — an explanation, definition, or narrative answer (e.g. "What is CADESI-04?", "How does blinded randomization work?").
+   Return: { "intent": "question", "message": "<1-2 sentence summary>", "response": "<the full prose answer>" }
+
+2. "data_query" — the user wants to SEE study data as a table (e.g. "Show dogs with CADESI FU4 below 20", "Which subjects have open queries?", "List BR-2502 animals in arm T01").
+   You do NOT have field values — describe WHAT to show; the client resolves the rows from the session store.
+   Return: { "intent": "data_query", "message": "<short message>", "data": {
+     "title": "<report title>",
+     "dataSource": "subjects" | "form_entries" | "field_values" | "visits" | "queries" | "inventory",
+     "columns": [ { "label": "Subject ID", "source": "builtin", "key": "subjectId" }, { "label": "CADESI FU4", "source": "form_field", "form": "<exact form name from FORMS & FIELDS>", "field": "<field code>", "visit": "Follow-Up 4" } ],
+     "filters": [ { "column": "CADESI FU4", "operator": ">=" | "<=" | ">" | "<" | "=" | "!=" | "contains", "value": "20" } ],
+     "exportFilename": "arken-${h.code}-<description>-<date>"
+   } }
+   Built-in column keys by dataSource: subjects → subjectId, site, arm, status, enrollmentDate · visits → subjectId, site, visitName, targetDate, actualDate, visitStatus · queries → queryId, subjectId, site, form, field, queryStatus, age · inventory → unitId, treatmentGroup, site, unitStatus.
+   Always include a subjectId column first. Use EXACT form names and field codes from the FORMS & FIELDS schema. Filter columns must reference a column "label" you defined.
+
+3. "report_config" — the user wants to BUILD or customise a report (e.g. "Build a report comparing FCR by arm", "Create a custom PH-2401 production report").
+   Return: { "intent": "report_config", "message": "<short message>", "config": { "dataSource": "...", "columns": [ ... same column shape ... ], "filters": [ ... ], "title": "<suggested title>" } }
+
+RULES
+- Output ONLY the JSON object. No markdown, no code fences, no commentary before/after.
+- Use only the forms, fields, subjects, and sites listed above. Do not invent field codes or values.
+- Never reveal or de-mask arm assignments for blinded roles. Blinded roles on this study: ${blindedRoles}. The arm labels above are already masked for the current role — use them as-is.
+- For "question" intent, keep "response" concise (1-4 sentences) and factual to this study.
+- If a data request needs a field not in the schema, still return data_query with your best-guess columns, or use "question" to explain what's unavailable.
 `.trim();
 }
