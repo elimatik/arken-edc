@@ -323,16 +323,16 @@ export function CustomReportBuilder({ studyId, initial, source = "manual", saved
         <>
           <div className="crb-toolbar">
             <select className="crb-pill" value={siteF} onChange={(e) => { setSiteF(e.target.value); setBarnF(""); setPenF(""); }}>
-              <option value="">All sites ›</option>{sites.map((s) => <option key={s.id} value={s.id}>{s.code} · {s.name}</option>)}
+              <option value="">All sites</option>{sites.map((s) => <option key={s.id} value={s.id}>{s.code} · {s.name}</option>)}
             </select>
             {(isBR || isPH) && (
               <select className="crb-pill" value={barnF} onChange={(e) => { setBarnF(e.target.value); setPenF(""); }}>
-                <option value="">All {barnWord} ›</option>{barns.map((b) => <option key={b.id} value={b.id}>{b.name}</option>)}
+                <option value="">All {barnWord}</option>{barns.map((b) => <option key={b.id} value={b.id}>{b.name}</option>)}
               </select>
             )}
             {(isBR || isPH) && (
               <select className="crb-pill" value={penF} onChange={(e) => setPenF(e.target.value)}>
-                <option value="">All pens ›</option>{pens.map((p) => <option key={p.id} value={p.id}>{p.name}</option>)}
+                <option value="">All pens</option>{pens.map((p) => <option key={p.id} value={p.id}>{p.name}</option>)}
               </select>
             )}
             <span className="crb-daterange">From <input type="date" className="crb-date" value={dateFrom} onChange={(e) => setDateFrom(e.target.value)} /> to <input type="date" className="crb-date" value={dateTo} onChange={(e) => setDateTo(e.target.value)} /></span>
