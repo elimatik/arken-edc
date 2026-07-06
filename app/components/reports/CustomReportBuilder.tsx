@@ -414,7 +414,14 @@ export function CustomReportBuilder({ studyId, initial, source = "manual", saved
               <label className="crb-modal-lbl">Report name <span style={{ color: "var(--red-600)" }}>*</span></label>
               <input className="crb-modal-input" placeholder="e.g. CADESI responders by site" value={saveName} onChange={(e) => setSaveName(e.target.value)} autoFocus />
               <label className="crb-modal-lbl" style={{ marginTop: "var(--space-3)" }}>Description</label>
-              <textarea className="crb-modal-input crb-modal-textarea" placeholder="Optional — describe what this report shows" value={saveDesc} onChange={(e) => setSaveDesc(e.target.value)} />
+              <textarea
+                className="crb-modal-input crb-modal-textarea"
+                style={{ display: "block", width: "100%", minHeight: 72, resize: "vertical", boxSizing: "border-box" }}
+                rows={3}
+                placeholder="Optional — describe what this report shows"
+                value={saveDesc}
+                onChange={(e) => setSaveDesc(e.target.value)}
+              />
               <div className="crb-save-note"><i className="ti ti-info-circle"></i> This report will be added to your saved reports list in the sidebar.</div>
             </div>
             <div className="crb-modal-footer">
