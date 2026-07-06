@@ -223,8 +223,8 @@ export interface ScheduleModel {
   config: StudyScheduleConfig;
   phaseSpans: PhaseSpan[];
   liveByDay: Map<number, LiveStatus>; // per study-day live status (only days with real visit data)
-  todayDay: number | null; // the "today" column day (most common current study day)
-  subjectCount: number; // active subjects (or pens) contributing live data
+  overdueCount: number; // active-subject visits past window and not done
+  dueCount: number; // active-subject visits within window of today and not done
 }
 
 // Contiguous same-phase runs → phase banner spans.
@@ -248,29 +248,24 @@ export function buildSchedule(dataset: Dataset, studyId: string, todayISO: strin
   // Per visit-day live status, aggregated across active subjects. Precedence:
   // overdue (a missed, past-window visit) → due (within window of today) → done
   // (at least one completed) → none (future / no data → shows the protocol marker).
+  const isOverdue = (r: VisitRow) => !r.completed && addDays(r.targetDate, r.window) < todayISO;
+  const isDue = (r: VisitRow) => !r.completed && addDays(r.targetDate, r.window) >= todayISO && Math.abs(daysBetween(todayISO, r.targetDate)) <= r.window;
+
   const byDay = new Map<number, VisitRow[]>();
   for (const v of visits) { const arr = byDay.get(v.day); if (arr) arr.push(v); else byDay.set(v.day, [v]); }
   const liveByDay = new Map<number, LiveStatus>();
   for (const [day, rows] of Array.from(byDay.entries())) {
-    const overdue = rows.some((r) => !r.completed && addDays(r.targetDate, r.window) < todayISO);
-    const due = rows.some((r) => !r.completed && addDays(r.targetDate, r.window) >= todayISO && Math.abs(daysBetween(todayISO, r.targetDate)) <= r.window);
+    const overdue = rows.some(isOverdue);
+    const due = rows.some(isDue);
     const anyDone = rows.some((r) => r.completed);
     const status: LiveStatus | null = overdue ? "overdue" : due ? "due" : anyDone ? "done" : null;
     if (status) liveByDay.set(day, status);
   }
 
-  // "Today" = the most common current study day across active subjects, snapped to
-  // the nearest protocol column. currentDay(subject) = v.day + (today − targetDate).
-  const currentBySubject = new Map<string, number>();
-  for (const v of visits) if (!currentBySubject.has(v.subjectId)) currentBySubject.set(v.subjectId, v.day + daysBetween(v.targetDate, todayISO));
-  const votes = new Map<number, number>();
-  for (const cd of Array.from(currentBySubject.values())) {
-    const nearest = config.days.reduce((best, d) => (Math.abs(d.day - cd) < Math.abs(best - cd) ? d.day : best), config.days[0].day);
-    votes.set(nearest, (votes.get(nearest) ?? 0) + 1);
-  }
-  let todayDay: number | null = null;
-  let max = -1;
-  for (const [day, n] of Array.from(votes.entries())) if (n > max) { max = n; todayDay = day; }
+  // Study-wide status summary — counts of active-subject visits currently overdue
+  // or due (there is no single "today" column: subjects start on different dates).
+  const overdueCount = visits.filter(isOverdue).length;
+  const dueCount = visits.filter(isDue).length;
 
-  return { config, phaseSpans: phaseSpansOf(config.days), liveByDay, todayDay, subjectCount: currentBySubject.size };
+  return { config, phaseSpans: phaseSpansOf(config.days), liveByDay, overdueCount, dueCount };
 }

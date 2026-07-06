@@ -1,4 +1,7 @@
 /* ── Schedule of Events (SoE) ─────────────────────────────────────────────── */
+/* Break out of the shell's padded .page-content so the SoE table runs edge to
+   edge (this page only). */
+.page-content:has(.soe-screen) { padding: 0; }
 .soe-screen { display: flex; flex-direction: column; height: 100%; overflow: hidden; background: var(--color-page-bg); }
 .soe-loading { display: flex; align-items: center; justify-content: center; gap: var(--space-2); height: 100%; color: var(--color-text-tertiary); font-size: var(--text-sm); }
 .soe-loading i { animation: soe-spin 1s linear infinite; }
@@ -9,14 +12,18 @@
 .soe-title-group { display: flex; flex-direction: column; gap: 3px; }
 .soe-title { font-size: var(--text-2xl, 22px); font-weight: var(--weight-medium); }
 .soe-subtitle { font-size: var(--text-sm); color: var(--color-text-tertiary); }
+.soe-stat { font-weight: var(--weight-medium); }
+.soe-stat.overdue { color: var(--red-600); }
+.soe-stat.due { color: var(--amber-700); }
+.soe-stat.ok { color: var(--color-text-tertiary); font-weight: var(--weight-regular); }
 .soe-header-actions { display: flex; align-items: center; gap: var(--space-2); flex-shrink: 0; }
 .soe-btn { display: inline-flex; align-items: center; gap: 5px; height: 32px; padding: 0 var(--space-3); font-size: var(--text-sm); font-weight: var(--weight-medium); border: 1px solid var(--color-border); border-radius: var(--radius-md); background: var(--color-surface); color: var(--color-text-primary); cursor: pointer; white-space: nowrap; }
 .soe-btn:hover { background: var(--color-hover-bg); }
 .soe-btn i { font-size: 14px; }
 
-/* Scrollable table area */
-.soe-scroll { flex: 1; overflow: auto; padding: 0 var(--space-5) var(--space-4); }
-.soe-table { border-collapse: collapse; font-size: var(--text-sm); width: 100%; margin-top: var(--space-4); }
+/* Scrollable table area — full-bleed so the table runs edge to edge. */
+.soe-scroll { flex: 1; overflow: auto; padding: 0; }
+.soe-table { border-collapse: collapse; font-size: var(--text-sm); width: 100%; }
 .soe-table th, .soe-table td { border: 1px solid var(--color-border); }
 
 /* Procedure label column (sticky) */
@@ -35,9 +42,6 @@
 .day-num { font-family: var(--font-mono); font-size: 11px; font-weight: var(--weight-medium); color: var(--color-text-primary); display: block; }
 .day-window { font-size: 9px; color: var(--color-text-placeholder); display: block; margin-top: 1px; line-height: 1.2; }
 .day-hdr.pivot { border-left: 2px solid var(--color-text-primary); }
-.day-hdr.today-hdr { background: var(--red-50); }
-.day-hdr.today-hdr .day-num { color: var(--red-600); font-weight: var(--weight-bold); }
-.day-hdr.today-hdr .day-window { color: var(--red-400, var(--red-600)); }
 
 /* Data cells + phase-tinted backgrounds */
 .soe-cell { text-align: center; vertical-align: middle; height: 36px; padding: 2px; }
@@ -45,7 +49,6 @@
 .soe-cell.phase-treatment { background: #F7FBFF; }
 .soe-cell.phase-followup { background: #F5FBF7; }
 .soe-cell.pivot { border-left: 2px solid var(--color-text-primary); }
-.soe-cell.today-col { background: rgba(181, 38, 38, 0.05) !important; border-left: 1.5px solid rgba(181, 38, 38, 0.3); border-right: 1.5px solid rgba(181, 38, 38, 0.3); }
 .soe-cell.group-row { height: 26px; }
 
 /* Row separator between groups */
@@ -67,8 +70,8 @@
 /* Footnote superscript */
 .fn { font-size: 9px; color: var(--blue-600); vertical-align: super; cursor: help; margin-left: 1px; }
 
-/* Footnotes section */
-.soe-footnotes { padding: var(--space-3) var(--space-5); font-size: var(--text-xs); color: var(--color-text-tertiary); border-top: 1px solid var(--color-border); background: var(--color-surface); display: grid; grid-template-columns: 1fr 1fr; gap: var(--space-1) var(--space-5); flex-shrink: 0; }
+/* Footnotes section — sits inside the scroll container, after the last table row. */
+.soe-footnotes { padding: var(--space-5) var(--space-5) var(--space-4); font-size: var(--text-xs); color: var(--color-text-tertiary); display: grid; grid-template-columns: 1fr 1fr; gap: var(--space-1) var(--space-5); }
 .fn-item { display: flex; align-items: baseline; gap: 5px; }
 .fn-num { color: var(--blue-600); font-weight: var(--weight-bold); flex-shrink: 0; }
 

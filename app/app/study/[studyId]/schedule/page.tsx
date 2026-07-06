@@ -48,7 +48,7 @@ export default function SchedulePage() {
   if (!ready || !today) return <div className="soe-screen"><div className="soe-loading"><i className="ti ti-loader-2"></i> Loading…</div></div>;
   if (!model) return <div className="soe-screen"><div className="soe-loading">No schedule of events is defined for this study.</div></div>;
 
-  const { config, phaseSpans, liveByDay, todayDay, subjectCount } = model;
+  const { config, phaseSpans, liveByDay, overdueCount, dueCount } = model;
   const ncol = config.days.length;
 
   return (
@@ -56,7 +56,14 @@ export default function SchedulePage() {
       <div className="soe-header">
         <div className="soe-title-group">
           <h1 className="soe-title">Protocol schedule</h1>
-          <div className="soe-subtitle">{study.code} · {study.name} · Schedule of events{todayDay != null ? ` · live status vs ${config.days.find((d) => d.day === todayDay)?.label ?? "today"} (${subjectCount} active ${config.subjectNoun.toLowerCase()}${subjectCount === 1 ? "" : "s"})` : ""}</div>
+          <div className="soe-subtitle">
+            <span>{study.code} · {study.name} · Schedule of events</span>
+            {(overdueCount > 0 || dueCount > 0) && <span> · </span>}
+            {overdueCount > 0 && <span className="soe-stat overdue">{overdueCount} overdue</span>}
+            {overdueCount > 0 && dueCount > 0 && <span> · </span>}
+            {dueCount > 0 && <span className="soe-stat due">{dueCount} due today</span>}
+            {overdueCount === 0 && dueCount === 0 && <span className="soe-stat ok"> · all visits on track</span>}
+          </div>
         </div>
         <div className="soe-header-actions">
           <button className="soe-btn" type="button" onClick={() => setToast("Preparing SoE for print…")}><i className="ti ti-printer"></i> Print SoE</button>
@@ -74,15 +81,12 @@ export default function SchedulePage() {
               ))}
             </tr>
             <tr>
-              {config.days.map((d) => {
-                const isToday = d.day === todayDay;
-                return (
-                  <th key={d.day} className={`day-hdr${d.pivot ? " pivot" : ""}${isToday ? " today-hdr" : ""}`}>
-                    <span className="day-num">{d.label}{d.pivot ? " ★" : ""}</span>
-                    <span className="day-window">{isToday ? "← today" : d.window}</span>
-                  </th>
-                );
-              })}
+              {config.days.map((d) => (
+                <th key={d.day} className={`day-hdr${d.pivot ? " pivot" : ""}`}>
+                  <span className="day-num">{d.label}{d.pivot ? " ★" : ""}</span>
+                  <span className="day-window">{d.window}</span>
+                </th>
+              ))}
             </tr>
           </thead>
           <tbody>
@@ -92,7 +96,7 @@ export default function SchedulePage() {
                 <tr>
                   <td className="proc-label group-header">{grp.group}</td>
                   {config.days.map((d) => (
-                    <td key={d.day} className={`soe-cell group-row ${PHASE_CLS[d.phase]}${d.day === todayDay ? " today-col" : ""}${d.pivot ? " pivot" : ""}`}></td>
+                    <td key={d.day} className={`soe-cell group-row ${PHASE_CLS[d.phase]}${d.pivot ? " pivot" : ""}`}></td>
                   ))}
                 </tr>
                 {grp.rows.map((row) => (
@@ -103,7 +107,7 @@ export default function SchedulePage() {
                       const live = base != null ? liveByDay.get(d.day) : undefined;
                       const eff = base == null ? null : (live ?? base);
                       return (
-                        <td key={d.day} className={`soe-cell ${PHASE_CLS[d.phase]}${d.day === todayDay ? " today-col" : ""}${d.pivot ? " pivot" : ""}`}>
+                        <td key={d.day} className={`soe-cell ${PHASE_CLS[d.phase]}${d.pivot ? " pivot" : ""}`}>
                           {eff ? <Marker type={eff} /> : null}
                         </td>
                       );
@@ -114,12 +118,12 @@ export default function SchedulePage() {
             ))}
           </tbody>
         </table>
-      </div>
 
-      <div className="soe-footnotes">
-        {config.footnotes.map((f) => (
-          <div className="fn-item" key={f.num}><span className="fn-num">[{f.num}]</span><span>{f.text}</span></div>
-        ))}
+        <div className="soe-footnotes">
+          {config.footnotes.map((f) => (
+            <div className="fn-item" key={f.num}><span className="fn-num">[{f.num}]</span><span>{f.text}</span></div>
+          ))}
+        </div>
       </div>
 
       <div className="soe-legend">
