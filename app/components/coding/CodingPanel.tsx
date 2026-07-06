@@ -1,12 +1,14 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { useRouter } from "next/navigation";
 import { useNdaName } from "@/lib/use-nda-name";
 import { searchDict, type VeddraResult } from "@/lib/veddra-dictionary";
 import type { CodingRow, CodingPatch } from "@/lib/coding-data";
 
-export function CodingPanel({ row, onClose, onApply }: { row: CodingRow | null; onClose: () => void; onApply: (patch: CodingPatch) => void }) {
+export function CodingPanel({ row, canCode, sourceHref, onClose, onApply }: { row: CodingRow | null; canCode: boolean; sourceHref: string | null; onClose: () => void; onApply: (patch: CodingPatch) => void }) {
   const ndaName = useNdaName();
+  const router = useRouter();
   const [dict, setDict] = useState<"vedra" | "meddra">("vedra");
   const [query, setQuery] = useState("");
   const [selected, setSelected] = useState<VeddraResult | null>(null);
@@ -27,13 +29,16 @@ export function CodingPanel({ row, onClose, onApply }: { row: CodingRow | null; 
 
   const open = !!row;
   const status = row?.status ?? "pending";
+  const readOnly = !canCode; // CRC / Sponsor — view only, no coding actions
   const isReview = status === "review";
   const isCoded = status === "coded";
+  const isVerified = status === "verified";
   const isExcluded = status === "excluded";
-  const reviewMode = isReview && !recoding;
-  const codedDefault = isCoded && !recoding;
-  const hasResultBlock = (isReview || isCoded) && !recoding;
-  const showSearch = !isCoded || recoding; // coded hides search until Recode
+  const settled = isCoded || isVerified; // has an assigned code
+  const reviewMode = isReview && !recoding && !readOnly;
+  const codedDefault = settled && !recoding && !readOnly;
+  const hasResultBlock = (isReview || settled) && !recoding;
+  const showSearch = !readOnly && (!settled || recoding); // coded/verified hide search until Recode; read-only never searches
 
   const base = open ? searchDict(query) : [];
   const results = selected && !base.some((r) => r.code === selected.code) ? [selected, ...base] : base;
@@ -44,14 +49,22 @@ export function CodingPanel({ row, onClose, onApply }: { row: CodingRow | null; 
 
   // Primary CTA: review confirms the (pre-)selected auto term; otherwise a fresh
   // selection confirms as a new code. No selection in the fresh flow → no primary.
-  const primary = reviewMode
+  const primary = readOnly
+    ? null
+    : reviewMode
     ? { label: "Confirm as coded", onClick: () => commitCoded(selected ?? { llt: row!.llt, pt: row!.pt, hlt: row!.hlt, soc: row!.soc, code: row!.code }) }
     : selected
     ? { label: "Confirm code", onClick: () => commitCoded(selected) }
     : null;
 
   // Flag for review only makes sense once a candidate term is selected.
-  const showFlag = !reviewMode && !codedDefault && !!selected;
+  const showFlag = !readOnly && !reviewMode && !codedDefault && !!selected;
+
+  // Verify a coded term (DM/Admin second sign-off). Keeps the existing code.
+  function verifyCoding() {
+    if (!row) return;
+    onApply({ status: "verified", llt: row.llt, pt: row.pt, hlt: row.hlt, soc: row.soc, code: row.code, codedBy: row.codedBy, verifiedBy: ndaName });
+  }
 
   return (
     <>
@@ -61,7 +74,7 @@ export function CodingPanel({ row, onClose, onApply }: { row: CodingRow | null; 
           <>
             <div className="cp-header">
               <div>
-                <div className="cp-title">{isReview ? "Review auto-coding" : isCoded || isExcluded ? "Edit coding" : "Code term"}</div>
+                <div className="cp-title">{readOnly ? "Coding detail" : isReview ? "Review auto-coding" : isVerified ? "Verified coding" : isCoded || isExcluded ? "Edit coding" : "Code term"}</div>
                 <div className="cp-meta"><span className="mono">{row.subjectCode}</span><span>· {row.formLabel}</span></div>
               </div>
               <button className="cp-close" onClick={onClose} type="button"><i className="ti ti-x"></i></button>
@@ -74,17 +87,30 @@ export function CodingPanel({ row, onClose, onApply }: { row: CodingRow | null; 
             </div>
 
             {hasResultBlock && (
-              <div className={`cp-result-block ${isReview ? "amber" : "green"}`}>
+              <div className={`cp-result-block ${isReview ? "amber" : isVerified ? "verified" : "blue"}`}>
                 <div className="cp-rb-label">
-                  {isReview ? <><i className="ti ti-alert-triangle"></i> {row.autoConf != null ? "Auto-coded (low confidence)" : "Flagged for review"}</> : <><i className="ti ti-circle-check"></i> Coded</>}
+                  {isReview ? <><i className="ti ti-clock-hour-4"></i> {row.autoConf != null ? "Auto-coded (pending confirmation)" : "Pending confirmation"}</>
+                    : isVerified ? <><i className="ti ti-rosette-discount-check"></i> Verified</>
+                    : <><i className="ti ti-circle-check"></i> Coded</>}
                   {isReview && row.autoConf != null && <span className="cp-rb-conf">{Math.round(row.autoConf * 100)}%</span>}
                 </div>
                 <div className="cp-rb-term">{row.pt ?? "—"}</div>
                 <div className="cp-rb-code mono">{row.llt ?? "—"} · {row.code ?? "—"}</div>
                 <div className="cp-rb-path">{row.soc ?? "—"} › {row.hlt ?? "—"}</div>
                 {isReview && row.autoConf != null && <div className="cp-rb-warn">Below 80% confidence threshold — confirm or recode before database lock.</div>}
-                {isCoded && <div className="cp-rb-meta">Coded by {row.codedBy ?? "—"}{row.codedAt ? ` · ${row.codedAt.slice(0, 10)}` : ""}</div>}
+                {settled && <div className="cp-rb-meta">Coded by {row.codedBy ?? "—"}{row.codedAt ? ` · ${row.codedAt.slice(0, 10)}` : ""}</div>}
+                {isVerified && <div className="cp-rb-meta">Verified by {row.verifiedBy ?? "—"}{row.verifiedAt ? ` · ${row.verifiedAt.slice(0, 10)}` : ""}</div>}
               </div>
+            )}
+
+            {readOnly && !hasResultBlock && !isExcluded && (
+              <div className="cp-readonly-note"><i className="ti ti-circle-dashed"></i> This term has not been coded yet.</div>
+            )}
+
+            {sourceHref && (
+              <button className="cp-source-link" type="button" onClick={() => router.push(sourceHref)}>
+                <i className="ti ti-external-link"></i> View source form
+              </button>
             )}
 
             {codedDefault && (
@@ -136,25 +162,29 @@ export function CodingPanel({ row, onClose, onApply }: { row: CodingRow | null; 
               </>
             )}
 
-            {!showSearch && <div className="code-results"></div>}
+            {!showSearch && !readOnly && <div className="code-results"></div>}
 
-            <div className="selected-code-block">
-              {selected && (
-                <>
-                  <div className="scb-label">Selected code</div>
-                  <div className="scb-term">{selected.pt}</div>
-                  <div className="scb-code">{selected.code} · {selected.llt}</div>
-                  <div className="scb-path">{selected.soc}{selected.hlgt ? ` › ${selected.hlgt}` : ""} › {selected.hlt} › {selected.pt}</div>
-                </>
-              )}
-              <div className="scb-actions">
-                {primary && <button className="cod-btn-primary" type="button" onClick={primary.onClick}><i className="ti ti-check"></i> {primary.label}</button>}
-                {reviewMode && <button className="cod-btn-secondary" type="button" onClick={() => { setRecoding(true); setSelected(null); }}><i className="ti ti-edit"></i> Recode</button>}
-                {codedDefault && <button className="cod-btn-secondary" type="button" onClick={() => onApply({ status: "pending" })}><i className="ti ti-arrow-back-up"></i> Uncode</button>}
-                {showFlag && <button className="cod-btn-secondary" type="button" onClick={() => onApply({ status: "review", conflict: true, codedBy: ndaName, llt: selected!.llt, pt: selected!.pt, hlt: selected!.hlt, soc: selected!.soc, code: selected!.code })}><i className="ti ti-flag"></i> Flag for review</button>}
-                {!isExcluded && <button className="cod-btn-secondary" type="button" onClick={() => onApply({ status: "excluded", codedBy: ndaName })}><i className="ti ti-circle-x"></i> Mark excluded</button>}
+            {!readOnly && (
+              <div className="selected-code-block">
+                {selected && (
+                  <>
+                    <div className="scb-label">Selected code</div>
+                    <div className="scb-term">{selected.pt}</div>
+                    <div className="scb-code">{selected.code} · {selected.llt}</div>
+                    <div className="scb-path">{selected.soc}{selected.hlgt ? ` › ${selected.hlgt}` : ""} › {selected.hlt} › {selected.pt}</div>
+                  </>
+                )}
+                <div className="scb-actions">
+                  {primary && <button className="cod-btn-primary" type="button" onClick={primary.onClick}><i className="ti ti-check"></i> {primary.label}</button>}
+                  {codedDefault && isCoded && <button className="cod-btn-primary" type="button" onClick={verifyCoding}><i className="ti ti-rosette-discount-check"></i> Verify coding</button>}
+                  {reviewMode && <button className="cod-btn-secondary" type="button" onClick={() => { setRecoding(true); setSelected(null); }}><i className="ti ti-edit"></i> Recode</button>}
+                  {codedDefault && isVerified && <button className="cod-btn-secondary" type="button" onClick={() => onApply({ status: "coded", llt: row.llt, pt: row.pt, hlt: row.hlt, soc: row.soc, code: row.code, codedBy: row.codedBy })}><i className="ti ti-arrow-back-up"></i> Unverify</button>}
+                  {codedDefault && <button className="cod-btn-secondary" type="button" onClick={() => onApply({ status: "pending" })}><i className="ti ti-arrow-back-up"></i> Uncode</button>}
+                  {showFlag && <button className="cod-btn-secondary" type="button" onClick={() => onApply({ status: "review", conflict: true, codedBy: ndaName, llt: selected!.llt, pt: selected!.pt, hlt: selected!.hlt, soc: selected!.soc, code: selected!.code })}><i className="ti ti-flag"></i> Flag for review</button>}
+                  {!isExcluded && <button className="cod-btn-secondary" type="button" onClick={() => onApply({ status: "excluded", codedBy: ndaName })}><i className="ti ti-circle-x"></i> Mark excluded</button>}
+                </div>
               </div>
-            </div>
+            )}
           </>
         )}
       </div>

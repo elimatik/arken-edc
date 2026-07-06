@@ -10,19 +10,24 @@ import { matchTerm } from "@/lib/veddra-dictionary";
 import { downloadCsv, csvFilename } from "@/lib/reports-data";
 import { CodingPanel } from "./CodingPanel";
 
+// Lifecycle chips (Uncoded → Pending → Coded → Verified), each colour-coded and
+// visually distinct. "excluded" is a branch (not codable). Internal status values
+// map to the lifecycle labels: pending→Uncoded, review→Pending (auto-coded,
+// awaiting DM confirmation), coded→Coded, verified→Verified.
 const STATUS_BADGE: Record<string, { label: string; cls: string; icon?: string }> = {
-  pending: { label: "Pending", cls: "badge-pending" },
-  coded: { label: "Coded", cls: "badge-coded" },
-  review: { label: "Needs review", cls: "badge-review", icon: "ti-alert-circle" },
+  pending: { label: "Uncoded", cls: "badge-uncoded", icon: "ti-circle-dashed" },
+  review: { label: "Pending", cls: "badge-review", icon: "ti-clock-hour-4" },
+  coded: { label: "Coded", cls: "badge-coded", icon: "ti-check" },
+  verified: { label: "Verified", cls: "badge-verified", icon: "ti-rosette-discount-check" },
   excluded: { label: "Excluded", cls: "badge-excluded", icon: "ti-circle-x" },
 };
 const sleep = (ms: number) => new Promise<void>((r) => { const t = Date.now(); const tick = () => (Date.now() - t >= ms ? r() : requestAnimationFrame(tick)); requestAnimationFrame(tick); });
 
-export function CodingWorklist({ studyId }: { studyId: string }) {
+export function CodingWorklist({ studyId, canCode }: { studyId: string; canCode: boolean }) {
   const { dataset, update } = useStudySession();
   const { study } = useShell();
   const { sort, toggle } = useTableSort(null);
-  const [tab, setTab] = useState<"all" | "pending" | "review" | "coded">("all");
+  const [tab, setTab] = useState<"all" | "pending" | "review" | "coded" | "verified">("all");
   const [search, setSearch] = useState("");
   const [panelRow, setPanelRow] = useState<CodingRow | null>(null);
   const [autoRunning, setAutoRunning] = useState(false);
@@ -34,7 +39,19 @@ export function CodingWorklist({ studyId }: { studyId: string }) {
     pending: rows.filter((r) => r.status === "pending").length,
     review: rows.filter((r) => r.status === "review").length,
     coded: rows.filter((r) => r.status === "coded").length,
+    verified: rows.filter((r) => r.status === "verified").length,
   }), [rows]);
+
+  // Deep-link to the source AE/ConMed form. Uses the form DEFINITION id
+  // (inst.form_id) — the Subject Record's ?form= selects by definition id, so the
+  // instance id would break the link. Seeded rows (no instance) have no source.
+  const sourceHref = (r: CodingRow): string | null => {
+    if (!r.formInstanceId) return null;
+    const inst = dataset.formInstances.find((i) => i.id === r.formInstanceId);
+    if (!inst) return null;
+    const field = dataset.formFields.find((f) => f.form_id === inst.form_id && f.code === r.fieldCode);
+    return `/study/${studyId}/data-entry/${r.subjectId}?form=${inst.form_id}${field ? `&field=${field.id}` : ""}`;
+  };
 
   const filtered = useMemo(() => {
     const q = search.toLowerCase().trim();
@@ -92,15 +109,18 @@ export function CodingWorklist({ studyId }: { studyId: string }) {
           <div className="cod-sub">Adverse-event and concomitant-medication term coding · VeDDRA v3.1 · MedDRA v26.1</div>
         </div>
         <div className="cod-header-actions">
+          {!canCode && <span className="cod-readonly-chip"><i className="ti ti-eye"></i> Read-only</span>}
           <button className="cod-btn-secondary" type="button" onClick={exportCsv}><i className="ti ti-download"></i> Export CSV</button>
-          <button className="cod-btn-secondary" type="button" onClick={autoCodeAll} disabled={autoRunning}>
-            <i className={`ti ti-${autoRunning ? "loader-2 cod-spin" : "refresh"}`}></i> {autoRunning ? "Auto-coding…" : "Auto-code all"}
-          </button>
+          {canCode && (
+            <button className="cod-btn-secondary" type="button" onClick={autoCodeAll} disabled={autoRunning}>
+              <i className={`ti ti-${autoRunning ? "loader-2 cod-spin" : "refresh"}`}></i> {autoRunning ? "Auto-coding…" : "Auto-code all"}
+            </button>
+          )}
         </div>
       </div>
 
       <div className="cod-tabs">
-        {([["all", "All terms"], ["pending", "Pending"], ["review", "Needs review"], ["coded", "Coded"]] as const).map(([k, label]) => (
+        {([["all", "All terms"], ["pending", "Uncoded"], ["review", "Pending"], ["coded", "Coded"], ["verified", "Verified"]] as const).map(([k, label]) => (
           <button key={k} type="button" className={`cod-tab${tab === k ? " active" : ""}`} onClick={() => setTab(k)}>{label} <span className="cod-tab-count">{counts[k]}</span></button>
         ))}
       </div>
@@ -127,6 +147,10 @@ export function CodingWorklist({ studyId }: { studyId: string }) {
           <tbody>
             {filtered.map((r) => {
               const badge = STATUS_BADGE[r.status] ?? STATUS_BADGE.pending;
+              // Action label is role-aware: DM/Admin code/verify/edit; read-only
+              // roles (CRC/Sponsor) only view.
+              const actLabel = !canCode ? "View" : r.status === "pending" || r.status === "review" ? "Code" : r.status === "coded" ? "Verify" : "Edit";
+              const actIcon = !canCode ? "eye" : r.status === "pending" || r.status === "review" ? "tag" : r.status === "coded" ? "rosette-discount-check" : "edit";
               return (
                 <tr key={r.id} onClick={() => setPanelRow(r)}>
                   <td><span className="verbatim-term">{r.verbatimTerm}</span></td>
@@ -138,7 +162,7 @@ export function CodingWorklist({ studyId }: { studyId: string }) {
                   <td>{r.code ? <span className="cell-mono cell-xs">{r.code}</span> : <span className="cell-dash">—</span>}</td>
                   <td><span className={`badge ${badge.cls}`}>{badge.icon && <i className={`ti ${badge.icon}`}></i>}{badge.label}</span></td>
                   <td>{r.codedBy ? <span className="cell-muted">{r.codedBy === "Auto" ? <><i className="ti ti-sparkles cod-auto-icon"></i> Auto {r.autoConf ? Math.round(r.autoConf * 100) + "%" : ""}</> : r.codedBy}</span> : <span className="cell-dash">—</span>}</td>
-                  <td className="cod-action-cell"><button className="cod-icon-btn" type="button" title={r.status === "pending" ? "Code this term" : "Edit coding"} onClick={(e) => { e.stopPropagation(); setPanelRow(r); }}><i className={`ti ti-${r.status === "pending" ? "tag" : "edit"}`}></i></button></td>
+                  <td className="cod-action-cell"><button className={`cod-row-action${canCode ? "" : " view"}`} type="button" onClick={(e) => { e.stopPropagation(); setPanelRow(r); }}><i className={`ti ti-${actIcon}`}></i> {actLabel}</button></td>
                 </tr>
               );
             })}
@@ -148,13 +172,14 @@ export function CodingWorklist({ studyId }: { studyId: string }) {
 
       <div className="cod-summary">
         <span>Total: <strong className="sv">{counts.all}</strong></span>
-        <span>Coded: <strong className="sv ok">{counts.coded}</strong></span>
-        <span>Pending: <strong className="sv warn">{counts.pending}</strong></span>
-        <span>Needs review: <strong className="sv crit">{counts.review}</strong></span>
+        <span>Verified: <strong className="sv ok">{counts.verified}</strong></span>
+        <span>Coded: <strong className="sv">{counts.coded}</strong></span>
+        <span>Pending: <strong className="sv warn">{counts.review}</strong></span>
+        <span>Uncoded: <strong className="sv crit">{counts.pending}</strong></span>
         <span className="cod-version">VeDDRA v3.1 · MedDRA v26.1</span>
       </div>
 
-      <CodingPanel row={panelRow} onClose={() => setPanelRow(null)} onApply={(patch) => panelRow && applyPatch(panelRow, patch)} />
+      <CodingPanel row={panelRow} canCode={canCode} sourceHref={panelRow ? sourceHref(panelRow) : null} onClose={() => setPanelRow(null)} onApply={(patch) => panelRow && applyPatch(panelRow, patch)} />
     </div>
   );
 }

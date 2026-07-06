@@ -230,7 +230,10 @@ export interface CodingTask {
   fieldCode: string;
   verbatimTerm: string;
   termType: "ae" | "drug";
-  status: "pending" | "coded" | "review" | "excluded";
+  // Lifecycle: pending (uncoded) → review (auto-coded, awaiting DM confirm) →
+  // coded (PT assigned) → verified (a second DM/Admin sign-off). excluded = not
+  // codable (e.g. water). The worklist labels these Uncoded/Pending/Coded/Verified.
+  status: "pending" | "coded" | "review" | "excluded" | "verified";
   llt?: string;
   pt?: string;
   hlt?: string;
@@ -240,6 +243,8 @@ export interface CodingTask {
   autoConf?: number; // 0–1, only when codedBy === "Auto"
   conflict?: boolean; // autoConf < 0.80
   codedAt?: string; // ISO timestamp
+  verifiedBy?: string; // user name of the DM/Admin who verified the coding
+  verifiedAt?: string; // ISO timestamp of verification
 }
 
 // Serious adverse event with its GCP/VICH reporting timeline. Session-only seed

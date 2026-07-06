@@ -78,6 +78,7 @@ export interface CodingPatch {
   status: CodingTask["status"];
   llt?: string; pt?: string; hlt?: string; soc?: string; code?: string;
   codedBy?: string; autoConf?: number; conflict?: boolean;
+  verifiedBy?: string; // set on a "verified" patch — who signed off the coding
 }
 
 // Apply a coding result inside an update() draft. Upserts the task (instance-derived
@@ -92,16 +93,24 @@ export function applyCoding(d: Dataset, row: CodingRow, patch: CodingPatch, nowI
   task.status = patch.status;
   task.llt = patch.llt; task.pt = patch.pt; task.hlt = patch.hlt; task.soc = patch.soc; task.code = patch.code;
   task.codedBy = patch.codedBy; task.autoConf = patch.autoConf; task.conflict = patch.conflict;
-  task.codedAt = nowISO;
+  if (patch.status === "verified") {
+    // Verifying keeps the existing coded-by/at; it only records the sign-off.
+    if (!task.codedAt) task.codedAt = nowISO;
+    task.verifiedBy = patch.verifiedBy; task.verifiedAt = nowISO;
+  } else {
+    // Any re-code / uncode / exclude invalidates a prior verification.
+    task.codedAt = nowISO; task.verifiedBy = undefined; task.verifiedAt = undefined;
+  }
 
+  const coded = patch.status === "coded" || patch.status === "verified";
   const term = patch.status === "excluded" ? "N/A — excluded from coding" : patch.pt ?? task.verbatimTerm;
-  const codingStatus = patch.status === "coded" ? "coded" : patch.status === "excluded" ? "excluded" : "pending";
+  const codingStatus = coded ? "coded" : patch.status === "excluded" ? "excluded" : "pending";
   const v = normalizeTerm(row.verbatimTerm);
   // Mirror study-wide onto matching seeded ConMed entries (a coded verbatim term
   // applies wherever it appears in the study).
   for (const c of d.conMeds) {
     if (c.study_id === row.studyId && normalizeTerm(c.medication) === v) {
-      c.veddra_code = patch.status === "excluded" ? "N/A — not a regulated drug" : patch.pt ?? c.veddra_code;
+      c.veddra_code = patch.status === "excluded" ? "N/A — not a regulated drug" : coded ? patch.pt ?? c.veddra_code : c.veddra_code;
       c.coding_status = codingStatus;
     }
   }
@@ -133,7 +142,7 @@ export function codingIndex(dataset: Dataset, studyId: string): Map<string, Codi
     if (t.studyId !== studyId) continue;
     const k = normalizeTerm(t.verbatimTerm);
     const prev = m.get(k);
-    if (!prev || (t.status === "coded" || t.status === "excluded")) m.set(k, t);
+    if (!prev || (t.status === "coded" || t.status === "verified" || t.status === "excluded")) m.set(k, t);
   }
   return m;
 }
@@ -141,7 +150,7 @@ export function codingIndex(dataset: Dataset, studyId: string): Map<string, Codi
 // Resolve a coding task to the {term, status} a display surface should show.
 export function codedDisplay(t: CodingTask | undefined): { term: string; status: "coded" | "pending" | "excluded" } | null {
   if (!t) return null;
-  if (t.status === "coded") return { term: t.pt ?? t.verbatimTerm, status: "coded" };
+  if (t.status === "coded" || t.status === "verified") return { term: t.pt ?? t.verbatimTerm, status: "coded" };
   if (t.status === "excluded") return { term: "N/A — excluded from coding", status: "excluded" };
   return { term: t.verbatimTerm, status: "pending" }; // pending / review → still uncoded
 }

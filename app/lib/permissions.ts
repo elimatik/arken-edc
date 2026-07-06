@@ -57,7 +57,7 @@ export const NAV_ITEMS: NavItem[] = [
   { key: "sdv", label: "SDV", title: "Source Data Verification", icon: "shield-check",
     access: { CRA: open, DM: { readonly: true } } },
   { key: "coding", label: "Coding", title: "Medical Coding", icon: "vocabulary",
-    access: { DM: open } },
+    access: { DM: open, Admin: open, CRC: { readonly: true }, Sponsor: { readonly: true } } },
   { key: "calendar", label: "Calendar", icon: "calendar",
     access: { CRC: open, CRA: open, DM: open, PI: open, Sponsor: open } },
   // Reports is a reporting/oversight surface — CRC (a data-entry role) is excluded.
