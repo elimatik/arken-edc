@@ -4,7 +4,7 @@
 // via codingIndex() (keyed by subject + verbatim). buildCodingWorklist merges the
 // seeded coding tasks with any AE/ConMed form instances that don't have one yet.
 // ════════════════════════════════════════════════════════════════════════════
-import type { Dataset, CodingTask } from "@/lib/session-store/types";
+import type { Dataset, CodingTask, FormInstanceRow } from "@/lib/session-store/types";
 
 const AE_DESC_CODES = ["ae_term", "ae_description", "event_description", "description"];
 const CONMED_MED_CODES = ["medication", "medication_name"];
@@ -145,6 +145,63 @@ export function codingIndex(dataset: Dataset, studyId: string): Map<string, Codi
     if (!prev || (t.status === "coded" || t.status === "verified" || t.status === "excluded")) m.set(k, t);
   }
   return m;
+}
+
+// Resolve the "View source" deep-link for a coding row → the subject/barn record
+// opened at the source form, via ?form={form DEFINITION id}&field={field id}.
+// The Subject Record's ?form= selects by DEFINITION id (inst.form_id), never the
+// instance id. Resolution priority:
+//   1. The row's own source form instance (instance-derived rows), or a real
+//      AE/ConMed form instance matched by subject + verbatim — this covers seeded
+//      tasks that shadow a real instance (buildCodingWorklist's dedup keeps the
+//      seeded task and drops the instance-derived row, losing the instance ref).
+//   2. The study's AE/ConMed form DEFINITION for the row's subject — seeded terms
+//      whose record lives in saeReports/conMeds still have a real source form to
+//      open (the subject's AE / ConMed form), so they get a link too.
+// Returns null only when there is nowhere to navigate: no subject/barn scope, or
+// the study has no such form (e.g. a drug term in a study without a ConMed form).
+export function sourceFormLink(dataset: Dataset, studyId: string, row: CodingRow): string | null {
+  const inst = resolveSourceInstance(dataset, studyId, row);
+  if (inst) {
+    const scope = inst.subject_id ? `data-entry/${inst.subject_id}` : inst.barn_id ? `barns/${inst.barn_id}` : null;
+    if (scope) return withField(dataset, `/study/${studyId}/${scope}`, inst.form_id, row);
+  }
+  if (!row.subjectId) return null;
+  const forms = row.termType === "drug" ? conmedFormIds(dataset, studyId) : aeFormIds(dataset, studyId);
+  const formId = forms.values().next().value;
+  if (!formId) return null;
+  return withField(dataset, `/study/${studyId}/data-entry/${row.subjectId}`, formId, row);
+}
+
+// Append &field= for the verbatim field: prefer the row's own field code, else the
+// first AE/ConMed term field on the form. Uses the field id (the record's consumer).
+function withField(dataset: Dataset, base: string, formId: string, row: CodingRow): string {
+  const codes = row.termType === "drug" ? CONMED_MED_CODES : AE_DESC_CODES;
+  const field = dataset.formFields.find((f) => f.form_id === formId && f.code === row.fieldCode)
+    ?? dataset.formFields.find((f) => f.form_id === formId && codes.includes(f.code));
+  return `${base}?form=${formId}${field ? `&field=${field.id}` : ""}`;
+}
+
+function resolveSourceInstance(dataset: Dataset, studyId: string, row: CodingRow): FormInstanceRow | undefined {
+  if (row.formInstanceId) {
+    const direct = dataset.formInstances.find((i) => i.id === row.formInstanceId);
+    if (direct) return direct;
+  }
+  const forms = row.termType === "drug" ? conmedFormIds(dataset, studyId) : aeFormIds(dataset, studyId);
+  if (!forms.size) return undefined;
+  const fieldById = new Map(dataset.formFields.map((f) => [f.id, f]));
+  const codes = row.termType === "drug" ? CONMED_MED_CODES : AE_DESC_CODES;
+  const target = normalizeTerm(row.verbatimTerm);
+  for (const inst of dataset.formInstances) {
+    if (!forms.has(inst.form_id)) continue;
+    if (row.subjectId && inst.subject_id && inst.subject_id !== row.subjectId) continue;
+    for (const v of dataset.fieldValues) {
+      if (v.form_instance_id !== inst.id || !v.value) continue;
+      const c = fieldById.get(v.form_field_id)?.code;
+      if (c && codes.includes(c) && normalizeTerm(v.value) === target) return inst;
+    }
+  }
+  return undefined;
 }
 
 // Resolve a coding task to the {term, status} a display surface should show.

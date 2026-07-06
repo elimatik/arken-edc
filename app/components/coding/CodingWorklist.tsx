@@ -5,7 +5,7 @@ import { useStudySession } from "@/lib/session-store/SessionStore";
 import { useShell } from "@/components/shell/ShellContext";
 import { useTableSort } from "@/lib/useTableSort";
 import { SortTh } from "@/components/common/SortTh";
-import { buildCodingWorklist, applyCoding, type CodingRow, type CodingPatch } from "@/lib/coding-data";
+import { buildCodingWorklist, applyCoding, sourceFormLink, type CodingRow, type CodingPatch } from "@/lib/coding-data";
 import { matchTerm } from "@/lib/veddra-dictionary";
 import { downloadCsv, csvFilename } from "@/lib/reports-data";
 import { CodingPanel } from "./CodingPanel";
@@ -42,16 +42,10 @@ export function CodingWorklist({ studyId, canCode }: { studyId: string; canCode:
     verified: rows.filter((r) => r.status === "verified").length,
   }), [rows]);
 
-  // Deep-link to the source AE/ConMed form. Uses the form DEFINITION id
-  // (inst.form_id) — the Subject Record's ?form= selects by definition id, so the
-  // instance id would break the link. Seeded rows (no instance) have no source.
-  const sourceHref = (r: CodingRow): string | null => {
-    if (!r.formInstanceId) return null;
-    const inst = dataset.formInstances.find((i) => i.id === r.formInstanceId);
-    if (!inst) return null;
-    const field = dataset.formFields.find((f) => f.form_id === inst.form_id && f.code === r.fieldCode);
-    return `/study/${studyId}/data-entry/${r.subjectId}?form=${inst.form_id}${field ? `&field=${field.id}` : ""}`;
-  };
+  // Deep-link to the source AE/ConMed form (form DEFINITION id, never the instance
+  // id). Resolves the row's own instance, a matching real instance, or the study's
+  // source form for the subject — see sourceFormLink. Null → no navigable source.
+  const sourceHref = (r: CodingRow): string | null => sourceFormLink(dataset, studyId, r);
 
   const filtered = useMemo(() => {
     const q = search.toLowerCase().trim();
