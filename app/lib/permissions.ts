@@ -58,8 +58,8 @@ export const NAV_ITEMS: NavItem[] = [
     access: { CRA: open, DM: { readonly: true } } },
   { key: "coding", label: "Coding", title: "Medical Coding", icon: "vocabulary",
     access: { DM: open, Admin: open, CRC: { readonly: true }, Sponsor: { readonly: true } } },
-  { key: "calendar", label: "Calendar", icon: "calendar",
-    access: { CRC: open, CRA: open, DM: open, PI: open, Sponsor: open } },
+  { key: "schedule", label: "Schedule", title: "Schedule of Events", icon: "table",
+    access: { CRC: open, CRA: open, DM: open, PI: open, Sponsor: open, Admin: open } },
   // Reports is a reporting/oversight surface — CRC (a data-entry role) is excluded.
   { key: "reports", label: "Reports", icon: "chart-bar",
     access: { CRA: open, DM: open, PI: open, Sponsor: { blinded: true }, Admin: open } },
@@ -102,6 +102,7 @@ export const NAV_ROUTES: Partial<Record<string, string>> = {
   animals: "animals",
   queries: "queries",
   visits: "visits",
+  schedule: "schedule",
   sdv: "sdv",
   coding: "coding",
   reports: "reports",
