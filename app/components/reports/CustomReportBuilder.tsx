@@ -273,6 +273,7 @@ export function CustomReportBuilder({ studyId, initial, source = "manual", saved
           ) : (
             <button type="button" className={`crb-title-h${namedTitle ? "" : " untitled"}`} onClick={() => setEditingTitle(true)} title="Edit report title">{title}<i className="ti ti-pencil crb-title-pencil"></i></button>
           )}
+          {mode === "run" && saved?.description && <p className="rpt-desc">{saved.description}</p>}
           <div className="rpt-meta">
             <span><i className="ti ti-flask"></i> {study.code} · {study.name}</span>
             {mode === "run"
