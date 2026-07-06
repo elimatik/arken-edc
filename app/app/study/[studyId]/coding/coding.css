@@ -93,9 +93,12 @@
 .cod-version { margin-left: auto; }
 
 /* ─── Coding panel (slide-in) ─── */
-.panel-overlay { display: none; position: fixed; inset: 0; background: rgba(14, 18, 28, 0.35); z-index: 100; }
-.panel-overlay.open { display: block; }
-.code-panel { position: fixed; top: 0; right: 0; width: 520px; height: 100%; background: var(--color-surface); border-left: 1px solid var(--color-border); display: flex; flex-direction: column; z-index: 101; transform: translateX(100%); transition: transform 300ms var(--ease-default); box-shadow: -8px 0 32px rgba(14, 18, 28, 0.12); }
+/* Prefixed class names — a generic ".panel-overlay" collides with the one in
+   subject-record.css (z-index 200, globally scoped), which would render on top of
+   this panel and dim it. The panel sits above its own overlay. */
+.cod-panel-overlay { display: none; position: fixed; inset: 0; background: rgba(14, 18, 28, 0.35); z-index: 300; }
+.cod-panel-overlay.open { display: block; }
+.code-panel { position: fixed; top: 0; right: 0; width: 520px; height: 100%; background: var(--color-surface); border-left: 1px solid var(--color-border); display: flex; flex-direction: column; z-index: 301; transform: translateX(100%); transition: transform 300ms var(--ease-default); box-shadow: -8px 0 32px rgba(14, 18, 28, 0.12); }
 .code-panel.open { transform: translateX(0); }
 .cp-header { display: flex; align-items: flex-start; justify-content: space-between; gap: var(--space-3); padding: var(--space-4) var(--space-5); border-bottom: 1px solid var(--color-border); flex-shrink: 0; }
 .cp-title { font-size: var(--text-lg); font-weight: var(--weight-medium); }
@@ -127,9 +130,10 @@
 .cp-result-block.blue { background: var(--blue-50); border-color: var(--blue-400); color: var(--blue-800, var(--blue-600)); }
 .cp-result-block.green, .cp-result-block.verified { background: var(--green-50); border-color: var(--green-500); color: var(--green-700, var(--green-600)); }
 /* "View source form" deep-link (uses the form DEFINITION id, not the instance id). */
-.cp-source-link { display: inline-flex; align-items: center; gap: 5px; margin: 0 var(--space-5) var(--space-2); padding: 6px var(--space-3); border: 1px solid var(--color-border); background: var(--color-surface); border-radius: var(--radius-md); font-size: var(--text-xs); font-weight: var(--weight-medium); color: var(--blue-600); cursor: pointer; align-self: flex-start; }
-.cp-source-link:hover { background: var(--blue-50); border-color: var(--blue-400); }
-.cp-source-link i { font-size: 13px; }
+/* Inline "· View source →" link inside the verbatim block's context line. */
+.vb-source-link { display: inline-flex; align-items: center; gap: 3px; padding: 0; border: 0; background: none; font-size: var(--text-xs); font-weight: var(--weight-medium); color: var(--blue-600); cursor: pointer; }
+.vb-source-link:hover { color: var(--blue-800, var(--blue-600)); text-decoration: underline; }
+.vb-source-link i { font-size: 12px; }
 /* Read-only "not yet coded" note (CRC / Sponsor viewing an uncoded term). */
 .cp-readonly-note { display: flex; align-items: center; gap: 6px; margin: var(--space-3) var(--space-5); padding: var(--space-3); border: 1px dashed var(--color-border); border-radius: var(--radius-md); font-size: var(--text-sm); color: var(--color-text-tertiary); flex-shrink: 0; }
 .cp-rb-label { display: flex; align-items: center; gap: 4px; font-size: 10px; font-weight: var(--weight-bold); text-transform: uppercase; letter-spacing: var(--tracking-caps); }

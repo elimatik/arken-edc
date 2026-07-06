@@ -161,25 +161,19 @@ export function codingIndex(dataset: Dataset, studyId: string): Map<string, Codi
 // Returns null only when there is nowhere to navigate: no subject/barn scope, or
 // the study has no such form (e.g. a drug term in a study without a ConMed form).
 export function sourceFormLink(dataset: Dataset, studyId: string, row: CodingRow): string | null {
+  // Only ?form= (the DEFINITION id) — it selects and opens the AE/ConMed form.
+  // Deliberately no &field=: that param makes the Subject Record open the field's
+  // query / edit-check panel, which is not what "View source" should do.
   const inst = resolveSourceInstance(dataset, studyId, row);
   if (inst) {
     const scope = inst.subject_id ? `data-entry/${inst.subject_id}` : inst.barn_id ? `barns/${inst.barn_id}` : null;
-    if (scope) return withField(dataset, `/study/${studyId}/${scope}`, inst.form_id, row);
+    if (scope) return `/study/${studyId}/${scope}?form=${inst.form_id}`;
   }
   if (!row.subjectId) return null;
   const forms = row.termType === "drug" ? conmedFormIds(dataset, studyId) : aeFormIds(dataset, studyId);
   const formId = forms.values().next().value;
   if (!formId) return null;
-  return withField(dataset, `/study/${studyId}/data-entry/${row.subjectId}`, formId, row);
-}
-
-// Append &field= for the verbatim field: prefer the row's own field code, else the
-// first AE/ConMed term field on the form. Uses the field id (the record's consumer).
-function withField(dataset: Dataset, base: string, formId: string, row: CodingRow): string {
-  const codes = row.termType === "drug" ? CONMED_MED_CODES : AE_DESC_CODES;
-  const field = dataset.formFields.find((f) => f.form_id === formId && f.code === row.fieldCode)
-    ?? dataset.formFields.find((f) => f.form_id === formId && codes.includes(f.code));
-  return `${base}?form=${formId}${field ? `&field=${field.id}` : ""}`;
+  return `/study/${studyId}/data-entry/${row.subjectId}?form=${formId}`;
 }
 
 function resolveSourceInstance(dataset: Dataset, studyId: string, row: CodingRow): FormInstanceRow | undefined {

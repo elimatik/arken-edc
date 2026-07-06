@@ -68,7 +68,7 @@ export function CodingPanel({ row, canCode, sourceHref, onClose, onApply }: { ro
 
   return (
     <>
-      <div className={`panel-overlay${open ? " open" : ""}`} onClick={onClose}></div>
+      <div className={`cod-panel-overlay${open ? " open" : ""}`} onClick={onClose}></div>
       <div className={`code-panel${open ? " open" : ""}`}>
         {row && (
           <>
@@ -83,7 +83,15 @@ export function CodingPanel({ row, canCode, sourceHref, onClose, onApply }: { ro
             <div className="verbatim-block">
               <div className="vb-label">Verbatim term</div>
               <div className="vb-term">{row.verbatimTerm}</div>
-              <div className="vb-context"><span className="mono">{row.subjectCode}</span><span>· {row.termType === "drug" ? "Concomitant medication" : "Adverse event"}</span></div>
+              <div className="vb-context">
+                <span className="mono">{row.subjectCode}</span>
+                <span>· {row.termType === "drug" ? "Concomitant Medication" : "Adverse Event"}</span>
+                {sourceHref && (
+                  <button type="button" className="vb-source-link" onClick={() => router.push(sourceHref)}>
+                    · View source <i className="ti ti-arrow-right"></i>
+                  </button>
+                )}
+              </div>
             </div>
 
             {hasResultBlock && (
@@ -105,12 +113,6 @@ export function CodingPanel({ row, canCode, sourceHref, onClose, onApply }: { ro
 
             {readOnly && !hasResultBlock && !isExcluded && (
               <div className="cp-readonly-note"><i className="ti ti-circle-dashed"></i> This term has not been coded yet.</div>
-            )}
-
-            {sourceHref && (
-              <button className="cp-source-link" type="button" onClick={() => router.push(sourceHref)}>
-                <i className="ti ti-external-link"></i> View source form
-              </button>
             )}
 
             {codedDefault && (
