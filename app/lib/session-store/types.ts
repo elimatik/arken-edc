@@ -193,6 +193,20 @@ export interface DeltaRecordRow {
   author_role: string;
   created_at: string;
   status: "pending" | "responded" | "approved";
+  approved_by?: string; // DM who reviewed/approved the change reason
+  approved_role?: string; // "DM"
+  approved_at?: string; // ISO — set once the DM signs off (status → approved)
+}
+
+// Electronic signature record (21 CFR Part 11 §11.50) — a PI sign-off linked to a
+// finalized form instance. Session-only; surfaced as a form_signed audit event.
+export interface ESignatureRow {
+  id: string;
+  form_instance_id: string;
+  signed_by: string;
+  signed_by_role: string;
+  signed_at: string; // ISO
+  meaning: string; // the attestation, e.g. "I confirm this data is accurate and complete"
 }
 
 // Session-only form lifecycle audit — a revert (finalized → in-work, DM/Admin) or a
@@ -451,6 +465,7 @@ export interface Dataset {
   editChecks: EditCheckRow[];
   sdvRecords: SdvRecordRow[];
   deltaRecords: DeltaRecordRow[];
+  eSignatures: ESignatureRow[]; // session-only electronic-signature log (21 CFR Part 11 §11.50)
   formAudits: FormAuditRow[]; // session-only form revert / withdraw log (Audit Trail)
   unblindings: UnblindingRow[]; // session-only emergency-unblinding log
   studyLocks: StudyLockRow[]; // session-only database-lock log
@@ -480,6 +495,7 @@ export const EMPTY_DATASET: Dataset = {
   editChecks: [],
   sdvRecords: [],
   deltaRecords: [],
+  eSignatures: [],
   formAudits: [],
   unblindings: [],
   studyLocks: [],

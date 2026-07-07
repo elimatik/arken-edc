@@ -840,6 +840,48 @@ export async function hydrateFromSupabase(): Promise<Dataset> {
     }
   }
 
+  // ─── Seeded change-reason (Δ) records + electronic signatures for BR-2502 ────
+  // deltaRecords are otherwise runtime-only; seed a few APPROVED ones so the Audit
+  // Trail can show the full edit → reason → DM-approval chain. eSignatures seed a PI
+  // sign-off per finalized BR form (21 CFR Part 11 §11.50).
+  const seededDeltas: Dataset["deltaRecords"] = [];
+  const seededSignatures: Dataset["eSignatures"] = [];
+  {
+    const fInstArr = formInstances as Dataset["formInstances"];
+    const fvArr = fieldValues as Dataset["fieldValues"];
+    const brSubjIds = new Set((subjects.data ?? []).filter((s) => s.study_id === brStudyId).map((s) => s.id));
+    const brInstIds = new Set(fInstArr.filter((i) => i.subject_id && brSubjIds.has(i.subject_id)).map((i) => i.id));
+    const ffById = new Map((reshapedFormFields as Dataset["formFields"]).map((f) => [f.id, f]));
+    const addHours = (iso: string, h: number) => new Date(new Date(iso).getTime() + h * 3600000).toISOString();
+
+    const deltaSpecs = [
+      { code: "rectal_temp", old: "40.1", reason: "Transcription error — value corrected against the source thermometer reading." },
+      { code: "heart_rate", old: "96", reason: "Original entry was the pre-exam reading; corrected to the on-exam value per source." },
+      { code: "body_weight", old: "312", reason: "Units mis-keyed at entry; re-verified against the scale printout in the source." },
+    ];
+    const CRC_NAMES = ["D. Okonkwo", "A. Reyes", "S. Kim"];
+    let di = 0;
+    for (const spec of deltaSpecs) {
+      const fv = fvArr.find((v) => brInstIds.has(v.form_instance_id) && ffById.get(v.form_field_id)?.code === spec.code && v.value && String(v.value) !== spec.old);
+      if (!fv) continue;
+      const created = `2026-05-2${2 + di}T14:0${di}:00Z`;
+      seededDeltas.push({
+        id: `delta-br-${di}`, field_value_id: fv.id, old_value: spec.old, new_value: String(fv.value), reason: spec.reason,
+        author_name: CRC_NAMES[di % CRC_NAMES.length], author_role: "CRC", created_at: created, status: "approved",
+        approved_by: "M. Chen", approved_role: "DM", approved_at: addHours(created, 3),
+      });
+      di++;
+    }
+
+    const brFinalized = fInstArr.filter((i) => brInstIds.has(i.id) && (i.status === "finalized" || i.status === "locked")).slice(0, 4);
+    brFinalized.forEach((inst, i) => {
+      seededSignatures.push({
+        id: `esig-br-${i}`, form_instance_id: inst.id, signed_by: "Dr. S. Patel", signed_by_role: "PI",
+        signed_at: `2026-06-0${2 + i}T16:30:00Z`, meaning: "I confirm this data is accurate and complete.",
+      });
+    });
+  }
+
   // ─── Seeded drug inventory (session-only) ───────────────────────────────────
   const inventory = buildInventorySeed(studiesWithTargets, sitesWithTargets, (subjects.data ?? []) as Dataset["subjects"]);
 
@@ -858,7 +900,8 @@ export async function hydrateFromSupabase(): Promise<Dataset> {
     queryMessages: rawMsgs,
     editChecks,
     sdvRecords: sdvWithSeed,
-    deltaRecords: [], // session-only — not sourced from Supabase
+    deltaRecords: seededDeltas, // session-only — seeded approved change-reason chain (BR-2502)
+    eSignatures: seededSignatures, // session-only — seeded PI electronic signatures (BR-2502)
     formAudits: [], // session-only — form revert / withdraw log
     unblindings: [], // session-only — emergency-unblinding log
     studyLocks: [], // session-only — database-lock log

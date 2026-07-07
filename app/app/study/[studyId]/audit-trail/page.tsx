@@ -22,8 +22,8 @@ import "./audit-trail.css";
 
 // ─── Action types + metadata ────────────────────────────────────────────────
 type AuditType =
-  | "data_entry" | "change_reason" | "edit_check" | "edit_check_resolved"
-  | "query_raised" | "query_responded" | "query_resolved"
+  | "data_entry" | "change_reason" | "change_reason_approved" | "edit_check" | "edit_check_resolved"
+  | "query_raised" | "query_responded" | "query_resolved" | "form_signed"
   | "sdv" | "form_submitted" | "form_locked" | "form_reverted" | "submission_withdrawn"
   | "unlock_requested" | "form_unlocked" | "unlock_denied" | "sdv_revoked" | "field_notdone" | "visit_rescheduled"
   | "randomization" | "consent" | "protocol_deviation"
@@ -33,6 +33,8 @@ type FilterCat = "data_entry" | "query" | "sdv" | "status_change" | "form_lock" 
 const TYPE_META: Record<AuditType, { label: string; cls: string; icon: string; cat: FilterCat }> = {
   data_entry:        { label: "Data Entry",         cls: "at-entry",     icon: "pencil",          cat: "data_entry" },
   change_reason:     { label: "Change Reason",      cls: "at-change",    icon: "history",         cat: "data_entry" },
+  change_reason_approved: { label: "Change Approved", cls: "at-change",  icon: "check",           cat: "data_entry" },
+  form_signed:       { label: "Form Signed",        cls: "at-signed",    icon: "writing-sign",    cat: "status_change" },
   edit_check:        { label: "Edit Check",         cls: "at-check",     icon: "alert-triangle",  cat: "data_entry" },
   edit_check_resolved: { label: "Edit Check Resolved", cls: "at-check",   icon: "checks",          cat: "data_entry" },
   query_raised:      { label: "Query Raised",       cls: "at-query",     icon: "flag",            cat: "query" },
@@ -137,6 +139,14 @@ interface AuditEvent {
   details: string;
   reason?: string;
   queryCode?: string;
+  queryId?: string; // set on query events — drives the full thread in the panel
+  approvedBy?: string; // change_reason: DM approver name
+  approvedRole?: string;
+  approvedAt?: string; // change_reason: ISO approval time
+  authorName?: string; // change_reason: who submitted the reason (for the panel chain)
+  authorRole?: string;
+  createdAt?: string; // change_reason: when the reason was submitted
+  meaning?: string; // form_signed: the attestation text
   statusBefore?: string;
   statusAfter?: string;
   source: SourceKey; // where the event originated (derived in buildAuditEvents)
@@ -146,19 +156,24 @@ interface AuditEvent {
 // are assigned to a stable demo cast by role (visitor-authored actions keep their
 // real NDA name + role).
 const CAST: Record<string, AuditUser> = {
-  CRC: { name: "Elisa Tron", role: "CRC", initials: "ET" },
-  CRA: { name: "Jordan Reyes", role: "CRA", initials: "JR" },
-  DM: { name: "Mei Chen", role: "DM", initials: "MC" },
+  CRC_CO: { name: "E. Tron", role: "CRC", initials: "ET" },     // Feedlot CO
+  CRC_KS: { name: "A. Reyes", role: "CRC", initials: "AR" },    // Feedlot KS
+  CRC_TX: { name: "D. Okonkwo", role: "CRC", initials: "DO" },  // Feedlot TX
+  CRC_NE: { name: "S. Kim", role: "CRC", initials: "SK" },      // Feedlot NE
+  CRC: { name: "E. Tron", role: "CRC", initials: "ET" },        // default CRC (site-less events)
+  CRA: { name: "J. Reyes", role: "CRA", initials: "JR" },
+  DM: { name: "M. Chen", role: "DM", initials: "MC" },
   PI: { name: "Dr. S. Patel", role: "PI", initials: "SP" },
   Auto: { name: "Edit check", role: "Auto", initials: "EC", auto: true },
 };
-// Deterministic user variation for synthetic (non-attributable) events so the trail
-// reflects a realistic multi-user team instead of one person. Data entry / submit is
-// spread across two CRCs + the DM; form locking across the CRA + DM. Picked by a
-// stable hash of the subject / form-instance id so an event's actor never changes.
-const ENTRY_CAST: AuditUser[] = [CAST.CRC, CAST.DM, { name: "A. Reyes", role: "CRC", initials: "AR" }];
-const LOCK_CAST: AuditUser[] = [CAST.CRA, CAST.DM];
-const pickBy = (pool: AuditUser[], seed: string): AuditUser => pool[hashStr(seed) % pool.length];
+// Data-entry / submission attribution varies across a realistic multi-site team so
+// a 12-subject / 4-site trail shows 6-8 distinct users rather than one. Each site
+// has its own CRC — an event is attributed to the CRC of the SUBJECT's site (CO →
+// E. Tron etc.); site-less events fall back to a stable hash across the four CRCs.
+const SITE_CRC: Record<string, AuditUser> = { CO: CAST.CRC_CO, KS: CAST.CRC_KS, TX: CAST.CRC_TX, NE: CAST.CRC_NE };
+const SITE_CRC_LIST: AuditUser[] = [CAST.CRC_CO, CAST.CRC_KS, CAST.CRC_TX, CAST.CRC_NE];
+const crcFor = (siteCode: string | null | undefined, fallbackSeed: string): AuditUser =>
+  (siteCode && SITE_CRC[siteCode]) ? SITE_CRC[siteCode] : SITE_CRC_LIST[hashStr(fallbackSeed) % SITE_CRC_LIST.length];
 const initialsFor = (name: string) => name.replace(/^Dr\.?\s+/i, "").split(/\s+/).map((w) => w[0]).join("").slice(0, 2).toUpperCase();
 const mkUser = (name: string | null | undefined, role: string | null | undefined): AuditUser => {
   const n = name ?? "Study team";
@@ -230,14 +245,15 @@ function buildAuditEvents(dataset: Dataset, studyId: string, baseNow: number): A
   // `source` is derived in one pass after all events are built (see return).
   const push = (e: Omit<AuditEvent, "id" | "source">) => events.push({ id: `ae-${seq++}`, source: "manual", ...e });
   const qCode = (id: string) => `Q-${id.slice(0, 4).toUpperCase()}`;
+  const siteCodeOf = (siteId: string | null) => (siteId ? siteById.get(siteId)?.code ?? null : null);
 
-  // 1 — Data entry: one event per saved field value. User attribution varies
-  // deterministically across the entry cast (fix 2). Field values documented as
-  // "Not done" / "N/A" become field_notdone events instead (fix 7).
+  // 1 — Data entry: one event per saved field value. Attribution is the CRC of the
+  // subject's SITE (fix 1). Field values documented "Not done" / "N/A" become
+  // field_notdone events instead (fix 7).
   for (const fv of dataset.fieldValues) {
     const ctx = ctxOfInstance(fv.form_instance_id); if (!ctx) continue;
     const field = fieldById.get(fv.form_field_id); if (!field) continue;
-    const entryUser = pickBy(ENTRY_CAST, ctx.subjectId ?? fv.form_instance_id);
+    const entryUser = crcFor(siteCodeOf(ctx.siteId), fv.id);
     if (fv.notDone || fv.value === "N/A") {
       push({ ts: synthTs(`nd${fv.id}`, baseNow), type: "field_notdone", user: entryUser, ...ctx, ...fieldBits(field),
         oldValue: null, newValue: fv.notDoneReason ?? "Not done", details: `${field.label} marked as Not done${fv.notDoneReason ? ` — ${fv.notDoneReason}` : ""}` });
@@ -249,13 +265,22 @@ function buildAuditEvents(dataset: Dataset, studyId: string, baseNow: number): A
       oldValue: null, newValue: `${fv.value}${unit}`, details: `${field.label} recorded as ${fv.value}${unit}` });
   }
 
-  // 2 — Change reasons (Δ records — visitor-authored, carry real timestamps).
+  // 2 — Change reasons (Δ records). The reason submission is one event; the DM
+  // approval (when signed off) is a second change_reason_approved event, so the
+  // panel can render the full edit → reason → approval chain (fix 2).
   for (const d of dataset.deltaRecords) {
     const fo = fieldOfValue(d.field_value_id); if (!fo) continue;
     const ctx = ctxOfInstance(fo.fv.form_instance_id); if (!ctx) continue;
+    const chain = { authorName: d.author_name, authorRole: d.author_role, createdAt: d.created_at,
+      approvedBy: d.approved_by, approvedRole: d.approved_role, approvedAt: d.approved_at };
     push({ ts: d.created_at, type: "change_reason", user: mkUser(d.author_name, d.author_role), ...ctx, ...fieldBits(fo.field),
-      oldValue: d.old_value, newValue: d.new_value, reason: d.reason,
+      oldValue: d.old_value, newValue: d.new_value, reason: d.reason, ...chain,
       details: `${fo.field.label} changed from ${d.old_value} to ${d.new_value}`, statusBefore: d.status });
+    if (d.approved_at && d.approved_by) {
+      push({ ts: d.approved_at, type: "change_reason_approved", user: mkUser(d.approved_by, d.approved_role ?? "DM"), ...ctx, ...fieldBits(fo.field),
+        oldValue: d.old_value, newValue: d.new_value, reason: d.reason, ...chain,
+        details: "Change reason reviewed and approved by DM", statusBefore: "responded", statusAfter: "approved" });
+    }
   }
 
   // 2b — Form lifecycle: reverts, withdrawn submissions, and unlock request/approve/deny.
@@ -305,16 +330,16 @@ function buildAuditEvents(dataset: Dataset, studyId: string, baseNow: number): A
     const auto = (first?.body ?? "").startsWith("Auto edit-check:");
     const raiser = auto ? CAST.Auto : first?.author_role ? mkUser(first.author_name, first.author_role) : CAST.CRA;
     push({ ts: q.created_at ?? first?.created_at ?? synthTs(`q${q.id}`, baseNow), type: "query_raised", user: raiser, ...ctx, ...fb,
-      oldValue: null, newValue: null, details: q.title, queryCode: qCode(q.id) });
+      oldValue: null, newValue: null, details: first?.body ?? q.title, queryCode: qCode(q.id), queryId: q.id });
     if (q.status === "responded" || q.status === "resolved") {
       const resp = msgs.find((m) => m !== first && m.author_role && !m.author_role.includes("System"));
       if (resp) push({ ts: resp.created_at, type: "query_responded", user: mkUser(resp.author_name, resp.author_role), ...ctx, ...fb,
-        oldValue: null, newValue: null, details: resp.body, queryCode: qCode(q.id) });
+        oldValue: null, newValue: null, details: resp.body, queryCode: qCode(q.id), queryId: q.id });
     }
     if (q.status === "resolved") {
       const last = msgs[msgs.length - 1];
       push({ ts: last?.created_at ?? synthTs(`qr${q.id}`, baseNow), type: "query_resolved", user: CAST.CRA, ...ctx, ...fb,
-        oldValue: null, newValue: null, details: `Query ${qCode(q.id)} resolved`, queryCode: qCode(q.id) });
+        oldValue: null, newValue: null, details: `Resolved — ${last?.body ?? "query closed"}`, queryCode: qCode(q.id), queryId: q.id });
     }
   }
 
@@ -329,7 +354,7 @@ function buildAuditEvents(dataset: Dataset, studyId: string, baseNow: number): A
       oldValue: null, newValue: fo?.fv.value ?? null, details: ec.message });
     if (ec.status === "resolved") {
       const resolvedAt = new Date(new Date(ec.created_at).getTime() + (hashStr(ec.id) % 72) * 3600000).toISOString();
-      push({ ts: resolvedAt, type: "edit_check_resolved", user: pickBy(ENTRY_CAST, ec.field_value_id || ec.id), ...ctx, ...fieldBits(fo?.field),
+      push({ ts: resolvedAt, type: "edit_check_resolved", user: crcFor(siteCodeOf(ctx.siteId), ec.id), ...ctx, ...fieldBits(fo?.field),
         oldValue: null, newValue: fo?.fv.value ?? null, details: `Edit check resolved${fo?.field ? ` — ${fo.field.label} corrected` : ""}` });
     }
   }
@@ -359,13 +384,12 @@ function buildAuditEvents(dataset: Dataset, studyId: string, baseNow: number): A
     const st = inst.status;
     const name = ctx.formName;
     const noField = { fieldId: null, fieldLabel: "", fieldCode: "" };
-    const lifeSeed = ctx.subjectId ?? inst.id;
     if (advanced(st)) {
-      push({ ts: synthTs(`sub${inst.id}`, baseNow), type: "form_submitted", user: pickBy(ENTRY_CAST, lifeSeed), ...ctx, ...noField,
+      push({ ts: synthTs(`sub${inst.id}`, baseNow), type: "form_submitted", user: crcFor(siteCodeOf(ctx.siteId), inst.id), ...ctx, ...noField,
         oldValue: null, newValue: null, details: `${name} submitted for review`, statusBefore: "in_work", statusAfter: st === "locked" ? "reviewed" : st });
     }
     if (st === "locked") {
-      push({ ts: synthTs(`lck${inst.id}`, baseNow), type: "form_locked", user: pickBy(LOCK_CAST, lifeSeed), ...ctx, ...noField,
+      push({ ts: synthTs(`lck${inst.id}`, baseNow), type: "form_locked", user: CAST.CRA, ...ctx, ...noField,
         oldValue: null, newValue: null, details: `${name} locked after SDV and signature`, statusBefore: "reviewed", statusAfter: "locked" });
     }
     // Randomization — the randomization/allocation form finalized.
@@ -413,7 +437,7 @@ function buildAuditEvents(dataset: Dataset, studyId: string, baseNow: number): A
     if (subj.study_id !== studyId) continue;
     const siteName = subj.site_id ? siteById.get(subj.site_id)?.name ?? "—" : "—";
     const ctx = { scope: "subject" as AuditScope, subjectId: subj.id, subjectCode: subj.subject_code, siteId: subj.site_id ?? null, siteName, formId: null, formName: "Subject record", formPath: "Subject record" };
-    push({ ts: synthTs(`enr${subj.id}`, baseNow), type: "subject_enrolled", user: CAST.CRC, ...ctx, fieldId: null, fieldLabel: "", fieldCode: "",
+    push({ ts: synthTs(`enr${subj.id}`, baseNow), type: "subject_enrolled", user: crcFor(siteCodeOf(subj.site_id ?? null), subj.id), ...ctx, fieldId: null, fieldLabel: "", fieldCode: "",
       oldValue: null, newValue: null, details: "Subject enrolled — screening complete, all criteria met", statusBefore: "—", statusAfter: "Screened" });
     if (subj.status === "withdrawn") {
       push({ ts: synthTs(`wd${subj.id}`, baseNow, 30), type: "subject_withdrawn", user: CAST.PI, ...ctx, fieldId: null, fieldLabel: "", fieldCode: "",
@@ -460,10 +484,18 @@ function buildAuditEvents(dataset: Dataset, studyId: string, baseNow: number): A
       oldValue: null, newValue: s.randomization_arm, details: `Subject randomized — ${s.subject_code}`, statusBefore: "Screened", statusAfter: "Randomized" });
   }
 
-  // 8 — Login events (synthetic; surfaced to Admin only — see visibleTo).
-  for (const role of ["CRC", "CRA", "DM", "PI"] as const) {
-    const u = CAST[role];
-    push({ ts: synthTs(`login${role}`, baseNow, 7), type: "login", user: u, scope: "subject", subjectId: null, subjectCode: "—", siteId: null, siteName: "—",
+  // 7.7 — Electronic signatures (21 CFR Part 11 §11.50) — a PI sign-off linked to a
+  // finalized form instance (fix 4).
+  for (const sig of dataset.eSignatures ?? []) {
+    const ctx = ctxOfInstance(sig.form_instance_id); if (!ctx) continue;
+    push({ ts: sig.signed_at, type: "form_signed", user: mkUser(sig.signed_by, sig.signed_by_role), ...ctx, fieldId: null, fieldLabel: "", fieldCode: "",
+      oldValue: null, newValue: null, details: sig.meaning, meaning: sig.meaning });
+  }
+
+  // 8 — Login events (synthetic; surfaced to Admin only — see visibleTo). One per
+  // team member, including each site CRC.
+  for (const u of [CAST.CRC_CO, CAST.CRC_KS, CAST.CRC_TX, CAST.CRC_NE, CAST.CRA, CAST.DM, CAST.PI]) {
+    push({ ts: synthTs(`login${u.initials}`, baseNow, 7), type: "login", user: u, scope: "subject", subjectId: null, subjectCode: "—", siteId: null, siteName: "—",
       formId: null, formName: "—", formPath: "—", fieldId: null, fieldLabel: "", fieldCode: "",
       oldValue: null, newValue: null, details: `${u.name} authenticated to the study` });
   }
@@ -486,6 +518,16 @@ function visibleTo(e: AuditEvent, role: string): boolean {
   // location-level entries, same as DM for site/barn scope). No action-type limit.
   if (role === "PI") return e.scope === "subject" || e.scope === "site" || e.scope === "barn";
   return true;
+}
+
+const trunc = (s: string, n: number): string => (s.length > n ? `${s.slice(0, n - 1)}…` : s);
+const QUERY_TYPES = new Set<AuditType>(["query_raised", "query_responded", "query_resolved"]);
+// The Reason column shows the change reason; for query events it shows the relevant
+// message text (fix 3), for form_signed the attestation.
+function reasonColumn(e: AuditEvent): string | null {
+  if (QUERY_TYPES.has(e.type)) return trunc(e.details, 60);
+  if (e.type === "form_signed") return e.meaning ?? e.details;
+  return e.reason ?? null;
 }
 
 function cmp(a: AuditEvent, b: AuditEvent, col: string): number {
@@ -713,7 +755,7 @@ export default function AuditTrailPage() {
                     <td>{e.fieldLabel ? <span className="au-field"><span className="au-field-label" title={e.fieldLabel}>{e.fieldLabel}</span>{e.fieldCode && <span className="au-field-code">{e.fieldCode}</span>}</span> : <span className="au-dash">—</span>}</td>
                     <td>{e.oldValue != null ? <span className="au-old" title={e.oldValue}>{e.oldValue}</span> : <span className="au-dash">—</span>}</td>
                     <td>{e.newValue != null ? <span className="au-new" title={e.newValue}>{e.newValue}</span> : <span className="au-dash">—</span>}</td>
-                    <td><div className="au-details-cell">{e.reason ? <span className="au-details" title={e.reason}>{e.reason}</span> : <span className="au-dash">—</span>}<span className={`au-src-tag ${SOURCE_META[e.source].cls}`} title={`Source: ${SOURCE_META[e.source].label}`}>{SOURCE_META[e.source].label}</span></div></td>
+                    <td><div className="au-details-cell">{(() => { const rc = reasonColumn(e); return rc ? <span className="au-details" title={rc}>{rc}</span> : <span className="au-dash">—</span>; })()}<span className={`au-src-tag ${SOURCE_META[e.source].cls}`} title={`Source: ${SOURCE_META[e.source].label}`}>{SOURCE_META[e.source].label}</span></div></td>
                   </tr>
                 );
               })}
@@ -752,6 +794,71 @@ export default function AuditTrailPage() {
               {panelEvent.subjectId && (
                 <div className="au-viewlink-bar"><span className="au-panel-link" onClick={() => gotoRecord(panelEvent)}><i className="ti ti-external-link" style={{ fontSize: 12 }}></i> View in subject record</span></div>
               )}
+
+              {/* Change-reason approval chain (fix 2) */}
+              {(panelEvent.type === "change_reason" || panelEvent.type === "change_reason_approved") && (
+                <div className="au-chain">
+                  <div className="au-chain-step">
+                    <div className="au-chain-dot"></div>
+                    <div className="au-chain-body">
+                      <div className="au-chain-head"><span className="au-chain-title">Field edited</span><span className="au-chain-meta">{panelEvent.authorName ?? panelEvent.user.name} · {panelEvent.authorRole ?? panelEvent.user.role} · {fmtTs(panelEvent.createdAt ?? panelEvent.ts)}</span></div>
+                      <div className="au-chain-detail">{panelEvent.fieldLabel && <><strong>{panelEvent.fieldLabel}</strong>: </>}<span className="au-old">{panelEvent.oldValue}</span> → <span className="au-new">{panelEvent.newValue}</span></div>
+                    </div>
+                  </div>
+                  <div className="au-chain-step">
+                    <div className="au-chain-dot"></div>
+                    <div className="au-chain-body">
+                      <div className="au-chain-head"><span className="au-chain-title">Reason submitted</span><span className="au-chain-meta">{panelEvent.authorName ?? "—"} · {panelEvent.authorRole ?? "—"} · {fmtTs(panelEvent.createdAt ?? panelEvent.ts)}</span></div>
+                      <div className="au-chain-detail au-chain-quote">“{panelEvent.reason}”</div>
+                    </div>
+                  </div>
+                  <div className={`au-chain-step${panelEvent.approvedAt ? " done" : " pending"}`}>
+                    <div className="au-chain-dot">{panelEvent.approvedAt && <i className="ti ti-check"></i>}</div>
+                    <div className="au-chain-body">
+                      <div className="au-chain-head"><span className="au-chain-title">{panelEvent.approvedAt ? "Approved by DM" : "Awaiting DM approval"}</span>{panelEvent.approvedAt && <span className="au-chain-meta">{panelEvent.approvedBy} · {panelEvent.approvedRole} · {fmtTs(panelEvent.approvedAt)}</span>}</div>
+                      {panelEvent.approvedAt && <div className="au-chain-detail">Change reason reviewed and approved</div>}
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              {/* Query message thread (fix 3) */}
+              {QUERY_TYPES.has(panelEvent.type) && (() => {
+                const thread = dataset.queryMessages.filter((m) => m.query_id === panelEvent.queryId).slice().sort((a, b) => (a.created_at < b.created_at ? -1 : 1));
+                return (
+                  <div className="au-thread">
+                    {thread.length === 0 && <div className="au-msg-empty">No thread messages recorded.</div>}
+                    {thread.map((m) => {
+                      const role = m.author_role ?? "—";
+                      const mine = /CRA|DM/i.test(role);
+                      const nm = m.author_name ?? (role.includes("System") || (m.body ?? "").startsWith("Auto edit-check:") ? "Edit check" : "—");
+                      return (
+                        <div key={m.id} className={`au-msg ${mine ? "right" : "left"}`}>
+                          <div className="au-msg-avatar">{initialsFor(nm)}</div>
+                          <div className="au-msg-bubble">
+                            <div className="au-msg-head"><span className="au-msg-name">{nm}</span><span className="au-role">{role}</span><span className="au-msg-ts">{fmtTs(m.created_at)}</span></div>
+                            <div className="au-msg-body">{m.body}</div>
+                          </div>
+                        </div>
+                      );
+                    })}
+                    {panelEvent.fieldLabel && (
+                      <div className="au-thread-foot">→ Linked field: <strong>{panelEvent.fieldLabel}</strong>{panelEvent.subjectId && <span className="au-panel-link" style={{ marginLeft: 8 }} onClick={() => gotoRecord(panelEvent)}>View in subject record →</span>}</div>
+                    )}
+                  </div>
+                );
+              })()}
+
+              {/* Electronic signature (fix 4) */}
+              {panelEvent.type === "form_signed" && (
+                <div className="au-sign">
+                  <div className="au-sign-head"><i className="ti ti-writing-sign"></i> Electronic signature</div>
+                  <div className="au-sign-meaning">“{panelEvent.meaning ?? panelEvent.details}”</div>
+                  <div className="au-sign-meta">Signed by <strong>{panelEvent.user.name}</strong> · {panelEvent.user.role} · {fmtTs(panelEvent.ts)}</div>
+                  <div className="au-sign-note"><i className="ti ti-shield-lock"></i> In production: cryptographically linked to the record hash per 21 CFR Part 11 §11.50</div>
+                </div>
+              )}
+
               <div className="au-detail-grid">
                 {row("Timestamp", fmtTs(panelEvent.ts), true)}
                 {row("Action", <span className={`au-type ${meta.cls}`}><i className={`ti ti-${meta.icon}`}></i> {meta.label}</span>)}
