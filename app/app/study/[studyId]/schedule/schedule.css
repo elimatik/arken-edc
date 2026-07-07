@@ -62,7 +62,9 @@
 .marker-blood { background: var(--red-50); color: var(--red-600); border: 1px solid var(--red-200); }
 .marker-check { background: var(--slate-50); color: var(--slate-600); border: 1px solid var(--slate-200); }
 .marker-fast { background: var(--amber-50); color: var(--amber-700); font-size: 15px; }
-.marker-note { background: var(--slate-50); color: var(--slate-600); border: 1px solid var(--slate-200); font-size: 10px; }
+/* Conditional marker — a small diamond in a dashed box (dashed = tentative /
+   condition-triggered, e.g. re-treatment). Not a letter, so it doesn't read as data. */
+.marker-note { background: transparent; color: var(--slate-500, var(--slate-600)); border: 1px dashed var(--slate-300); font-size: 9px; }
 .marker-done { background: var(--green-50); color: var(--green-600); }
 .marker-due { background: var(--amber-200, var(--amber-400)); color: var(--amber-700); }
 .marker-overdue { background: var(--red-600); color: #fff; animation: soe-pulse 2s infinite; }

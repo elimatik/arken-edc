@@ -361,6 +361,29 @@ export async function hydrateFromSupabase(): Promise<Dataset> {
     });
   }
 
+  // ─── BR-2502 treatment-phase completion — realistic in-progress SoE ──────────
+  // The Schedule of Events overlays live completion onto the protocol grid. Dosing
+  // was 2026-05-15, so every treatment visit is now past-window → the grid read as
+  // all-overdue. Finalize the EARLY treatment visits (Day 0 → Day 14) for the
+  // majority of active subjects so those columns clear to their base protocol
+  // markers, while Day 21/28/42 stay incomplete (overdue / due). The per-day visit
+  // form buildVisits() reads is the Vital Signs form; ~2 active subjects are left
+  // behind for realistic texture.
+  {
+    const EARLY_DAYS = new Set([0, 3, 7, 14]);
+    const dayOfName = (name?: string): number | null => { const m = /Day\s+(\d+)/i.exec(name ?? ""); return m ? Number(m[1]) : null; };
+    const earlyVsFormIds = brVsForms.filter((f) => { const d = dayOfName(f.name); return d != null && EARLY_DAYS.has(d); }).map((f) => f.id);
+    const brActive = (subjects.data ?? []).filter((s) => s.study_id === brStudyId && s.status === "active");
+    const toComplete = brActive.slice(0, Math.max(1, brActive.length - 2)); // leave ~2 stragglers
+    for (const subj of toComplete) {
+      for (const formId of earlyVsFormIds) {
+        const inst = fInst.find((i) => i.form_id === formId && i.subject_id === subj.id);
+        if (inst) inst.status = "finalized";
+        else fInst.push({ id: `fi-br-early-${subj.id}-${formId}`, form_id: formId, subject_id: subj.id, status: "finalized" });
+      }
+    }
+  }
+
   // ─── CA-0801 Study Drug Dispensation / Accountability values ────────────────
   // The reshape above replaced the CA drug-form fields, orphaning the live DB values.
   // Re-seed the new field codes on each existing instance for active/completed dogs:
