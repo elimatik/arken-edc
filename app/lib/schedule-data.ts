@@ -12,7 +12,7 @@ import type { Dataset } from "./session-store/types";
 import { buildVisits, addDays, type VisitRow } from "./visits-data";
 
 export type Phase = "screening" | "treatment" | "followup";
-export type MarkerType = "x" | "dose" | "blood" | "check" | "fast";
+export type MarkerType = "x" | "dose" | "blood" | "check" | "fast" | "note";
 export type LiveStatus = "done" | "overdue" | "due";
 
 export interface DayCol {
@@ -38,6 +38,7 @@ const D: MarkerType = "dose"; // dosing
 const B: MarkerType = "blood"; // blood / sample
 const A: MarkerType = "check"; // assessment
 const F: MarkerType = "fast"; // fasting required
+const N: MarkerType = "note"; // conditional / note (e.g. re-treatment flag)
 const _ = null;
 
 const PHASE_LABEL: Record<Phase, string> = { screening: "Screening", treatment: "Active Treatment", followup: "Follow-up" };
@@ -65,18 +66,24 @@ const BR: StudyScheduleConfig = {
       { name: "Subject ID & enrollment", cells: [_, X, _, _, _, _, _, _, _, _] },
     ] },
     { group: "Randomization & Treatment", rows: [
-      { name: "Randomization / arm assignment", cells: [_, X, X, _, _, _, _, _, _, _] },
+      // Randomization happens at enrollment/dosing (D0), not at the D-7 screening visit.
+      { name: "Randomization / arm assignment", cells: [_, _, X, _, _, _, _, _, _, _] },
       { name: "Study drug administration", fn: 2, cells: [_, _, D, _, _, _, _, _, _, _] },
       { name: "Fasting requirement (pre-dose)", cells: [_, F, _, _, _, _, _, _, _, _] },
       { name: "Dose confirmation log", cells: [_, _, X, _, _, _, _, _, _, _] },
     ] },
     { group: "Assessments", rows: [
+      // DART is the named primary BRD assessment instrument — scheduled every visit
+      // except the D-7 screening visit.
+      { name: "DART score (0–12)", fn: 8, cells: [A, _, A, A, A, A, A, A, A, A] },
       { name: "Physical examination", cells: [X, X, X, X, X, X, X, X, X, X] },
       { name: "Rectal temperature", cells: [X, X, X, X, X, X, X, X, X, X] },
       { name: "Heart & respiratory rate", cells: [X, X, X, X, X, X, X, X, X, X] },
       { name: "Nasal / ocular discharge score", cells: [X, X, X, _, X, X, X, X, X, _] },
       { name: "Body condition score (BCS)", cells: [X, X, X, _, _, X, X, X, X, X] },
       { name: "Welfare assessment", fn: 3, cells: [X, _, X, _, _, X, _, X, _, X] },
+      // Re-treatment is triggered by DART ≥ 2 from Day 3 onward.
+      { name: "Re-treatment assessment", fn: 9, cells: [_, _, _, _, N, N, _, _, _, _] },
     ] },
     { group: "Laboratory", rows: [
       { name: "Whole blood — haematology", fn: 4, cells: [B, _, B, _, B, B, B, _, B, B] },
@@ -90,6 +97,7 @@ const BR: StudyScheduleConfig = {
       { name: "Adverse event monitoring", cells: [A, A, A, A, A, A, A, A, A, A] },
       { name: "SAE reporting window", fn: 7, cells: [X, _, _, _, _, _, _, _, X, X] },
       { name: "Protocol deviation log", cells: [X, _, X, _, _, X, _, _, X, X] },
+      { name: "Withdrawal period", fn: 10, cells: [_, _, _, _, _, _, _, _, _, X] },
     ] },
   ],
   footnotes: [
@@ -100,6 +108,9 @@ const BR: StudyScheduleConfig = {
     { num: 5, text: "All samples labelled with Subject ID, Study Day, and collection time; stored in the designated site freezer with a maintained chain-of-custody log." },
     { num: 6, text: "BRD clinical score is the primary efficacy endpoint. Treatment success = ≥50% reduction from baseline AND score ≤3 at Day 7; failure = no reduction or rescue medication required." },
     { num: 7, text: "SAEs must be reported to the Sponsor within 24 h of discovery via the ARKEN SAE form plus direct contact with the Medical Monitor (Protocol §8.4)." },
+    { num: 8, text: "DART = Depression, Appetite, Respiratory, Temperature. Score ≥2 triggers re-treatment assessment per protocol." },
+    { num: 9, text: "Re-treatment indicated if DART ≥ 2 at Day 3 or later. See Re-treatment Log form." },
+    { num: 10, text: "T01: 49 days · T02: 84 days (FARAD extra-label) · T03 (saline): none. Measured from last administration." },
   ],
 };
 
@@ -245,20 +256,30 @@ export function buildSchedule(dataset: Dataset, studyId: string, todayISO: strin
 
   const visits = buildVisits(dataset, studyId).filter((v) => v.subjectStatus === "active");
 
-  // Per visit-day live status, aggregated across active subjects. Precedence:
-  // overdue (a missed, past-window visit) → due (within window of today) → done
-  // (at least one completed) → none (future / no data → shows the protocol marker).
+  // A visit is overdue only when its window has CLOSED, it is not completed, and
+  // the subject is active; due when the window is currently open and not completed.
   const isOverdue = (r: VisitRow) => !r.completed && addDays(r.targetDate, r.window) < todayISO;
   const isDue = (r: VisitRow) => !r.completed && addDays(r.targetDate, r.window) >= todayISO && Math.abs(daysBetween(todayISO, r.targetDate)) <= r.window;
 
+  // Per visit-day live status. The SoE is a protocol template: completed visits
+  // and visits still in the future fall back to the BASE protocol marker (X/D/B/A).
+  // An actionable accent (overdue ⚠ / due !) is only surfaced when it is the
+  // DOMINANT state for that day across active subjects — so a single overdue
+  // straggler no longer floods the whole column with red (the old `.some` bug).
   const byDay = new Map<number, VisitRow[]>();
   for (const v of visits) { const arr = byDay.get(v.day); if (arr) arr.push(v); else byDay.set(v.day, [v]); }
   const liveByDay = new Map<number, LiveStatus>();
   for (const [day, rows] of Array.from(byDay.entries())) {
-    const overdue = rows.some(isOverdue);
-    const due = rows.some(isDue);
-    const anyDone = rows.some((r) => r.completed);
-    const status: LiveStatus | null = overdue ? "overdue" : due ? "due" : anyDone ? "done" : null;
+    let overdue = 0, due = 0, done = 0, future = 0;
+    for (const r of rows) {
+      if (r.completed) done++;
+      else if (isOverdue(r)) overdue++;
+      else if (isDue(r)) due++;
+      else future++; // window not open yet — the visit is still ahead
+    }
+    let status: LiveStatus | null = null;
+    if (overdue > done && overdue >= due && overdue >= future) status = "overdue";
+    else if (due > done && due >= overdue && due >= future) status = "due";
     if (status) liveByDay.set(day, status);
   }
 

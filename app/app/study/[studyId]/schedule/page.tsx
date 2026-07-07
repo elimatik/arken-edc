@@ -24,6 +24,7 @@ function Marker({ type }: { type: MarkerType | LiveStatus }) {
     case "blood": return <span className="marker marker-blood" title="Blood / sample">B</span>;
     case "check": return <span className="marker marker-check" title="Assessment">A</span>;
     case "fast": return <span className="marker marker-fast" title="Fasting required">⊘</span>;
+    case "note": return <span className="marker marker-note" title="Conditional — see footnote">N</span>;
     case "done": return <span className="marker marker-done" title="Completed"><i className="ti ti-check"></i></span>;
     case "overdue": return <span className="marker marker-overdue" title="Overdue"><i className="ti ti-alert-circle"></i></span>;
     case "due": return <span className="marker marker-due" title="Due now">!</span>;
@@ -133,8 +134,8 @@ export default function SchedulePage() {
         <span className="legend-item"><span className="marker marker-blood">B</span> Blood / sample</span>
         <span className="legend-item"><span className="marker marker-check">A</span> Assessment</span>
         <span className="legend-item"><span className="marker marker-fast">⊘</span> Fasting</span>
+        <span className="legend-item"><span className="marker marker-note">N</span> Conditional</span>
         <span className="legend-sep"></span>
-        <span className="legend-item"><span className="marker marker-done"><i className="ti ti-check"></i></span> Done</span>
         <span className="legend-item"><span className="marker marker-due">!</span> Due now</span>
         <span className="legend-item"><span className="marker marker-overdue"><i className="ti ti-alert-circle"></i></span> Overdue</span>
       </div>
