@@ -11,9 +11,10 @@
 // ════════════════════════════════════════════════════════════════════════════
 
 import { useEffect, useMemo, useState } from "react";
-import { useParams, useRouter } from "next/navigation";
+import { useParams, useRouter, useSearchParams } from "next/navigation";
 import { useShell } from "@/components/shell/ShellContext";
 import { useStudySession } from "@/lib/session-store/SessionStore";
+import { downloadCsv } from "@/lib/reports-data";
 import { useTableSort } from "@/lib/useTableSort";
 import { SortTh } from "@/components/common/SortTh";
 import type { Dataset } from "@/lib/session-store/types";
@@ -77,6 +78,21 @@ const CAT_OPTIONS: { value: string; label: string }[] = [
   { value: "database_lock", label: "Database lock" },
   { value: "drug_supply", label: "Drug supply" },
   { value: "login", label: "Login" },
+];
+
+// ─── Preset tabs — coarse groupings over action types, deep-linkable via ?cat= ──
+type PresetKey = "all" | "clinical" | "query" | "system";
+const PRESETS: Record<PresetKey, Set<AuditType> | null> = {
+  all: null,
+  clinical: new Set<AuditType>(["data_entry", "change_reason", "change_reason_approved", "edit_check", "edit_check_resolved", "field_notdone", "sdv", "sdv_revoked", "form_submitted", "form_locked", "form_reverted", "submission_withdrawn", "unlock_requested", "form_unlocked", "unlock_denied", "form_signed"]),
+  query: new Set<AuditType>(["query_raised", "query_responded", "query_resolved"]),
+  system: new Set<AuditType>(["login", "database_lock", "database_unlock", "drug_supply", "unblinding", "randomization", "consent", "protocol_deviation", "subject_enrolled", "subject_withdrawn", "visit_rescheduled"]),
+};
+const PRESET_TABS: { key: PresetKey; label: string }[] = [
+  { key: "all", label: "All" },
+  { key: "clinical", label: "Clinical Data" },
+  { key: "query", label: "Query Workflow" },
+  { key: "system", label: "System & Security" },
 ];
 
 // ─── Event source — where the event originated (v1 derivation, no key bump) ──
@@ -550,6 +566,7 @@ export default function AuditTrailPage() {
   const params = useParams();
   const studyId = String(params.studyId);
   const router = useRouter();
+  const searchParams = useSearchParams();
   const { activeRole } = useShell();
   const { dataset, ready } = useStudySession();
   const study = dataset.studies.find((s) => s.id === studyId);
@@ -592,6 +609,11 @@ export default function AuditTrailPage() {
 
   const [search, setSearch] = useState("");
   const [catF, setCatF] = useState("all");
+  const [preset, setPreset] = useState<PresetKey>(() => {
+    const c = searchParams.get("cat");
+    return c === "clinical" || c === "query" || c === "system" ? c : "all";
+  });
+  const [exportOpen, setExportOpen] = useState(false);
   const [userF, setUserF] = useState("all");
   const [siteF, setSiteF] = useState("all"); // by site id; subject search covers subject IDs
   const [formF, setFormF] = useState("all");
@@ -612,7 +634,9 @@ export default function AuditTrailPage() {
 
   const filtered = useMemo(() => {
     const q = search.toLowerCase().trim();
+    const presetSet = PRESETS[preset];
     const out = roleEvents.filter((e) => {
+      if (presetSet && !presetSet.has(e.type)) return false;
       if (catF !== "all" && TYPE_META[e.type].cat !== catF) return false;
       if (sourceF !== "all" && e.source !== sourceF) return false;
       if (userF !== "all" && e.user.name !== userF) return false;
@@ -631,17 +655,49 @@ export default function AuditTrailPage() {
       if (sort) { const r = cmp(a, b, sort.col); return sort.dir === "asc" ? r : -r; }
       return a.ts < b.ts ? 1 : a.ts > b.ts ? -1 : 0; // default newest first
     });
-  }, [roleEvents, search, catF, sourceF, userF, siteF, formF, dateFrom, dateTo, sort]);
+  }, [roleEvents, preset, search, catF, sourceF, userF, siteF, formF, dateFrom, dateTo, sort]);
 
   // Fall back to roleEvents (role-filtered + arm-masked), never allEvents, so the
-  // detail panel can never surface a hidden/unmasked value.
-  const panelEvent = panelId ? filtered.find((e) => e.id === panelId) ?? roleEvents.find((e) => e.id === panelId) ?? null : null;
+  // detail panel can never surface a hidden/unmasked value. Query events never open
+  // the panel — they deep-link to the Queries module (their thread lives there).
+  const panelFound = panelId ? filtered.find((e) => e.id === panelId) ?? roleEvents.find((e) => e.id === panelId) ?? null : null;
+  const panelEvent = panelFound && !QUERY_TYPES.has(panelFound.type) ? panelFound : null;
 
   function gotoRecord(e: AuditEvent) {
     if (!e.subjectId) return;
     // Navigate to the subject record in its default state only — no deep-linked
     // form/field, no auto-opened query panel. The user can find the field themselves.
     router.push(`/study/${studyId}/data-entry/${e.subjectId}`);
+  }
+  // Query events deep-link to the Queries module (their full thread lives there).
+  const gotoThread = (e: AuditEvent) => router.push(`/study/${studyId}/queries?query=${e.queryCode ?? ""}`);
+  const openRow = (e: AuditEvent) => { if (QUERY_TYPES.has(e.type)) gotoThread(e); else setPanelId(e.id); };
+
+  // Preset tab → set the action grouping, reset the secondary dropdown, and sync
+  // ?cat= so the view is deep-linkable.
+  function selectPreset(p: PresetKey) {
+    setPreset(p); setCatF("all"); setPanelId(null);
+    const sp = new URLSearchParams(searchParams.toString());
+    if (p === "all") sp.delete("cat"); else sp.set("cat", p);
+    const qs = sp.toString();
+    router.replace(`/study/${studyId}/audit-trail${qs ? `?${qs}` : ""}`, { scroll: false });
+  }
+
+  // CSV export — fixed column order; Full ignores filters, Current view respects them.
+  const CSV_HEADERS = ["Timestamp (UTC)", "User", "Role", "Action", "Subject", "Site", "Form", "Field", "Field code", "Old value", "New value", "Reason", "Source"];
+  const csvRow = (e: AuditEvent): (string | number | null)[] => [
+    fmtTs(e.ts), e.user.name, e.user.role, TYPE_META[e.type].label, e.subjectCode, e.siteName, e.formName,
+    e.fieldLabel, e.fieldCode, e.oldValue ?? "", e.newValue ?? "", reasonColumn(e) ?? "", SOURCE_META[e.source].label,
+  ];
+  const today = dateKey(new Date(baseNow).toISOString());
+  function exportFull() {
+    const rows = roleEvents.slice().sort((a, b) => (a.ts < b.ts ? 1 : a.ts > b.ts ? -1 : 0)).map(csvRow);
+    downloadCsv(`audit-trail-${study?.code ?? "study"}-${today}.csv`, CSV_HEADERS, rows);
+    setExportOpen(false); setToast(`Exported ${rows.length.toLocaleString()} events — full audit trail.`);
+  }
+  function exportView() {
+    downloadCsv(`audit-trail-${study?.code ?? "study"}-${preset}-${today}.csv`, CSV_HEADERS, filtered.map(csvRow));
+    setExportOpen(false); setToast(`Exported ${filtered.length.toLocaleString()} events — current view.`);
   }
 
   if (!ready) return <div className="au-screen"><div className="au-empty"><i className="ti ti-loader-2"></i> Loading…</div></div>;
@@ -686,7 +742,21 @@ export default function AuditTrailPage() {
             <h1 className="au-title">Audit Trail</h1>
             <span className="au-cfr-badge"><i className="ti ti-shield-lock"></i> 21 CFR Part 11</span>
           </div>
-          <button className="btn-secondary" type="button" onClick={() => setToast("Export initiated — CSV will download shortly.")}><i className="ti ti-download"></i> Export CSV</button>
+          <div className="au-export">
+            <button className="btn-secondary au-export-btn" type="button" onClick={() => setExportOpen((o) => !o)} aria-haspopup="menu" aria-expanded={exportOpen}>
+              <i className="ti ti-download"></i> Export <i className="ti ti-chevron-down" style={{ fontSize: 12 }}></i>
+            </button>
+            {exportOpen && (
+              <>
+                <div className="au-export-backdrop" onClick={() => setExportOpen(false)}></div>
+                <div className="au-export-menu" role="menu">
+                  <button type="button" role="menuitem" onClick={exportFull}><i className="ti ti-database"></i><span><span className="au-export-title">Full audit trail</span><span className="au-export-sub">All events, chronological · ignores filters</span></span></button>
+                  <button type="button" role="menuitem" onClick={exportView}><i className="ti ti-filter"></i><span><span className="au-export-title">Current view</span><span className="au-export-sub">This tab + filters ({filtered.length.toLocaleString()} events)</span></span></button>
+                  <button type="button" role="menuitem" onClick={() => { setExportOpen(false); setToast("ZIP export coming soon — use individual tab exports for now."); }}><i className="ti ti-file-zip"></i><span><span className="au-export-title">By category (zip)</span><span className="au-export-sub">Coming soon</span></span></button>
+                </div>
+              </>
+            )}
+          </div>
         </div>
       </div>
 
@@ -694,6 +764,13 @@ export default function AuditTrailPage() {
       <div className="au-banner">
         <i className="ti ti-info-circle"></i>
         <span>This audit trail is session-based for portfolio demonstration. In production, all entries are permanently recorded and tamper-evident per 21 CFR Part 11.</span>
+      </div>
+
+      {/* Preset tabs */}
+      <div className="au-tabs">
+        {PRESET_TABS.map((t) => (
+          <button key={t.key} type="button" className={`au-tab${preset === t.key ? " active" : ""}`} onClick={() => selectPreset(t.key)}>{t.label}</button>
+        ))}
       </div>
 
       {/* Filter toolbar */}
@@ -745,8 +822,11 @@ export default function AuditTrailPage() {
             <tbody>
               {filtered.map((e) => {
                 const meta = TYPE_META[e.type];
+                const isQuery = QUERY_TYPES.has(e.type);
+                const muted = e.source === "system" && preset !== "system"; // de-emphasise system rows outside the System tab
+                const rc = reasonColumn(e);
                 return (
-                  <tr key={e.id} className={panelId === e.id ? "active-row" : ""} onClick={() => setPanelId(e.id)}>
+                  <tr key={e.id} className={`${panelId === e.id ? "active-row" : ""}${muted ? " au-row-muted" : ""}`} onClick={() => openRow(e)}>
                     <td><span className="au-ts">{fmtTs(e.ts)}</span></td>
                     <td>{userCell(e.user)}</td>
                     <td><span className={`au-type ${meta.cls}`}><i className={`ti ti-${meta.icon}`}></i> {meta.label}</span></td>
@@ -755,7 +835,11 @@ export default function AuditTrailPage() {
                     <td>{e.fieldLabel ? <span className="au-field"><span className="au-field-label" title={e.fieldLabel}>{e.fieldLabel}</span>{e.fieldCode && <span className="au-field-code">{e.fieldCode}</span>}</span> : <span className="au-dash">—</span>}</td>
                     <td>{e.oldValue != null ? <span className="au-old" title={e.oldValue}>{e.oldValue}</span> : <span className="au-dash">—</span>}</td>
                     <td>{e.newValue != null ? <span className="au-new" title={e.newValue}>{e.newValue}</span> : <span className="au-dash">—</span>}</td>
-                    <td><div className="au-details-cell">{(() => { const rc = reasonColumn(e); return rc ? <span className="au-details" title={rc}>{rc}</span> : <span className="au-dash">—</span>; })()}<span className={`au-src-tag ${SOURCE_META[e.source].cls}`} title={`Source: ${SOURCE_META[e.source].label}`}>{SOURCE_META[e.source].label}</span></div></td>
+                    <td><div className="au-details-cell">
+                      {rc ? <span className="au-details" title={rc}>{rc}</span> : <span className="au-dash">—</span>}
+                      {isQuery && <span className="au-thread-link" onClick={(ev) => { ev.stopPropagation(); gotoThread(e); }}>View thread →</span>}
+                      {e.source === "system" && <span className={`au-src-tag ${SOURCE_META.system.cls}`} title="Source: System">System</span>}
+                    </div></td>
                   </tr>
                 );
               })}
@@ -821,33 +905,6 @@ export default function AuditTrailPage() {
                   </div>
                 </div>
               )}
-
-              {/* Query message thread (fix 3) */}
-              {QUERY_TYPES.has(panelEvent.type) && (() => {
-                const thread = dataset.queryMessages.filter((m) => m.query_id === panelEvent.queryId).slice().sort((a, b) => (a.created_at < b.created_at ? -1 : 1));
-                return (
-                  <div className="au-thread">
-                    {thread.length === 0 && <div className="au-msg-empty">No thread messages recorded.</div>}
-                    {thread.map((m) => {
-                      const role = m.author_role ?? "—";
-                      const mine = /CRA|DM/i.test(role);
-                      const nm = m.author_name ?? (role.includes("System") || (m.body ?? "").startsWith("Auto edit-check:") ? "Edit check" : "—");
-                      return (
-                        <div key={m.id} className={`au-msg ${mine ? "right" : "left"}`}>
-                          <div className="au-msg-avatar">{initialsFor(nm)}</div>
-                          <div className="au-msg-bubble">
-                            <div className="au-msg-head"><span className="au-msg-name">{nm}</span><span className="au-role">{role}</span><span className="au-msg-ts">{fmtTs(m.created_at)}</span></div>
-                            <div className="au-msg-body">{m.body}</div>
-                          </div>
-                        </div>
-                      );
-                    })}
-                    {panelEvent.fieldLabel && (
-                      <div className="au-thread-foot">→ Linked field: <strong>{panelEvent.fieldLabel}</strong>{panelEvent.subjectId && <span className="au-panel-link" style={{ marginLeft: 8 }} onClick={() => gotoRecord(panelEvent)}>View in subject record →</span>}</div>
-                    )}
-                  </div>
-                );
-              })()}
 
               {/* Electronic signature (fix 4) */}
               {panelEvent.type === "form_signed" && (

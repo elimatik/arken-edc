@@ -9,8 +9,8 @@
 // The Subject-ID link instead navigates into the record + deep-links the field.
 // ════════════════════════════════════════════════════════════════════════════
 
-import { useEffect, useMemo, useState } from "react";
-import { useParams, useRouter } from "next/navigation";
+import { useEffect, useMemo, useRef, useState } from "react";
+import { useParams, useRouter, useSearchParams } from "next/navigation";
 import { useShell } from "@/components/shell/ShellContext";
 import { useStudySession } from "@/lib/session-store/SessionStore";
 import { useNdaName } from "@/lib/use-nda-name";
@@ -245,6 +245,19 @@ export default function QueriesPage() {
   const [nqPriority, setNqPriority] = useState("routine");
   const [nqConvertEc, setNqConvertEc] = useState<string | null>(null); // EC id being converted
   const [infoOpen, setInfoOpen] = useState(false); // Q- vs EC- explainer popover
+
+  // Deep-link support: ?query=Q-XXXX (e.g. from the Audit Trail) opens that query's
+  // thread panel. Applied once, when items are available.
+  const searchParams = useSearchParams();
+  const appliedQueryParam = useRef(false);
+  useEffect(() => {
+    if (appliedQueryParam.current) return;
+    const qc = searchParams.get("query");
+    if (!qc || items.length === 0) return;
+    const item = items.find((i) => i.code === qc);
+    if (item) { setTab("queries"); setPanelId(item.id); appliedQueryParam.current = true; }
+  }, [searchParams, items]);
+
   function toggleInfo() { setInfoOpen((o) => !o); }
   function closeInfo() { setInfoOpen(false); }
   useEffect(() => { if (!toast) return; const t = setTimeout(() => setToast(null), 2800); return () => clearTimeout(t); }, [toast]);
