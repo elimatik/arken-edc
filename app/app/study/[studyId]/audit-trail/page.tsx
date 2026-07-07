@@ -64,22 +64,6 @@ const TYPE_META: Record<AuditType, { label: string; cls: string; icon: string; c
   login:             { label: "Login",              cls: "at-login",     icon: "login",           cat: "login" },
 };
 
-const CAT_OPTIONS: { value: string; label: string }[] = [
-  { value: "all", label: "All actions" },
-  { value: "data_entry", label: "Data entry" },
-  { value: "query", label: "Query" },
-  { value: "sdv", label: "SDV" },
-  { value: "status_change", label: "Status change" },
-  { value: "form_lock", label: "Form lock" },
-  { value: "randomization", label: "Randomization" },
-  { value: "consent", label: "Consent" },
-  { value: "deviation", label: "Protocol deviation" },
-  { value: "unblinding", label: "Emergency unblinding" },
-  { value: "database_lock", label: "Database lock" },
-  { value: "drug_supply", label: "Drug supply" },
-  { value: "login", label: "Login" },
-];
-
 // ─── Preset tabs — coarse groupings over action types, deep-linkable via ?cat= ──
 type PresetKey = "clinical" | "query" | "system";
 const PRESETS: Record<PresetKey, Set<AuditType>> = {
@@ -92,6 +76,57 @@ const PRESET_TABS: { key: PresetKey; label: string }[] = [
   { key: "query", label: "Query Workflow" },
   { key: "system", label: "System & Security" },
 ];
+
+// Per-tab action-filter options (secondary filter within a preset tab). Each value
+// maps to a Set of AuditTypes; "all" is the tab's full preset set.
+const FILTER_OPTIONS: Record<PresetKey, { value: string; label: string }[]> = {
+  clinical: [
+    { value: "all", label: "All actions" },
+    { value: "data_entry", label: "Data entry" },
+    { value: "change_reason", label: "Change reason" },
+    { value: "edit_check", label: "Edit check" },
+    { value: "sdv", label: "SDV" },
+    { value: "form_status", label: "Form status" },
+  ],
+  query: [
+    { value: "all", label: "All actions" },
+    { value: "query", label: "Query" },
+  ],
+  system: [
+    { value: "all", label: "All actions" },
+    { value: "subject", label: "Subject" },
+    { value: "visit", label: "Visit" },
+    { value: "protocol", label: "Protocol" },
+    { value: "inventory", label: "Inventory" },
+    { value: "unblinding", label: "Unblinding" },
+    { value: "database", label: "Database" },
+    { value: "security", label: "Security" },
+  ],
+};
+const TYPE_SETS: Record<PresetKey, Map<string, Set<AuditType>>> = {
+  clinical: new Map<string, Set<AuditType>>([
+    ["all", PRESETS.clinical],
+    ["data_entry", new Set<AuditType>(["data_entry", "field_notdone"])],
+    ["change_reason", new Set<AuditType>(["change_reason", "change_reason_approved"])],
+    ["edit_check", new Set<AuditType>(["edit_check", "edit_check_resolved"])],
+    ["sdv", new Set<AuditType>(["sdv", "sdv_revoked"])],
+    ["form_status", new Set<AuditType>(["form_submitted", "form_reverted", "submission_withdrawn", "form_locked", "unlock_requested", "form_unlocked", "unlock_denied", "form_signed"])],
+  ]),
+  query: new Map<string, Set<AuditType>>([
+    ["all", PRESETS.query],
+    ["query", new Set<AuditType>(["query_raised", "query_responded", "query_resolved"])],
+  ]),
+  system: new Map<string, Set<AuditType>>([
+    ["all", PRESETS.system],
+    ["subject", new Set<AuditType>(["subject_enrolled", "subject_withdrawn", "randomization", "consent"])],
+    ["visit", new Set<AuditType>(["visit_rescheduled"])],
+    ["protocol", new Set<AuditType>(["protocol_deviation"])],
+    ["inventory", new Set<AuditType>(["drug_supply"])],
+    ["unblinding", new Set<AuditType>(["unblinding"])],
+    ["database", new Set<AuditType>(["database_lock", "database_unlock"])],
+    ["security", new Set<AuditType>(["login"])],
+  ]),
+};
 
 // ─── Event source — where the event originated (v1 derivation, no key bump) ──
 type SourceKey = "manual" | "site" | "barn" | "batch" | "system";
@@ -641,12 +676,16 @@ export default function AuditTrailPage() {
 
   const resetFilters = () => { setSearch(""); setCatF("all"); setSourceF("all"); setUserF("all"); setSiteF("all"); setFormF("all"); };
 
+  // Action filter — the option list and their AuditType sets are per tab.
+  const filterOptions = FILTER_OPTIONS[preset];
+  const activeTypeSets = TYPE_SETS[preset];
+
   const filtered = useMemo(() => {
     const q = search.toLowerCase().trim();
-    const presetSet = PRESETS[preset];
+    // The selected filter's type set (falls back to the tab's full preset set).
+    const typeSet = activeTypeSets.get(catF) ?? PRESETS[preset];
     const out = roleEvents.filter((e) => {
-      if (!presetSet.has(e.type)) return false;
-      if (catF !== "all" && TYPE_META[e.type].cat !== catF) return false;
+      if (!typeSet.has(e.type)) return false;
       if (sourceF !== "all" && e.source !== sourceF) return false;
       if (userF !== "all" && e.user.name !== userF) return false;
       if (siteF !== "all" && e.siteId !== siteF) return false;
@@ -664,7 +703,7 @@ export default function AuditTrailPage() {
       if (sort) { const r = cmp(a, b, sort.col); return sort.dir === "asc" ? r : -r; }
       return a.ts < b.ts ? 1 : a.ts > b.ts ? -1 : 0; // default newest first
     });
-  }, [roleEvents, preset, search, catF, sourceF, userF, siteF, formF, dateFrom, dateTo, sort]);
+  }, [roleEvents, preset, activeTypeSets, search, catF, sourceF, userF, siteF, formF, dateFrom, dateTo, sort]);
 
   // Fall back to roleEvents (role-filtered + arm-masked), never allEvents, so the
   // detail panel can never surface a hidden/unmasked value. Query events never open
@@ -809,7 +848,7 @@ export default function AuditTrailPage() {
       <div className="au-toolbar">
         <div className="au-search"><i className="ti ti-search"></i><input type="search" placeholder="Search subject, user, field, action…" value={search} onChange={(e) => setSearch(e.target.value)} /></div>
         <select className="au-select" value={catF} onChange={(e) => setCatF(e.target.value)} aria-label="Action type">
-          {CAT_OPTIONS.map((o) => <option key={o.value} value={o.value}>{o.label}</option>)}
+          {filterOptions.map((o) => <option key={o.value} value={o.value}>{o.label}</option>)}
         </select>
         <select className="au-select" value={sourceF} onChange={(e) => setSourceF(e.target.value)} aria-label="Source">
           {SOURCE_OPTIONS.map((o) => <option key={o.value} value={o.value}>{o.label}</option>)}
