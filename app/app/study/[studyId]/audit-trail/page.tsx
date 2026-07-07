@@ -755,13 +755,12 @@ export default function AuditTrailPage() {
   const cApproved: ColDef = { label: "Approved by", key: "approved", width: 190, render: (e) => (e.approvedAt && e.approvedBy) ? <span className="au-approved"><i className="ti ti-rosette-discount-check"></i> {e.approvedBy} ({e.approvedRole}) · {fmtTs(e.approvedAt)}</span> : dash };
   const cQid: ColDef = { label: "Query ID", key: "queryid", width: 96, render: (e) => e.queryCode ? <span className="au-qid">{e.queryCode}</span> : dash };
   const cText: ColDef = { label: "Text", key: "text", render: (e) => e.details ? <span className="au-details" title={e.details}>{trunc(e.details, 80)}</span> : dash };
-  const cEnteredBy: ColDef = { label: "Entered by", key: "enteredby", width: 150, render: (e) => e.authorName && e.authorName !== "—" ? <span className="au-user"><span className="au-uname">{e.authorName}</span>{e.authorRole && e.authorRole !== "—" && <span className="au-role">{e.authorRole}</span>}</span> : dash };
   const cLink: ColDef = { label: "Link", width: 120, render: (e) => (e.subjectId && e.formId) ? <span className="au-thread-link" onClick={(ev) => { ev.stopPropagation(); gotoForm(e); }}>View in form →</span> : dash };
   const cSite: ColDef = { label: "Site", key: "site", width: 150, render: (e) => e.siteName !== "—" ? <span className="au-form">{e.siteName}</span> : dash };
   const cDetails: ColDef = { label: "Details", key: "details", render: (e) => <span className="au-details" title={e.details}>{e.details}</span> };
   const COLS: Record<PresetKey, ColDef[]> = {
     clinical: [cTs, cUser, cRole, cAction, cSubject, cForm, cField, cOld, cNew, cReason, cApproved],
-    query: [cTs, cUser, cRole, cAction, cSubject, cForm, cQid, cText, cEnteredBy, cLink],
+    query: [cTs, cUser, cRole, cAction, cSubject, cForm, cQid, cText, cLink],
     system: [cTs, cUser, cRole, cAction, cSubject, cSite, cDetails],
   };
   const columns = COLS[preset];
