@@ -135,7 +135,7 @@
 .au-row-link { cursor: pointer; }
 
 /* Query ID chip + Approved-by cell (per-tab columns) */
-.au-qid { display: inline-block; font-family: var(--font-mono); font-size: var(--text-xs); font-weight: var(--weight-medium); color: var(--slate-600); background: var(--slate-50); border: 1px solid var(--slate-200); border-radius: var(--radius-sm); padding: 1px 6px; white-space: nowrap; }
+.au-qid { display: inline-block; font-family: var(--font-mono); font-size: var(--text-sm); color: var(--color-text-secondary); background: transparent; border: 1px solid var(--color-border); border-radius: var(--radius-md); padding: 2px 8px; white-space: nowrap; }
 .au-approved { display: inline-flex; align-items: center; gap: 4px; font-size: var(--text-xs); color: var(--green-600); white-space: nowrap; }
 .au-approved i { font-size: 13px; }
 
