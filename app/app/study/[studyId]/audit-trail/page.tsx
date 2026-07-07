@@ -22,7 +22,7 @@ import "./audit-trail.css";
 
 // ─── Action types + metadata ────────────────────────────────────────────────
 type AuditType =
-  | "data_entry" | "change_reason" | "edit_check"
+  | "data_entry" | "change_reason" | "edit_check" | "edit_check_resolved"
   | "query_raised" | "query_responded" | "query_resolved"
   | "sdv" | "form_submitted" | "form_locked" | "form_reverted" | "submission_withdrawn"
   | "unlock_requested" | "form_unlocked" | "unlock_denied" | "sdv_revoked" | "field_notdone" | "visit_rescheduled"
@@ -34,6 +34,7 @@ const TYPE_META: Record<AuditType, { label: string; cls: string; icon: string; c
   data_entry:        { label: "Data Entry",         cls: "at-entry",     icon: "pencil",          cat: "data_entry" },
   change_reason:     { label: "Change Reason",      cls: "at-change",    icon: "history",         cat: "data_entry" },
   edit_check:        { label: "Edit Check",         cls: "at-check",     icon: "alert-triangle",  cat: "data_entry" },
+  edit_check_resolved: { label: "Edit Check Resolved", cls: "at-check",   icon: "checks",          cat: "data_entry" },
   query_raised:      { label: "Query Raised",       cls: "at-query",     icon: "flag",            cat: "query" },
   query_responded:   { label: "Query Responded",    cls: "at-qresp",     icon: "message",         cat: "query" },
   query_resolved:    { label: "Query Resolved",     cls: "at-qres",      icon: "flag-check",      cat: "query" },
@@ -151,6 +152,13 @@ const CAST: Record<string, AuditUser> = {
   PI: { name: "Dr. S. Patel", role: "PI", initials: "SP" },
   Auto: { name: "Edit check", role: "Auto", initials: "EC", auto: true },
 };
+// Deterministic user variation for synthetic (non-attributable) events so the trail
+// reflects a realistic multi-user team instead of one person. Data entry / submit is
+// spread across two CRCs + the DM; form locking across the CRA + DM. Picked by a
+// stable hash of the subject / form-instance id so an event's actor never changes.
+const ENTRY_CAST: AuditUser[] = [CAST.CRC, CAST.DM, { name: "A. Reyes", role: "CRC", initials: "AR" }];
+const LOCK_CAST: AuditUser[] = [CAST.CRA, CAST.DM];
+const pickBy = (pool: AuditUser[], seed: string): AuditUser => pool[hashStr(seed) % pool.length];
 const initialsFor = (name: string) => name.replace(/^Dr\.?\s+/i, "").split(/\s+/).map((w) => w[0]).join("").slice(0, 2).toUpperCase();
 const mkUser = (name: string | null | undefined, role: string | null | undefined): AuditUser => {
   const n = name ?? "Study team";
@@ -172,7 +180,8 @@ function synthTs(seed: string, baseNow: number, days = 60): string {
 // 21 CFR Part 11 audit timestamps are recorded and displayed in UTC.
 function fmtTs(iso: string): string {
   const d = new Date(iso); const p = (n: number) => String(n).padStart(2, "0");
-  return `${d.getUTCFullYear()}-${p(d.getUTCMonth() + 1)}-${p(d.getUTCDate())} ${p(d.getUTCHours())}:${p(d.getUTCMinutes())} UTC`;
+  // Full seconds precision — required for 21 CFR Part 11 timestamps.
+  return `${d.getUTCFullYear()}-${p(d.getUTCMonth() + 1)}-${p(d.getUTCDate())} ${p(d.getUTCHours())}:${p(d.getUTCMinutes())}:${p(d.getUTCSeconds())} UTC`;
 }
 function dateKey(iso: string): string {
   const d = new Date(iso); const p = (n: number) => String(n).padStart(2, "0");
@@ -222,13 +231,21 @@ function buildAuditEvents(dataset: Dataset, studyId: string, baseNow: number): A
   const push = (e: Omit<AuditEvent, "id" | "source">) => events.push({ id: `ae-${seq++}`, source: "manual", ...e });
   const qCode = (id: string) => `Q-${id.slice(0, 4).toUpperCase()}`;
 
-  // 1 — Data entry: one event per saved field value.
+  // 1 — Data entry: one event per saved field value. User attribution varies
+  // deterministically across the entry cast (fix 2). Field values documented as
+  // "Not done" / "N/A" become field_notdone events instead (fix 7).
   for (const fv of dataset.fieldValues) {
-    if (fv.value == null || String(fv.value).trim() === "") continue;
     const ctx = ctxOfInstance(fv.form_instance_id); if (!ctx) continue;
     const field = fieldById.get(fv.form_field_id); if (!field) continue;
+    const entryUser = pickBy(ENTRY_CAST, ctx.subjectId ?? fv.form_instance_id);
+    if (fv.notDone || fv.value === "N/A") {
+      push({ ts: synthTs(`nd${fv.id}`, baseNow), type: "field_notdone", user: entryUser, ...ctx, ...fieldBits(field),
+        oldValue: null, newValue: fv.notDoneReason ?? "Not done", details: `${field.label} marked as Not done${fv.notDoneReason ? ` — ${fv.notDoneReason}` : ""}` });
+      continue;
+    }
+    if (fv.value == null || String(fv.value).trim() === "") continue;
     const unit = field.unit ? ` ${field.unit}` : "";
-    push({ ts: synthTs(`fv${fv.id}`, baseNow), type: "data_entry", user: CAST.CRC, ...ctx, ...fieldBits(field),
+    push({ ts: synthTs(`fv${fv.id}`, baseNow), type: "data_entry", user: entryUser, ...ctx, ...fieldBits(field),
       oldValue: null, newValue: `${fv.value}${unit}`, details: `${field.label} recorded as ${fv.value}${unit}` });
   }
 
@@ -243,6 +260,9 @@ function buildAuditEvents(dataset: Dataset, studyId: string, baseNow: number): A
 
   // 2b — Form lifecycle: reverts, withdrawn submissions, and unlock request/approve/deny.
   for (const a of dataset.formAudits) {
+    // field_notdone is surfaced from the field value itself (section 1) with full
+    // field context — skip here to avoid a duplicate event for the same action.
+    if (a.action === "field_notdone") continue;
     const ctx = ctxOfInstance(a.form_instance_id); if (!ctx) continue;
     const noField = { fieldId: null, fieldLabel: "", fieldCode: "" };
     const type: AuditType =
@@ -263,8 +283,15 @@ function buildAuditEvents(dataset: Dataset, studyId: string, baseNow: number): A
       : a.action === "sdv_revoked" ? `SDV verification revoked on ${a.reason}${a.description ? ` — ${a.description}` : ""}`
       : a.action === "visit_rescheduled" ? `${a.description || "Visit rescheduled"}${a.reason ? ` — reason: ${a.reason}` : ""}`
       : `Field "${a.reason}" marked as ${a.description || "Not done"}`;
+    // Reschedules carry the old → new visit dates in the description; surface them
+    // in the Old/New value columns (fix 8).
+    let odVal: string | null = null, nwVal: string | null = null;
+    if (a.action === "visit_rescheduled") {
+      const m = /from (\S+) to (\S+)/.exec(a.description ?? "");
+      if (m) { odVal = m[1]; nwVal = m[2]; }
+    }
     push({ ts: a.created_at, type, user: mkUser(a.author_name, a.author_role), ...ctx, ...noField,
-      oldValue: null, newValue: null, reason: a.reason || undefined, details,
+      oldValue: odVal, newValue: nwVal, reason: a.reason || undefined, details,
       statusBefore: a.from_status, statusAfter: a.to_status });
   }
 
@@ -291,23 +318,37 @@ function buildAuditEvents(dataset: Dataset, studyId: string, baseNow: number): A
     }
   }
 
-  // 4 — Edit checks (open auto-validation flags).
+  // 4 — Edit checks (auto-validation flags), open AND resolved. Converted checks
+  // are surfaced as queries instead, so they're skipped here. A resolved check adds
+  // a second event recording who corrected it and when (fix 5).
   for (const ec of dataset.editChecks) {
-    if (ec.status !== "open") continue;
+    if (ec.status === "converted") continue;
     const ctx = ctxOfInstance(ec.form_instance_id); if (!ctx) continue;
     const fo = fieldOfValue(ec.field_value_id);
     push({ ts: ec.created_at, type: "edit_check", user: CAST.Auto, ...ctx, ...fieldBits(fo?.field),
       oldValue: null, newValue: fo?.fv.value ?? null, details: ec.message });
+    if (ec.status === "resolved") {
+      const resolvedAt = new Date(new Date(ec.created_at).getTime() + (hashStr(ec.id) % 72) * 3600000).toISOString();
+      push({ ts: resolvedAt, type: "edit_check_resolved", user: pickBy(ENTRY_CAST, ec.field_value_id || ec.id), ...ctx, ...fieldBits(fo?.field),
+        oldValue: null, newValue: fo?.fv.value ?? null, details: `Edit check resolved${fo?.field ? ` — ${fo.field.label} corrected` : ""}` });
+    }
   }
 
-  // 5 — SDV verifications (each sdv_record is a verification act).
+  // 5 — SDV records: verifications AND revocations (fix 6). Seeded baseline
+  // records aren't audit events.
   for (const s of dataset.sdvRecords) {
-    if (s.id.startsWith("sdvseed-") || s.status !== "verified") continue; // seeded baseline isn't an audit event; only verified records
+    if (s.id.startsWith("sdvseed-")) continue;
+    if (s.status !== "verified" && s.status !== "revoked") continue;
     const ctx = ctxOfInstance(s.form_instance_id); if (!ctx) continue;
     const fo = fieldOfValue(s.field_value_id ?? null);
-    push({ ts: s.verified_at ?? synthTs(`sdv${s.id}`, baseNow), type: "sdv",
-      user: s.verified_by_name ? mkUser(s.verified_by_name, "CRA") : CAST.CRA, ...ctx, ...fieldBits(fo?.field),
-      oldValue: null, newValue: null, details: fo?.field ? `${fo.field.label} verified against source` : "Source data verified" });
+    const sdvUser = s.verified_by_name ? mkUser(s.verified_by_name, "CRA") : CAST.CRA;
+    if (s.status === "revoked") {
+      push({ ts: s.verified_at ?? synthTs(`sdvr${s.id}`, baseNow), type: "sdv_revoked", user: sdvUser, ...ctx, ...fieldBits(fo?.field),
+        oldValue: null, newValue: null, details: `${fo?.field ? fo.field.label : "Source data"} SDV verification revoked` });
+    } else {
+      push({ ts: s.verified_at ?? synthTs(`sdv${s.id}`, baseNow), type: "sdv", user: sdvUser, ...ctx, ...fieldBits(fo?.field),
+        oldValue: null, newValue: null, details: fo?.field ? `${fo.field.label} verified against source` : "Source data verified" });
+    }
   }
 
   // 6 — Form status: submitted + locked, plus milestone events keyed on the form.
@@ -318,12 +359,13 @@ function buildAuditEvents(dataset: Dataset, studyId: string, baseNow: number): A
     const st = inst.status;
     const name = ctx.formName;
     const noField = { fieldId: null, fieldLabel: "", fieldCode: "" };
+    const lifeSeed = ctx.subjectId ?? inst.id;
     if (advanced(st)) {
-      push({ ts: synthTs(`sub${inst.id}`, baseNow), type: "form_submitted", user: CAST.CRC, ...ctx, ...noField,
+      push({ ts: synthTs(`sub${inst.id}`, baseNow), type: "form_submitted", user: pickBy(ENTRY_CAST, lifeSeed), ...ctx, ...noField,
         oldValue: null, newValue: null, details: `${name} submitted for review`, statusBefore: "in_work", statusAfter: st === "locked" ? "reviewed" : st });
     }
     if (st === "locked") {
-      push({ ts: synthTs(`lck${inst.id}`, baseNow), type: "form_locked", user: CAST.CRA, ...ctx, ...noField,
+      push({ ts: synthTs(`lck${inst.id}`, baseNow), type: "form_locked", user: pickBy(LOCK_CAST, lifeSeed), ...ctx, ...noField,
         oldValue: null, newValue: null, details: `${name} locked after SDV and signature`, statusBefore: "reviewed", statusAfter: "locked" });
     }
     // Randomization — the randomization/allocation form finalized.
@@ -457,6 +499,7 @@ function cmp(a: AuditEvent, b: AuditEvent, col: string): number {
     case "old": return (a.oldValue ?? "").localeCompare(b.oldValue ?? "");
     case "new": return (a.newValue ?? "").localeCompare(b.newValue ?? "");
     case "details": return a.details.localeCompare(b.details);
+    case "reason": return (a.reason ?? "").localeCompare(b.reason ?? "");
     default: return 0;
   }
 }
@@ -537,7 +580,7 @@ export default function AuditTrailPage() {
       if (dateFrom && dk < dateFrom) return false;
       if (dateTo && dk > dateTo) return false;
       if (q) {
-        const hay = [e.subjectCode, e.user.name, e.fieldLabel, e.fieldCode, TYPE_META[e.type].label, e.details, e.formName, e.oldValue ?? "", e.newValue ?? ""].join(" ").toLowerCase();
+        const hay = [e.subjectCode, e.user.name, e.fieldLabel, e.fieldCode, TYPE_META[e.type].label, e.details, e.reason ?? "", e.formName, e.oldValue ?? "", e.newValue ?? ""].join(" ").toLowerCase();
         if (!hay.includes(q)) return false;
       }
       return true;
@@ -654,7 +697,7 @@ export default function AuditTrailPage() {
                 {th("Field", "field", 170)}
                 {th("Old value", "old", 110)}
                 {th("New value", "new", 110)}
-                {th("Details", "details")}
+                {th("Reason", "reason")}
               </tr>
             </thead>
             <tbody>
@@ -670,7 +713,7 @@ export default function AuditTrailPage() {
                     <td>{e.fieldLabel ? <span className="au-field"><span className="au-field-label" title={e.fieldLabel}>{e.fieldLabel}</span>{e.fieldCode && <span className="au-field-code">{e.fieldCode}</span>}</span> : <span className="au-dash">—</span>}</td>
                     <td>{e.oldValue != null ? <span className="au-old" title={e.oldValue}>{e.oldValue}</span> : <span className="au-dash">—</span>}</td>
                     <td>{e.newValue != null ? <span className="au-new" title={e.newValue}>{e.newValue}</span> : <span className="au-dash">—</span>}</td>
-                    <td><div className="au-details-cell"><span className="au-details" title={e.details}>{e.details}</span><span className={`au-src-tag ${SOURCE_META[e.source].cls}`} title={`Source: ${SOURCE_META[e.source].label}`}>{SOURCE_META[e.source].label}</span></div></td>
+                    <td><div className="au-details-cell">{e.reason ? <span className="au-details" title={e.reason}>{e.reason}</span> : <span className="au-dash">—</span>}<span className={`au-src-tag ${SOURCE_META[e.source].cls}`} title={`Source: ${SOURCE_META[e.source].label}`}>{SOURCE_META[e.source].label}</span></div></td>
                   </tr>
                 );
               })}
