@@ -392,8 +392,11 @@ function buildAuditEvents(dataset: Dataset, studyId: string, baseNow: number): A
     const resolveMsg = q.status === "resolved" ? msgs[msgs.length - 1] : undefined;
     const respMsg = msgs.find((m) => m !== first && m !== resolveMsg); // first reply that isn't the resolution
     if ((q.status === "responded" || q.status === "resolved") && respMsg) {
-      push({ ts: respMsg.created_at, type: "query_responded", user: mkUser(respMsg.author_name, respMsg.author_role), ...ctx, ...fb,
-        oldValue: null, newValue: null, details: respMsg.body, queryCode: code, queryId: q.id, ...enteredBy(respMsg) });
+      // A response with no author role → attribute to a CRC (site staff typically
+      // answer queries), never the blank "Study team / —".
+      const responder = respMsg.author_role ? mkUser(respMsg.author_name, respMsg.author_role) : CAST.CRC;
+      push({ ts: respMsg.created_at, type: "query_responded", user: responder, ...ctx, ...fb,
+        oldValue: null, newValue: null, details: respMsg.body, queryCode: code, queryId: q.id, ...enteredBy(respMsg, CAST.CRC) });
     }
     if (resolveMsg) {
       push({ ts: resolveMsg.created_at ?? synthTs(`qr${q.id}`, baseNow), type: "query_resolved", user: CAST.CRA, ...ctx, ...fb,
@@ -801,9 +804,11 @@ export default function AuditTrailPage() {
   const cLink: ColDef = { label: "Link", width: 120, render: (e) => (e.subjectId && e.formId) ? <span className="au-thread-link" onClick={(ev) => { ev.stopPropagation(); gotoForm(e); }}>View in form →</span> : dash };
   const cSite: ColDef = { label: "Site", key: "site", width: 150, render: (e) => e.siteName !== "—" ? <span className="au-form">{e.siteName}</span> : dash };
   const cDetails: ColDef = { label: "Details", key: "details", render: (e) => <span className="au-details" title={e.details}>{e.details}</span> };
+  // Query Workflow has room and longer labels ("Query Responded") — give Action a wider column.
+  const cActionWide: ColDef = { ...cAction, width: 160 };
   const COLS: Record<PresetKey, ColDef[]> = {
     clinical: [cTs, cUser, cRole, cAction, cSubject, cForm, cField, cOld, cNew, cReason, cApproved],
-    query: [cTs, cUser, cRole, cAction, cSubject, cForm, cQid, cText, cLink],
+    query: [cTs, cUser, cRole, cActionWide, cSubject, cForm, cQid, cText, cLink],
     system: [cTs, cUser, cRole, cAction, cSubject, cSite, cDetails],
   };
   const columns = COLS[preset];
