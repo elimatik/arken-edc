@@ -60,7 +60,7 @@ const TYPE_META: Record<AuditType, { label: string; cls: string; icon: string; c
   unblinding:        { label: "Emergency Unblinding",cls: "at-unblind",  icon: "eye-exclamation", cat: "unblinding" },
   database_lock:     { label: "Database Lock",       cls: "at-dblock",    icon: "lock",            cat: "database_lock" },
   database_unlock:   { label: "Database Unlock",     cls: "at-dunlock",   icon: "lock-open",       cat: "database_lock" },
-  drug_supply:       { label: "Drug Supply",         cls: "at-supply",    icon: "flask",           cat: "drug_supply" },
+  drug_supply:       { label: "Drug Dispensed",      cls: "at-supply",    icon: "flask",           cat: "drug_supply" },
   login:             { label: "Login",              cls: "at-login",     icon: "login",           cat: "login" },
 };
 
@@ -81,15 +81,13 @@ const CAT_OPTIONS: { value: string; label: string }[] = [
 ];
 
 // ─── Preset tabs — coarse groupings over action types, deep-linkable via ?cat= ──
-type PresetKey = "all" | "clinical" | "query" | "system";
-const PRESETS: Record<PresetKey, Set<AuditType> | null> = {
-  all: null,
-  clinical: new Set<AuditType>(["data_entry", "change_reason", "change_reason_approved", "edit_check", "edit_check_resolved", "field_notdone", "sdv", "sdv_revoked", "form_submitted", "form_locked", "form_reverted", "submission_withdrawn", "unlock_requested", "form_unlocked", "unlock_denied", "form_signed"]),
+type PresetKey = "clinical" | "query" | "system";
+const PRESETS: Record<PresetKey, Set<AuditType>> = {
+  clinical: new Set<AuditType>(["data_entry", "change_reason", "edit_check", "edit_check_resolved", "field_notdone", "sdv", "sdv_revoked", "form_submitted", "form_locked", "form_reverted", "submission_withdrawn", "unlock_requested", "form_unlocked", "unlock_denied", "form_signed"]),
   query: new Set<AuditType>(["query_raised", "query_responded", "query_resolved"]),
   system: new Set<AuditType>(["login", "database_lock", "database_unlock", "drug_supply", "unblinding", "randomization", "consent", "protocol_deviation", "subject_enrolled", "subject_withdrawn", "visit_rescheduled"]),
 };
 const PRESET_TABS: { key: PresetKey; label: string }[] = [
-  { key: "all", label: "All" },
   { key: "clinical", label: "Clinical Data" },
   { key: "query", label: "Query Workflow" },
   { key: "system", label: "System & Security" },
@@ -281,9 +279,9 @@ function buildAuditEvents(dataset: Dataset, studyId: string, baseNow: number): A
       oldValue: null, newValue: `${fv.value}${unit}`, details: `${field.label} recorded as ${fv.value}${unit}` });
   }
 
-  // 2 — Change reasons (Δ records). The reason submission is one event; the DM
-  // approval (when signed off) is a second change_reason_approved event, so the
-  // panel can render the full edit → reason → approval chain (fix 2).
+  // 2 — Change reasons (Δ records). One event per change; the DM approval is
+  // surfaced inline via the "Approved by" column (approvedBy/approvedAt) and the
+  // panel's edit → reason → approval chain.
   for (const d of dataset.deltaRecords) {
     const fo = fieldOfValue(d.field_value_id); if (!fo) continue;
     const ctx = ctxOfInstance(fo.fv.form_instance_id); if (!ctx) continue;
@@ -292,11 +290,6 @@ function buildAuditEvents(dataset: Dataset, studyId: string, baseNow: number): A
     push({ ts: d.created_at, type: "change_reason", user: mkUser(d.author_name, d.author_role), ...ctx, ...fieldBits(fo.field),
       oldValue: d.old_value, newValue: d.new_value, reason: d.reason, ...chain,
       details: `${fo.field.label} changed from ${d.old_value} to ${d.new_value}`, statusBefore: d.status });
-    if (d.approved_at && d.approved_by) {
-      push({ ts: d.approved_at, type: "change_reason_approved", user: mkUser(d.approved_by, d.approved_role ?? "DM"), ...ctx, ...fieldBits(fo.field),
-        oldValue: d.old_value, newValue: d.new_value, reason: d.reason, ...chain,
-        details: "Change reason reviewed and approved by DM", statusBefore: "responded", statusAfter: "approved" });
-    }
   }
 
   // 2b — Form lifecycle: reverts, withdrawn submissions, and unlock request/approve/deny.
@@ -336,26 +329,36 @@ function buildAuditEvents(dataset: Dataset, studyId: string, baseNow: number): A
       statusBefore: a.from_status, statusAfter: a.to_status });
   }
 
-  // 3 — Queries: raised, responded, resolved.
+  // 3 — Queries: raised → responded → resolved. Each event carries the actual
+  // message body (details) and its message author (authorName/authorRole →
+  // "Entered by"), distinct from the attributed User. For resolved queries the
+  // responded step is always emitted when a distinct reply exists (previously it
+  // was dropped when the reply was System-authored).
   for (const q of dataset.queries) {
     const ctx = ctxOfInstance(q.form_instance_id); if (!ctx) continue;
     const fo = fieldOfValue(q.field_value_id);
     const fb = fieldBits(fo?.field);
+    const code = qCode(q.id);
     const msgs = dataset.queryMessages.filter((m) => m.query_id === q.id).slice().sort((a, b) => (a.created_at < b.created_at ? -1 : 1));
     const first = msgs[0];
     const auto = (first?.body ?? "").startsWith("Auto edit-check:");
     const raiser = auto ? CAST.Auto : first?.author_role ? mkUser(first.author_name, first.author_role) : CAST.CRA;
+    const enteredBy = (m?: typeof msgs[number], fallback?: AuditUser) => ({
+      authorName: m?.author_name ?? (m && (m.author_role?.includes("System") || (m.body ?? "").startsWith("Auto edit-check:")) ? "Edit check" : fallback?.name ?? "—"),
+      authorRole: m?.author_role?.replace(/ · System$/, "") ?? fallback?.role ?? "—",
+    });
     push({ ts: q.created_at ?? first?.created_at ?? synthTs(`q${q.id}`, baseNow), type: "query_raised", user: raiser, ...ctx, ...fb,
-      oldValue: null, newValue: null, details: first?.body ?? q.title, queryCode: qCode(q.id), queryId: q.id });
-    if (q.status === "responded" || q.status === "resolved") {
-      const resp = msgs.find((m) => m !== first && m.author_role && !m.author_role.includes("System"));
-      if (resp) push({ ts: resp.created_at, type: "query_responded", user: mkUser(resp.author_name, resp.author_role), ...ctx, ...fb,
-        oldValue: null, newValue: null, details: resp.body, queryCode: qCode(q.id), queryId: q.id });
+      oldValue: null, newValue: null, details: first?.body ?? q.title, queryCode: code, queryId: q.id, ...enteredBy(first, raiser) });
+
+    const resolveMsg = q.status === "resolved" ? msgs[msgs.length - 1] : undefined;
+    const respMsg = msgs.find((m) => m !== first && m !== resolveMsg); // first reply that isn't the resolution
+    if ((q.status === "responded" || q.status === "resolved") && respMsg) {
+      push({ ts: respMsg.created_at, type: "query_responded", user: mkUser(respMsg.author_name, respMsg.author_role), ...ctx, ...fb,
+        oldValue: null, newValue: null, details: respMsg.body, queryCode: code, queryId: q.id, ...enteredBy(respMsg) });
     }
-    if (q.status === "resolved") {
-      const last = msgs[msgs.length - 1];
-      push({ ts: last?.created_at ?? synthTs(`qr${q.id}`, baseNow), type: "query_resolved", user: CAST.CRA, ...ctx, ...fb,
-        oldValue: null, newValue: null, details: `Resolved — ${last?.body ?? "query closed"}`, queryCode: qCode(q.id), queryId: q.id });
+    if (resolveMsg) {
+      push({ ts: resolveMsg.created_at ?? synthTs(`qr${q.id}`, baseNow), type: "query_resolved", user: CAST.CRA, ...ctx, ...fb,
+        oldValue: null, newValue: null, details: resolveMsg.body ?? "Query closed", queryCode: code, queryId: q.id, ...enteredBy(resolveMsg, CAST.CRA) });
     }
   }
 
@@ -550,14 +553,20 @@ function cmp(a: AuditEvent, b: AuditEvent, col: string): number {
   switch (col) {
     case "ts": return a.ts < b.ts ? -1 : a.ts > b.ts ? 1 : 0;
     case "user": return a.user.name.localeCompare(b.user.name);
+    case "role": return a.user.role.localeCompare(b.user.role);
     case "type": return TYPE_META[a.type].label.localeCompare(TYPE_META[b.type].label);
     case "subject": return a.subjectCode.localeCompare(b.subjectCode);
     case "form": return a.formName.localeCompare(b.formName);
+    case "site": return a.siteName.localeCompare(b.siteName);
     case "field": return a.fieldLabel.localeCompare(b.fieldLabel);
     case "old": return (a.oldValue ?? "").localeCompare(b.oldValue ?? "");
     case "new": return (a.newValue ?? "").localeCompare(b.newValue ?? "");
-    case "details": return a.details.localeCompare(b.details);
+    case "details":
+    case "text": return a.details.localeCompare(b.details);
     case "reason": return (a.reason ?? "").localeCompare(b.reason ?? "");
+    case "queryid": return (a.queryCode ?? "").localeCompare(b.queryCode ?? "");
+    case "enteredby": return (a.authorName ?? "").localeCompare(b.authorName ?? "");
+    case "approved": return (a.approvedAt ?? "").localeCompare(b.approvedAt ?? "");
     default: return 0;
   }
 }
@@ -611,7 +620,7 @@ export default function AuditTrailPage() {
   const [catF, setCatF] = useState("all");
   const [preset, setPreset] = useState<PresetKey>(() => {
     const c = searchParams.get("cat");
-    return c === "clinical" || c === "query" || c === "system" ? c : "all";
+    return c === "query" || c === "system" ? c : "clinical";
   });
   const [exportOpen, setExportOpen] = useState(false);
   const [userF, setUserF] = useState("all");
@@ -636,7 +645,7 @@ export default function AuditTrailPage() {
     const q = search.toLowerCase().trim();
     const presetSet = PRESETS[preset];
     const out = roleEvents.filter((e) => {
-      if (presetSet && !presetSet.has(e.type)) return false;
+      if (!presetSet.has(e.type)) return false;
       if (catF !== "all" && TYPE_META[e.type].cat !== catF) return false;
       if (sourceF !== "all" && e.source !== sourceF) return false;
       if (userF !== "all" && e.user.name !== userF) return false;
@@ -646,7 +655,7 @@ export default function AuditTrailPage() {
       if (dateFrom && dk < dateFrom) return false;
       if (dateTo && dk > dateTo) return false;
       if (q) {
-        const hay = [e.subjectCode, e.user.name, e.fieldLabel, e.fieldCode, TYPE_META[e.type].label, e.details, e.reason ?? "", e.formName, e.oldValue ?? "", e.newValue ?? ""].join(" ").toLowerCase();
+        const hay = [e.subjectCode, e.user.name, e.fieldLabel, e.fieldCode, TYPE_META[e.type].label, e.details, e.reason ?? "", e.formName, e.oldValue ?? "", e.newValue ?? "", e.queryCode ?? ""].join(" ").toLowerCase();
         if (!hay.includes(q)) return false;
       }
       return true;
@@ -669,18 +678,18 @@ export default function AuditTrailPage() {
     // form/field, no auto-opened query panel. The user can find the field themselves.
     router.push(`/study/${studyId}/data-entry/${e.subjectId}`);
   }
-  // Query events deep-link to the Queries module (their full thread lives there).
-  const gotoThread = (e: AuditEvent) => router.push(`/study/${studyId}/queries?query=${e.queryCode ?? ""}`);
-  const openRow = (e: AuditEvent) => { if (QUERY_TYPES.has(e.type)) gotoThread(e); else setPanelId(e.id); };
+  // Query events deep-link "into the form" where the query lives (subject record
+  // opened at the form via ?form=). Non-query rows open the detail panel.
+  const gotoForm = (e: AuditEvent) => { if (e.subjectId && e.formId) router.push(`/study/${studyId}/data-entry/${e.subjectId}?form=${e.formId}`); };
+  const openRow = (e: AuditEvent) => { if (QUERY_TYPES.has(e.type)) gotoForm(e); else setPanelId(e.id); };
 
   // Preset tab → set the action grouping, reset the secondary dropdown, and sync
   // ?cat= so the view is deep-linkable.
   function selectPreset(p: PresetKey) {
     setPreset(p); setCatF("all"); setPanelId(null);
     const sp = new URLSearchParams(searchParams.toString());
-    if (p === "all") sp.delete("cat"); else sp.set("cat", p);
-    const qs = sp.toString();
-    router.replace(`/study/${studyId}/audit-trail${qs ? `?${qs}` : ""}`, { scroll: false });
+    sp.set("cat", p);
+    router.replace(`/study/${studyId}/audit-trail?${sp.toString()}`, { scroll: false });
   }
 
   // CSV export — fixed column order; Full ignores filters, Current view respects them.
@@ -716,10 +725,6 @@ export default function AuditTrailPage() {
     );
   }
 
-  const th = (label: string, key: string, width?: number) => <SortTh label={label} sortKey={key} sort={sort} onSort={toggle} style={width ? { width } : undefined} />;
-  const userCell = (u: AuditUser) => (
-    <span className="au-user"><span className="au-uname">{u.name}</span><span className="au-role">{u.role}</span></span>
-  );
   // Subject column — a linked subject ID for subject-scoped events; for site- or
   // barn-level events show the location name in a distinct (non-ID) style so it
   // reads as a level, not a subject.
@@ -732,6 +737,34 @@ export default function AuditTrailPage() {
     }
     return <span className="au-subj plain">{e.subjectCode}</span>;
   };
+
+  // Per-tab column definitions — each tab surfaces only the columns that carry
+  // meaning for its event types.
+  type ColDef = { label: string; key?: string; width?: number; render: (e: AuditEvent) => React.ReactNode };
+  const dash = <span className="au-dash">—</span>;
+  const cTs: ColDef = { label: "Timestamp", key: "ts", width: 150, render: (e) => <span className="au-ts">{fmtTs(e.ts)}</span> };
+  const cUser: ColDef = { label: "User", key: "user", width: 130, render: (e) => <span className="au-uname">{e.user.name}</span> };
+  const cRole: ColDef = { label: "Role", key: "role", width: 74, render: (e) => <span className="au-role">{e.user.role}</span> };
+  const cAction: ColDef = { label: "Action", key: "type", width: 134, render: (e) => { const m = TYPE_META[e.type]; return <span className={`au-type ${m.cls}`}><i className={`ti ti-${m.icon}`}></i> {m.label}</span>; } };
+  const cSubject: ColDef = { label: "Subject", key: "subject", width: 110, render: subjectCell };
+  const cForm: ColDef = { label: "Form", key: "form", width: 170, render: (e) => <span className="au-form" title={e.formPath}>{e.formName}</span> };
+  const cField: ColDef = { label: "Field", key: "field", width: 150, render: (e) => e.fieldLabel ? <span className="au-field"><span className="au-field-label" title={e.fieldLabel}>{e.fieldLabel}</span>{e.fieldCode && <span className="au-field-code">{e.fieldCode}</span>}</span> : dash };
+  const cOld: ColDef = { label: "Old value", key: "old", width: 100, render: (e) => e.oldValue != null ? <span className="au-old" title={e.oldValue}>{e.oldValue}</span> : dash };
+  const cNew: ColDef = { label: "New value", key: "new", width: 100, render: (e) => e.newValue != null ? <span className="au-new" title={e.newValue}>{e.newValue}</span> : dash };
+  const cReason: ColDef = { label: "Reason", key: "reason", render: (e) => { const r = reasonColumn(e); return r ? <span className="au-details" title={r}>{r}</span> : dash; } };
+  const cApproved: ColDef = { label: "Approved by", key: "approved", width: 190, render: (e) => (e.approvedAt && e.approvedBy) ? <span className="au-approved"><i className="ti ti-rosette-discount-check"></i> {e.approvedBy} ({e.approvedRole}) · {fmtTs(e.approvedAt)}</span> : dash };
+  const cQid: ColDef = { label: "Query ID", key: "queryid", width: 96, render: (e) => e.queryCode ? <span className="au-qid">{e.queryCode}</span> : dash };
+  const cText: ColDef = { label: "Text", key: "text", render: (e) => e.details ? <span className="au-details" title={e.details}>{trunc(e.details, 80)}</span> : dash };
+  const cEnteredBy: ColDef = { label: "Entered by", key: "enteredby", width: 150, render: (e) => e.authorName && e.authorName !== "—" ? <span className="au-user"><span className="au-uname">{e.authorName}</span>{e.authorRole && e.authorRole !== "—" && <span className="au-role">{e.authorRole}</span>}</span> : dash };
+  const cLink: ColDef = { label: "Link", width: 120, render: (e) => (e.subjectId && e.formId) ? <span className="au-thread-link" onClick={(ev) => { ev.stopPropagation(); gotoForm(e); }}>View in form →</span> : dash };
+  const cSite: ColDef = { label: "Site", key: "site", width: 150, render: (e) => e.siteName !== "—" ? <span className="au-form">{e.siteName}</span> : dash };
+  const cDetails: ColDef = { label: "Details", key: "details", render: (e) => <span className="au-details" title={e.details}>{e.details}</span> };
+  const COLS: Record<PresetKey, ColDef[]> = {
+    clinical: [cTs, cUser, cRole, cAction, cSubject, cForm, cField, cOld, cNew, cReason, cApproved],
+    query: [cTs, cUser, cRole, cAction, cSubject, cForm, cQid, cText, cEnteredBy, cLink],
+    system: [cTs, cUser, cRole, cAction, cSubject, cSite, cDetails],
+  };
+  const columns = COLS[preset];
 
   return (
     <div className="au-screen">
@@ -808,38 +841,17 @@ export default function AuditTrailPage() {
           <table className="au-table">
             <thead>
               <tr>
-                {th("Timestamp", "ts", 140)}
-                {th("User", "user", 156)}
-                {th("Action", "type", 132)}
-                {th("Subject", "subject", 110)}
-                {th("Form", "form", 180)}
-                {th("Field", "field", 170)}
-                {th("Old value", "old", 110)}
-                {th("New value", "new", 110)}
-                {th("Reason", "reason")}
+                {columns.map((c) => c.key
+                  ? <SortTh key={c.label} label={c.label} sortKey={c.key} sort={sort} onSort={toggle} style={c.width ? { width: c.width } : undefined} />
+                  : <th key={c.label} style={c.width ? { width: c.width } : undefined}>{c.label}</th>)}
               </tr>
             </thead>
             <tbody>
               {filtered.map((e) => {
-                const meta = TYPE_META[e.type];
-                const isQuery = QUERY_TYPES.has(e.type);
                 const muted = e.source === "system" && preset !== "system"; // de-emphasise system rows outside the System tab
-                const rc = reasonColumn(e);
                 return (
-                  <tr key={e.id} className={`${panelId === e.id ? "active-row" : ""}${muted ? " au-row-muted" : ""}`} onClick={() => openRow(e)}>
-                    <td><span className="au-ts">{fmtTs(e.ts)}</span></td>
-                    <td>{userCell(e.user)}</td>
-                    <td><span className={`au-type ${meta.cls}`}><i className={`ti ti-${meta.icon}`}></i> {meta.label}</span></td>
-                    <td>{subjectCell(e)}</td>
-                    <td><span className="au-form" title={e.formPath}>{e.formName}</span></td>
-                    <td>{e.fieldLabel ? <span className="au-field"><span className="au-field-label" title={e.fieldLabel}>{e.fieldLabel}</span>{e.fieldCode && <span className="au-field-code">{e.fieldCode}</span>}</span> : <span className="au-dash">—</span>}</td>
-                    <td>{e.oldValue != null ? <span className="au-old" title={e.oldValue}>{e.oldValue}</span> : <span className="au-dash">—</span>}</td>
-                    <td>{e.newValue != null ? <span className="au-new" title={e.newValue}>{e.newValue}</span> : <span className="au-dash">—</span>}</td>
-                    <td><div className="au-details-cell">
-                      {rc ? <span className="au-details" title={rc}>{rc}</span> : <span className="au-dash">—</span>}
-                      {isQuery && <span className="au-thread-link" onClick={(ev) => { ev.stopPropagation(); gotoThread(e); }}>View thread →</span>}
-                      {e.source === "system" && <span className={`au-src-tag ${SOURCE_META.system.cls}`} title="Source: System">System</span>}
-                    </div></td>
+                  <tr key={e.id} className={`${panelId === e.id ? "active-row" : ""}${muted ? " au-row-muted" : ""}${QUERY_TYPES.has(e.type) ? " au-row-link" : ""}`} onClick={() => openRow(e)}>
+                    {columns.map((c) => <td key={c.label}>{c.render(e)}</td>)}
                   </tr>
                 );
               })}

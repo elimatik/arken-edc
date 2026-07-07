@@ -130,8 +130,14 @@
 /* ── System row muting + query thread link ── */
 .au-row-muted td { color: var(--color-text-tertiary); }
 .au-row-muted .au-old, .au-row-muted .au-new, .au-row-muted .au-type { opacity: 0.75; }
-.au-thread-link { display: inline-flex; align-items: center; font-size: var(--text-xs); font-weight: var(--weight-medium); color: var(--blue-600); cursor: pointer; white-space: nowrap; margin-left: var(--space-2); }
+.au-thread-link { display: inline-flex; align-items: center; font-size: var(--text-xs); font-weight: var(--weight-medium); color: var(--blue-600); cursor: pointer; white-space: nowrap; }
 .au-thread-link:hover { text-decoration: underline; }
+.au-row-link { cursor: pointer; }
+
+/* Query ID chip + Approved-by cell (per-tab columns) */
+.au-qid { display: inline-block; font-family: var(--font-mono); font-size: var(--text-xs); font-weight: var(--weight-medium); color: var(--amber-700); background: var(--amber-50); border: 1px solid var(--amber-200); border-radius: var(--radius-sm); padding: 1px 6px; white-space: nowrap; }
+.au-approved { display: inline-flex; align-items: center; gap: 4px; font-size: var(--text-xs); color: var(--green-600); white-space: nowrap; }
+.au-approved i { font-size: 13px; }
 
 /* ── Change-reason approval chain (slide-in panel) ── */
 .au-chain { padding: var(--space-3) var(--space-4); display: flex; flex-direction: column; }
