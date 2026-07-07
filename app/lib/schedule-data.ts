@@ -115,8 +115,11 @@ const BR: StudyScheduleConfig = {
 };
 
 // ─── CA-0801 · canine atopic dermatitis, V1 → V7 (visit labels) ─────────────
-// Live visit days (VISIT_WINDOWS): 0, 14, 28, 42, 56, 84. V1 screening is
-// protocol-only (day −7 sentinel — no scheduled visit form).
+// The scheduled visit forms sit at Day 14 (FU1), 28 (FU2), 56 (FU3) and 84 (EOS)
+// — the Baseline (V2) has no "Day N" visit form, and there is no Day-42 form, so
+// those columns carry no live data (base markers). Column → live-join day:
+//   V1 screening (−7, none) · V2 baseline (0, none) · V3 (14) · V4 (28) · V5 (56)
+//   · V6 EOS (84) · V7 post-EOS follow-up (98, none → always base).
 const CA: StudyScheduleConfig = {
   subjectNoun: "Subject",
   days: [
@@ -124,9 +127,9 @@ const CA: StudyScheduleConfig = {
     { day: 0, label: "V2", window: "Baseline · dose", phase: "treatment", pivot: true },
     { day: 14, label: "V3", window: "±3d", phase: "treatment" },
     { day: 28, label: "V4", window: "±3d", phase: "treatment" },
-    { day: 42, label: "V5", window: "±3d", phase: "treatment" },
-    { day: 56, label: "V6", window: "±3d", phase: "treatment" },
-    { day: 84, label: "V7", window: "EOS ±5d", phase: "followup" },
+    { day: 56, label: "V5", window: "±3d", phase: "treatment" },
+    { day: 84, label: "V6", window: "EOS ±5d", phase: "followup" },
+    { day: 98, label: "V7", window: "Follow-up", phase: "followup" },
   ],
   groups: [
     { group: "Consent & Eligibility", rows: [

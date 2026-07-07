@@ -384,6 +384,54 @@ export async function hydrateFromSupabase(): Promise<Dataset> {
     }
   }
 
+  // ─── CA-0801 / PH-2401 treatment-phase completion — realistic in-progress SoE
+  // Same dominant-state fix as BR-2502, generalised: finalize the EARLY visit
+  // forms for the majority of active subjects/pens so those SoE columns clear to
+  // base markers, leaving the later visits overdue. The picked visit form per day
+  // mirrors buildVisits() exactly — the lowest-sequence subject-scoped form that
+  // carries a visit-date field — so we flip precisely the instance it reads.
+  // CA early = Day 14/28 (Baseline has no scheduled visit form); PH early = Wk 1-3
+  // (Day 7/14/21). ~2 subjects are left behind, guaranteeing a strict majority.
+  {
+    const VISIT_DATE_CODES = new Set(["visit_date", "weighing_date", "observation_date"]);
+    const allForms = forms.data ?? [];
+    const formById = new Map(allForms.map((f) => [f.id, f]));
+    const dayOfName = (name?: string | null): number | null => {
+      const d = /Day\s+(\d+)/i.exec(name ?? ""); if (d) return Number(d[1]);
+      const w = /Week\s+(\d+)/i.exec(name ?? ""); return w ? Number(w[1]) * 7 : null;
+    };
+    const dateFormIds = new Set<string>();
+    for (const ff of (formFields as FF[])) if (VISIT_DATE_CODES.has(ff.code)) dateFormIds.add(ff.form_id);
+
+    const finalizeEarly = (code: string, targetDays: Set<number>) => {
+      const sid = (studies.data ?? []).find((s) => s.code === code)?.id;
+      if (!sid) return;
+      // Picked visit form per day: lowest-sequence subject-scoped date form (buildVisits parity).
+      const pickByDay = new Map<number, { id: string; seq: number }>();
+      for (const fid of Array.from(dateFormIds)) {
+        const f = formById.get(fid);
+        if (!f || f.study_id !== sid || (f.scope ?? "subject") !== "subject") continue;
+        const parent = f.parent_form_id ? formById.get(f.parent_form_id) : null;
+        const day = dayOfName(f.name) ?? dayOfName(parent?.name);
+        if (day == null || !targetDays.has(day)) continue;
+        const prev = pickByDay.get(day);
+        if (!prev || f.sequence < prev.seq) pickByDay.set(day, { id: fid, seq: f.sequence });
+      }
+      const pickedFormIds = Array.from(pickByDay.values()).map((v) => v.id);
+      const active = (subjects.data ?? []).filter((s) => s.study_id === sid && s.status === "active");
+      const nDone = Math.max(active.length - 2, Math.floor(active.length / 2) + 1); // strict majority, ~2 stragglers
+      for (const subj of active.slice(0, nDone)) {
+        for (const formId of pickedFormIds) {
+          const inst = fInst.find((i) => i.form_id === formId && i.subject_id === subj.id);
+          if (inst) inst.status = "finalized";
+          else fInst.push({ id: `fi-early-${subj.id}-${formId}`, form_id: formId, subject_id: subj.id, status: "finalized" });
+        }
+      }
+    };
+    finalizeEarly("CA-0801", new Set([0, 14, 28]));
+    finalizeEarly("PH-2401", new Set([7, 14, 21]));
+  }
+
   // ─── CA-0801 Study Drug Dispensation / Accountability values ────────────────
   // The reshape above replaced the CA drug-form fields, orphaning the live DB values.
   // Re-seed the new field codes on each existing instance for active/completed dogs:
