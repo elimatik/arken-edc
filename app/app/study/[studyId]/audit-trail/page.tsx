@@ -137,7 +137,7 @@ type SourceKey = "manual" | "site" | "barn" | "batch" | "system";
 const SOURCE_META: Record<SourceKey, { label: string; cls: string }> = {
   manual: { label: "Manual", cls: "src-manual" },
   site: { label: "Site form", cls: "src-site" },
-  barn: { label: "House form", cls: "src-barn" },
+  barn: { label: "Barn form", cls: "src-barn" }, // default; per-study label via sourceLabelOf (Barn / House)
   batch: { label: "Batch", cls: "src-batch" },
   system: { label: "System", cls: "src-system" },
 };
@@ -687,6 +687,12 @@ export default function AuditTrailPage() {
   const filterOptions = FILTER_OPTIONS[preset];
   const activeTypeSets = TYPE_SETS[preset];
 
+  // The barn/house source label adapts to the study's housing (feedlot barns vs.
+  // poultry houses); CA-0801 has no barn/house scope, so the option is omitted.
+  const barnLabel = study?.code === "BR-2502" ? "Barn form" : study?.code === "PH-2401" ? "House form" : null;
+  const sourceLabelOf = (s: SourceKey): string => (s === "barn" ? barnLabel ?? SOURCE_META.barn.label : SOURCE_META[s].label);
+  const sourceOptions = SOURCE_OPTIONS.flatMap((o) => (o.value === "barn" ? (barnLabel ? [{ value: "barn", label: barnLabel }] : []) : [o]));
+
   const filtered = useMemo(() => {
     const q = search.toLowerCase().trim();
     // The selected filter's type set (falls back to the tab's full preset set).
@@ -742,7 +748,7 @@ export default function AuditTrailPage() {
   const CSV_HEADERS = ["Timestamp (UTC)", "User", "Role", "Action", "Subject", "Site", "Form", "Field", "Field code", "Old value", "New value", "Reason", "Source"];
   const csvRow = (e: AuditEvent): (string | number | null)[] => [
     fmtTs(e.ts), e.user.name, e.user.role, TYPE_META[e.type].label, e.subjectCode, e.siteName, e.formName,
-    e.fieldLabel, e.fieldCode, e.oldValue ?? "", e.newValue ?? "", reasonColumn(e) ?? "", SOURCE_META[e.source].label,
+    e.fieldLabel, e.fieldCode, e.oldValue ?? "", e.newValue ?? "", reasonColumn(e) ?? "", sourceLabelOf(e.source),
   ];
   const today = dateKey(new Date(baseNow).toISOString());
   function exportFull() {
@@ -860,7 +866,7 @@ export default function AuditTrailPage() {
           {filterOptions.map((o) => <option key={o.value} value={o.value}>{o.label}</option>)}
         </select>
         <select className="au-select" value={sourceF} onChange={(e) => setSourceF(e.target.value)} aria-label="Source">
-          {SOURCE_OPTIONS.map((o) => <option key={o.value} value={o.value}>{o.label}</option>)}
+          {sourceOptions.map((o) => <option key={o.value} value={o.value}>{o.label}</option>)}
         </select>
         <select className="au-select" value={userF} onChange={(e) => setUserF(e.target.value)} aria-label="User">
           <option value="all">All users</option>{userNames.map((n) => <option key={n} value={n}>{n}</option>)}
@@ -978,7 +984,7 @@ export default function AuditTrailPage() {
               <div className="au-detail-grid">
                 {row("Timestamp", fmtTs(panelEvent.ts), true)}
                 {row("Action", <span className={`au-type ${meta.cls}`}><i className={`ti ti-${meta.icon}`}></i> {meta.label}</span>)}
-                {row("Source", <span className={`au-src-tag ${SOURCE_META[panelEvent.source].cls}`}>{SOURCE_META[panelEvent.source].label}</span>)}
+                {row("Source", <span className={`au-src-tag ${SOURCE_META[panelEvent.source].cls}`}>{sourceLabelOf(panelEvent.source)}</span>)}
                 {row("User", <>{panelEvent.user.name} <span className="au-role" style={{ marginLeft: 4 }}>{panelEvent.user.role}</span></>)}
                 {row("Session", <span style={{ color: "var(--color-text-tertiary)" }}><i className="ti ti-device-desktop" style={{ fontSize: 12, marginRight: 4 }}></i>Timestamp: UTC · Electronic signature: session-authenticated</span>)}
                 {panelEvent.subjectCode !== "—" && panelEvent.scope === "subject" && row("Subject", <span style={{ fontFamily: "var(--font-mono)" }}>{panelEvent.subjectCode}</span>)}
