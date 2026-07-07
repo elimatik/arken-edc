@@ -90,7 +90,9 @@ const FILTER_OPTIONS: Record<PresetKey, { value: string; label: string }[]> = {
   ],
   query: [
     { value: "all", label: "All actions" },
-    { value: "query", label: "Query" },
+    { value: "query_raised", label: "Query raised" },
+    { value: "query_responded", label: "Query responded" },
+    { value: "query_resolved", label: "Query resolved" },
   ],
   system: [
     { value: "all", label: "All actions" },
@@ -114,7 +116,9 @@ const TYPE_SETS: Record<PresetKey, Map<string, Set<AuditType>>> = {
   ]),
   query: new Map<string, Set<AuditType>>([
     ["all", PRESETS.query],
-    ["query", new Set<AuditType>(["query_raised", "query_responded", "query_resolved"])],
+    ["query_raised", new Set<AuditType>(["query_raised"])],
+    ["query_responded", new Set<AuditType>(["query_responded"])],
+    ["query_resolved", new Set<AuditType>(["query_resolved"])],
   ]),
   system: new Map<string, Set<AuditType>>([
     ["all", PRESETS.system],
