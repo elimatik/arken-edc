@@ -37,15 +37,15 @@
 .au-count { font-size: var(--text-xs); color: var(--color-text-tertiary); white-space: nowrap; margin-left: auto; flex-shrink: 0; padding-left: var(--space-2); }
 
 /* Table */
-.au-table-wrap { flex: 1; overflow: auto; }
-.au-table { width: 100%; border-collapse: collapse; font-size: var(--text-sm); }
-.au-table thead th { position: sticky; top: 0; z-index: 5; background: var(--color-surface); padding: var(--space-2) var(--space-2); text-align: left; font-size: var(--text-xs); font-weight: var(--weight-medium); text-transform: uppercase; letter-spacing: var(--tracking-caps); color: var(--color-text-tertiary); border-bottom: 1px solid var(--color-border); white-space: nowrap; }
+.au-table-wrap { flex: 1; overflow-y: auto; overflow-x: hidden; }
+.au-table { width: 100%; table-layout: fixed; border-collapse: collapse; font-size: var(--text-sm); }
+.au-table thead th { position: sticky; top: 0; z-index: 5; background: var(--color-surface); padding: var(--space-2) var(--space-2); text-align: left; font-size: var(--text-xs); font-weight: var(--weight-medium); text-transform: uppercase; letter-spacing: var(--tracking-caps); color: var(--color-text-tertiary); border-bottom: 1px solid var(--color-border); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .au-table thead th:first-child { padding-left: var(--space-5); }
 .au-table thead th:last-child { padding-right: var(--space-5); }
 .au-table tbody tr { border-bottom: 1px solid var(--color-border-subtle); cursor: pointer; transition: background var(--duration-fast); }
 .au-table tbody tr:hover { background: var(--color-hover-bg); }
 .au-table tbody tr.active-row { background: var(--blue-50); }
-.au-table tbody td { padding: var(--space-2) var(--space-2); vertical-align: middle; color: var(--color-text-primary); }
+.au-table tbody td { padding: var(--space-2) var(--space-2); vertical-align: middle; color: var(--color-text-primary); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .au-table tbody td:first-child { padding-left: var(--space-5); }
 .au-table tbody td:last-child { padding-right: var(--space-5); }
 
@@ -58,17 +58,17 @@
 .au-scope i { font-size: 12px; flex-shrink: 0; font-style: normal; }
 .au-scope-site i { color: var(--blue-600); }
 .au-scope-barn i { color: var(--amber-700); }
-.au-form { color: var(--color-text-secondary); max-width: 200px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; display: inline-block; }
-.au-field { display: inline-flex; align-items: center; gap: 6px; min-width: 0; max-width: 180px; }
+.au-form { color: var(--color-text-secondary); max-width: 100%; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; display: inline-block; vertical-align: middle; }
+.au-field { display: inline-flex; align-items: center; gap: 6px; min-width: 0; max-width: 100%; vertical-align: middle; }
 .au-field-label { font-size: var(--text-xs); color: var(--color-text-primary); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; min-width: 0; }
 .au-field-code { flex-shrink: 0; font-family: var(--font-mono); font-size: 10px; color: var(--color-text-tertiary); background: var(--color-page-bg); border: 1px solid var(--color-border); border-radius: var(--radius-sm); padding: 0 4px; }
 /* Superseded ("old") value — muted, never struck through (an audit entry is
    immutable; strikethrough would imply deletion). The column header + the green
    "new value" cell already convey old → new. */
-.au-old { font-family: var(--font-mono); font-size: var(--text-xs); color: var(--color-text-tertiary); background: var(--slate-50); border: 1px solid var(--color-border); border-radius: var(--radius-sm); padding: 1px 5px; white-space: nowrap; display: inline-block; max-width: 110px; overflow: hidden; text-overflow: ellipsis; }
-.au-new { font-family: var(--font-mono); font-size: var(--text-xs); color: var(--green-600); background: var(--green-50); border: 1px solid var(--green-200); border-radius: var(--radius-sm); padding: 1px 5px; white-space: nowrap; display: inline-block; max-width: 110px; overflow: hidden; text-overflow: ellipsis; }
+.au-old { font-family: var(--font-mono); font-size: var(--text-xs); color: var(--color-text-tertiary); background: var(--slate-50); border: 1px solid var(--color-border); border-radius: var(--radius-sm); padding: 1px 5px; white-space: nowrap; display: inline-block; max-width: 100%; overflow: hidden; text-overflow: ellipsis; vertical-align: middle; }
+.au-new { font-family: var(--font-mono); font-size: var(--text-xs); color: var(--green-600); background: var(--green-50); border: 1px solid var(--green-200); border-radius: var(--radius-sm); padding: 1px 5px; white-space: nowrap; display: inline-block; max-width: 100%; overflow: hidden; text-overflow: ellipsis; vertical-align: middle; }
 .au-dash { color: var(--color-text-placeholder); }
-.au-details { font-size: var(--text-xs); color: var(--color-text-secondary); line-height: 1.4; max-width: 320px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; display: inline-block; }
+.au-details { font-size: var(--text-xs); color: var(--color-text-secondary); line-height: 1.4; max-width: 100%; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; display: inline-block; vertical-align: middle; }
 
 /* Subtle event-source tag (Details cell + detail panel). */
 /* Details cell — details text + source tag on one centered line (tag never drops). */
@@ -136,11 +136,11 @@
 
 /* Query ID chip + Approved-by cell (per-tab columns) */
 .au-qid { display: inline-block; font-family: var(--font-mono); font-size: 10px; color: var(--color-text-secondary); background: transparent; border: 1px solid var(--color-border); border-radius: var(--radius-md); padding: 2px 8px; white-space: nowrap; }
-.au-approved { display: inline-block; max-width: 160px; font-size: var(--text-xs); color: var(--green-600); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; vertical-align: middle; }
+.au-approved { display: inline-block; max-width: 100%; font-size: var(--text-xs); color: var(--green-600); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; vertical-align: middle; }
 .au-approved i { font-size: 13px; vertical-align: middle; margin-right: 2px; }
-/* Clinical Data tab — force single-line, ellipsised cells (Clinical Data column widths) */
-.au-uname-clip { display: inline-block; max-width: 110px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; vertical-align: middle; }
-.au-reason-clip { max-width: 140px; }
+/* Clinical Data tab — force single-line, ellipsised cells that fill their (fixed) column */
+.au-uname-clip { display: inline-block; max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; vertical-align: middle; }
+.au-reason-clip { max-width: 100%; }
 
 /* ── Change-reason approval chain (slide-in panel) ── */
 .au-chain { padding: var(--space-3) var(--space-4); display: flex; flex-direction: column; }

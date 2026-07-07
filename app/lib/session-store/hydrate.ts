@@ -840,52 +840,42 @@ export async function hydrateFromSupabase(): Promise<Dataset> {
     }
   }
 
-  // ─── Seeded change-reason (Δ) records + electronic signatures for BR-2502 ────
-  // deltaRecords are otherwise runtime-only; seed a few APPROVED ones so the Audit
-  // Trail can show the full edit → reason → DM-approval chain. eSignatures seed a PI
-  // sign-off per finalized BR form (21 CFR Part 11 §11.50).
+  // ─── Seeded change-reason (Δ) records + electronic signatures ───────────────
+  // deltaRecords are otherwise runtime-only; seed a few APPROVED ones PER STUDY so
+  // the Audit Trail's "Approved by" column has data whichever study is open (the
+  // audit trail is study-scoped). eSignatures seed a PI sign-off per finalized BR
+  // form (21 CFR Part 11 §11.50).
   const seededDeltas: Dataset["deltaRecords"] = [];
   const seededSignatures: Dataset["eSignatures"] = [];
   {
     const fInstArr = formInstances as Dataset["formInstances"];
     const fvArr = fieldValues as Dataset["fieldValues"];
-    const brSubjIds = new Set((subjects.data ?? []).filter((s) => s.study_id === brStudyId).map((s) => s.id));
-    const brInstIds = new Set(fInstArr.filter((i) => i.subject_id && brSubjIds.has(i.subject_id)).map((i) => i.id));
     const ffById = new Map((reshapedFormFields as Dataset["formFields"]).map((f) => [f.id, f]));
     const addHours = (iso: string, h: number) => new Date(new Date(iso).getTime() + h * 3600000).toISOString();
-
-    const deltaSpecs = [
-      { code: "rectal_temp", old: "40.1", reason: "Transcription error — value corrected against the source thermometer reading." },
-      { code: "heart_rate", old: "96", reason: "Original entry was the pre-exam reading; corrected to the on-exam value per source." },
-      { code: "body_weight", old: "312", reason: "Units mis-keyed at entry; re-verified against the scale printout in the source." },
-    ];
     const CRC_NAMES = ["D. Okonkwo", "A. Reyes", "S. Kim"];
-    let di = 0;
-    for (const spec of deltaSpecs) {
-      const fv = fvArr.find((v) => brInstIds.has(v.form_instance_id) && ffById.get(v.form_field_id)?.code === spec.code && v.value && String(v.value) !== spec.old);
-      if (!fv) continue;
-      const created = `2026-05-2${2 + di}T14:0${di}:00Z`;
-      seededDeltas.push({
-        id: `delta-br-${di}`, field_value_id: fv.id, old_value: spec.old, new_value: String(fv.value), reason: spec.reason,
-        author_name: CRC_NAMES[di % CRC_NAMES.length], author_role: "CRC", created_at: created, status: "approved",
-        approved_by: "M. Chen", approved_role: "DM", approved_at: addHours(created, 3),
+
+    // Two approved change-reason records per study, on real field values.
+    for (const code of ["BR-2502", "CA-0801", "PH-2401"]) {
+      const sid = (studies.data ?? []).find((s) => s.code === code)?.id;
+      if (!sid) continue;
+      const subjIds = new Set((subjects.data ?? []).filter((s) => s.study_id === sid).map((s) => s.id));
+      const instIds = new Set(fInstArr.filter((i) => i.subject_id && subjIds.has(i.subject_id)).map((i) => i.id));
+      const candidates = fvArr.filter((v) => instIds.has(v.form_instance_id) && v.value != null && String(v.value).trim() !== "" && ffById.get(v.form_field_id)?.label);
+      const picks = [candidates[0], candidates[Math.floor(candidates.length / 2)]].filter((v, i, a) => v && a.indexOf(v) === i);
+      picks.forEach((fv, i) => {
+        const val = String(fv.value);
+        const old = /^-?\d+(\.\d+)?$/.test(val) ? (parseFloat(val) + (i === 0 ? 0.5 : -3)).toFixed(val.includes(".") ? 1 : 0) : "(prior value)";
+        const created = `2026-05-2${2 + i}T1${i}:00:00Z`;
+        seededDeltas.push({
+          id: `delta-${code}-${i}`, field_value_id: fv.id, old_value: old, new_value: val,
+          reason: "Value corrected against source per monitoring review.", author_name: CRC_NAMES[i % CRC_NAMES.length], author_role: "CRC",
+          created_at: created, status: "approved", approved_by: "M. Chen", approved_role: "DM", approved_at: addHours(created, 3),
+        });
       });
-      di++;
-    }
-    // Fallback — guarantee at least one approved change-reason record on BR-2502
-    // even if none of the named fields carry a value (so the "Approved by" column
-    // always has something to show).
-    if (seededDeltas.length === 0) {
-      const fv = fvArr.find((v) => brInstIds.has(v.form_instance_id) && v.value && String(v.value).trim() !== "" && ffById.get(v.form_field_id)?.label);
-      if (fv) {
-        const created = "2026-05-22T14:00:00Z";
-        seededDeltas.push({ id: "delta-br-0", field_value_id: fv.id, old_value: "(prior value)", new_value: String(fv.value),
-          reason: "Value corrected against source per monitoring finding.", author_name: "D. Okonkwo", author_role: "CRC",
-          created_at: created, status: "approved", approved_by: "M. Chen", approved_role: "DM", approved_at: addHours(created, 3) });
-      }
     }
 
-    const brFinalized = fInstArr.filter((i) => brInstIds.has(i.id) && (i.status === "finalized" || i.status === "locked")).slice(0, 4);
+    const brSubjIds = new Set((subjects.data ?? []).filter((s) => s.study_id === brStudyId).map((s) => s.id));
+    const brFinalized = fInstArr.filter((i) => i.subject_id && brSubjIds.has(i.subject_id) && (i.status === "finalized" || i.status === "locked")).slice(0, 4);
     brFinalized.forEach((inst, i) => {
       seededSignatures.push({
         id: `esig-br-${i}`, form_instance_id: inst.id, signed_by: "Dr. S. Patel", signed_by_role: "PI",
@@ -912,7 +902,7 @@ export async function hydrateFromSupabase(): Promise<Dataset> {
     queryMessages: rawMsgs,
     editChecks,
     sdvRecords: sdvWithSeed,
-    deltaRecords: seededDeltas, // session-only — seeded approved change-reason chain (BR-2502)
+    deltaRecords: seededDeltas, // session-only — seeded approved change-reason chain (per study)
     eSignatures: seededSignatures, // session-only — seeded PI electronic signatures (BR-2502)
     formAudits: [], // session-only — form revert / withdraw log
     unblindings: [], // session-only — emergency-unblinding log

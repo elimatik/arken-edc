@@ -742,17 +742,17 @@ export default function AuditTrailPage() {
   // meaning for its event types.
   type ColDef = { label: string; key?: string; width?: number; render: (e: AuditEvent) => React.ReactNode };
   const dash = <span className="au-dash">—</span>;
-  const cTs: ColDef = { label: "Timestamp", key: "ts", width: 150, render: (e) => <span className="au-ts">{fmtTs(e.ts)}</span> };
-  const cUser: ColDef = { label: "User", key: "user", width: 110, render: (e) => <span className="au-uname au-uname-clip">{e.user.name}</span> };
-  const cRole: ColDef = { label: "Role", key: "role", width: 74, render: (e) => <span className="au-role">{e.user.role}</span> };
+  const cTs: ColDef = { label: "Timestamp", key: "ts", width: 148, render: (e) => <span className="au-ts">{fmtTs(e.ts)}</span> };
+  const cUser: ColDef = { label: "User", key: "user", width: 100, render: (e) => <span className="au-uname au-uname-clip">{e.user.name}</span> };
+  const cRole: ColDef = { label: "Role", key: "role", width: 52, render: (e) => <span className="au-role">{e.user.role}</span> };
   const cAction: ColDef = { label: "Action", key: "type", width: 120, render: (e) => { const m = TYPE_META[e.type]; return <span className={`au-type ${m.cls}`}><i className={`ti ti-${m.icon}`}></i> {m.label}</span>; } };
-  const cSubject: ColDef = { label: "Subject", key: "subject", width: 110, render: subjectCell };
-  const cForm: ColDef = { label: "Form", key: "form", width: 170, render: (e) => <span className="au-form" title={e.formPath}>{e.formName}</span> };
-  const cField: ColDef = { label: "Field", key: "field", width: 150, render: (e) => e.fieldLabel ? <span className="au-field"><span className="au-field-label" title={e.fieldLabel}>{e.fieldLabel}</span>{e.fieldCode && <span className="au-field-code">{e.fieldCode}</span>}</span> : dash };
-  const cOld: ColDef = { label: "Old value", key: "old", width: 100, render: (e) => e.oldValue != null ? <span className="au-old" title={e.oldValue}>{e.oldValue}</span> : dash };
-  const cNew: ColDef = { label: "New value", key: "new", width: 100, render: (e) => e.newValue != null ? <span className="au-new" title={e.newValue}>{e.newValue}</span> : dash };
-  const cReason: ColDef = { label: "Reason", key: "reason", width: 140, render: (e) => { const r = reasonColumn(e); return r ? <span className="au-details au-reason-clip" title={r}>{r}</span> : dash; } };
-  const cApproved: ColDef = { label: "Approved by", key: "approved", width: 160, render: (e) => (e.approvedAt && e.approvedBy) ? <span className="au-approved" title={`${e.approvedBy} (${e.approvedRole}) · ${fmtTs(e.approvedAt)}`}><i className="ti ti-rosette-discount-check"></i> {e.approvedBy} ({e.approvedRole}) · {fmtTs(e.approvedAt)}</span> : dash };
+  const cSubject: ColDef = { label: "Subject", key: "subject", width: 96, render: subjectCell };
+  const cForm: ColDef = { label: "Form", key: "form", width: 150, render: (e) => <span className="au-form" title={e.formPath}>{e.formName}</span> };
+  const cField: ColDef = { label: "Field", key: "field", width: 140, render: (e) => e.fieldLabel ? <span className="au-field"><span className="au-field-label" title={e.fieldLabel}>{e.fieldLabel}</span>{e.fieldCode && <span className="au-field-code">{e.fieldCode}</span>}</span> : dash };
+  const cOld: ColDef = { label: "Old value", key: "old", width: 88, render: (e) => e.oldValue != null ? <span className="au-old" title={e.oldValue}>{e.oldValue}</span> : dash };
+  const cNew: ColDef = { label: "New value", key: "new", width: 88, render: (e) => e.newValue != null ? <span className="au-new" title={e.newValue}>{e.newValue}</span> : dash };
+  const cReason: ColDef = { label: "Reason", key: "reason", render: (e) => { const r = reasonColumn(e); return r ? <span className="au-details au-reason-clip" title={r}>{r}</span> : dash; } };
+  const cApproved: ColDef = { label: "Approved by", key: "approved", width: 140, render: (e) => (e.approvedAt && e.approvedBy) ? <span className="au-approved" title={`${e.approvedBy} (${e.approvedRole}) · ${fmtTs(e.approvedAt)}`}><i className="ti ti-rosette-discount-check"></i> {e.approvedBy} ({e.approvedRole}) · {fmtTs(e.approvedAt)}</span> : dash };
   const cQid: ColDef = { label: "Query ID", key: "queryid", width: 96, render: (e) => e.queryCode ? <span className="au-qid">{e.queryCode}</span> : dash };
   const cText: ColDef = { label: "Text", key: "text", render: (e) => e.details ? <span className="au-details" title={e.details}>{trunc(e.details, 80)}</span> : dash };
   const cLink: ColDef = { label: "Link", width: 120, render: (e) => (e.subjectId && e.formId) ? <span className="au-thread-link" onClick={(ev) => { ev.stopPropagation(); gotoForm(e); }}>View in form →</span> : dash };
