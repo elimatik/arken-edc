@@ -136,8 +136,11 @@
 
 /* Query ID chip + Approved-by cell (per-tab columns) */
 .au-qid { display: inline-block; font-family: var(--font-mono); font-size: 10px; color: var(--color-text-secondary); background: transparent; border: 1px solid var(--color-border); border-radius: var(--radius-md); padding: 2px 8px; white-space: nowrap; }
-.au-approved { display: inline-flex; align-items: center; gap: 4px; font-size: var(--text-xs); color: var(--green-600); white-space: nowrap; }
-.au-approved i { font-size: 13px; }
+.au-approved { display: inline-block; max-width: 160px; font-size: var(--text-xs); color: var(--green-600); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; vertical-align: middle; }
+.au-approved i { font-size: 13px; vertical-align: middle; margin-right: 2px; }
+/* Clinical Data tab — force single-line, ellipsised cells (Clinical Data column widths) */
+.au-uname-clip { display: inline-block; max-width: 110px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; vertical-align: middle; }
+.au-reason-clip { max-width: 140px; }
 
 /* ── Change-reason approval chain (slide-in panel) ── */
 .au-chain { padding: var(--space-3) var(--space-4); display: flex; flex-direction: column; }

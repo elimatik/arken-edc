@@ -872,6 +872,18 @@ export async function hydrateFromSupabase(): Promise<Dataset> {
       });
       di++;
     }
+    // Fallback — guarantee at least one approved change-reason record on BR-2502
+    // even if none of the named fields carry a value (so the "Approved by" column
+    // always has something to show).
+    if (seededDeltas.length === 0) {
+      const fv = fvArr.find((v) => brInstIds.has(v.form_instance_id) && v.value && String(v.value).trim() !== "" && ffById.get(v.form_field_id)?.label);
+      if (fv) {
+        const created = "2026-05-22T14:00:00Z";
+        seededDeltas.push({ id: "delta-br-0", field_value_id: fv.id, old_value: "(prior value)", new_value: String(fv.value),
+          reason: "Value corrected against source per monitoring finding.", author_name: "D. Okonkwo", author_role: "CRC",
+          created_at: created, status: "approved", approved_by: "M. Chen", approved_role: "DM", approved_at: addHours(created, 3) });
+      }
+    }
 
     const brFinalized = fInstArr.filter((i) => brInstIds.has(i.id) && (i.status === "finalized" || i.status === "locked")).slice(0, 4);
     brFinalized.forEach((inst, i) => {
