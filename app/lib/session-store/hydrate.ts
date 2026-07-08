@@ -873,6 +873,12 @@ export async function hydrateFromSupabase(): Promise<Dataset> {
         });
       });
     }
+    // Invariant: every seeded delta with status "approved" carries the DM sign-off.
+    for (const d of seededDeltas) {
+      if (d.status === "approved" && !d.approved_by) {
+        d.approved_by = "M. Chen"; d.approved_role = "DM"; d.approved_at = addHours(d.created_at, 3);
+      }
+    }
 
     const brSubjIds = new Set((subjects.data ?? []).filter((s) => s.study_id === brStudyId).map((s) => s.id));
     const brFinalized = fInstArr.filter((i) => i.subject_id && brSubjIds.has(i.subject_id) && (i.status === "finalized" || i.status === "locked")).slice(0, 4);
