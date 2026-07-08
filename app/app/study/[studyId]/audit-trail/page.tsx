@@ -321,13 +321,17 @@ function buildAuditEvents(dataset: Dataset, studyId: string, baseNow: number): A
   // 2 — Change reasons (Δ records). One event per change; the DM approval is
   // surfaced inline via the "Approved by" column (approvedBy/approvedAt) and the
   // panel's edit → reason → approval chain.
+  // TEMP diagnostic (remove after confirming): what the loop reads from the store.
+  if (typeof console !== "undefined") console.log("[audit] deltaRecords", dataset.deltaRecords.length, dataset.deltaRecords.map((d) => ({ id: d.id, status: d.status, approved_by: d.approved_by, approved_at: d.approved_at })));
   for (const d of dataset.deltaRecords) {
     const fo = fieldOfValue(d.field_value_id); if (!fo) continue;
     const ctx = ctxOfInstance(fo.fv.form_instance_id); if (!ctx) continue;
-    const chain = { authorName: d.author_name, authorRole: d.author_role, createdAt: d.created_at,
-      approvedBy: d.approved_by, approvedRole: d.approved_role, approvedAt: d.approved_at };
+    // Explicit snake_case → camelCase mapping (no spread) so the approval fields
+    // are always present on the event.
     push({ ts: d.created_at, type: "change_reason", user: mkUser(d.author_name, d.author_role), ...ctx, ...fieldBits(fo.field),
-      oldValue: d.old_value, newValue: d.new_value, reason: d.reason, ...chain,
+      oldValue: d.old_value, newValue: d.new_value, reason: d.reason,
+      authorName: d.author_name, authorRole: d.author_role, createdAt: d.created_at,
+      approvedBy: d.approved_by, approvedRole: d.approved_role, approvedAt: d.approved_at,
       details: `${fo.field.label} changed from ${d.old_value} to ${d.new_value}`, statusBefore: d.status });
   }
 
@@ -804,7 +808,10 @@ export default function AuditTrailPage() {
   const cOld: ColDef = { label: "Old value", key: "old", width: 88, render: (e) => e.oldValue != null ? <span className="au-old" title={e.oldValue}>{e.oldValue}</span> : dash };
   const cNew: ColDef = { label: "New value", key: "new", width: 88, render: (e) => e.newValue != null ? <span className="au-new" title={e.newValue}>{e.newValue}</span> : dash };
   const cReason: ColDef = { label: "Reason", key: "reason", render: (e) => { const r = reasonColumn(e); return r ? <span className="au-details au-reason-clip" title={r}>{r}</span> : dash; } };
-  const cApproved: ColDef = { label: "Approved by", key: "approved", width: 140, render: (e) => (e.approvedAt && e.approvedBy) ? <span className="au-approved" title={`${e.approvedBy} (${e.approvedRole}) · ${fmtTs(e.approvedAt)}`}><i className="ti ti-rosette-discount-check"></i> {e.approvedBy} ({e.approvedRole}) · {fmtTs(e.approvedAt)}</span> : dash };
+  const cApproved: ColDef = { label: "Approved by", key: "approved", width: 140, render: (e) => {
+    if (e.type === "change_reason" && typeof console !== "undefined") console.log("[audit] cApproved", e.approvedBy, e.approvedAt); // TEMP diagnostic
+    return (e.approvedAt && e.approvedBy) ? <span className="au-approved" title={`${e.approvedBy} (${e.approvedRole}) · ${fmtTs(e.approvedAt)}`}><i className="ti ti-rosette-discount-check"></i> {e.approvedBy} ({e.approvedRole}) · {fmtTs(e.approvedAt)}</span> : dash;
+  } };
   const cQid: ColDef = { label: "Query ID", key: "queryid", width: 96, render: (e) => e.queryCode ? <span className="au-qid">{e.queryCode}</span> : dash };
   const cText: ColDef = { label: "Text", key: "text", render: (e) => e.details ? <span className="au-details" title={e.details}>{trunc(e.details, 80)}</span> : dash };
   const cLink: ColDef = { label: "Link", width: 120, render: (e) => (e.subjectId && e.formId) ? <span className="au-thread-link" onClick={(ev) => { ev.stopPropagation(); gotoForm(e); }}>View in form →</span> : dash };
