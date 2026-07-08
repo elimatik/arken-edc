@@ -179,7 +179,7 @@ export function ScopedFieldGrid({ studyId, scope, scopeId, form, instanceId, mod
     update((d: Dataset) => { const r = d.deltaRecords.find((x) => x.id === recordId); if (r && r.status === "pending") { r.reason = text; r.author_name = ndaName; r.author_role = activeRole; r.status = "responded"; } });
     setRecordReasons((p) => { const n = { ...p }; delete n[recordId]; return n; });
   }
-  function approveDelta(recordId: string) { if (activeRole !== "DM") return; update((d: Dataset) => { const r = d.deltaRecords.find((x) => x.id === recordId); if (r) r.status = "approved"; }); }
+  function approveDelta(recordId: string) { if (activeRole !== "DM") return; update((d: Dataset) => { const r = d.deltaRecords.find((x) => x.id === recordId); if (r) { r.status = "approved"; r.approved_by = ndaName; r.approved_role = activeRole; r.approved_at = new Date().toISOString(); } }); }
 
   function pushMsg(d: Dataset, queryId: string, body: string) { d.queryMessages.push({ id: newId(), query_id: queryId, author_id: DEMO_USER_ID, author_name: ndaName, author_role: activeRole, body, created_at: new Date().toISOString() }); }
   function raiseQuery(field: FormFieldRow) {

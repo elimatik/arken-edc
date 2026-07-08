@@ -174,7 +174,7 @@ export function BatchEntryGrid({
     update((d: Dataset) => { const r = d.deltaRecords.find((x) => x.id === recordId); if (r && r.status === "pending") { r.reason = text; r.author_name = ndaName; r.author_role = activeRole; r.status = "responded"; } });
     setRecordReasons((p) => { const n = { ...p }; delete n[recordId]; return n; });
   }
-  function approveDelta(recordId: string) { if (activeRole !== "DM") return; update((d: Dataset) => { const r = d.deltaRecords.find((x) => x.id === recordId); if (r) r.status = "approved"; }); }
+  function approveDelta(recordId: string) { if (activeRole !== "DM") return; update((d: Dataset) => { const r = d.deltaRecords.find((x) => x.id === recordId); if (r) { r.status = "approved"; r.approved_by = ndaName; r.approved_role = activeRole; r.approved_at = new Date().toISOString(); } }); }
 
   // ── Derived (Δ panel) ────────────────────────────────────────────────────────
   const deltaFv = delta ? fvFor(delta.sid, delta.field.id) : undefined;

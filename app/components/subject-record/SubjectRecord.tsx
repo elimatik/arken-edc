@@ -1407,7 +1407,7 @@ export function SubjectRecord({ studyId, subjectId, initialFormId, initialPanelF
     if (activeRole !== "DM") return;
     update((d: Dataset) => {
       const r = d.deltaRecords.find((x) => x.id === recordId);
-      if (r) r.status = "approved";
+      if (r) { r.status = "approved"; r.approved_by = ndaName; r.approved_role = activeRole; r.approved_at = new Date().toISOString(); }
     });
   }
 
