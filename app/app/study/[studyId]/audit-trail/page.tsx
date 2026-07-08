@@ -814,10 +814,13 @@ export default function AuditTrailPage() {
   const cDetails: ColDef = { label: "Details", key: "details", render: (e) => <span className="au-details" title={e.details}>{e.details}</span> };
   // Query Workflow has room and longer labels ("Query Responded") — give Action a wider column.
   const cActionWide: ColDef = { ...cAction, width: 160 };
+  // System & Security has the longest action labels ("Subject Withdrawn") — wider Action + Subject.
+  const cActionSystem: ColDef = { ...cAction, width: 170 };
+  const cSubjectWide: ColDef = { ...cSubject, width: 130 };
   const COLS: Record<PresetKey, ColDef[]> = {
     clinical: [cTs, cUser, cRole, cAction, cSubject, cForm, cField, cOld, cNew, cReason, cApproved],
     query: [cTs, cUser, cRole, cActionWide, cSubject, cForm, cQid, cText, cLink],
-    system: [cTs, cUser, cRole, cAction, cSubject, cSite, cDetails],
+    system: [cTs, cUser, cRole, cActionSystem, cSubjectWide, cSite, cDetails],
   };
   const columns = COLS[preset];
 
