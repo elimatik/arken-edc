@@ -1,5 +1,5 @@
 # Arken EDC — Design & Architecture Decisions
-Last updated: 2026-06-07 | Sessions 1–15 complete
+Last updated: 2026-07-14 | Build phase (Next.js) — DATA_KEY v63
 
 Every significant decision made across all design sessions, with rationale. Useful for Claude Code and future contributors. Every entry is a portfolio talking point.
 
@@ -277,6 +277,55 @@ In production, Anthropic API call is made server-side with the role from the ses
 
 ### Dashboard: enrollment track height 6px
 10px is too thick. 4px is too thin. 6px is the right balance for readability without dominating.
+
+---
+
+## This session — build phase (Next.js, DATA_KEY v63)
+
+### 1. Study type config abstraction (`lib/study-type-config.ts`)
+All behavioral gates read from a config object, NOT hardcoded `studyId` checks. Per-study **data** maps (`Record<string, T>`) are acceptable; behavioral **feature gates** are not — those must resolve through `getStudyTypeConfig()`.
+
+### 2. Form lifecycle
+In-work → In Review → Reviewed → Finalized → Locked. **Finalized is now read-only** (`docReadOnly = finalized || locked`). **SDV mode stays active on finalized forms** (CRA can verify read-only values before lock). Only **locked** forms carry the full `readOnly`.
+
+### 3. Delta / change reason
+Red Δ on an edited saved field → CRC submits reason (amber) → DM/CRA approves (green) → **blocks finalization while any delta is open**. Two modes: **force immediate** (toggle ON) vs **collect at submission** (toggle OFF). `pending_reason` replaces `'logged'` as the delta status for deferred collection.
+
+### 4. SDV auto-revocation
+Fires in `setFieldValue` when a saved value changes and the field has a verified `sdvRecord`. Revokes **once per edit** (subsequent keystrokes don't re-trigger). The form drops from `reviewed` → `in_review` on edit of a verified field.
+
+### 5. `?form=` param selects by form DEFINITION id
+Selects by form **definition ID** (`inst.form_id`), NOT the instance ID. Confirmed fix commit `f2146eb`. The barn-scoped variant also uses `formDefId`.
+
+### 6. Unified AI system
+One `/api/ai` endpoint, three intents (`question` / `data_query` / `report_config`). **Data resolution is client-side** (session store) — sensitive data never sent to the API. Field schema is passed in the system prompt (~2–3k tokens). The **Custom report builder is the edit/refine layer** for AI-generated configs.
+
+### 7. Custom report builder
+No data-source selector — grain is inferred from the columns. The column picker is 3-step: **form → field → what to show** (value / entered by / SDV status / form status / etc.). Saved reports persist to `sessionStorage` `arken_custom_reports_[studyId]`.
+
+### 8. Notification preferences
+Live at `/study/[id]/profile?section=notifications` (study-scoped, not bare `/profile`). **SAE notifications are excluded from "mark all as read"** — they require individual acknowledgment. Badge count is per-study.
+
+### 9. Users module
+Standalone `lib/users-data.ts` (NOT the session store). Role is **study-scoped** (the same user can have a different role on different studies). CRC site-scoping in Queries is a documented **no-op** (`useShell().selectedSiteId` is null in the portfolio).
+
+### 10. PH-2401 pen structure locked at initiation
+`structureLocked = studyRow?.code === 'PH-2401'`. Add/rename pen buttons hidden. **TODO:** derive from `studyTypeConfig` when Study Settings is built.
+
+### 11. Barn / pen naming
+BR-2502 barns renamed to **Barn CO-A / KS-A / NE-A**, pens to **Pen CO-A1** etc. Barn-name inline edit for DM/Admin (pencil on hover). **No pen record page** — clicking a pen opens the subject record.
+
+### 12. Request unlock flow
+Creates an `unlock_requested` status between `locked` and `in_work`. DM sees approve/deny buttons. A notification fires to DM/Admin on request. `FormAuditRow` actions: `unlock_request` / `unlock_approved` / `unlock_denied`.
+
+### 13. N/A field option
+Applied to the **main one-time field grid only** (not repeating-log entry fields or CADESI subtotals). SDV shows `ti-shield-off` (slate → green when CRA verifies-as-not-applicable).
+
+### 14. Report tabs
+All multi-view reports use tabs with **per-tab Export CSV**. Tab style matches the Inventory/Queries module. Each tab export includes a study header block (Study / Protocol / Generated-by / Date / Site-filter).
+
+### 15. Select / dropdown chevrons
+Right-pointing `›` SVG, `background-position: right 12px center`, `padding-right: 36px`, `appearance: none`. **Exception:** `.tb-role-select` and `.inv-cur-select` reverted to the original compact padding.
 
 ---
 

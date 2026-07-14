@@ -1,6 +1,32 @@
 # Arken EDC — Project Context
 **Paste this at the start of every Claude session.**
-Last updated: 2026-06-07 | Sessions 1–15 complete — DESIGN PHASE DONE
+Last updated: 2026-07-14 | **BUILD PHASE — Next.js implementation** | **DATA_KEY = `arken_session_store_v63`** (authoritative — check `lib/session-store/SessionStore.tsx:13`)
+
+---
+
+## Current state (implementation)
+
+The static HTML prototypes (sessions 1–15, below) are the **design phase** and remain the visual reference. The app is now a **Next.js (App Router) implementation** hydrating from Supabase into a session store. **All modules are complete or in review.**
+
+**New modules added this session:**
+- **Custom Report builder** with AI integration (unified **Arken Insights**)
+- **Users** module
+- **Notifications** module
+- **Profile** module
+- **Invoices** module
+
+**Key architecture additions:**
+- `lib/study-type-config.ts` — `StudyTypeConfig` interface + `getStudyTypeConfig()`. All behavioral gates read from this config: `allowMidStudyAdditions`, `hasAtHomeStatus`, `randomizationUnit`, `groupAssignmentTiming`, `inventoryTracking`, `enrollmentModel`, `species`.
+- `lib/users-data.ts` — standalone user data (NOT the session store).
+- `lib/avatar-color.ts` — shared store for the topbar + profile avatar color.
+- `lib/audit-settings.ts` — reason-for-change toggle (force immediate vs collect at submission).
+- `lib/query-templates.ts` — `QUERY_TEMPLATES`, the shared source for Settings and both raise-query flows.
+- `lib/invoices-data.ts` — standalone invoices data (NOT the session store).
+- `lib/form-perm-defaults.ts` — shared form-permission defaults between the Roles and Form-permissions sections.
+- `lib/inventory-permissions.ts` — shared inventory permission store (`useSyncExternalStore`).
+- `lib/study-status.ts` — `StudyStatus` lifecycle + `STATUS_LOCKS` map.
+- **Custom report config** stored in `sessionStorage`: `arken_pending_report_config` + `arken_custom_reports_[studyId]`.
+- **Animals list filter persistence:** `arken_animals_filters_[studyId]`.
 
 ---
 
@@ -75,7 +101,7 @@ Custom: admin-defined levels
 | AI chat | Anthropic API (claude-sonnet), server-side, role-scoped |
 | Deploy | Vercel |
 
-**Current phase: static HTML prototypes → moving to Next.js**
+**Current phase: Next.js implementation (build phase) — all modules complete or in review. Hydrates from Supabase into a session store; demo-data / form-schema changes are synthesized session-only in `hydrate.ts` (no `db reset`).**
 
 ---
 
@@ -252,7 +278,7 @@ ALWAYS: node --check script.js before declaring any JS block done
 
 ## What is NOT built yet
 
-- **Study builder** — deferred to iteration 2. Design after coding data entry.
-- **Living style guide** — GitHub Pages component reference. NEXT item (session 16).
-- **Minor detail polish** — fix during coding phase.
-- **Drag-to-reorder** (dashboard) — requires @dnd-kit/sortable in React.
+- **Study builder** — deferred to iteration 2. Design after data entry is stable.
+- **Full app review in progress** — Coding (VeDDRA), Calendar, and Audit Trail still to review.
+- **Portfolio site** — briefing at repo root (`portfolio-design-brief.md`); built in a separate chat.
+- **Production concerns** — real auth + RLS + write paths, CDISC SEND export, real-time notifications, etc. Deferred to the `arken-edc-production` fork (see SESSION_HANDOFF.md).
