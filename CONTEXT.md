@@ -1,6 +1,6 @@
 # Arken EDC — Project Context
 **Paste this at the start of every Claude session.**
-Last updated: 2026-07-14 | **BUILD PHASE — Next.js implementation** | **DATA_KEY = `arken_session_store_v63`** (authoritative — check `lib/session-store/SessionStore.tsx:13`)
+Last updated: 2026-07-14 | **BUILD PHASE — Next.js implementation** | **DATA_KEY = `arken_session_store_v71`** (authoritative — check `lib/session-store/SessionStore.tsx:13`)
 
 ---
 

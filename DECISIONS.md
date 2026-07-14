@@ -1,5 +1,5 @@
 # Arken EDC — Design & Architecture Decisions
-Last updated: 2026-07-14 | Build phase (Next.js) — DATA_KEY v63
+Last updated: 2026-07-14 | Build phase (Next.js) — DATA_KEY v71
 
 Every significant decision made across all design sessions, with rationale. Useful for Claude Code and future contributors. Every entry is a portfolio talking point.
 
@@ -280,7 +280,7 @@ In production, Anthropic API call is made server-side with the role from the ses
 
 ---
 
-## This session — build phase (Next.js, DATA_KEY v63)
+## This session — build phase (Next.js, DATA_KEY v71)
 
 ### 1. Study type config abstraction (`lib/study-type-config.ts`)
 All behavioral gates read from a config object, NOT hardcoded `studyId` checks. Per-study **data** maps (`Record<string, T>`) are acceptable; behavioral **feature gates** are not — those must resolve through `getStudyTypeConfig()`.
