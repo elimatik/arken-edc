@@ -44,6 +44,12 @@ const STATUS_FLOW: Record<string, { next: string; label: string; roles: string[]
   reviewed: { next: "finalized", label: "Finalize", roles: ["PI", "DM"] },
   finalized: { next: "locked", label: "Lock", roles: ["DM"], esign: true },
 };
+// Finalization gate — mirrors SubjectRecord.tsx: EVERY query on the form must be
+// resolved first. A query still "open" (awaiting response) OR "responded" (answered,
+// awaiting review) blocks it; only "resolved" clears the gate.
+const FINALIZE_QUERY_BLOCK_MSG = "This form has open queries. All queries must be resolved before the form can be finalized.";
+// Same gate, applied to the Submit-for-review (in_work → in_review) transition.
+const SUBMIT_QUERY_BLOCK_MSG = "This form has open queries. All queries must be resolved before the form can be submitted.";
 
 // Forms that render as a repeating table (one row per instance). Everything else
 // is a one-time sectioned form (a single instance).
@@ -317,8 +323,17 @@ function ScopedFormView({ studyId, scope, scopeId, form, modeQueries, modeSdv, s
   const hasOpenEditCheck = targetInstances.some((i) => instOpenEC(i.id));
   const hasPendingDelta = targetInstances.some((i) => instPendingDelta(i.id));
   const hasEmptyRequired = targetInstances.some((i) => instEmptyRequired(i.id));
-  const submitBlocked = hasOpenEditCheck || hasPendingDelta || hasEmptyRequired || studyLocked;
-  const submitBlockReason = studyLocked ? "Database is locked" : hasEmptyRequired ? "Complete all required fields first" : hasOpenEditCheck ? "Resolve all edit checks first" : hasPendingDelta ? "Provide all change reasons first" : undefined;
+  // Query gate — blocked while ANY field on the form carries an unresolved query
+  // (open OR responded) across every target instance. Only "resolved" clears it. Applies
+  // to both Submit-for-review (in_work → in_review) and Finalize (reviewed → finalized).
+  const formHasOpenQuery = () => targetInstances.some((inst) => fields.some((f) => {
+    const fvId = fvIdOf(inst.id, f.id);
+    return !!fvId && dataset.queries.some((q) => q.field_value_id === fvId && (q.status === "open" || q.status === "responded"));
+  }));
+  const submitQueryBlock = flow?.next === "in_review" && formHasOpenQuery();
+  const finalizeQueryBlock = flow?.next === "finalized" && formHasOpenQuery();
+  const submitBlocked = hasOpenEditCheck || hasPendingDelta || hasEmptyRequired || studyLocked || submitQueryBlock;
+  const submitBlockReason = studyLocked ? "Database is locked" : submitQueryBlock ? SUBMIT_QUERY_BLOCK_MSG : hasEmptyRequired ? "Complete all required fields first" : hasOpenEditCheck ? "Resolve all edit checks first" : hasPendingDelta ? "Provide all change reasons first" : undefined;
 
   const openEcCount = (instId: string) => dataset.editChecks.filter((e) => e.form_instance_id === instId && e.status === "open").length;
   const allSdvComplete = targetInstances.length > 0 && targetInstances.every((i) => i.sdv_complete);
@@ -328,6 +343,9 @@ function ScopedFormView({ studyId, scope, scopeId, form, modeQueries, modeSdv, s
   }
   function advanceStatus() {
     if (!flow || !canAdvance) return;
+    // Query gate — block Submit (in_work → in_review) and Finalize (reviewed →
+    // finalized) while any query is unresolved (open OR responded).
+    if ((flow.next === "in_review" || flow.next === "finalized") && formHasOpenQuery()) return;
     if (flow.esign) { setLockModalOpen(true); return; }
     applyStatus(flow.next);
   }
@@ -387,10 +405,16 @@ function ScopedFormView({ studyId, scope, scopeId, form, modeQueries, modeSdv, s
               <button className="btn-primary" type="button" disabled={!canSdv} onClick={markSdvComplete}>{allSdvComplete ? <><i className="ti ti-shield-check-filled"></i> SDV complete</> : "Mark SDV complete"}</button>
             </>
           ) : formStatus === "empty" || formStatus === "in_work" ? (
-            <button className="btn-primary" type="button" disabled={!formHasData || submitBlocked || !STATUS_FLOW.in_work.roles.includes(activeRole)} onClick={advanceStatus}
-              title={!formHasData ? "Enter data before submitting for review" : submitBlockReason ?? (STATUS_FLOW.in_work.roles.includes(activeRole) ? undefined : `Submit for Review — not permitted for ${activeRole}`)}>Submit for Review</button>
+            <>
+              {submitQueryBlock && <span className="submit-block-note"><i className="ti ti-circle-exclamation"></i> {SUBMIT_QUERY_BLOCK_MSG}</span>}
+              <button className="btn-primary" type="button" disabled={!formHasData || submitBlocked || !STATUS_FLOW.in_work.roles.includes(activeRole)} onClick={advanceStatus}
+                title={!formHasData ? "Enter data before submitting for review" : submitBlockReason ?? (STATUS_FLOW.in_work.roles.includes(activeRole) ? undefined : `Submit for Review — not permitted for ${activeRole}`)}>Submit for Review</button>
+            </>
           ) : flow ? (
-            <button className="btn-primary" type="button" disabled={!canAdvance} onClick={advanceStatus} title={canAdvance ? undefined : `${flow.label} — not permitted for ${activeRole}`}>{flow.esign && <i className="ti ti-lock"></i>}{flow.label}</button>
+            <>
+              {finalizeQueryBlock && <span className="submit-block-note"><i className="ti ti-circle-exclamation"></i> {FINALIZE_QUERY_BLOCK_MSG}</span>}
+              <button className="btn-primary" type="button" disabled={!canAdvance || finalizeQueryBlock} onClick={advanceStatus} title={!canAdvance ? `${flow.label} — not permitted for ${activeRole}` : finalizeQueryBlock ? FINALIZE_QUERY_BLOCK_MSG : undefined}>{flow.esign && <i className="ti ti-lock"></i>}{flow.label}</button>
+            </>
           ) : (
             <span className="badge badge-success" style={{ alignSelf: "center" }}>{STATUS_CAP(formStatus)}</span>
           )}

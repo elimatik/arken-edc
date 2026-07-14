@@ -85,7 +85,7 @@ const REPEATING_ADD_LABEL: Record<string, string> = {
   "Mortality & Cull Record": "Record mortality",
 };
 
-type SidebarIcon = "final" | "reviewed" | "inreview" | "inwork" | "empty" | "queried";
+type SidebarIcon = "final" | "reviewed" | "inreview" | "inwork" | "empty" | "queried" | "warn" | "notdone";
 // SDV shield state per form (item 6): none = not yet SDV-eligible (not submitted);
 // unverified = submitted, nothing verified; partial = some fields verified;
 // complete = SDV marked complete.
@@ -101,7 +101,10 @@ function iconForInstance(s: string | undefined): SidebarIcon {
 const QS_CLS: Record<string, string> = { open: "qs-open", responded: "qs-responded", resolved: "qs-resolved" };
 // Worst → best, for rolling a group's status up from its children (queried = most
 // attention-needing, final = done).
-const ICON_RANK: Record<SidebarIcon, number> = { queried: 0, empty: 1, inwork: 2, inreview: 3, reviewed: 4, final: 5 };
+// Lower = more urgent (a group rolls up to its worst / lowest-ranked child). "warn"
+// (completed subject still has an in-work form) is urgent; "notdone" (a withdrawn
+// subject's not-started form, closed out) is non-urgent, near complete.
+const ICON_RANK: Record<SidebarIcon, number> = { queried: 0, warn: 1, empty: 2, inwork: 3, inreview: 4, reviewed: 5, notdone: 6, final: 7 };
 const newId = () => crypto.randomUUID();
 const todayISO = () => new Date().toISOString().slice(0, 10);
 // Short "Jun 18 – Jun 22" window label (single date when the window is exact).
@@ -127,11 +130,18 @@ const STATUS_FLOW: Record<string, { next: string; label: string; roles: string[]
   reviewed: { next: "finalized", label: "Finalize", roles: ["PI", "DM"] },
   finalized: { next: "locked", label: "Lock", roles: ["DM"], esign: true },
 };
+// Finalization is gated on queries: EVERY query on the form must be resolved first.
+// A query that is still "open" (awaiting response) OR "responded" (answered, awaiting
+// review) blocks it — only "resolved" clears the gate (i.e. status !== "resolved").
+const FINALIZE_QUERY_BLOCK_MSG = "This form has open queries. All queries must be resolved before the form can be finalized.";
+// Same gate, applied to the Submit-for-review (in_work → in_review) transition.
+const SUBMIT_QUERY_BLOCK_MSG = "This form has open queries. All queries must be resolved before the form can be submitted.";
 // Weakest-first ranking — a repeating form rolls its status up to its weakest entry.
 const STATUS_RANK: Record<string, number> = { empty: 0, in_work: 1, in_review: 2, reviewed: 3, finalized: 4, locked: 5 };
 // Human label for a sidebar status icon (tooltip).
 const ICON_LABEL: Record<SidebarIcon, string> = {
   empty: "Empty", inwork: "In-work", inreview: "In-Review", reviewed: "Reviewed", final: "Finalized", queried: "Open query",
+  warn: "Incomplete — subject marked complete", notdone: "Not done — subject withdrawn",
 };
 const STATUS_LABEL: Record<string, string> = {
   empty: "Empty", in_work: "In-work", in_review: "In-Review", reviewed: "Reviewed", finalized: "Finalized", locked: "Locked",
@@ -467,7 +477,19 @@ export function SubjectRecord({ studyId, subjectId, initialFormId, initialPanelF
       q.form_instance_id === i.id && (q.status === "open" || q.status === "responded") &&
       dataset.fieldValues.some((v) => v.id === q.field_value_id && v.form_instance_id === i.id)));
     const status = insts.length ? insts.reduce<string>((acc, i) => (STATUS_RANK[i.status] < STATUS_RANK[acc] ? i.status : acc), "locked") : "empty";
-    const icon: SidebarIcon = openQ.length ? "queried" : iconForInstance(status);
+    // Closed-subject overlays on an in-work form (no open query takes precedence):
+    //  • withdrawn + not-started (no data)  → "Not done" (auto-closed on withdrawal)
+    //  • completed                          → "warn" (incomplete; investigator must act)
+    // The End of Study / Final Disposition form is always required, never auto-closed.
+    const hasData = insts.some((i) => dataset.fieldValues.some((v) => v.form_instance_id === i.id && ((v.value ?? "") !== "" || v.notDone)));
+    const isEos = f.name === "End of Study / Final Disposition";
+    let icon: SidebarIcon = openQ.length ? "queried" : iconForInstance(status);
+    if (!openQ.length && !isEos) {
+      // Not started = no instance ("empty") or an in-work form with zero data.
+      const notStarted = status === "empty" || (status === "in_work" && !hasData);
+      if (subject?.status === "withdrawn" && notStarted) icon = "notdone"; // auto-closed on withdrawal
+      else if (subject?.status === "completed" && status === "in_work") icon = "warn"; // incomplete on a completed subject
+    }
     // SDV shield (item 6). A form is SDV-eligible once submitted (in-review or beyond);
     // before that there's no shield. Then: complete (marked) > any verified field
     // (partial) > submitted-but-none (unverified).
@@ -527,6 +549,8 @@ export function SubjectRecord({ studyId, subjectId, initialFormId, initialPanelF
     else if (icon === "inwork") inner = <InWorkIcon />;
     else if (icon === "inreview") inner = <InReviewIcon />;
     else if (icon === "reviewed") inner = <ReviewedIcon />;
+    else if (icon === "warn") inner = <i className="ti ti-alert-triangle" style={{ color: "var(--amber-600)", fontSize: "15px" }}></i>;
+    else if (icon === "notdone") inner = <i className="ti ti-circle-minus" style={{ color: "var(--color-text-tertiary)", fontSize: "15px" }}></i>;
     else inner = <div className={`status-${icon}`}></div>;
     return <span className="status-glyph" title={title}>{inner}</span>;
   }
@@ -701,10 +725,21 @@ export function SubjectRecord({ studyId, subjectId, initialFormId, initialPanelF
   // persistent banner explains the state. Existing queries can still be managed
   // (the query panel isn't gated by read-only) so a DM can resolve open items.
   const subjectClosed = subject.status === "completed" || subject.status === "withdrawn";
+  const subjectWithdrawn = subject.status === "withdrawn";
+  const subjectCompleted = subject.status === "completed";
+  const isEosForm = selectedForm?.name === "End of Study / Final Disposition";
+  // Does the active form have any collected data (a saved value or a documented "Not done")?
+  const activeInstIds = new Set(dataset.formInstances.filter((i) => i.subject_id === subjectId && i.form_id === activeFormId).map((i) => i.id));
+  const activeFormHasData = dataset.fieldValues.some((v) => activeInstIds.has(v.form_instance_id) && ((v.value ?? "") !== "" || v.notDone));
+  // Withdrawn subjects: forms WITH data — and the always-required End of Study form —
+  // stay EDITABLE (collected data must be preserved/correctable, EOS must be completed).
+  // Not-started forms are closed out ("Not done") and stay read-only. Completed subjects
+  // remain fully read-only.
+  const withdrawnEditable = subjectWithdrawn && (activeFormHasData || isEosForm);
   // Database Lock — a full-study lock taken prior to statistical analysis makes
   // every form across every subject read-only until an Admin unlocks it.
   const studyLocked = isStudyLocked(dataset, studyId);
-  const readOnly = locked || isEproForm || subjectClosed || studyLocked; // fields are non-editable when true
+  const readOnly = locked || isEproForm || studyLocked || (subjectClosed && !withdrawnEditable); // fields are non-editable when true
   // Fix 1 — a finalized OR locked form is a clean read-only DOCUMENT: fields render
   // as plain display text (no inputs), not just disabled controls.
   const docReadOnly = currentStatus === "finalized" || currentStatus === "locked";
@@ -746,6 +781,8 @@ export function SubjectRecord({ studyId, subjectId, initialFormId, initialPanelF
   const withdrawalDate = subject.status === "withdrawn" ? subjectValueByCode("withdrawal_date") : undefined;
   const withdrawalReason = subject.status === "withdrawn" ? subjectValueByCode("withdrawal_reason") : undefined;
   const completionDate = subject.status === "completed" ? subjectValueByCode("visit_date") : undefined;
+  // A completed subject should have no in-work forms; flag if any remain incomplete.
+  const subjectHasInWorkForms = orderedLeaves.some((l) => l.status === "in_work");
 
   // Animal age in months (for age-class vital validation, e.g. bovine heart rate
   // — calf ≤6mo vs adult). Sourced from a demographics "Estimated age" field.
@@ -1425,6 +1462,17 @@ export function SubjectRecord({ studyId, subjectId, initialFormId, initialPanelF
       }
     }
     setRequiredErrors(new Set());
+    // Query gate — block while ANY query on the form is unresolved (open OR responded).
+    // formHasOpenQuery() tests status !== "resolved", so both are caught. Applies to both
+    // Submit-for-review (in_work → in_review) and Finalize (reviewed → finalized).
+    if (flow.next === "in_review" && formHasOpenQuery()) {
+      setToast(SUBMIT_QUERY_BLOCK_MSG);
+      return;
+    }
+    if (flow.next === "finalized" && formHasOpenQuery()) {
+      setToast(FINALIZE_QUERY_BLOCK_MSG);
+      return;
+    }
     if (flow.esign) {
       setLockModalOpen(true); // Lock requires e-signature confirmation
       return;
@@ -1813,8 +1861,14 @@ export function SubjectRecord({ studyId, subjectId, initialFormId, initialPanelF
   // clicking it surfaces inline errors + scrolls to the first empty field. Repeating
   // forms keep the hard block (their entries validate in the add-entry panel).
   const requiredHardBlock = isRepeatingForm && hasEmptyRequired;
-  const submitBlocked = hasOpenEditCheck || hasOpenDeltas || requiredHardBlock || shipHardBlock || treatmentArmMissing;
-  const submitBlockReason = treatmentArmMissing ? "Complete randomization before treatment" : shipHardBlock ? "Withdrawal period active — cannot ship for slaughter" : hasOpenEditCheck ? "Resolve all edit checks first" : hasOpenDeltas ? "Resolve all change reasons before submitting" : hasEmptyRequired ? "Complete all required fields first" : undefined;
+  // Submit for review (in_work → in_review) is blocked while any query is unresolved
+  // (open OR responded) — same gate as finalize, via formHasOpenQuery().
+  const submitQueryBlock = flow?.next === "in_review" && formHasOpenQuery();
+  const submitBlocked = hasOpenEditCheck || hasOpenDeltas || requiredHardBlock || shipHardBlock || treatmentArmMissing || submitQueryBlock;
+  // Finalize step (reviewed → finalized) is blocked while any query is unresolved
+  // (open OR responded) — the gate reads status !== "resolved" via formHasOpenQuery().
+  const finalizeQueryBlock = flow?.next === "finalized" && formHasOpenQuery();
+  const submitBlockReason = treatmentArmMissing ? "Complete randomization before treatment" : shipHardBlock ? "Withdrawal period active — cannot ship for slaughter" : submitQueryBlock ? SUBMIT_QUERY_BLOCK_MSG : hasOpenEditCheck ? "Resolve all edit checks first" : hasOpenDeltas ? "Resolve all change reasons before submitting" : hasEmptyRequired ? "Complete all required fields first" : undefined;
 
   // Δ change-reason panel — all records for the field, chronological. Each pending
   // record is reasoned on its own; the top context shows the most recent transition.
@@ -2320,6 +2374,13 @@ export function SubjectRecord({ studyId, subjectId, initialFormId, initialPanelF
               {!subjectClosed && !modeSdv && hasOpenDeltas && (currentStatus === "in_work" || !!flow) && (
                 <span className="submit-block-note"><i className="ti ti-circle-exclamation"></i> Resolve all change reasons before submitting</span>
               )}
+              {/* Submit / Finalize blocked while any query is unresolved (open OR responded). */}
+              {!subjectClosed && !modeSdv && submitQueryBlock && (
+                <span className="submit-block-note"><i className="ti ti-circle-exclamation"></i> {SUBMIT_QUERY_BLOCK_MSG}</span>
+              )}
+              {!subjectClosed && !modeSdv && finalizeQueryBlock && (
+                <span className="submit-block-note"><i className="ti ti-circle-exclamation"></i> {FINALIZE_QUERY_BLOCK_MSG}</span>
+              )}
               <div className="remarks-wrap">
                 <button className="btn-secondary" onClick={() => setRemarksOpen((o) => !o)} type="button">
                   Remarks: {[modeQueries && "Queries", modeSdv && "SDV mode"].filter(Boolean).join(", ") || "Off"}
@@ -2354,8 +2415,9 @@ export function SubjectRecord({ studyId, subjectId, initialFormId, initialPanelF
 
               {/* Status advance — hidden in SDV mode (the SDV buttons take its place)
                   and for closed (completed/withdrawn) subjects (no Submit/Finalize/Lock).
-                  Submit for Review is otherwise always present (disabled when empty). */}
-              {subjectClosed || modeSdv ? null : currentStatus === "empty" || currentStatus === "in_work" ? (
+                  Exception: on a withdrawn subject the End of Study / Final Disposition
+                  form stays actionable (it must always be completed). */}
+              {(subjectClosed && !(subjectWithdrawn && isEosForm)) || modeSdv ? null : currentStatus === "empty" || currentStatus === "in_work" ? (
                 <button
                   className="btn-primary"
                   type="button"
@@ -2397,9 +2459,9 @@ export function SubjectRecord({ studyId, subjectId, initialFormId, initialPanelF
                     <button
                       className="btn-primary"
                       type="button"
-                      disabled={!canAdvance || hasOpenDeltas}
+                      disabled={!canAdvance || hasOpenDeltas || finalizeQueryBlock}
                       onClick={advanceStatus}
-                      title={!canAdvance ? `${flow.label} — not permitted for ${activeRole}` : hasOpenDeltas ? "Resolve all change reasons before submitting" : undefined}
+                      title={!canAdvance ? `${flow.label} — not permitted for ${activeRole}` : hasOpenDeltas ? "Resolve all change reasons before submitting" : finalizeQueryBlock ? FINALIZE_QUERY_BLOCK_MSG : undefined}
                     >
                       {flow.esign && <i className="ti ti-lock"></i>}
                       {flow.label}
@@ -2460,13 +2522,19 @@ export function SubjectRecord({ studyId, subjectId, initialFormId, initialPanelF
             <div className="ie-banner withdrawn" role="status">
               <i className="ti ti-user-x"></i>
               Subject withdrawn{withdrawalDate ? ` on ${withdrawalDate}` : ""}
-              {withdrawalReason ? ` — ${withdrawalReason}` : ""}. Data collected prior to withdrawal is preserved for analysis.
+              {withdrawalReason ? ` — ${withdrawalReason}` : ""}. Incomplete forms have been marked Not Done. Collected data is preserved and must not be altered.
             </div>
           )}
           {subject.status === "completed" && (
             <div className="ie-banner override" role="status">
               <i className="ti ti-circle-check"></i>
               Subject completed the study{completionDate ? ` (last visit ${completionDate})` : ""}. All forms are read-only.
+            </div>
+          )}
+          {subject.status === "completed" && subjectHasInWorkForms && (
+            <div className="ie-banner" role="alert">
+              <i className="ti ti-alert-triangle"></i>
+              This subject is marked complete but has incomplete forms. Please review before closing.
             </div>
           )}
           {isEproForm && (

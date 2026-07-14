@@ -85,7 +85,9 @@ export async function hydrateFromSupabase(): Promise<Dataset> {
   // Study-level enrolment targets, pinned here so they match the actual demo
   // cohort sizes regardless of what the (possibly stale) Supabase seed carries —
   // CA-0801 60 dogs (3 sites × 20), BR-2502 12 animals (4 feedlots), PH-2401 2 pens.
-  const STUDY_TARGETS: Record<string, number> = { "CA-0801": 60, "BR-2502": 12, "PH-2401": 2 };
+  // Study-level enrolment targets — sized to the seeded cohort (the studies list
+  // counts ACTIVE subjects against these). BR 12, CA 8, PH 4 (active pens).
+  const STUDY_TARGETS: Record<string, number> = { "CA-0801": 8, "BR-2502": 12, "PH-2401": 4 };
   // Ethics & regulatory config (session-only — not DB columns).
   const STUDY_ETHICS: Record<string, { iacuc_number: string; iacuc_approval_date: string; iacuc_expiry: string; vich_guideline: string }> = {
     "CA-0801": { iacuc_number: "IACUC-2024-CA-0801", iacuc_approval_date: "2024-09-01", iacuc_expiry: "2026-09-01", vich_guideline: "VICH GL9 (Efficacy) · VICH GL6 (Safety)" },
@@ -100,8 +102,9 @@ export async function hydrateFromSupabase(): Promise<Dataset> {
 
   // Session-only per-feedlot enrolment targets for BR-2502 (not a DB column —
   // seeded here, same as the other Overview-config fields). Over the cap is a
-  // protocol deviation. Counts: TX/KS under cap, NE at cap, CO over cap (demo).
-  const BR_SITE_TARGETS: Record<string, number> = { TX: 5, KS: 4, NE: 3, CO: 2 };
+  // protocol deviation. Each feedlot has 3 seeded subjects, so every site is at
+  // cap (3/3) — 12 total across the four sites, matching the study target.
+  const BR_SITE_TARGETS: Record<string, number> = { TX: 3, KS: 3, NE: 3, CO: 3 };
   const brStudyId = (studies.data ?? []).find((s) => s.code === "BR-2502")?.id;
   const sitesWithTargets = ((sites.data ?? []) as Dataset["sites"]).map((s) =>
     s.study_id === brStudyId && BR_SITE_TARGETS[s.code] != null
@@ -361,76 +364,11 @@ export async function hydrateFromSupabase(): Promise<Dataset> {
     });
   }
 
-  // ─── BR-2502 treatment-phase completion — realistic in-progress SoE ──────────
-  // The Schedule of Events overlays live completion onto the protocol grid. Dosing
-  // was 2026-05-15, so every treatment visit is now past-window → the grid read as
-  // all-overdue. Finalize the EARLY treatment visits (Day 0 → Day 14) for the
-  // majority of active subjects so those columns clear to their base protocol
-  // markers, while Day 21/28/42 stay incomplete (overdue / due). The per-day visit
-  // form buildVisits() reads is the Vital Signs form; ~2 active subjects are left
-  // behind for realistic texture.
-  {
-    const EARLY_DAYS = new Set([0, 3, 7, 14]);
-    const dayOfName = (name?: string): number | null => { const m = /Day\s+(\d+)/i.exec(name ?? ""); return m ? Number(m[1]) : null; };
-    const earlyVsFormIds = brVsForms.filter((f) => { const d = dayOfName(f.name); return d != null && EARLY_DAYS.has(d); }).map((f) => f.id);
-    const brActive = (subjects.data ?? []).filter((s) => s.study_id === brStudyId && s.status === "active");
-    const toComplete = brActive.slice(0, Math.max(1, brActive.length - 2)); // leave ~2 stragglers
-    for (const subj of toComplete) {
-      for (const formId of earlyVsFormIds) {
-        const inst = fInst.find((i) => i.form_id === formId && i.subject_id === subj.id);
-        if (inst) inst.status = "finalized";
-        else fInst.push({ id: `fi-br-early-${subj.id}-${formId}`, form_id: formId, subject_id: subj.id, status: "finalized" });
-      }
-    }
-  }
-
-  // ─── CA-0801 / PH-2401 treatment-phase completion — realistic in-progress SoE
-  // Same dominant-state fix as BR-2502, generalised: finalize the EARLY visit
-  // forms for the majority of active subjects/pens so those SoE columns clear to
-  // base markers, leaving the later visits overdue. The picked visit form per day
-  // mirrors buildVisits() exactly — the lowest-sequence subject-scoped form that
-  // carries a visit-date field — so we flip precisely the instance it reads.
-  // CA early = Day 14/28 (Baseline has no scheduled visit form); PH early = Wk 1-3
-  // (Day 7/14/21). ~2 subjects are left behind, guaranteeing a strict majority.
-  {
-    const VISIT_DATE_CODES = new Set(["visit_date", "weighing_date", "observation_date"]);
-    const allForms = forms.data ?? [];
-    const formById = new Map(allForms.map((f) => [f.id, f]));
-    const dayOfName = (name?: string | null): number | null => {
-      const d = /Day\s+(\d+)/i.exec(name ?? ""); if (d) return Number(d[1]);
-      const w = /Week\s+(\d+)/i.exec(name ?? ""); return w ? Number(w[1]) * 7 : null;
-    };
-    const dateFormIds = new Set<string>();
-    for (const ff of (formFields as FF[])) if (VISIT_DATE_CODES.has(ff.code)) dateFormIds.add(ff.form_id);
-
-    const finalizeEarly = (code: string, targetDays: Set<number>) => {
-      const sid = (studies.data ?? []).find((s) => s.code === code)?.id;
-      if (!sid) return;
-      // Picked visit form per day: lowest-sequence subject-scoped date form (buildVisits parity).
-      const pickByDay = new Map<number, { id: string; seq: number }>();
-      for (const fid of Array.from(dateFormIds)) {
-        const f = formById.get(fid);
-        if (!f || f.study_id !== sid || (f.scope ?? "subject") !== "subject") continue;
-        const parent = f.parent_form_id ? formById.get(f.parent_form_id) : null;
-        const day = dayOfName(f.name) ?? dayOfName(parent?.name);
-        if (day == null || !targetDays.has(day)) continue;
-        const prev = pickByDay.get(day);
-        if (!prev || f.sequence < prev.seq) pickByDay.set(day, { id: fid, seq: f.sequence });
-      }
-      const pickedFormIds = Array.from(pickByDay.values()).map((v) => v.id);
-      const active = (subjects.data ?? []).filter((s) => s.study_id === sid && s.status === "active");
-      const nDone = Math.max(active.length - 2, Math.floor(active.length / 2) + 1); // strict majority, ~2 stragglers
-      for (const subj of active.slice(0, nDone)) {
-        for (const formId of pickedFormIds) {
-          const inst = fInst.find((i) => i.form_id === formId && i.subject_id === subj.id);
-          if (inst) inst.status = "finalized";
-          else fInst.push({ id: `fi-early-${subj.id}-${formId}`, form_id: formId, subject_id: subj.id, status: "finalized" });
-        }
-      }
-    };
-    finalizeEarly("CA-0801", new Set([0, 14, 28]));
-    finalizeEarly("PH-2401", new Set([7, 14, 21]));
-  }
+  // ─── Visit completion is set by the "freshly started" re-base block below ────
+  // (Previously two blocks finalized the EARLY treatment visits to model a study
+  // mid-flight. That is now handled — together with re-basing every subject's dates
+  // to ~1 week ago — by the single re-base block further down, after all date-value
+  // seeding, so both the dates and the statuses stay consistent.)
 
   // ─── CA-0801 Study Drug Dispensation / Accountability values ────────────────
   // The reshape above replaced the CA drug-form fields, orphaning the live DB values.
@@ -837,6 +775,171 @@ export async function hydrateFromSupabase(): Promise<Dataset> {
             .forEach((pen, pi) => { pen.name = `Pen ${sc}-${letter}${pi + 1}`; });
         });
       }
+    }
+  }
+
+  // ─── "Freshly started" re-base — BR-2502 / CA-0801 / PH-2401 ────────────────
+  // Re-base every study so it looks like it began ~1 week ago. For each subject we
+  // shift its ENTIRE date timeline so the Day-0 anchor lands within the last week
+  // (per-subject offsets, spread + skewed recent), then reset visit completion so
+  // only the Day-0 / first visit is finalized — every later treatment visit is left
+  // pending ("in_work"), i.e. it hasn't happened yet. The Visits screen, Schedule of
+  // Events and the dashboard overdue count all derive from these dates + statuses
+  // via buildVisits(), so this single re-base drives all of them. Runs AFTER every
+  // date-value seed above and BEFORE the eSignature seed below (which reads the
+  // resulting finalized set).
+  {
+    const todayISO = new Date().toISOString().slice(0, 10);
+    const shiftDate = (iso: string, n: number): string => {
+      const d = new Date(`${String(iso).slice(0, 10)}T00:00:00Z`);
+      if (Number.isNaN(d.getTime())) return iso;
+      d.setUTCDate(d.getUTCDate() + n);
+      return d.toISOString().slice(0, 10);
+    };
+    const diffDays = (from: string, to: string): number =>
+      Math.round((Date.parse(`${String(to).slice(0, 10)}T00:00:00Z`) - Date.parse(`${String(from).slice(0, 10)}T00:00:00Z`)) / 86_400_000);
+
+    const BASELINE_CODES = ["enrollment_date", "placement_date", "randomization_date", "consent_date", "screening_date"];
+    const VISIT_DATE_CODES = new Set(["visit_date", "weighing_date", "observation_date"]);
+    const DONE_STATUSES = new Set(["in_review", "reviewed", "finalized", "locked"]);
+    // Scheduled visit days per study (day → ± window) — mirrors VISIT_WINDOWS in visits-data.ts.
+    const VISIT_WINDOWS: Record<string, Record<number, number>> = {
+      "CA-0801": { 0: 0, 14: 3, 28: 3, 42: 3, 56: 3, 84: 5 },
+      "BR-2502": { 0: 0, 3: 1, 7: 2, 14: 2, 28: 3 },
+      "PH-2401": { 7: 2, 14: 2, 21: 2, 28: 2, 35: 2, 42: 2 },
+    };
+    // Per-subject Day-0 offsets (days ago), assigned by per-study subject index → a
+    // natural spread skewed recent so the first pending visit reads due/upcoming, not
+    // overdue (the dashboard counts overdue with NO window tolerance, so most Day-0s
+    // sit at -3 for BR to keep D3 due today; a few older ones give realistic texture).
+    const OFFSETS: Record<string, number[]> = {
+      "BR-2502": [-3, -4, -3, -3, -5, -3, -4, -3, -3, -6, -4, -3],
+      "CA-0801": [-7, -8, -9, -8, -7, -10, -8, -7, -9, -8, -7, -10],
+      "PH-2401": [-7, -8, -9, -7, -8, -9],
+    };
+    // Scheduled visit days already completed when the study just began (Day-0 dosing
+    // for BR; PH's first weekly weighing; CA's first scheduled visit is Day 14 — still
+    // ahead — so nothing scheduled is done yet, only its non-scheduled Baseline).
+    const DONE_DAYS: Record<string, Set<number>> = {
+      "BR-2502": new Set([0]),
+      "CA-0801": new Set<number>(),
+      "PH-2401": new Set([7]),
+    };
+    // Clinically-correct status ordering: enrolment-phase forms MUST be finalized
+    // before any visit form. These GROUP names cover screening / demographics /
+    // enrolment / randomization / baseline / treatment-admin + the first "done"
+    // visit — every leaf form under them is finalized. Any LATER visit group (a
+    // "Day N" / "Week N" / "Follow-Up" group) is demoted to in_work; safety /
+    // closeout / AE / standalone forms are left untouched.
+    const FINALIZE_GROUPS: Record<string, Set<string>> = {
+      "BR-2502": new Set(["Enrollment & Randomization", "Visit Day 0"]),
+      "CA-0801": new Set(["Animal Information", "Screening", "Baseline / Randomization"]),
+      "PH-2401": new Set(["Pen Setup", "Placement / Day 0", "Week 1 — Day 7"]),
+    };
+    const isVisitGroupName = (name?: string | null) => /\bDay\s+\d+|\bWeek\s+\d+|Follow-?Up/i.test(name ?? "");
+
+    const fvArr = fieldValues as Dataset["fieldValues"];
+    const allForms = forms.data ?? [];
+    const formById = new Map(allForms.map((f) => [f.id, f]));
+    const ffAll = reshapedFormFields;
+    const dateFieldIds = new Set(ffAll.filter((f) => f.field_type === "date").map((f) => f.id));
+    const dayOfName = (name?: string | null): number | null => {
+      const d = /Day\s+(\d+)/i.exec(name ?? ""); if (d) return Number(d[1]);
+      const w = /Week\s+(\d+)/i.exec(name ?? ""); return w ? Number(w[1]) * 7 : null;
+    };
+    // The "group" a form belongs to = its parent group's name (or its own name if
+    // it is itself a group / standalone form). Drives the status-ordering rules.
+    const groupNameOf = (formId: string): string => {
+      const f = formById.get(formId);
+      if (!f) return "";
+      const parent = f.parent_form_id ? formById.get(f.parent_form_id) : null;
+      return parent?.name ?? f.name ?? "";
+    };
+
+    const instsBySubj = new Map<string, Dataset["formInstances"]>();
+    for (const i of fInst) {
+      if (!i.subject_id) continue;
+      const a = instsBySubj.get(i.subject_id); if (a) a.push(i); else instsBySubj.set(i.subject_id, [i]);
+    }
+
+    for (const study of (studies.data ?? [])) {
+      const windows = VISIT_WINDOWS[study.code];
+      if (!windows) continue;
+      const offsets = OFFSETS[study.code] ?? [-5];
+      const doneDays = DONE_DAYS[study.code] ?? new Set<number>();
+      const finalizeGroups = FINALIZE_GROUPS[study.code] ?? new Set<string>();
+
+      // Field ids per code within this study (baseline + visit-date lookups).
+      const idsByCode = new Map<string, Set<string>>();
+      for (const f of ffAll) {
+        if (formById.get(f.form_id)?.study_id !== study.id) continue;
+        const s = idsByCode.get(f.code); if (s) s.add(f.id); else idsByCode.set(f.code, new Set([f.id]));
+      }
+      // Scheduled visit form per day (buildVisits parity: lowest-sequence subject-
+      // scoped form carrying a visit-date field, mapped to a windowed day).
+      const visitFormIds = new Set<string>();
+      for (const f of ffAll) if (VISIT_DATE_CODES.has(f.code) && formById.get(f.form_id)?.study_id === study.id) visitFormIds.add(f.form_id);
+      const formByDay = new Map<number, Dataset["forms"][number]>();
+      for (const fid of Array.from(visitFormIds)) {
+        const form = formById.get(fid);
+        if (!form || (form.scope ?? "subject") !== "subject") continue;
+        const day = dayOfName(form.name) ?? dayOfName(form.parent_form_id ? formById.get(form.parent_form_id)?.name : null);
+        if (day == null || windows[day] == null) continue;
+        const prev = formByDay.get(day);
+        if (!prev || form.sequence < prev.sequence) formByDay.set(day, form);
+      }
+
+      // Current Day-0 anchor for a subject (buildVisits parity: first populated
+      // BASELINE_CODES value, else earliest recorded visit-date).
+      const baselineOf = (insts: Dataset["formInstances"]): string | null => {
+        for (const code of BASELINE_CODES) {
+          const ids = idsByCode.get(code); if (!ids) continue;
+          for (const i of insts) { const v = fvArr.find((x) => x.form_instance_id === i.id && ids.has(x.form_field_id) && x.value); if (v?.value) return v.value; }
+        }
+        let earliest: string | null = null;
+        for (const code of Array.from(VISIT_DATE_CODES)) {
+          const ids = idsByCode.get(code); if (!ids) continue;
+          for (const i of insts) { const v = fvArr.find((x) => x.form_instance_id === i.id && ids.has(x.form_field_id) && x.value)?.value; if (v && (!earliest || v < earliest)) earliest = v; }
+        }
+        return earliest;
+      };
+
+      const studySubjects = (subjects.data ?? []).filter((s) => s.study_id === study.id);
+      studySubjects.forEach((subj, idx) => {
+        const insts = instsBySubj.get(subj.id) ?? [];
+        const curBaseline = baselineOf(insts);
+        if (!curBaseline) return; // not yet placed / randomized — nothing to re-base
+        const freshBaseline = shiftDate(todayISO, offsets[idx % offsets.length]);
+        const delta = diffDays(curBaseline, freshBaseline);
+        // 1) Shift EVERY date-typed value on this subject's instances by the same
+        //    delta, so the whole timeline moves together and stays internally consistent.
+        if (delta !== 0) {
+          const instIds = new Set(insts.map((i) => i.id));
+          for (const v of fvArr) {
+            if (!instIds.has(v.form_instance_id) || !dateFieldIds.has(v.form_field_id)) continue;
+            if (!v.value || !/^\d{4}-\d{2}-\d{2}/.test(String(v.value))) continue;
+            v.value = shiftDate(String(v.value), delta);
+          }
+        }
+        // 2a) Status ordering — enrolment BEFORE visits. Finalize every leaf form
+        //     under an enrolment-phase / first-visit group; demote any LATER visit
+        //     group (Day/Week N) that is still marked done back to pending. Safety /
+        //     closeout / AE / standalone forms are left exactly as seeded.
+        for (const inst of insts) {
+          const grp = groupNameOf(inst.form_id);
+          if (finalizeGroups.has(grp)) inst.status = "finalized";
+          else if (isVisitGroupName(grp) && DONE_STATUSES.has(inst.status)) inst.status = "in_work";
+        }
+        // 2b) Guarantee the buildVisits-picked visit form for each "done" day is
+        //     finalized (creating the instance if missing) so the Schedule of Events
+        //     and Visits screen read Day-0 / first-visit as completed.
+        for (const [day, form] of Array.from(formByDay.entries())) {
+          if (!doneDays.has(day)) continue;
+          const inst = insts.find((i) => i.form_id === form.id);
+          if (inst) inst.status = "finalized";
+          else { const ni = { id: `fi-fresh-${subj.id}-${form.id}`, form_id: form.id, subject_id: subj.id, status: "finalized" } as Dataset["formInstances"][number]; fInst.push(ni); insts.push(ni); }
+        }
+      });
     }
   }
 

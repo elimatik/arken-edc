@@ -182,8 +182,10 @@
 /* ─── Slide panels (query thread / delta) ── */
 .panel-overlay { display: none; position: fixed; inset: 0; background: rgba(14, 18, 28, 0.32); z-index: 200; }
 .panel-overlay.open { display: block; }
-.slide-panel { position: fixed; top: 0; right: 0; bottom: 0; width: 480px; max-width: 92vw; background: var(--color-surface); border-left: 1px solid var(--color-border); display: flex; flex-direction: column; z-index: 201; transform: translateX(100%); transition: transform var(--duration-normal) var(--ease-default); box-shadow: -8px 0 24px rgba(14, 18, 28, 0.10); }
-.slide-panel.open { transform: translateX(0); }
+/* box-shadow on .open only — a closed panel is parked off-screen via translateX(100%);
+   a base shadow would bleed ~30px back onto the content area's right edge (phantom shadow). */
+.slide-panel { position: fixed; top: 0; right: 0; bottom: 0; width: 480px; max-width: 92vw; background: var(--color-surface); border-left: 1px solid var(--color-border); display: flex; flex-direction: column; z-index: 201; transform: translateX(100%); transition: transform var(--duration-normal) var(--ease-default); }
+.slide-panel.open { transform: translateX(0); box-shadow: -8px 0 24px rgba(14, 18, 28, 0.10); }
 .slide-panel.delta { width: 420px; }
 .panel-header { display: flex; align-items: flex-start; justify-content: space-between; padding: var(--space-4); border-bottom: 1px solid var(--color-border); flex-shrink: 0; gap: var(--space-3); }
 .panel-title { font-size: var(--text-lg); font-weight: var(--weight-medium); color: var(--color-text-primary); margin-bottom: 3px; }
@@ -391,8 +393,8 @@
 .lookup-panel-list .lookup-term i { font-size: 15px; color: var(--color-text-tertiary); }
 
 /* Change-reason panel (delta-panel, file 30 — 380px) */
-.delta-panel { position: fixed; top: 0; right: 0; bottom: 0; width: 380px; max-width: 92vw; background: var(--color-surface); border-left: 1px solid var(--color-border); display: flex; flex-direction: column; z-index: 210; transform: translateX(100%); transition: transform var(--duration-normal) var(--ease-default); box-shadow: -8px 0 24px rgba(14,18,28,0.10); }
-.delta-panel.open { transform: translateX(0); }
+.delta-panel { position: fixed; top: 0; right: 0; bottom: 0; width: 380px; max-width: 92vw; background: var(--color-surface); border-left: 1px solid var(--color-border); display: flex; flex-direction: column; z-index: 210; transform: translateX(100%); transition: transform var(--duration-normal) var(--ease-default); }
+.delta-panel.open { transform: translateX(0); box-shadow: -8px 0 24px rgba(14,18,28,0.10); }
 .delta-panel-header { display: flex; align-items: center; gap: var(--space-3); padding: var(--space-4); border-bottom: 1px solid var(--color-border); flex-shrink: 0; }
 .delta-panel-name { font-size: var(--text-lg); font-weight: var(--weight-medium); flex: 1; }
 .delta-id { font-family: var(--font-mono); font-size: var(--text-xs); padding: 2px var(--space-2); border-radius: var(--radius-sm); background: var(--color-page-bg); border: 1px solid var(--color-border); color: var(--color-text-tertiary); }
