@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { useStudySession } from "@/lib/session-store/SessionStore";
 import { getPinnedStudies, togglePinnedStudy } from "@/lib/pinned-study";
 import { isStudyLocked } from "@/lib/study-lock";
+import { capLevel, capChipClass } from "@/lib/enrollment";
 import { useNdaName, useNdaInitials } from "@/lib/use-nda-name";
 import { useAvatarColor } from "@/lib/avatar-color";
 import { useTableSort } from "@/lib/useTableSort";
@@ -104,7 +105,9 @@ export default function StudiesPage() {
           // Default landing role is CRC for every study.
           role: "CRC",
           roleCls: "rc-crc",
-          enrolled: dataset.subjects.filter((x) => x.study_id === s.id).length,
+          // Enrolled against target = ACTIVE subjects only (completed / withdrawn /
+          // screening are excluded — they no longer occupy an enrolment slot here).
+          enrolled: dataset.subjects.filter((x) => x.study_id === s.id && x.status === "active").length,
           target: s.enrollment_target ?? 0,
           sites: dataset.sites.filter((x) => x.study_id === s.id).length,
           openQueries: 0,
@@ -354,7 +357,7 @@ export default function StudiesPage() {
                           </span>
                         </td>
                         <td className="st-mono">
-                          {s.enrolled} / {s.target}
+                          <span className={`cap-chip ${capChipClass(capLevel(s.enrolled, s.target))}`}>{s.enrolled} / {s.target}</span>
                         </td>
                       </tr>
                     );

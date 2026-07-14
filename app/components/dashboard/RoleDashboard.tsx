@@ -231,7 +231,7 @@ function EnrollmentArmBar({ ctx }: { ctx: CardCtx }) {
     ? [{ c: "var(--blue-400)", t: `Enrolled — ${enrolled}` }, ...remLeg]
     : [...arms.map((a, i) => ({ c: ARM_COLORS[i % ARM_COLORS.length], t: `${a.label} — ${a.count}` })), ...remLeg];
   const sf = screenFailureStats(ctx.dataset, ctx.studyId);
-  const sfColor = sf.pct < 20 ? "var(--green-600)" : sf.pct <= 30 ? "var(--amber-700)" : "var(--red-600)";
+  const sfColor = sf.pct < 20 ? "var(--green-600)" : sf.pct <= 30 ? "var(--amber-warn)" : "var(--red-600)";
   return (
     <>
       <EnrollBar cur={enrolled} tgt={target} pct={pct} segs={segs} legs={legs} />
@@ -265,11 +265,11 @@ function LockReadinessCard({ ctx }: { ctx: CardCtx }) {
   return (
     <Card title="Data lock readiness" icon="ti-lock">
       <div className="agg-list">
-        <div className="agg-row"><span className="agg-lbl">Open queries</span><span className="agg-val" style={{ color: oq ? "var(--amber-700)" : undefined }}>{oq}</span></div>
+        <div className="agg-row"><span className="agg-lbl">Open queries</span><span className="agg-val" style={{ color: oq ? "var(--amber-warn)" : undefined }}>{oq}</span></div>
         <div className="agg-row"><span className="agg-lbl">Open edit checks</span><span className="agg-val" style={{ color: ec ? "var(--orange-700)" : undefined }}>{ec}</span></div>
-        <div className="agg-row"><span className="agg-lbl">Pending Δ approvals</span><span className="agg-val" style={{ color: pd ? "var(--amber-700)" : undefined }}>{pd}</span></div>
+        <div className="agg-row"><span className="agg-lbl">Pending Δ approvals</span><span className="agg-val" style={{ color: pd ? "var(--amber-warn)" : undefined }}>{pd}</span></div>
         <div className="agg-row"><span className="agg-lbl"><i className="ti ti-shield-check" style={{ fontSize: "13px", marginRight: "4px", color: "var(--color-text-tertiary)" }}></i>SDV complete</span><span className="agg-val" style={{ color: "var(--color-text-secondary)" }}>{sdvPct}% ({sdv.verified} / {sdv.total})</span></div>
-        <div className="agg-row"><span className="agg-lbl">Status</span><span className="agg-val" style={{ color: clean ? "var(--green-600)" : "var(--amber-700)" }}>{clean ? "Clean" : "Issues"}</span></div>
+        <div className="agg-row"><span className="agg-lbl">Status</span><span className="agg-val" style={{ color: clean ? "var(--green-600)" : "var(--amber-warn)" }}>{clean ? "Clean" : "Issues"}</span></div>
       </div>
     </Card>
   );
@@ -321,16 +321,26 @@ function SafetyComplianceCard({ ctx }: { ctx: CardCtx }) {
   );
 }
 
+// Completeness colour bands (%). Tune these two thresholds to shift the
+// green / orange / red boundaries — the colour helpers below read from them.
+const COMPLETE_GREEN_MIN = 80; // >= this → green
+const COMPLETE_ORANGE_MIN = 50; // >= this → orange; below → red
+
+// Text and bar-fill use slightly different shades of the same band.
+const completeTextColor = (p: number) =>
+  p >= COMPLETE_GREEN_MIN ? "var(--green-500)" : p >= COMPLETE_ORANGE_MIN ? "#D97706" : "var(--red-600)";
+const completeFillColor = (p: number) =>
+  p >= COMPLETE_GREEN_MIN ? "var(--green-500)" : p >= COMPLETE_ORANGE_MIN ? "#F59E0B" : "var(--red-600)";
+
 // Data completeness card — big % + progress bar + per-site bars (DM).
 function DataCompletenessCard({ ctx }: { ctx: CardCtx }) {
   const dc = dataCompletenessBySite(ctx.dataset, ctx.studyId);
-  const col = (p: number) => (p >= 90 ? "var(--green-600)" : p >= 75 ? "var(--amber-700)" : "var(--red-600)");
   return (
     <Card title="Data completeness" icon="ti-database">
       <div style={{ display: "flex", alignItems: "baseline", gap: "var(--space-2)", padding: "var(--space-3) var(--space-5) var(--space-1)" }}>
-        <span style={{ fontSize: "28px", fontWeight: 700, fontFamily: "var(--font-mono)", color: col(dc.overall.pct), lineHeight: 1 }}>{dc.overall.pct}%</span>
+        <span style={{ fontSize: "28px", fontWeight: 700, fontFamily: "var(--font-mono)", color: completeTextColor(dc.overall.pct), lineHeight: 1 }}>{dc.overall.pct}%</span>
       </div>
-      <div className="dash-bar-track" style={{ margin: "0 var(--space-5) var(--space-2)" }}><div className="dash-bar-fill" style={{ width: `${dc.overall.pct}%`, background: col(dc.overall.pct) }}></div></div>
+      <div className="dash-bar-track" style={{ margin: "0 var(--space-5) var(--space-2)" }}><div className="dash-bar-fill" style={{ width: `${dc.overall.pct}%`, background: completeFillColor(dc.overall.pct) }}></div></div>
       <div className="card-note" style={{ padding: "0 var(--space-5) var(--space-3)" }}>{dc.overall.filled.toLocaleString()} of {dc.overall.expected.toLocaleString()} expected fields completed across all sites</div>
       {dc.sites.map((r) => (
         <div className="dash-bar" key={r.siteId}>
@@ -723,9 +733,9 @@ function CaAggregates({ agg }: { agg: StudyAggregates }) {
       </Card>
       <Card title="Data quality" icon="ti-database">
         <div className="agg-list">
-          <div className="agg-row"><span className="agg-lbl">Open queries</span><span className="agg-val" style={{ color: agg.openQueries ? "var(--amber-700)" : undefined }}>{agg.openQueries}</span></div>
+          <div className="agg-row"><span className="agg-lbl">Open queries</span><span className="agg-val" style={{ color: agg.openQueries ? "var(--amber-warn)" : undefined }}>{agg.openQueries}</span></div>
           <div className="agg-row"><span className="agg-lbl">Open edit checks</span><span className="agg-val" style={{ color: agg.openEditChecks ? "var(--orange-700)" : undefined }}>{agg.openEditChecks}</span></div>
-          <div className="agg-row"><span className="agg-lbl">Pending signatures</span><span className="agg-val" style={{ color: agg.pendingSignatures ? "var(--amber-700)" : undefined }}>{agg.pendingSignatures}</span></div>
+          <div className="agg-row"><span className="agg-lbl">Pending signatures</span><span className="agg-val" style={{ color: agg.pendingSignatures ? "var(--amber-warn)" : undefined }}>{agg.pendingSignatures}</span></div>
         </div>
       </Card>
     </div>
@@ -947,7 +957,7 @@ function renderCaSponsor(agg: StudyAggregates, dataset: Dataset, studyId: string
 // BR-2502 — live-wired CRC / CRA / DM dashboards (same widgets + layout as CA).
 // ════════════════════════════════════════════════════════════════════════════
 const SEV = (pct: number | null, warnAt = 10, badAt = 25) =>
-  pct == null ? undefined : pct >= badAt ? "var(--red-600)" : pct >= warnAt ? "var(--amber-700)" : "var(--green-600)";
+  pct == null ? undefined : pct >= badAt ? "var(--red-600)" : pct >= warnAt ? "var(--amber-warn)" : "var(--green-600)";
 const pctTxt = (p: number | null) => (p == null ? "—" : `${Math.round(p)}%`);
 
 // Generic visit-window card (On time / Outside / Overdue + proportion bar) — the
@@ -1028,7 +1038,7 @@ function OpenQueriesCountCard({ dataset, studyId }: { dataset: Dataset; studyId:
   return (
     <Card title="Open queries" icon="ti-message-report" action="Queries screen →" actionHref={`/study/${studyId}/queries`}>
       <div className="agg-list">
-        <div className="agg-row"><span className="agg-lbl">Raised — awaiting response</span><span className="agg-val" style={{ color: raised ? "var(--amber-700)" : undefined }}>{raised}</span></div>
+        <div className="agg-row"><span className="agg-lbl">Raised — awaiting response</span><span className="agg-val" style={{ color: raised ? "var(--amber-warn)" : undefined }}>{raised}</span></div>
         <div className="agg-row"><span className="agg-lbl">Responded — awaiting resolution</span><span className="agg-val" style={{ color: responded ? "var(--blue-600)" : undefined }}>{responded}</span></div>
         <div className="agg-row"><span className="agg-lbl">Total open</span><span className="agg-val">{open}</span></div>
       </div>
@@ -1836,7 +1846,7 @@ function AdminStudyStatusCard() {
                 <td><Link className="card-link" href={`/study/${s.id}`} style={{ textDecoration: "none", fontWeight: "var(--weight-medium)" }}>{s.code}</Link></td>
                 <td><span className={`cap-chip ${locked ? "cap-over" : "cap-under"}`}>{locked ? "Locked" : "Open"}</span></td>
                 <td className="mono">{enrolled}</td>
-                <td className="mono" style={{ color: oq ? "var(--amber-700)" : undefined }}>{oq || "—"}</td>
+                <td className="mono" style={{ color: oq ? "var(--amber-warn)" : undefined }}>{oq || "—"}</td>
               </tr>
             );
           })}

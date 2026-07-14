@@ -20,7 +20,8 @@ export function siteEnrolledCount(dataset: Dataset, siteId: string): number {
 export type CapLevel = "none" | "under" | "near" | "at" | "over";
 
 // none → no target set; under → < 90%; near → ≥ 90% but under cap; at → == cap;
-// over → > cap. Chip: green (under), amber (near/at), red (over).
+// over → > cap. Chip: green (under/at), amber (near), red (over). Being exactly
+// at target is fine (fully enrolled) — only going OVER is a protocol deviation.
 export function capLevel(enrolled: number, target: number | null | undefined): CapLevel {
   if (!target || target <= 0) return "none";
   if (enrolled > target) return "over";
@@ -29,12 +30,13 @@ export function capLevel(enrolled: number, target: number | null | undefined): C
   return "under";
 }
 
-// Chip colour class (shared `cap-*` styles).
+// Chip colour class (shared `cap-*` styles). At-cap reads as green (fully
+// enrolled, on target); only "near" (approaching) is amber, "over" is red.
 export function capChipClass(level: CapLevel): string {
-  return level === "over" ? "cap-over" : level === "at" || level === "near" ? "cap-near" : "cap-under";
+  return level === "over" ? "cap-over" : level === "near" ? "cap-near" : "cap-under";
 }
 
-// The enrol-time warning fires once the site is AT or OVER its target.
+// The enrol-time warning fires only once the site would go OVER its target.
 export function capWarns(level: CapLevel): boolean {
-  return level === "at" || level === "over";
+  return level === "over";
 }
