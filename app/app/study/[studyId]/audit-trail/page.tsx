@@ -26,7 +26,7 @@ type AuditType =
   | "data_entry" | "change_reason" | "change_reason_approved" | "edit_check" | "edit_check_resolved"
   | "query_raised" | "query_responded" | "query_resolved" | "form_signed"
   | "sdv" | "form_submitted" | "form_locked" | "form_reverted" | "submission_withdrawn"
-  | "unlock_requested" | "form_unlocked" | "unlock_denied" | "sdv_revoked" | "field_notdone" | "visit_rescheduled"
+  | "unlock_requested" | "form_unlocked" | "unlock_denied" | "sdv_revoked" | "field_notdone" | "form_not_done" | "visit_rescheduled"
   | "randomization" | "consent" | "protocol_deviation"
   | "subject_enrolled" | "subject_withdrawn" | "unblinding" | "database_lock" | "database_unlock" | "drug_supply" | "login";
 type FilterCat = "data_entry" | "query" | "sdv" | "status_change" | "form_lock" | "randomization" | "consent" | "deviation" | "unblinding" | "database_lock" | "drug_supply" | "login";
@@ -50,6 +50,7 @@ const TYPE_META: Record<AuditType, { label: string; cls: string; icon: string; c
   unlock_denied:     { label: "Unlock Denied",        cls: "at-lock",      icon: "lock",            cat: "form_lock" },
   sdv_revoked:       { label: "SDV Revoked",          cls: "at-sdv",       icon: "shield-x",        cat: "sdv" },
   field_notdone:     { label: "Field Not Done",       cls: "at-entry",     icon: "square-off",      cat: "data_entry" },
+  form_not_done:     { label: "Form Not Done",        cls: "at-withdraw",  icon: "square-off",      cat: "status_change" },
   visit_rescheduled: { label: "Visit Rescheduled",    cls: "at-submit",    icon: "calendar-event",  cat: "status_change" },
   form_locked:       { label: "Form Locked",        cls: "at-lock",      icon: "lock",            cat: "form_lock" },
   randomization:     { label: "Randomization",      cls: "at-rand",      icon: "arrows-shuffle",  cat: "randomization" },
@@ -67,7 +68,7 @@ const TYPE_META: Record<AuditType, { label: string; cls: string; icon: string; c
 // ─── Preset tabs — coarse groupings over action types, deep-linkable via ?cat= ──
 type PresetKey = "clinical" | "query" | "system";
 const PRESETS: Record<PresetKey, Set<AuditType>> = {
-  clinical: new Set<AuditType>(["data_entry", "change_reason", "edit_check", "edit_check_resolved", "field_notdone", "sdv", "sdv_revoked", "form_submitted", "form_locked", "form_reverted", "submission_withdrawn", "unlock_requested", "form_unlocked", "unlock_denied", "form_signed"]),
+  clinical: new Set<AuditType>(["data_entry", "change_reason", "edit_check", "edit_check_resolved", "field_notdone", "form_not_done", "sdv", "sdv_revoked", "form_submitted", "form_locked", "form_reverted", "submission_withdrawn", "unlock_requested", "form_unlocked", "unlock_denied", "form_signed"]),
   query: new Set<AuditType>(["query_raised", "query_responded", "query_resolved"]),
   system: new Set<AuditType>(["login", "database_lock", "database_unlock", "drug_supply", "unblinding", "randomization", "consent", "protocol_deviation", "subject_enrolled", "subject_withdrawn", "visit_rescheduled"]),
 };
@@ -112,7 +113,7 @@ const TYPE_SETS: Record<PresetKey, Map<string, Set<AuditType>>> = {
     ["change_reason", new Set<AuditType>(["change_reason", "change_reason_approved"])],
     ["edit_check", new Set<AuditType>(["edit_check", "edit_check_resolved"])],
     ["sdv", new Set<AuditType>(["sdv", "sdv_revoked"])],
-    ["form_status", new Set<AuditType>(["form_submitted", "form_reverted", "submission_withdrawn", "form_locked", "unlock_requested", "form_unlocked", "unlock_denied", "form_signed"])],
+    ["form_status", new Set<AuditType>(["form_submitted", "form_reverted", "submission_withdrawn", "form_not_done", "form_locked", "unlock_requested", "form_unlocked", "unlock_denied", "form_signed"])],
   ]),
   query: new Map<string, Set<AuditType>>([
     ["all", PRESETS.query],
@@ -496,6 +497,25 @@ function buildAuditEvents(dataset: Dataset, studyId: string, baseNow: number): A
   }
 
   // 7 — Subject enrolment + withdrawal.
+  // Leaf (non-group) subject-scoped forms + a per-instance "has data" index, used to
+  // derive the form_not_done events on withdrawal (mirrors the Subject Record sidebar:
+  // a not-started form = no collected data and never submitted).
+  const wdStudyForms = dataset.forms.filter((f) => f.study_id === studyId && (f.scope ?? "subject") === "subject");
+  const wdGroupIds = new Set(wdStudyForms.map((f) => f.parent_form_id).filter(Boolean) as string[]);
+  const wdLeafForms = wdStudyForms.filter((f) => !wdGroupIds.has(f.id));
+  const WD_DONE_STATUSES = new Set(["in_review", "reviewed", "finalized", "locked"]);
+  // On-demand safety / event forms are filled only WHEN an event occurs, so they are
+  // never "expected" per visit and are NOT auto-closed on withdrawal. Only scheduled
+  // visit forms and closeout admin forms (Concomitant Medications, Withdrawal Period
+  // Confirmation) auto-close. EOS is always required (excluded separately below).
+  const WD_EXCLUDE_FORM = /adverse event|\bAE\b|\bSAE\b|protocol deviation|necropsy|post-?mortem|sample collection|re-?treatment|injection site|mortality|cull/i;
+  const WD_KEEP_FORM = /concomitant medication|withdrawal period confirmation/i;
+  const WD_SAFETY_GROUP = /safety & events|event records/i;
+  const instHasData = new Set<string>();
+  for (const v of dataset.fieldValues) if (((v.value ?? "") !== "") || v.notDone) instHasData.add(v.form_instance_id);
+  const instsBySubj = new Map<string, typeof dataset.formInstances>();
+  for (const i of dataset.formInstances) { if (!i.subject_id) continue; const arr = instsBySubj.get(i.subject_id); if (arr) arr.push(i); else instsBySubj.set(i.subject_id, [i]); }
+
   for (const subj of dataset.subjects) {
     if (subj.study_id !== studyId) continue;
     const siteName = subj.site_id ? siteById.get(subj.site_id)?.name ?? "—" : "—";
@@ -503,8 +523,31 @@ function buildAuditEvents(dataset: Dataset, studyId: string, baseNow: number): A
     push({ ts: synthTs(`enr${subj.id}`, baseNow), type: "subject_enrolled", user: crcFor(siteCodeOf(subj.site_id ?? null), subj.id), ...ctx, fieldId: null, fieldLabel: "", fieldCode: "",
       oldValue: null, newValue: null, details: "Subject enrolled — screening complete, all criteria met", statusBefore: "—", statusAfter: "Screened" });
     if (subj.status === "withdrawn") {
-      push({ ts: synthTs(`wd${subj.id}`, baseNow, 30), type: "subject_withdrawn", user: CAST.PI, ...ctx, fieldId: null, fieldLabel: "", fieldCode: "",
+      // Same timestamp + actor as the withdrawal event, so the auto-marked forms are
+      // grouped with it at the moment of withdrawal.
+      const wdTs = synthTs(`wd${subj.id}`, baseNow, 30);
+      push({ ts: wdTs, type: "subject_withdrawn", user: CAST.PI, ...ctx, fieldId: null, fieldLabel: "", fieldCode: "",
         oldValue: null, newValue: null, details: "Subject withdrawn from study — data preserved for analysis", statusBefore: "Active", statusAfter: "Withdrawn" });
+      // One form_not_done per form auto-marked "Not done" on withdrawal: a subject-scoped
+      // leaf form with no collected data and never submitted. The End of Study / Final
+      // Disposition form is always required, so it is never auto-closed.
+      const subjInsts = instsBySubj.get(subj.id) ?? [];
+      for (const form of wdLeafForms) {
+        if (form.name === "End of Study / Final Disposition") continue;
+        const parent = form.parent_form_id ? formById.get(form.parent_form_id) : null;
+        // Skip on-demand safety / event forms (AE/SAE, Protocol Deviation, Necropsy,
+        // Sample Collection, Re-treatment, Injection Site, Mortality/Cull, and anything
+        // in the Safety & Events / Event Records group) — unless it is an explicitly
+        // kept closeout admin form (ConMed / Withdrawal Period Confirmation).
+        if (!WD_KEEP_FORM.test(form.name) && (WD_EXCLUDE_FORM.test(form.name) || WD_SAFETY_GROUP.test(parent?.name ?? ""))) continue;
+        const insts = subjInsts.filter((i) => i.form_id === form.id);
+        const started = insts.some((i) => WD_DONE_STATUSES.has(i.status) || instHasData.has(i.id));
+        if (started) continue; // has data or was submitted — preserved/editable, not auto-closed
+        const formPath = parent ? `${parent.name} — ${form.name}` : form.name;
+        push({ ts: wdTs, type: "form_not_done", user: CAST.PI, scope: "subject", subjectId: subj.id, subjectCode: subj.subject_code, siteId: subj.site_id ?? null, siteName, formId: form.id, formName: form.name, formPath,
+          fieldId: null, fieldLabel: "", fieldCode: "", oldValue: null, newValue: "Not done", reason: "Subject withdrawn",
+          details: `${form.name} marked Not Done — subject withdrawn`, statusBefore: "In-work", statusAfter: "Not done" });
+      }
     }
   }
 
@@ -800,7 +843,7 @@ export default function AuditTrailPage() {
   const cUser: ColDef = { label: "User", key: "user", width: 100, render: (e) => <span className="au-uname au-uname-clip">{e.user.name}</span> };
   const cRole: ColDef = { label: "Role", key: "role", width: 52, render: (e) => <span className="au-role">{e.user.role}</span> };
   const cAction: ColDef = { label: "Action", key: "type", width: 120, render: (e) => { const m = TYPE_META[e.type]; return <span className={`au-type ${m.cls}`}><i className={`ti ti-${m.icon}`}></i> {m.label}</span>; } };
-  const cSubject: ColDef = { label: "Subject", key: "subject", width: 96, render: subjectCell };
+  const cSubject: ColDef = { label: "Subject", key: "subject", width: 140, render: subjectCell };
   const cForm: ColDef = { label: "Form", key: "form", width: 150, render: (e) => <span className="au-form" title={e.formPath}>{e.formName}</span> };
   const cField: ColDef = { label: "Field", key: "field", width: 140, render: (e) => e.fieldLabel ? <span className="au-field"><span className="au-field-label" title={e.fieldLabel}>{e.fieldLabel}</span>{e.fieldCode && <span className="au-field-code">{e.fieldCode}</span>}</span> : dash };
   const cOld: ColDef = { label: "Old value", key: "old", width: 88, render: (e) => e.oldValue != null ? <span className="au-old" title={e.oldValue}>{e.oldValue}</span> : dash };
@@ -816,7 +859,7 @@ export default function AuditTrailPage() {
   const cActionWide: ColDef = { ...cAction, width: 160 };
   // System & Security has the longest action labels ("Subject Withdrawn") — wider Action + Subject.
   const cActionSystem: ColDef = { ...cAction, width: 170 };
-  const cSubjectWide: ColDef = { ...cSubject, width: 130 };
+  const cSubjectWide: ColDef = { ...cSubject, width: 140 };
   const COLS: Record<PresetKey, ColDef[]> = {
     clinical: [cTs, cUser, cRole, cAction, cSubject, cForm, cField, cOld, cNew, cReason, cApproved],
     query: [cTs, cUser, cRole, cActionWide, cSubject, cForm, cQid, cText, cLink],
@@ -909,7 +952,7 @@ export default function AuditTrailPage() {
                 const muted = e.source === "system" && preset !== "system"; // de-emphasise system rows outside the System tab
                 return (
                   <tr key={e.id} className={`${panelId === e.id ? "active-row" : ""}${muted ? " au-row-muted" : ""}${QUERY_TYPES.has(e.type) ? " au-row-link" : ""}`} onClick={() => openRow(e)}>
-                    {columns.map((c) => <td key={c.label}>{c.render(e)}</td>)}
+                    {columns.map((c) => <td key={c.label} className={c.key === "subject" ? "au-col-subject" : undefined}>{c.render(e)}</td>)}
                   </tr>
                 );
               })}
