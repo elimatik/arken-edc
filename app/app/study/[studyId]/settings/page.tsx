@@ -25,10 +25,10 @@ import { getFormPermDefaults, setFormPermDefault, setFormPermDefaultsFor, rolePr
 import { type StudyStatus, STATUS_ORDER, STATUS_META, getStudyStatus, isSectionEditable } from "@/lib/study-status";
 import "./settings.css";
 
-type Method = "blocked" | "simple" | "stratified" | "minimization";
-interface Group { code: string; name: string; detail?: string; ratio: number; arm: string; lot: string; blindedLabel?: string; color: string }
+type Method = "blocked" | "simple" | "stratified" | "minimization" | "generated";
+interface Group { code: string; name: string; description?: string; ratio: number; arm: string; lot: string; blindedLabel?: string; color: string }
 interface StratFactor { key: string; name: string; source: "site" | "form"; form?: string; field?: string; levels: string[] }
-interface RandConfig { method: Method; blockSize: string; blinding: string; stratScope: "site" | "study"; stratFactors: StratFactor[]; groups: Group[] }
+interface RandConfig { method: Method; blockSizes: number[]; blinding: string; stratScope: "site" | "study"; stratFactors: StratFactor[]; groups: Group[] }
 
 // Grouped nav (ported from 25-settings.html). Only Randomization is live.
 interface NavItem { key: string; label: string; icon: string }
@@ -43,7 +43,7 @@ const NAV_ITEMS: NavItem[] = NAV_GROUPS.flatMap((g) => g.items);
 // Per-study randomization configuration (the real protocol design).
 function randConfig(code: string): RandConfig {
   if (code === "BR-2502") return {
-    method: "blocked", blockSize: "6", blinding: "Open-label (no blinding)", stratScope: "site",
+    method: "blocked", blockSizes: [6, 9], blinding: "Open-label (no blinding)", stratScope: "site",
     stratFactors: [{ key: "sf-site", name: "Site", source: "site", levels: [] }],
     groups: [
       { code: "T01", name: "Tulathromycin 2.5 mg/kg", ratio: 1, arm: "T01", lot: "LOT-BR-T01", color: "#1760A8" },
@@ -52,23 +52,31 @@ function randConfig(code: string): RandConfig {
     ],
   };
   if (code === "CA-0801") return {
-    method: "blocked", blockSize: "4", blinding: "Double-blind", stratScope: "site",
+    method: "blocked", blockSizes: [4], blinding: "Double-blind", stratScope: "site",
     stratFactors: [
       { key: "sf-site", name: "Site", source: "site", levels: [] },
       { key: "sf-sev", name: "Disease severity", source: "form", form: "Baseline Dermatology Assessment", field: "CADESI-04 score", levels: ["Mild <25", "Moderate 25–60", "Severe >60"] },
     ],
     groups: [
-      { code: "A", name: "Treatment A", detail: "DermAlliv™ Active", ratio: 1, arm: "DermAlliv™ Active", lot: "LOT-CA-001", blindedLabel: "Treatment A", color: "#1760A8" },
-      { code: "B", name: "Treatment B", detail: "Placebo", ratio: 1, arm: "Placebo", lot: "LOT-CA-001", blindedLabel: "Treatment B", color: "#6D7480" },
+      { code: "T01", name: "Treatment A", description: "DermAlliv™ Active", ratio: 1, arm: "DermAlliv™ Active", lot: "LOT-CA-001", blindedLabel: "Treatment A", color: "#1760A8" },
+      { code: "T02", name: "Treatment B", description: "Placebo", ratio: 1, arm: "Placebo", lot: "LOT-CA-001", blindedLabel: "Treatment B", color: "#6D7480" },
     ],
   };
-  // PH-2401 — simple, open-label, no stratification
-  return {
-    method: "simple", blockSize: "6", blinding: "Open-label (no blinding)", stratScope: "study", stratFactors: [],
+  // PH-2401 — open-label, 2 arms (matches the seeded subjects: all assigned to T01/T02).
+  if (code === "PH-2401") return {
+    method: "blocked", blockSizes: [4, 8], blinding: "Open-label (no blinding)", stratScope: "study",
+    stratFactors: [{ key: "sf-site", name: "Site", source: "site", levels: [] }],
     groups: [
-      { code: "T01", name: "T01 Control", detail: "Basal feed", ratio: 1, arm: "T01 Control", lot: "BATCH-PH-002", color: "#6D7480" },
-      { code: "T02", name: "T02 Phytogenic additive", detail: "Phytogenic blend", ratio: 1, arm: "T02 Phytogenic", lot: "BATCH-PH-001", color: "#1A6B47" },
+      { code: "T01", name: "Phytogenic feed additive", description: "Phytogenic blend", ratio: 1, arm: "T02 Phytogenic", lot: "BATCH-PH-001", color: "#1A6B47" },
+      { code: "T02", name: "Control (basal feed)", description: "Basal feed", ratio: 1, arm: "T01 Control", lot: "BATCH-PH-002", color: "#6D7480" },
     ],
+  };
+  // New / unseeded study — starts EMPTY: no default treatment groups, no fallback list.
+  // The investigator defines every arm; only the built-in Site stratification factor exists.
+  return {
+    method: "blocked", blockSizes: [], blinding: "Open-label (no blinding)", stratScope: "site",
+    stratFactors: [{ key: "sf-site", name: "Site", source: "site", levels: [] }],
+    groups: [],
   };
 }
 
@@ -1857,15 +1865,24 @@ export default function StudySettingsPage() {
   const isAdmin = activeRole === "Admin";
   const typeCfg = getStudyTypeConfig(study.code); // study-type design flags (rand unit, timing)
   const isGroupRand = typeCfg.randomizationUnit === "group";
-  const atSetup = typeCfg.groupAssignmentTiming === "at_setup";
 
   const sp = useSearchParams();
   const [section, setSection] = useState<string>(() => { const s = sp.get("section"); return s && NAV_ITEMS.some((n) => n.key === s) ? s : "study"; });
   // Honour ?section= even when already on Settings (e.g. the notifications gear).
   useEffect(() => { const s = sp.get("section"); if (s && NAV_ITEMS.some((n) => n.key === s)) setSection(s); }, [sp]);
   const [method, setMethod] = useState<Method>(cfg.method);
-  const [blockSize, setBlockSize] = useState(cfg.blockSize);
+  const [blockSizes, setBlockSizes] = useState<number[]>(cfg.blockSizes); // selected valid block sizes
+  const [groups, setGroups] = useState<Group[]>(cfg.groups);
   const [blinding, setBlinding] = useState(cfg.blinding);
+  const [assignmentTiming, setAssignmentTiming] = useState<string>(typeCfg.groupAssignmentTiming);
+  // Treatment-group add/edit modal
+  const [gOpen, setGOpen] = useState(false);
+  const [gEdit, setGEdit] = useState<string | null>(null); // code being edited, or null for a new group
+  const [gName, setGName] = useState("");
+  const [gDescription, setGDescription] = useState("");
+  const [gCode, setGCode] = useState("");
+  const [gRatio, setGRatio] = useState("1");
+  const [gBlinded, setGBlinded] = useState("");
   const [stratScope, setStratScope] = useState<"site" | "study">(cfg.stratScope);
   const [factors, setFactors] = useState<StratFactor[]>(cfg.stratFactors);
   const [toast, setToast] = useState<string | null>(null);
@@ -1891,7 +1908,8 @@ export default function StudySettingsPage() {
   useEffect(() => {
     // Reset randomization state on study switch; keep the user on their current
     // settings section (all sections now repopulate from the active study config).
-    setMethod(cfg.method); setBlockSize(cfg.blockSize); setBlinding(cfg.blinding);
+    setMethod(cfg.method); setBlockSizes(cfg.blockSizes); setBlinding(cfg.blinding);
+    setGroups(cfg.groups); setGOpen(false); setAssignmentTiming(typeCfg.groupAssignmentTiming);
     setStratScope(cfg.stratScope); setFactors(cfg.stratFactors);
   }, [cfg]);
   useEffect(() => {
@@ -1900,10 +1918,53 @@ export default function StudySettingsPage() {
     return () => clearTimeout(t);
   }, [toast]);
 
-  const enrolled = (g: Group) => dataset.subjects.filter((s) => s.study_id === study.id && s.randomization_arm === g.arm).length;
-  const ratioTotal = cfg.groups.reduce((s, g) => s + g.ratio, 0);
-  const showBlock = method === "blocked" || method === "stratified";
-  const blockWarn = showBlock && blockSize !== "variable" && Number(blockSize) % ratioTotal !== 0;
+  // ── Reactive randomization derivations (all recompute when `groups` change) ──
+  const ratioTotal = groups.reduce((s, g) => s + g.ratio, 0);
+  const showBlock = method === "blocked"; // block sizes only apply to blocked randomization
+  const showGenerated = method === "generated";
+  // Valid block sizes = multiples of the ratio total, ratioTotal×1 … ratioTotal×6.
+  const validBlockSizes = ratioTotal > 0 ? [1, 2, 3, 4, 5, 6].map((k) => ratioTotal * k) : [];
+  const ratiosEqual = groups.length > 0 && groups.every((g) => g.ratio === groups[0].ratio);
+  const ratioString = groups.map((g) => `${g.code} ${g.ratio}`).join(" : ") + (ratiosEqual && groups.length > 0 ? " (equal allocation)" : "");
+  // Config edits are DM/Admin-only, and only while the study is setup/active (the
+  // section is otherwise wrapped in a disabled fieldset).
+  const canEditRand = (activeRole === "DM" || activeRole === "Admin") && isSectionEditable(status, "randomization");
+  // When the ratio total changes (groups edited), deselect any block size no longer valid.
+  useEffect(() => {
+    setBlockSizes((prev) => {
+      const next = prev.filter((b) => ratioTotal > 0 && b % ratioTotal === 0 && b <= ratioTotal * 6);
+      return next.length === prev.length ? prev : next;
+    });
+  }, [ratioTotal]);
+
+  const toggleBlockSize = (b: number) => setBlockSizes((prev) => (prev.includes(b) ? prev.filter((x) => x !== b) : [...prev, b].sort((x, y) => x - y)));
+
+  // Treatment-group modal handlers.
+  const GROUP_COLORS = ["#1760A8", "#1A6B47", "#6D7480", "#534AB7", "#B85C35", "#A33A08"];
+  function openAddGroup() {
+    setGEdit(null); setGName(""); setGDescription(""); setGCode(""); setGRatio("1"); setGBlinded(""); setGOpen(true);
+  }
+  function openEditGroup(g: Group) {
+    setGEdit(g.code); setGName(g.name); setGDescription(g.description ?? ""); setGCode(g.code); setGRatio(String(g.ratio)); setGBlinded(g.blindedLabel ?? ""); setGOpen(true);
+  }
+  function saveGroup() {
+    const name = gName.trim(), code = gCode.trim();
+    if (!name) { setToast("Treatment name is required"); return; }
+    if (!code) { setToast("Code is required"); return; }
+    if (groups.some((g) => g.code === code && g.code !== gEdit)) { setToast(`Code ${code} is already used`); return; }
+    const ratio = Math.max(1, Math.floor(Number(gRatio) || 1));
+    const blindedLabel = gBlinded.trim() || undefined;
+    const description = gDescription.trim() || undefined;
+    if (gEdit) {
+      setGroups(groups.map((g) => (g.code === gEdit ? { ...g, code, name, description, ratio, blindedLabel } : g)));
+      setToast("Group updated");
+    } else {
+      setGroups([...groups, { code, name, description, ratio, blindedLabel, arm: code, lot: "—", color: GROUP_COLORS[groups.length % GROUP_COLORS.length] }]);
+      setToast("Group added");
+    }
+    setGOpen(false);
+  }
+  function deleteGroup(code: string) { setGroups(groups.filter((g) => g.code !== code)); setToast("Group removed"); }
 
   function openAddModal() {
     setEditKey(null); setSfName(""); setSfSource("site");
@@ -1949,41 +2010,85 @@ export default function StudySettingsPage() {
       <div className="settings-content">
         {(() => { const sectionEl = section === "randomization" ? (
           <>
-            <div className="section-header">
-              <h1 className="set-section-title">Randomization</h1>
-              <p className="section-desc">Treatment group configuration, blinding, and assignment rules for {study.code}</p>
+            {/* ══ SECTION 1 — Treatment groups ══ */}
+            <div className="settings-card">
+              <div className="settings-card-header">
+                <div><div className="settings-card-title">Treatment groups</div><div className="settings-card-desc">Define treatment arms before configuring randomization</div></div>
+                {canEditRand && groups.length > 0 && <button className="set-btn-secondary" type="button" onClick={openAddGroup}><i className="ti ti-plus"></i> Add group</button>}
+              </div>
+              <div className="settings-card-body">
+                {groups.length === 0 ? (
+                  <div className="set-level-empty" style={{ padding: "var(--space-5)" }}>
+                    No treatment groups defined. Add your first group to begin.
+                    {canEditRand && <div style={{ marginTop: "var(--space-3)" }}><button className="set-btn-secondary" type="button" onClick={openAddGroup}><i className="ti ti-plus"></i> Add group</button></div>}
+                  </div>
+                ) : (
+                  <table className="rand-group-table">
+                    <thead><tr><th>Code</th><th>Name</th><th>Ratio</th><th>Blinded label</th>{canEditRand && <th style={{ textAlign: "right" }}>Actions</th>}</tr></thead>
+                    <tbody>
+                      {groups.map((g) => (
+                        <tr key={g.code}>
+                          <td><span className="group-color-dot" style={{ background: g.color, display: "inline-block", marginRight: 6, verticalAlign: "middle" }} /><span style={{ fontFamily: "var(--font-mono)", fontWeight: 500 }}>{g.code}</span></td>
+                          <td>{g.name}{g.description ? <span style={{ color: "var(--color-text-tertiary)" }}> · {g.description}</span> : null}</td>
+                          <td style={{ fontFamily: "var(--font-mono)" }}>{g.ratio}</td>
+                          <td style={{ color: g.blindedLabel ? undefined : "var(--color-text-placeholder)" }}>{g.blindedLabel || "—"}</td>
+                          {canEditRand && (
+                            <td style={{ textAlign: "right", whiteSpace: "nowrap" }}>
+                              <button className="set-btn-icon" title="Edit group" type="button" onClick={() => openEditGroup(g)}><i className="ti ti-pencil" style={{ fontSize: 13 }}></i></button>
+                              <button className="set-btn-icon" title="Delete group" type="button" onClick={() => deleteGroup(g.code)}><i className="ti ti-trash" style={{ fontSize: 13 }}></i></button>
+                            </td>
+                          )}
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                )}
+              </div>
             </div>
 
-            {/* ── Card 1: Randomization settings ── */}
+            {/* ══ SECTION 2 — Randomization ══ */}
             <div className="settings-card">
-              <div className="settings-card-header"><div><div className="settings-card-title">Randomization settings</div></div></div>
+              <div className="settings-card-header"><div><div className="settings-card-title">Randomization</div></div></div>
               <div className="settings-card-body">
+                {/* ROW 1 — Randomization method */}
                 <div className="settings-row">
                   <div><div className="settings-row-label">Randomization method</div><div className="settings-row-desc">How subjects are assigned to treatment groups</div></div>
                   <div className="settings-row-value">
                     <select className="set-select" style={{ maxWidth: 280 }} value={method} onChange={(e) => { setMethod(e.target.value as Method); setToast("Method updated"); }}>
-                      <option value="blocked">Blocked randomization</option>
-                      <option value="simple">Simple randomization</option>
-                      <option value="stratified">Stratified randomization</option>
+                      <option value="blocked">Blocked</option>
+                      <option value="simple">Simple</option>
+                      <option value="stratified">Stratified</option>
                       <option value="minimization">Minimization</option>
+                      <option value="generated">Generated list</option>
                     </select>
                   </div>
                 </div>
 
+                {/* ROW 2 — Block sizes (Blocked only) — valid multiples of the ratio total, selectable */}
+                {showBlock && (
+                  <div className="settings-row">
+                    <div><div className="settings-row-label">Block sizes</div><div className="settings-row-desc">Select valid block sizes based on your allocation ratio</div></div>
+                    <div className="settings-row-value" style={{ display: "flex", flexWrap: "wrap", gap: "var(--space-2)" }}>
+                      {validBlockSizes.length === 0
+                        ? <span style={{ fontSize: "var(--text-sm)", color: "var(--color-text-placeholder)" }}>Define treatment groups to see valid block sizes.</span>
+                        : validBlockSizes.map((b) => (
+                          <button key={b} type="button" className={`rand-size-chip${blockSizes.includes(b) ? " selected" : ""}`} disabled={!canEditRand} onClick={() => toggleBlockSize(b)}>{b}</button>
+                        ))}
+                    </div>
+                  </div>
+                )}
+
+                {/* ROW 3 — Allocation ratio (display only, derived from group ratios) */}
                 <div className="settings-row">
-                  <div><div className="settings-row-label">Randomization unit</div><div className="settings-row-desc">The unit assigned to a treatment group</div></div>
-                  <div className="settings-row-value">
-                    <select className="set-select" style={{ maxWidth: 200 }} value={isGroupRand ? "group" : "individual"} onChange={() => setToast("Randomization unit updated")}>
-                      <option value="individual">Individual subject</option>
-                      <option value="group">Group / pen</option>
-                    </select>
-                  </div>
+                  <div><div className="settings-row-label">Allocation ratio</div><div className="settings-row-desc">Derived from treatment group ratios</div></div>
+                  <div className="settings-row-value" style={{ fontSize: "var(--text-sm)", fontFamily: "var(--font-mono)", color: "var(--color-text-secondary)" }}>{groups.length ? ratioString : "—"}</div>
                 </div>
 
+                {/* ROW 4 — Group assignment timing */}
                 <div className="settings-row">
                   <div><div className="settings-row-label">Group assignment timing</div><div className="settings-row-desc">When treatment arms are assigned</div></div>
                   <div className="settings-row-value">
-                    <select className="set-select" style={{ maxWidth: 200 }} value={typeCfg.groupAssignmentTiming} onChange={() => setToast("Group assignment timing updated")}>
+                    <select className="set-select" style={{ maxWidth: 200 }} value={assignmentTiming} onChange={(e) => { setAssignmentTiming(e.target.value); setToast("Group assignment timing updated"); }}>
                       <option value="at_enrollment">At enrollment</option>
                       <option value="at_setup">At study setup</option>
                       <option value="predetermined">Predetermined</option>
@@ -1991,23 +2096,7 @@ export default function StudySettingsPage() {
                   </div>
                 </div>
 
-                {showBlock && (
-                  <div className="settings-row">
-                    <div><div className="settings-row-label">Block size</div><div className="settings-row-desc">Number of subjects per randomization block</div></div>
-                    <div className="settings-row-value" style={{ display: "flex", alignItems: "center", gap: "var(--space-2)" }}>
-                      <select className="set-select" style={{ maxWidth: 120 }} value={blockSize} onChange={(e) => { setBlockSize(e.target.value); setToast("Block size updated"); }}>
-                        <option value="4">4</option><option value="6">6</option><option value="8">8</option><option value="variable">Variable</option>
-                      </select>
-                      {blockWarn && (
-                        <span style={{ display: "inline-flex", alignItems: "center", gap: 4, fontSize: "var(--text-xs)", color: "var(--amber-700)" }}>
-                          <i className="ti ti-alert-triangle" style={{ fontSize: 13 }}></i>
-                          Block size {blockSize} is not a multiple of ratio total {ratioTotal}.
-                        </span>
-                      )}
-                    </div>
-                  </div>
-                )}
-
+                {/* ROW 5 — Blinding */}
                 <div className="settings-row">
                   <div><div className="settings-row-label">Blinding</div><div className="settings-row-desc">Who knows the treatment assignment</div></div>
                   <div className="settings-row-value">
@@ -2041,7 +2130,8 @@ export default function StudySettingsPage() {
                         </div>
                         <div style={{ display: "flex", alignItems: "center", gap: 2, flexShrink: 0 }}>
                           <button className="set-btn-icon" title="Edit factor" type="button" onClick={() => openEditModal(f)}><i className="ti ti-pencil" style={{ fontSize: 13 }}></i></button>
-                          <button className="set-btn-icon" title="Remove factor" type="button" onClick={() => { setFactors(factors.filter((x) => x.key !== f.key)); setToast("Factor removed"); }}><i className="ti ti-trash" style={{ fontSize: 13 }}></i></button>
+                          {/* The built-in Site factor is always present and cannot be removed. */}
+                          {f.source !== "site" && <button className="set-btn-icon" title="Remove factor" type="button" onClick={() => { setFactors(factors.filter((x) => x.key !== f.key)); setToast("Factor removed"); }}><i className="ti ti-trash" style={{ fontSize: 13 }}></i></button>}
                         </div>
                       </div>
                     ))}
@@ -2070,60 +2160,19 @@ export default function StudySettingsPage() {
                       : "Simple randomization is not recommended for studies with fewer than 100 subjects."}</span>
                   </div>
                 )}
-              </div>
-            </div>
-
-            {/* ── Card 2: Treatment groups ── */}
-            <div className="settings-card">
-              <div className="settings-card-header">
-                <div><div className="settings-card-title">Treatment groups</div><div className="settings-card-desc">Groups, allocation ratio, enrolment, and the inventory lot each is linked to</div></div>
-                <button className="set-btn-secondary" type="button" disabled={atSetup} onClick={() => setToast(atSetup ? "Treatment groups are fixed at study initiation." : "Group management locked after first enrollment.")}><i className="ti ti-plus"></i> Add group</button>
-              </div>
-              <div className="settings-card-body">
-                {/* Allocation ratio bar */}
-                <div style={{ marginBottom: "var(--space-4)" }}>
-                  <div style={{ fontSize: "var(--text-xs)", color: "var(--color-text-tertiary)" }}>Allocation ratio · {cfg.groups.map((g) => g.ratio).join(":")}</div>
-                  <div className="ratio-bar">{cfg.groups.map((g) => <div key={g.code} className="ratio-fill" style={{ width: `${Math.round((g.ratio / ratioTotal) * 100)}%`, background: g.color, opacity: 0.85 }} />)}</div>
-                </div>
-                {/* Group rows */}
-                {cfg.groups.map((g) => (
-                  <div className="group-row" key={g.code}>
-                    <div className="group-color-dot" style={{ background: g.color }} />
-                    <div style={{ flex: 1, minWidth: 0 }}>
-                      <div style={{ fontSize: "var(--text-sm)", fontWeight: 500 }}>{g.name}{g.detail ? <span style={{ color: "var(--color-text-tertiary)", fontWeight: 400 }}> · {g.detail}</span> : null}</div>
-                      <div style={{ fontSize: "var(--text-xs)", color: "var(--color-text-tertiary)", fontFamily: "var(--font-mono)" }}>{g.code}{g.blindedLabel ? ` · Blinded label: ${g.blindedLabel}` : ""}</div>
+                {/* ROW 7 — Generated list (only when method = Generated list) */}
+                {showGenerated && (
+                  <div style={{ padding: "var(--space-3) 0" }}>
+                    <div style={{ marginBottom: "var(--space-3)" }}>
+                      <div className="settings-row-label">Randomization list</div>
+                      <div className="settings-row-desc">Upload or generate the randomization schedule</div>
                     </div>
-                    <div style={{ fontSize: "var(--text-xs)", color: "var(--color-text-secondary)", textAlign: "center", minWidth: 70 }}>Ratio<br /><span style={{ fontFamily: "var(--font-mono)", fontSize: "var(--text-sm)" }}>{g.ratio}</span></div>
-                    <div style={{ fontSize: "var(--text-xs)", color: "var(--color-text-secondary)", textAlign: "center", minWidth: 70 }}>Enrolled<br /><span style={{ fontFamily: "var(--font-mono)", fontSize: "var(--text-sm)" }}>{enrolled(g)}</span></div>
-                    <div style={{ minWidth: 130, textAlign: "right" }}><span className="group-lot" title="Linked inventory lot">{g.lot}</span></div>
-                  </div>
-                ))}
-              </div>
-            </div>
-
-            {/* ── Card 3: Randomization list ── */}
-            <div className="settings-card">
-              <div className="settings-card-header">
-                <div><div className="settings-card-title">Randomization list</div><div className="settings-card-desc">Upload or generate the randomization schedule</div></div>
-                {method !== "minimization" && !atSetup && <button className="set-btn-primary" type="button" onClick={() => setToast("Randomization list locked. Assignments cannot be changed without a protocol amendment.")}><i className="ti ti-lock"></i> Lock randomization</button>}
-              </div>
-              <div className="settings-card-body">
-                {atSetup ? (
-                  <div className="set-info-banner">
-                    <i className="ti ti-info-circle" style={{ fontSize: 16, color: "var(--slate-600)", flexShrink: 0, marginTop: 1 }}></i>
-                    <div><div style={{ fontWeight: 500, marginBottom: 2 }}>Arm assignment is configured at study setup</div>
-                      <div style={{ fontSize: "var(--text-xs)", color: "var(--color-text-tertiary)" }}>Pens are assigned to treatment groups when the pen structure is established.</div></div>
-                  </div>
-                ) : method === "minimization" ? (
-                  <div className="set-note"><i className="ti ti-info-circle" style={{ fontSize: 13, marginRight: 4 }}></i> Minimization uses real-time dynamic assignment — no randomization list is needed.</div>
-                ) : (
-                  <>
                     <div style={{ display: "flex", gap: "var(--space-3)", marginBottom: "var(--space-3)" }}>
                       <button className="set-btn-secondary" type="button" onClick={() => setToast("CSV upload is disabled in the demo.")}><i className="ti ti-file-type-csv"></i> Upload list (CSV)</button>
-                      {typeCfg.groupAssignmentTiming !== "predetermined" && <button className="set-btn-secondary" type="button" onClick={() => setToast("Randomization list generated (demo).")}><i className="ti ti-refresh"></i> Generate list</button>}
+                      <button className="set-btn-secondary" type="button" onClick={() => setToast("Randomization list generated (demo).")}><i className="ti ti-refresh"></i> Generate list</button>
                     </div>
-                    <div className="set-note"><i className="ti ti-info-circle" style={{ fontSize: 12, marginRight: 4 }}></i> Randomization list will be locked before first enrollment. Once locked, assignments cannot be changed without a protocol amendment.</div>
-                  </>
+                    <div className="set-note"><i className="ti ti-info-circle" style={{ fontSize: 12, marginRight: 4 }}></i> Once generated, the list is locked before first enrollment — assignments cannot be changed without a protocol amendment.</div>
+                  </div>
                 )}
               </div>
             </div>
@@ -2168,6 +2217,46 @@ export default function StudySettingsPage() {
         );
         })()}
       </div>
+
+      {/* ── Add / Edit treatment group modal ── */}
+      {gOpen && (
+        <div className="set-modal-overlay" onClick={(e) => { if (e.target === e.currentTarget) setGOpen(false); }}>
+          <div className="set-modal" role="dialog" aria-modal="true">
+            <div className="set-modal-header">
+              <div><div className="set-modal-title">{gEdit ? "Edit treatment group" : "Add treatment group"}</div>
+                <div style={{ fontSize: "var(--text-xs)", color: "var(--color-text-tertiary)", marginTop: 2 }}>Define a treatment arm and its allocation ratio</div></div>
+              <button className="set-modal-close" type="button" onClick={() => setGOpen(false)}><i className="ti ti-x"></i></button>
+            </div>
+            <div className="set-modal-body">
+              <div className="set-field">
+                <div className="set-field-label">Treatment name</div>
+                <input className="set-input" placeholder="e.g. Tulathromycin 2.5 mg/kg" value={gName} onChange={(e) => setGName(e.target.value)} />
+              </div>
+              <div className="set-field">
+                <div className="set-field-label">Description <span style={{ color: "var(--color-text-tertiary)", fontWeight: 400 }}>(optional)</span></div>
+                <input className="set-input" placeholder="e.g. Basal feed, Saline placebo, Treatment A" value={gDescription} onChange={(e) => setGDescription(e.target.value)} />
+              </div>
+              <div className="set-field">
+                <div className="set-field-label">Code</div>
+                <input className="set-input" placeholder="e.g. T01, T02, ARM-A" value={gCode} onChange={(e) => setGCode(e.target.value)} />
+              </div>
+              <div className="set-field">
+                <div className="set-field-label">Ratio</div>
+                <input type="number" min={1} className="set-input" value={gRatio} onChange={(e) => setGRatio(e.target.value)} />
+                <div style={{ fontSize: "var(--text-xs)", color: "var(--color-text-tertiary)", marginTop: 4 }}>Relative number of subjects allocated to this group (min 1).</div>
+              </div>
+              <div className="set-field">
+                <div className="set-field-label">Blinded label <span style={{ color: "var(--color-text-tertiary)", fontWeight: 400 }}>(optional)</span></div>
+                <input className="set-input" placeholder="e.g. Treatment A" value={gBlinded} onChange={(e) => setGBlinded(e.target.value)} />
+              </div>
+            </div>
+            <div className="set-modal-footer">
+              <button className="set-btn-secondary" type="button" onClick={() => setGOpen(false)}>Cancel</button>
+              <button className="set-btn-primary" type="button" onClick={saveGroup}><i className="ti ti-check"></i> Save group</button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* ── Add / Edit stratification factor modal ── */}
       {modalOpen && (
