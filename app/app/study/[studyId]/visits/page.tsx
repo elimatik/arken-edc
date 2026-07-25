@@ -159,27 +159,45 @@ export default function VisitsPage() {
   const upcomingAll = useMemo(() => roleRows.filter((r) => !r.completed && r.subjectStatus !== "completed" && r.subjectStatus !== "withdrawn"), [roleRows]);
   const historyAll = useMemo(() => roleRows.filter((r) => r.completed), [roleRows]);
 
-  // ─── Stat strip (role-scoped, pre in-page filters) ──────────────────────────
+  // ─── The single filtered set that drives BOTH the stat strip and the tab rows,
+  // so the stats react to the in-page filters (status / site / search) — same
+  // pattern as the Animals list (stats derive from `filtered`, not the raw data).
+  const filteredVisits = useMemo(() => {
+    const q = search.toLowerCase().trim();
+    return roleRows.filter((r) => {
+      if (siteF !== "all" && r.siteId !== siteF) return false;
+      if (q && !`${r.subjectCode} ${visitLabel(r)}`.toLowerCase().includes(q)) return false;
+      if (statusF !== "all") {
+        if (r.completed) {
+          const st = histStatusOf(r).key;
+          if (statusF === "on_time") return st === "on_time";
+          if (statusF === "outside") return st !== "on_time";
+          return false; // an upcoming-urgency filter excludes completed visits
+        }
+        return upStatusOf(eff(r), today).key === statusF;
+      }
+      return true;
+    });
+  }, [roleRows, search, siteF, statusF, today, reschedules]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // ─── Stat strip — derived from filteredVisits so every card reacts to filters ─
   const stats = useMemo(() => {
-    let overdue = 0, dueWeek = 0;
-    for (const r of upcomingAll) { const s = upStatusOf(eff(r), today).key; if (s === "overdue") overdue++; else if (s === "due_today" || s === "due_week") dueWeek++; }
-    let onTime = 0, outside = 0;
-    for (const r of historyAll) { const s = histStatusOf(r).key; if (s === "on_time") onTime++; else outside++; }
-    // Fix 2 — compliance: of visits whose window has already closed, how many were
-    // completed within window (on time)?
-    let due = 0, onTimeOfDue = 0;
-    for (const r of roleRows) {
-      const windowClosed = today > addDays(r.targetDate, r.window);
-      if (!windowClosed) continue;
-      due++;
-      if (r.completed && histStatusOf(r).key === "on_time") onTimeOfDue++;
+    let overdue = 0, dueWeek = 0, onTime = 0, outside = 0, due = 0, onTimeOfDue = 0, pdToFile = 0;
+    for (const r of filteredVisits) {
+      if (r.completed) {
+        const s = histStatusOf(r).key;
+        if (s === "on_time") onTime++; else outside++;
+        if (pdFormId && s === "outside" && !subjectsWithPD.has(r.subjectId)) pdToFile++;
+      } else if (r.subjectStatus !== "completed" && r.subjectStatus !== "withdrawn") {
+        const s = upStatusOf(eff(r), today).key;
+        if (s === "overdue") overdue++; else if (s === "due_today" || s === "due_week") dueWeek++;
+      }
+      // Compliance: of visits whose window has closed, how many were on time?
+      if (today > addDays(r.targetDate, r.window)) { due++; if (r.completed && histStatusOf(r).key === "on_time") onTimeOfDue++; }
     }
     const compliance = due > 0 ? Math.round((onTimeOfDue / due) * 100) : null;
-    // Fix 5 — outside-window visits whose subject has no PD form on file.
-    let pdToFile = 0;
-    if (pdFormId) for (const r of historyAll) if (histStatusOf(r).key === "outside" && !subjectsWithPD.has(r.subjectId)) pdToFile++;
-    return { overdue, dueWeek, onTime, outside, total: roleRows.length, compliance, complianceNum: onTimeOfDue, complianceDen: due, pdToFile };
-  }, [upcomingAll, historyAll, roleRows, today, reschedules, subjectsWithPD]); // eslint-disable-line react-hooks/exhaustive-deps
+    return { overdue, dueWeek, onTime, outside, total: filteredVisits.length, compliance, complianceNum: onTimeOfDue, complianceDen: due, pdToFile };
+  }, [filteredVisits, today, reschedules, subjectsWithPD, pdFormId]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const complianceTone = stats.compliance == null ? "" : stats.compliance >= 90 ? "green" : stats.compliance >= 75 ? "amber" : "red";
 

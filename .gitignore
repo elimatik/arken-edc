@@ -11,3 +11,9 @@ node_modules/
 /package-lock.json
 /tsconfig.json
 /next-env.d.ts
+
+# Installed third-party AI skills / hooks (not part of the app)
+.claude/skills/
+app/.claude/
+app/.agents/
+skills-lock.json

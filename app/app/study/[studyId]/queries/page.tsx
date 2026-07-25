@@ -22,6 +22,7 @@ import { DEMO_USER_ID } from "@/lib/constants";
 import { usersForStudy, type AppUser } from "@/lib/users-data";
 import { addNotification } from "@/lib/notifications-data";
 import { QUERY_TEMPLATES } from "@/lib/query-templates";
+import { queryStatusDesc, openQueryContext } from "@/lib/query-ui";
 import type { Dataset, EditCheckRow, QueryRow } from "@/lib/session-store/types";
 import "@/components/subject-record/subject-record.css";
 import "./queries.css";
@@ -712,21 +713,11 @@ export default function QueriesPage() {
               </div>
               <button className="panel-close" onClick={closePanel} type="button"><i className="ti ti-x"></i></button>
             </div>
-            {panelItem.subjectId && (
-              <div className="qy-viewlink-bar">
-                <span className="qy-panel-link" onClick={() => gotoRecord(panelItem)}><i className="ti ti-external-link" style={{ fontSize: 12 }}></i> View in subject record</span>
-              </div>
-            )}
-            <div className="status-bar">
-              <span className="status-bar-label">Status</span>
-              {panelItem.kind === "editcheck" ? <span className="query-status qs-editcheck">{panelItem.convertedTo ? "Converted" : "Edit check"}</span> : <span className={`query-status ${QS_CLS[panelItem.status] || "qs-open"}`}>{STATUS_CAP(panelItem.status)}</span>}
-              <span className="status-desc">{panelItem.kind === "editcheck" ? (panelItem.convertedTo ? `Converted to ${panelItem.convertedTo}` : "Out of range — resolve on the subject record") : panelItem.status === "open" ? "Awaiting response" : panelItem.status === "responded" ? "Awaiting CRA review" : panelItem.status === "closed" ? "Closed — no further action" : "Resolved — no further action"}</span>
-              {panelItem.kind === "query" && panelItem.status !== "resolved" && panelItem.status !== "closed" && (
-                <span className={`qy-panel-age qy-age-${panelDaysTone}`} style={{ marginLeft: "auto" }}>Open for {panelItem.daysOpen} day{panelItem.daysOpen === 1 ? "" : "s"}</span>
-              )}
-            </div>
             <div className="field-context">
-              <div className="fc-label">Field</div>
+              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+                <div className="fc-label">Field</div>
+                {panelItem.subjectId && <span className="qy-panel-link" onClick={() => gotoRecord(panelItem)}><i className="ti ti-external-link" style={{ fontSize: 12 }}></i> View in subject record</span>}
+              </div>
               <div style={{ display: "flex", alignItems: "center", gap: "var(--space-2)", marginBottom: "4px" }}><span className="fc-field">{panelItem.fieldLabel}</span><span className="fc-code">{panelItem.fieldCode}</span></div>
               <div style={{ fontSize: "10px", color: "var(--color-text-tertiary)" }}>{panelItem.formName}</div>
             </div>
@@ -746,7 +737,7 @@ export default function QueriesPage() {
               ) : panelQueries.length > 0 ? (
                 panelQueries.map((q) => (
                   <div className="query-block" key={q.id}>
-                    <div className="query-block-head"><span className="query-id">{qCodeFor(q.id)}</span><span className={`query-status ${QS_CLS[q.status] || "qs-open"}`}>{STATUS_CAP(q.status)}</span></div>
+                    <div className="query-block-head"><span className={`query-status ${QS_CLS[q.status] || "qs-open"}`}>{STATUS_CAP(q.status)}</span><span className="status-desc">{queryStatusDesc(q.status)}</span>{q.status !== "resolved" && q.status !== "closed" && <span className={`qy-panel-age qy-age-${panelDaysTone}`} style={{ marginLeft: "auto" }}>Open for {panelItem.daysOpen} day{panelItem.daysOpen === 1 ? "" : "s"}</span>}</div>
                     {msgsForQuery(q.id).map((m) => { const isHuman = !!m.author_role; const name = m.author_name ?? "Edit check"; const initials = isHuman ? name.split(/\s+/).map((p) => p[0]).join("").slice(0, 2).toUpperCase() : "EC"; return (
                       <div className="message" key={m.id}><div className="msg-header"><div className={`msg-avatar${isHuman ? "" : " av-auto"}`}>{initials}</div><span className="msg-author">{name}</span><span className="msg-role">· {isHuman ? m.author_role : "Auto"}</span></div><div className="msg-bubble">{m.body}</div></div>
                     ); })}
@@ -803,7 +794,7 @@ export default function QueriesPage() {
                 </>
               ) : (canRespond || canResolve || activeRole === "CRA") ? (
                 <>
-                  <div className="compose-context"><i className="ti ti-user-circle"></i> Acting as {activeRole}</div>
+                  <div className="compose-context">{openQueryContext(canRespond, canResolve)}</div>
                   <textarea className="compose-textarea" placeholder="Add a response…" value={reply} onChange={(e) => setReply(e.target.value)}></textarea>
                   <div className="compose-btns">
                     <span className="compose-sub">Shift+Enter for new line</span>

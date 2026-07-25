@@ -28,6 +28,8 @@ import "@/components/subject-record/subject-record.css";
 const newId = () => crypto.randomUUID();
 const todayISO = () => new Date().toISOString().slice(0, 10);
 const STATUS_CAP = (s: string) => s.charAt(0).toUpperCase() + s.slice(1);
+// Human-readable query-status description (right-aligned beside query-status).
+const queryStatusDesc = (s: string) => (s === "open" ? "Awaiting site response" : s === "responded" ? "Awaiting CRA review" : s === "resolved" ? "Closed" : s === "closed" ? "Closed" : "");
 const qCodeFor = (id: string) => `Q-${id.slice(0, 4).toUpperCase()}`;
 const ecCodeFor = (id: string) => `EC-${id.slice(0, 4).toUpperCase()}`;
 const QS_CLS: Record<string, string> = { open: "qs-open", responded: "qs-responded", resolved: "qs-resolved" };
@@ -204,7 +206,8 @@ export function ScopedFieldGrid({ studyId, scope, scopeId, form, instanceId, mod
       if (!ec) return;
       ec.status = "converted";
       const qid = newId();
-      d.queries.push({ id: qid, form_instance_id: instanceId, field_value_id: fv.id, status: "open", title: ec.message, from_edit_check: true, created_at: new Date().toISOString() });
+      // Soft edit → query promotion: opens already RESPONDED (explanation = CRC's response).
+      d.queries.push({ id: qid, form_instance_id: instanceId, field_value_id: fv.id, status: "responded", title: ec.message, from_edit_check: true, created_at: new Date().toISOString() });
       d.queryMessages.push({ id: newId(), query_id: qid, author_id: DEMO_USER_ID, body: `Auto edit-check: ${ec.message}`, created_at: ec.created_at });
       pushMsg(d, qid, explanation);
     });
@@ -230,8 +233,6 @@ export function ScopedFieldGrid({ studyId, scope, scopeId, form, instanceId, mod
 
   const deltaFv = deltaField ? fvFor(deltaField.id) : undefined;
   const deltaHistory = deltaFv ? dataset.deltaRecords.filter((r) => r.field_value_id === deltaFv.id).slice().sort((a, b) => (a.created_at < b.created_at ? -1 : 1)) : [];
-  const deltaPendingCount = deltaHistory.filter((r) => r.status === "pending").length;
-  const deltaCurState = deltaField ? deltaStateFor(deltaField.id, deltaFv?.id) : null;
   const deltaOld = deltaHistory[deltaHistory.length - 1]?.old_value ?? "";
   const deltaNew = deltaHistory[deltaHistory.length - 1]?.new_value ?? (deltaFv?.value ?? "");
 
@@ -348,11 +349,6 @@ export function ScopedFieldGrid({ studyId, scope, scopeId, form, instanceId, mod
           </div>
           <button className="panel-close" onClick={() => { setPanelField(null); setReply(""); }} type="button"><i className="ti ti-x"></i></button>
         </div>
-        {isECPanel ? (
-          <div className="status-bar"><span className="status-bar-label">Status</span><span className="query-status qs-editcheck">Edit check</span><span className="status-desc">Out of range — correct the value or explain it</span></div>
-        ) : panelQuery ? (
-          <div className="status-bar"><span className="status-bar-label">Status</span><span className={`query-status ${QS_CLS[panelQuery.status] || "qs-open"}`}>{STATUS_CAP(panelQuery.status)}</span><span className="status-desc">{panelQuery.status === "open" ? "Awaiting response" : panelQuery.status === "responded" ? "Awaiting CRA review" : "Resolved — no further action"}</span></div>
-        ) : null}
         <div className="field-context">
           <div className="fc-label">Field</div>
           <div style={{ display: "flex", alignItems: "center", gap: "var(--space-2)", marginBottom: "4px" }}><span className="fc-field">{panelField?.label}</span><span className="fc-code">{(panelField?.code ?? "").toUpperCase()}</span></div>
@@ -364,7 +360,7 @@ export function ScopedFieldGrid({ studyId, scope, scopeId, form, instanceId, mod
           ) : panelQueries.length > 0 ? (
             panelQueries.map((q) => (
               <div className="query-block" key={q.id}>
-                <div className="query-block-head"><span className="query-id">{qCodeFor(q.id)}</span><span className={`query-status ${QS_CLS[q.status] || "qs-open"}`}>{STATUS_CAP(q.status)}</span></div>
+                <div className="query-block-head"><span className="query-id">{qCodeFor(q.id)}</span><span className={`query-status ${QS_CLS[q.status] || "qs-open"}`}>{STATUS_CAP(q.status)}</span><span className="status-desc">{queryStatusDesc(q.status)}</span></div>
                 {msgsForQuery(q.id).map((m) => { const isHuman = !!m.author_role; const name = m.author_name ?? "Edit check"; const initials = isHuman ? name.split(/\s+/).map((p) => p[0]).join("").slice(0, 2).toUpperCase() : "EC"; return (
                   <div className="message" key={m.id}><div className="msg-header"><div className={`msg-avatar${isHuman ? "" : " av-auto"}`}>{initials}</div><span className="msg-author">{name}</span><span className="msg-role">· {isHuman ? m.author_role : "Auto"}</span></div><div className="msg-bubble">{m.body}</div></div>
                 ); })}
@@ -374,12 +370,12 @@ export function ScopedFieldGrid({ studyId, scope, scopeId, form, instanceId, mod
         </div>
         <div className="compose-area">
           {isECPanel ? (
-            <><div className="compose-context"><i className="ti ti-user-circle"></i> Explain this value, or correct it in the form to clear the check</div>
+            <><div className="compose-context">If the value is correct, mark this edit check as a query and enter your explanation below</div>
             <textarea className="compose-textarea" placeholder="Explain why this value is correct — this escalates to a formal query…" value={reply} onChange={(e) => setReply(e.target.value)}></textarea>
-            <div className="compose-btns"><span className="compose-sub">Converting raises a formal query</span><button className="btn-respond" type="button" disabled={!reply.trim()} onClick={() => panelField && convertEditCheck(panelField)}>Convert to query</button></div></>
+            <div className="compose-btns"><button className="btn-respond" type="button" style={{ marginLeft: "auto" }} disabled={reply.length === 0} onClick={() => panelField && convertEditCheck(panelField)}>Mark as query</button></div></>
           ) : panelResolved ? (
             canRaise ? (
-              <><div className="compose-context"><i className="ti ti-flag-check"></i> This query is resolved — raise a new query if a fresh issue remains (as {activeRole})</div>
+              <><div className="compose-context"><i className="ti ti-flag-check"></i> This query is resolved — raise a new query if a fresh issue remains</div>
               <textarea className="compose-textarea" placeholder="Describe a new issue with this value…" value={reply} onChange={(e) => setReply(e.target.value)}></textarea>
               <div className="compose-btns"><span className="compose-sub">Opens a new query</span><button className="btn-respond" type="button" disabled={!reply.trim()} onClick={() => panelField && raiseQuery(panelField)}>Raise new query</button></div></>
             ) : <div className="sr-perm-note"><i className="ti ti-flag-check"></i> This query is resolved — no further action.</div>
@@ -404,7 +400,7 @@ export function ScopedFieldGrid({ studyId, scope, scopeId, form, instanceId, mod
               </div>
             </div></>
           ) : canRespond || canResolve || activeRole === "CRA" ? (
-            <><div className="compose-context"><i className="ti ti-user-circle"></i> Acting as {activeRole}</div>
+            <>{panelQuery.status !== "responded" && <div className="compose-context">{canRespond && canResolve ? "Provide a response or resolve the query." : "Provide a response to the query."}</div>}
             <textarea className="compose-textarea" placeholder="Add a response…" value={reply} onChange={(e) => setReply(e.target.value)}></textarea>
             <div className="compose-btns"><span className="compose-sub">Shift+Enter for new line</span>
               <div style={{ display: "flex", gap: "var(--space-2)" }}>
@@ -420,10 +416,6 @@ export function ScopedFieldGrid({ studyId, scope, scopeId, form, instanceId, mod
       <div className={`panel-overlay${deltaField ? " open" : ""}`} onClick={() => setDeltaField(null)}></div>
       <div className={`delta-panel${deltaField ? " open" : ""}`}>
         <div className="delta-panel-header"><span className="delta-panel-name">Change reason</span><span className="delta-id">Δ-{(deltaField?.code ?? "").toUpperCase()}</span><button className="panel-close-btn" onClick={() => setDeltaField(null)} type="button"><i className="ti ti-x"></i></button></div>
-        <div className="delta-status-bar">
-          <span className={`delta-status-badge ${deltaCurState === "approved" ? "ds-approved" : deltaCurState === "responded" ? "ds-answered" : "ds-change-required"}`}>{deltaCurState === "approved" ? "Approved" : deltaCurState === "responded" ? "Answered" : "Change reason"}</span>
-          <span className="delta-status-desc">{deltaCurState === "approved" ? "All changes approved by the data manager" : deltaPendingCount > 0 ? `${deltaPendingCount} change${deltaPendingCount > 1 ? "s" : ""} need${deltaPendingCount > 1 ? "" : "s"} a reason from ${activeRole}` : "Awaiting DM review"}</span>
-        </div>
         <div className="delta-context"><div className="delta-context-label">Field</div>
           <div style={{ display: "flex", alignItems: "center", gap: "var(--space-2)", marginBottom: "var(--space-1)" }}><span className="delta-field-name">{deltaField?.label}</span><span className="delta-field-code">{(deltaField?.code ?? "").toUpperCase()}</span></div>
           <div className="delta-values"><span className="delta-old">{deltaOld || "—"}</span><span className="delta-arrow">→</span><span className="delta-new">{deltaNew || "—"}</span></div>

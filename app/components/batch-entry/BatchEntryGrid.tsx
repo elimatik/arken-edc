@@ -179,8 +179,6 @@ export function BatchEntryGrid({
   // ── Derived (Δ panel) ────────────────────────────────────────────────────────
   const deltaFv = delta ? fvFor(delta.sid, delta.field.id) : undefined;
   const deltaHistory = deltaFv ? dataset.deltaRecords.filter((r) => r.field_value_id === deltaFv.id).slice().sort((a, b) => (a.created_at < b.created_at ? -1 : 1)) : [];
-  const deltaPendingCount = deltaHistory.filter((r) => r.status === "pending").length;
-  const deltaCurState = delta ? deltaStateFor(delta.sid, delta.field.id, deltaFv?.id) : null;
   const deltaOld = deltaHistory[deltaHistory.length - 1]?.old_value ?? "";
   const deltaNew = deltaHistory[deltaHistory.length - 1]?.new_value ?? (deltaFv?.value ?? "");
 
@@ -374,10 +372,6 @@ export function BatchEntryGrid({
       <div className={`panel-overlay${delta ? " open" : ""}`} onClick={() => setDelta(null)}></div>
       <div className={`delta-panel${delta ? " open" : ""}`}>
         <div className="delta-panel-header"><span className="delta-panel-name">Change reason</span><span className="delta-id">Δ-{(delta?.field.code ?? "").toUpperCase()}</span><button className="panel-close-btn" onClick={() => setDelta(null)} type="button"><i className="ti ti-x"></i></button></div>
-        <div className="delta-status-bar">
-          <span className={`delta-status-badge ${deltaCurState === "approved" ? "ds-approved" : deltaCurState === "responded" ? "ds-answered" : "ds-change-required"}`}>{deltaCurState === "approved" ? "Approved" : deltaCurState === "responded" ? "Answered" : "Change reason"}</span>
-          <span className="delta-status-desc">{deltaCurState === "approved" ? "Approved by the data manager (on the subject record)" : deltaPendingCount > 0 ? `${deltaPendingCount} change${deltaPendingCount > 1 ? "s" : ""} need${deltaPendingCount > 1 ? "" : "s"} a reason from ${activeRole}` : "Awaiting DM review on the subject record"}</span>
-        </div>
         <div className="delta-context"><div className="delta-context-label">Field · {delta && subjects.find((s) => s.id === delta.sid)?.subject_code}</div>
           <div style={{ display: "flex", alignItems: "center", gap: "var(--space-2)", marginBottom: "var(--space-1)" }}><span className="delta-field-name">{delta?.field.label}</span><span className="delta-field-code">{(delta?.field.code ?? "").toUpperCase()}</span></div>
           <div className="delta-values"><span className="delta-old">{deltaOld || "—"}</span><span className="delta-arrow">→</span><span className="delta-new">{deltaNew || "—"}</span></div>

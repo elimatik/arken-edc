@@ -52,22 +52,32 @@ export default function SdvPage() {
   const siteOptions = useMemo(() => dataset.sites.filter((s) => s.study_id === studyId).slice().sort((a, b) => a.code.localeCompare(b.code)), [dataset.sites, studyId]);
   const visitOptions = useMemo(() => Array.from(new Set(worklist.map((r) => r.visitLabel))).sort(), [worklist]);
 
-  const counts = useMemo(() => ({
-    all: worklist.length,
-    pending: worklist.filter((r) => r.sdvStatus === "pending").length,
-    partial: worklist.filter((r) => r.sdvStatus === "partial" || r.sdvStatus === "queried").length,
-    complete: worklist.filter((r) => r.sdvStatus === "complete").length,
-  }), [worklist]);
-
-  const filtered = useMemo(() => {
+  // The site/visit/search-filtered scope drives the stat strip AND the tab rows,
+  // so the stats react to the in-page filters (same pattern as the Animals list).
+  // The tab (all/pending/partial/complete) is applied on top for the visible rows
+  // only — the stat cards must not depend on the active tab.
+  const scoped = useMemo(() => {
     const q = search.toLowerCase().trim();
-    const out = worklist.filter((r) => {
-      if (tab === "pending" && r.sdvStatus !== "pending") return false;
-      if (tab === "partial" && r.sdvStatus !== "partial" && r.sdvStatus !== "queried") return false;
-      if (tab === "complete" && r.sdvStatus !== "complete") return false;
+    return worklist.filter((r) => {
       if (siteF !== "all" && r.siteId !== siteF) return false;
       if (visitF !== "all" && r.visitLabel !== visitF) return false;
       if (q && ![r.subjectCode, r.formName, r.visitLabel, r.siteLabel].join(" ").toLowerCase().includes(q)) return false;
+      return true;
+    });
+  }, [worklist, search, siteF, visitF]);
+
+  const counts = useMemo(() => ({
+    all: scoped.length,
+    pending: scoped.filter((r) => r.sdvStatus === "pending").length,
+    partial: scoped.filter((r) => r.sdvStatus === "partial" || r.sdvStatus === "queried").length,
+    complete: scoped.filter((r) => r.sdvStatus === "complete").length,
+  }), [scoped]);
+
+  const filtered = useMemo(() => {
+    const out = scoped.filter((r) => {
+      if (tab === "pending" && r.sdvStatus !== "pending") return false;
+      if (tab === "partial" && r.sdvStatus !== "partial" && r.sdvStatus !== "queried") return false;
+      if (tab === "complete" && r.sdvStatus !== "complete") return false;
       return true;
     });
     return out.sort((a, b) => {
@@ -85,25 +95,25 @@ export default function SdvPage() {
       }
       return STATUS_RANK[a.sdvStatus] - STATUS_RANK[b.sdvStatus] || a.subjectCode.localeCompare(b.subjectCode);
     });
-  }, [worklist, tab, search, siteF, visitF, sort]);
+  }, [scoped, tab, sort]);
 
   const summary = useMemo(() => ({
-    fieldsTotal: worklist.reduce((n, r) => n + r.totalRequiredFields, 0),
-    fieldsVerified: worklist.reduce((n, r) => n + r.verifiedFields, 0),
-    openQ: worklist.reduce((n, r) => n + r.openQueries, 0),
-  }), [worklist]);
+    fieldsTotal: scoped.reduce((n, r) => n + r.totalRequiredFields, 0),
+    fieldsVerified: scoped.reduce((n, r) => n + r.verifiedFields, 0),
+    openQ: scoped.reduce((n, r) => n + r.openQueries, 0),
+  }), [scoped]);
 
   // Fix 6 — discrepancies = field-level queries raised during SDV (queried fields).
-  // Open = currently queried; resolved = closed out. Scoped to the worklist forms.
+  // Open = currently queried; resolved = closed out. Scoped to the filtered forms.
   const discrepancies = useMemo(() => {
-    const instIds = new Set(worklist.map((r) => r.formInstanceId));
+    const instIds = new Set(scoped.map((r) => r.formInstanceId));
     let open = 0, resolved = 0;
     for (const q of dataset.queries) {
       if (!q.field_value_id || !instIds.has(q.form_instance_id)) continue;
       if (q.status === "resolved" || q.status === "closed") resolved++; else open++;
     }
     return { open, resolved };
-  }, [dataset.queries, worklist]);
+  }, [dataset.queries, scoped]);
 
   function openForm(r: SdvWorklistRow) {
     router.push(`/study/${studyId}/data-entry/${r.subjectId}?form=${r.formId}&sdv=true`);
@@ -152,7 +162,7 @@ export default function SdvPage() {
 
       {/* Stat strip */}
       <div className="sdv-stat-strip">
-        <div className="sdv-stat"><div className="sdv-stat-val">{worklist.length}</div><div className="sdv-stat-lbl">Forms in scope</div></div>
+        <div className="sdv-stat"><div className="sdv-stat-val">{scoped.length}</div><div className="sdv-stat-lbl">Forms in scope</div></div>
         <div className="sdv-stat"><div className="sdv-stat-val green">{summary.fieldsVerified}<span className="sdv-stat-of">/{summary.fieldsTotal}</span></div><div className="sdv-stat-lbl">Fields verified</div></div>
         <div className="sdv-stat"><div className={`sdv-stat-val${discrepancies.open > 0 ? " amber" : " green"}`}>{discrepancies.open}</div><div className="sdv-stat-lbl">Discrepancies<span className="sdv-stat-sub"> · {discrepancies.resolved} resolved · {discrepancies.open} open</span></div></div>
         <div className="sdv-stat"><div className="sdv-stat-val green">{counts.complete}</div><div className="sdv-stat-lbl">Complete</div></div>

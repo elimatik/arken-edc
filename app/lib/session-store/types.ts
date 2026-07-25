@@ -22,6 +22,14 @@ export interface StudyRow {
   iacuc_approval_date?: string | null;
   iacuc_expiry?: string | null;
   vich_guideline?: string | null;
+  // Session-only two-axis study configuration (set in Study settings for new studies;
+  // optional/additive — no DATA_KEY bump, seeded studies leave them undefined).
+  speciesCategory?: "companion" | "livestock";
+  studyType?: "tas" | "efficacy" | "residue" | "bioequivalence" | "observational";
+  enrollmentModel?: "individual" | "cohort_pen" | "dam_litter" | "dynamic_herd";
+  // Study Identity completion fields persisted for the activation gate (v72).
+  protocol_number?: string;
+  study_start?: string;
 }
 
 export interface SiteRow {

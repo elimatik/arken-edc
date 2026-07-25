@@ -993,6 +993,25 @@ export async function hydrateFromSupabase(): Promise<Dataset> {
     });
   }
 
+  // ─── Invariant: a finalized form cannot carry unresolved queries ────────────
+  // A finalized form that still has an open (or responded) query is an invalid
+  // state — the submit+finalize gate blocks it going forward, but the CA-0801 seed
+  // shipped some forms finalized while a query was still open. Downgrade each
+  // affected instance back to "in_review" (the "submitted" state) so its queries
+  // can be resolved before it is re-finalized. The queries themselves are untouched.
+  {
+    const fvToInst = new Map((fieldValues as Dataset["fieldValues"]).map((v) => [v.id, v.form_instance_id]));
+    const unresolvedInstIds = new Set(
+      splitQueries
+        .filter((q) => q.status === "open" || q.status === "responded")
+        .map((q) => q.form_instance_id ?? (q.field_value_id ? fvToInst.get(q.field_value_id) : undefined))
+        .filter(Boolean),
+    );
+    for (const inst of formInstances as Dataset["formInstances"]) {
+      if (inst.status === "finalized" && unresolvedInstIds.has(inst.id)) inst.status = "in_review";
+    }
+  }
+
   // ─── Seeded drug inventory (session-only) ───────────────────────────────────
   const inventory = buildInventorySeed(studiesWithTargets, sitesWithTargets, (subjects.data ?? []) as Dataset["subjects"]);
 

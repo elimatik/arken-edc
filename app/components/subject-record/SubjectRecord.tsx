@@ -13,6 +13,7 @@ import { subjectAeList } from "@/lib/reports-data";
 import { buildVisits, addDays } from "@/lib/visits-data";
 import { addNotification } from "@/lib/notifications-data";
 import { QUERY_TEMPLATES } from "@/lib/query-templates";
+import { queryStatusDesc, RAISE_QUERY_CONTEXT, openQueryContext } from "@/lib/query-ui";
 import { codingIndex, codedDisplay, normalizeTerm } from "@/lib/coding-data";
 import { LOCK_TOOLTIP } from "@/lib/use-study-locked";
 import { RandomizationPanel } from "./RandomizationPanel";
@@ -1731,7 +1732,10 @@ export function SubjectRecord({ studyId, subjectId, initialFormId, initialPanelF
       if (!ec) return;
       ec.status = "converted";
       const qid = newId();
-      d.queries.push({ id: qid, form_instance_id: inst.id, field_value_id: fv.id, status: "open", title: ec.message, from_edit_check: true, created_at: new Date().toISOString() });
+      // Soft edit → query promotion: the coordinator has confirmed the value is
+      // correct and supplied an explanation, so the query opens already RESPONDED
+      // (auto edit-check message = the query; explanation = the CRC's response).
+      d.queries.push({ id: qid, form_instance_id: inst.id, field_value_id: fv.id, status: "responded", title: ec.message, from_edit_check: true, created_at: new Date().toISOString() });
       d.queryMessages.push({ id: newId(), query_id: qid, author_id: DEMO_USER_ID, body: `Auto edit-check: ${ec.message}`, created_at: ec.created_at });
       pushMsg(d, qid, explanation);
     });
@@ -1863,11 +1867,20 @@ export function SubjectRecord({ studyId, subjectId, initialFormId, initialPanelF
   const requiredHardBlock = isRepeatingForm && hasEmptyRequired;
   // Submit for review (in_work → in_review) is blocked while any query is unresolved
   // (open OR responded) — same gate as finalize, via formHasOpenQuery().
-  const submitQueryBlock = flow?.next === "in_review" && formHasOpenQuery();
+  const openQOnForm = formHasOpenQuery();
+  const submitQueryBlock = flow?.next === "in_review" && openQOnForm;
   const submitBlocked = hasOpenEditCheck || hasOpenDeltas || requiredHardBlock || shipHardBlock || treatmentArmMissing || submitQueryBlock;
   // Finalize step (reviewed → finalized) is blocked while any query is unresolved
   // (open OR responded) — the gate reads status !== "resolved" via formHasOpenQuery().
-  const finalizeQueryBlock = flow?.next === "finalized" && formHasOpenQuery();
+  const finalizeQueryBlock = flow?.next === "finalized" && openQOnForm;
+  // Submit-block note — dynamic copy reflecting what actually blocks Submit for review:
+  // open queries, unresolved edit checks, or both.
+  const submitGateActive = flow?.next === "in_review";
+  const submitBlockNoteMsg = openQOnForm && hasOpenEditCheck
+    ? "All queries and edit checks must be resolved before the form can be submitted."
+    : openQOnForm ? "All queries must be resolved before the form can be submitted."
+    : hasOpenEditCheck ? "All edit checks must be resolved before the form can be submitted."
+    : null;
   const submitBlockReason = treatmentArmMissing ? "Complete randomization before treatment" : shipHardBlock ? "Withdrawal period active — cannot ship for slaughter" : submitQueryBlock ? SUBMIT_QUERY_BLOCK_MSG : hasOpenEditCheck ? "Resolve all edit checks first" : hasOpenDeltas ? "Resolve all change reasons before submitting" : hasEmptyRequired ? "Complete all required fields first" : undefined;
 
   // Δ change-reason panel — all records for the field, chronological. Each pending
@@ -1876,11 +1889,9 @@ export function SubjectRecord({ studyId, subjectId, initialFormId, initialPanelF
   const deltaHistory = deltaFv
     ? dataset.deltaRecords.filter((r) => r.field_value_id === deltaFv.id).slice().sort((a, b) => (a.created_at < b.created_at ? -1 : 1))
     : [];
-  const deltaPendingCount = deltaHistory.filter((r) => r.status === "pending").length;
   const deltaLatest = deltaHistory[deltaHistory.length - 1];
   const deltaOld = deltaLatest?.old_value ?? "";
   const deltaNew = deltaLatest?.new_value ?? (deltaFv?.value ?? "");
-  const deltaCurState = deltaField ? deltaStateFor(deltaField.id, deltaFv?.id) : null;
 
   // CADESI-04 breakdown — write one lesion subtotal, then recompute the total as the
   // sum of all subtotals (using the new value for the edited one). When every subtotal
@@ -2374,9 +2385,10 @@ export function SubjectRecord({ studyId, subjectId, initialFormId, initialPanelF
               {!subjectClosed && !modeSdv && hasOpenDeltas && (currentStatus === "in_work" || !!flow) && (
                 <span className="submit-block-note"><i className="ti ti-circle-exclamation"></i> Resolve all change reasons before submitting</span>
               )}
-              {/* Submit / Finalize blocked while any query is unresolved (open OR responded). */}
-              {!subjectClosed && !modeSdv && submitQueryBlock && (
-                <span className="submit-block-note"><i className="ti ti-circle-exclamation"></i> {SUBMIT_QUERY_BLOCK_MSG}</span>
+              {/* Submit (in_work → in_review) blocked by open queries and/or edit checks —
+                  the message names whichever actually blocks. */}
+              {!subjectClosed && !modeSdv && submitGateActive && submitBlockNoteMsg && (
+                <span className="submit-block-note"><i className="ti ti-circle-exclamation"></i> {submitBlockNoteMsg}</span>
               )}
               {!subjectClosed && !modeSdv && finalizeQueryBlock && (
                 <span className="submit-block-note"><i className="ti ti-circle-exclamation"></i> {FINALIZE_QUERY_BLOCK_MSG}</span>
@@ -3180,21 +3192,6 @@ export function SubjectRecord({ studyId, subjectId, initialFormId, initialPanelF
           </div>
           <button className="panel-close" onClick={() => { setPanelField(null); setReply(""); }} type="button"><i className="ti ti-x"></i></button>
         </div>
-        {isECPanel ? (
-          <div className="status-bar">
-            <span className="status-bar-label">Status</span>
-            <span className="query-status qs-editcheck">Edit check</span>
-            <span className="status-desc">Out of range — correct the value or explain it</span>
-          </div>
-        ) : panelQuery ? (
-          <div className="status-bar">
-            <span className="status-bar-label">Status</span>
-            <span className={`query-status ${QS_CLS[panelQuery.status] || "qs-open"}`}>{STATUS_CAP(panelQuery.status)}</span>
-            <span className="status-desc">
-              {panelQuery.status === "open" ? "Awaiting response" : panelQuery.status === "responded" ? "Awaiting CRA review" : "Resolved — no further action"}
-            </span>
-          </div>
-        ) : null}
         <div className="field-context">
           <div className="fc-label">Field</div>
           <div style={{ display: "flex", alignItems: "center", gap: "var(--space-2)", marginBottom: "4px" }}>
@@ -3220,8 +3217,8 @@ export function SubjectRecord({ studyId, subjectId, initialFormId, initialPanelF
             panelQueries.map((q) => (
               <div className="query-block" key={q.id}>
                 <div className="query-block-head">
-                  <span className="query-id">{qCodeFor(q.id)}</span>
                   <span className={`query-status ${QS_CLS[q.status] || "qs-open"}`}>{STATUS_CAP(q.status)}</span>
+                  <span className="status-desc">{queryStatusDesc(q.status)}</span>
                 </div>
                 {msgsForQuery(q.id).map((m) => {
                   const isHuman = !!m.author_role;
@@ -3247,18 +3244,17 @@ export function SubjectRecord({ studyId, subjectId, initialFormId, initialPanelF
         <div className="compose-area">
           {isECPanel ? (
             <>
-              <div className="compose-context"><i className="ti ti-user-circle"></i> Explain this value, or correct it in the form to clear the check</div>
+              <div className="compose-context">If the value is correct, mark this edit check as a query and enter your explanation below</div>
               <textarea className="compose-textarea" placeholder="Explain why this value is correct — this escalates to a formal query…" value={reply} onChange={(e) => setReply(e.target.value)}></textarea>
               <div className="compose-btns">
-                <span className="compose-sub">Converting raises a formal query</span>
-                <button className="btn-respond" type="button" disabled={!reply.trim()} onClick={() => panelField && convertEditCheck(panelField)}>Convert to query</button>
+                <button className="btn-respond" type="button" style={{ marginLeft: "auto" }} disabled={reply.length === 0} onClick={() => panelField && convertEditCheck(panelField)}>Mark as query</button>
               </div>
             </>
           ) : panelResolved ? (
             canRaise ? (
               <>
-                <div className="compose-context"><i className="ti ti-flag-check"></i> This query is resolved — raise a new query if a fresh issue remains (as {activeRole})</div>
-                <label className="qtpl-picker"><i className="ti ti-file-text"></i> Use template
+                <div className="compose-context"><i className="ti ti-flag-check"></i> This query is resolved — raise a new query if a fresh issue remains</div>
+                <label className="qtpl-picker">Use template
                   <select className="qtpl-select" value="" onChange={(e) => { if (e.target.value) setReply(e.target.value); }}>
                     <option value="">Select a template…</option>
                     {QUERY_TEMPLATES.map((t, k) => <option key={k} value={t}>{t.length > 60 ? `${t.slice(0, 60)}…` : t}</option>)}
@@ -3276,8 +3272,8 @@ export function SubjectRecord({ studyId, subjectId, initialFormId, initialPanelF
           ) : !panelQuery ? (
             canRaise ? (
               <>
-                <div className="compose-context"><i className="ti ti-user-circle"></i> Raising as {activeRole}</div>
-                <label className="qtpl-picker"><i className="ti ti-file-text"></i> Use template
+                <div className="compose-context">{RAISE_QUERY_CONTEXT}</div>
+                <label className="qtpl-picker">Use template
                   <select className="qtpl-select" value="" onChange={(e) => { if (e.target.value) setReply(e.target.value); }}>
                     <option value="">Select a template…</option>
                     {QUERY_TEMPLATES.map((t, k) => <option key={k} value={t}>{t.length > 60 ? `${t.slice(0, 60)}…` : t}</option>)}
@@ -3315,7 +3311,9 @@ export function SubjectRecord({ studyId, subjectId, initialFormId, initialPanelF
             </>
           ) : canRespond || canResolve || activeRole === "CRA" ? (
             <>
-              <div className="compose-context"><i className="ti ti-user-circle"></i> Acting as {activeRole}</div>
+              {/* Hide the label once the query is responded (Awaiting CRA review); otherwise
+                  the text reflects whether this role can also resolve (permission flags). */}
+              {panelQuery.status !== "responded" && <div className="compose-context">{openQueryContext(canRespond, canResolve)}</div>}
               <textarea className="compose-textarea" placeholder="Add a response…" value={reply} onChange={(e) => setReply(e.target.value)}></textarea>
               <div className="compose-btns">
                 <span className="compose-sub">Shift+Enter for new line</span>
@@ -3341,18 +3339,6 @@ export function SubjectRecord({ studyId, subjectId, initialFormId, initialPanelF
           <span className="delta-panel-name">Change reason</span>
           <span className="delta-id">Δ-{(deltaField?.code ?? "").toUpperCase()}</span>
           <button className="panel-close-btn" onClick={() => setDeltaField(null)} type="button"><i className="ti ti-x"></i></button>
-        </div>
-        <div className="delta-status-bar">
-          <span className={`delta-status-badge ${deltaCurState === "approved" ? "ds-approved" : deltaCurState === "responded" ? "ds-answered" : "ds-change-required"}`}>
-            {deltaCurState === "approved" ? "Approved" : deltaCurState === "responded" ? "Answered" : "Change reason"}
-          </span>
-          <span className="delta-status-desc">
-            {deltaCurState === "approved"
-              ? "All changes approved by the data manager"
-              : deltaPendingCount > 0
-                ? `${deltaPendingCount} change${deltaPendingCount > 1 ? "s" : ""} need${deltaPendingCount > 1 ? "" : "s"} a reason from ${activeRole}`
-                : "Awaiting DM review"}
-          </span>
         </div>
         <div className="delta-context">
           <div className="delta-context-label">Field</div>

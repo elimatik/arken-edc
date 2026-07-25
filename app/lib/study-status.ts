@@ -27,12 +27,24 @@ export const STATUS_META: Record<StudyStatus, { label: string; badge: string; ic
 // locked, or an explicit list of locked section keys.
 export const STATUS_LOCKS: Record<StudyStatus, "none" | "all" | string[]> = {
   setup: "none", // fully configurable
-  active: "none", // fully editable (randomization's first-enrollment lock is separate)
+  active: ["study", "randomization"], // Study Setup group locks on activation (Study Preferences stays editable)
   enrollment_closed: ["randomization", "study"], // no new randomization / structure changes
-  closing: SETTINGS_SECTIONS.filter((s) => s !== "audit" && s !== "billing"), // only audit + billing
+  closing: SETTINGS_SECTIONS.filter((s) => s !== "audit" && s !== "billing" && s !== "preferences"), // only audit + billing + preferences
   locked: "all", // database locked — read-only (audit still viewable)
   archived: "all", // study complete — read-only everywhere
 };
+
+// ── Hard-lock model for the redesigned nav (Study Setup group) ───────────────
+// The two "Study Setup" sections (Study Identity = "study", Protocol Builder =
+// "randomization") are editable ONLY while the study is in "setup". Every other
+// status (active / enrollment_closed / closing / locked / archived) locks them
+// fully — there are no per-field exceptions. Study Preferences lives under Study
+// Management and is always editable regardless of status.
+const HARD_LOCK_SECTIONS = new Set(["study", "randomization"]);
+export function isSectionLocked(sectionName: string, studyStatus: string): boolean {
+  return studyStatus !== "setup" && HARD_LOCK_SECTIONS.has(sectionName);
+}
+export const LOCKED_BANNER_TEXT = "This section is locked. Study is active. Changes require a protocol amendment via Protocol & Amendments.";
 
 // Seed current status per study.
 const STUDY_STATUS: Record<string, StudyStatus> = {

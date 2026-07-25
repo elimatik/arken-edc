@@ -113,11 +113,13 @@
 .at-login  { background: var(--slate-50);  border-color: var(--slate-200);  color: var(--slate-600); }
 .at-signed { background: var(--blue-50);   border-color: var(--blue-200);   color: var(--blue-800, var(--blue-600)); }
 
-/* ── Preset tabs ── */
-.au-tabs { display: flex; gap: var(--space-2); padding: var(--space-3) var(--space-5) 0; flex-wrap: wrap; }
-.au-tab { padding: 6px var(--space-3); border: 1px solid var(--color-border); background: transparent; border-radius: var(--radius-md); font-size: var(--text-sm); font-weight: var(--weight-medium); color: var(--color-text-secondary); cursor: pointer; white-space: nowrap; }
-.au-tab:hover { background: var(--color-hover-bg); }
-.au-tab.active { background: var(--color-nav-bg); border-color: var(--color-nav-bg); color: #fff; }
+/* ── Preset tabs — underline tabs, same pattern as the Queries page
+   (.qy-tabs/.qy-tab): no pill buttons; a shared bottom border with the active
+   tab underlined. ── */
+.au-tabs { display: flex; gap: 0; border-bottom: 1px solid var(--color-border); background: var(--color-surface); padding: 0 var(--space-5); }
+.au-tab { display: flex; align-items: center; gap: var(--space-2); padding: var(--space-3) var(--space-4); font-size: var(--text-sm); font-weight: var(--weight-medium); color: var(--color-text-tertiary); background: none; border: none; border-bottom: 2px solid transparent; cursor: pointer; transition: color var(--duration-fast); white-space: nowrap; }
+.au-tab:hover { color: var(--color-text-primary); }
+.au-tab.active { color: var(--color-text-primary); border-bottom-color: var(--color-text-primary); }
 
 /* ── Split export button + menu ── */
 .au-export { position: relative; }

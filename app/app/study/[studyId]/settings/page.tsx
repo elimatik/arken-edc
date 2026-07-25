@@ -10,19 +10,20 @@
 // Display-only for the portfolio — edits surface autosave toasts, not persisted.
 // ════════════════════════════════════════════════════════════════════════════
 
-import { Fragment, useEffect, useMemo, useState, type CSSProperties } from "react";
+import { Fragment, useEffect, useMemo, useState, type CSSProperties, type ReactNode } from "react";
 import { useRouter } from "next/navigation";
 import { useSearchParams } from "next/navigation";
 import { useShell } from "@/components/shell/ShellContext";
 import { STUDY_RULES_SEED } from "@/lib/notifications-data";
 import { QUERY_TEMPLATES } from "@/lib/query-templates";
 import { useStudySession } from "@/lib/session-store/SessionStore";
-import type { Dataset } from "@/lib/session-store/types";
+import type { Dataset, StudyRow } from "@/lib/session-store/types";
 import type { Role } from "@/lib/permissions";
 import { INV_ACTIONS, INV_ROLES, useInventoryPermissions, setInvPermission } from "@/lib/inventory-permissions";
 import { getStudyTypeConfig } from "@/lib/study-type-config";
 import { getFormPermDefaults, setFormPermDefault, setFormPermDefaultsFor, rolePresetPerms, useFormPermDefaults } from "@/lib/form-perm-defaults";
-import { type StudyStatus, STATUS_ORDER, STATUS_META, getStudyStatus, isSectionEditable } from "@/lib/study-status";
+import { type StudyStatus, STATUS_ORDER, STATUS_META, getStudyStatus, isSectionEditable, isSectionLocked, LOCKED_BANNER_TEXT } from "@/lib/study-status";
+import { type IPType, type IPProduct, SEEDED_IPS, useIps, updateIp, addIp, removeIp } from "@/lib/ip-registry-store";
 import "./settings.css";
 
 type Method = "blocked" | "simple" | "stratified" | "minimization" | "generated";
@@ -33,14 +34,28 @@ interface RandConfig { method: Method; blockSizes: number[]; blinding: string; s
 // Grouped nav (ported from 25-settings.html). Only Randomization is live.
 interface NavItem { key: string; label: string; icon: string }
 const NAV_GROUPS: { title: string; items: NavItem[] }[] = [
-  { title: "Study", items: [{ key: "study", label: "Study settings", icon: "clipboard-list" }, { key: "preferences", label: "Study preferences", icon: "adjustments" }] },
-  { title: "Access", items: [{ key: "roles", label: "Roles", icon: "shield-check" }, { key: "formperm", label: "Form permissions", icon: "forms" }] },
-  { title: "Protocol", items: [{ key: "randomization", label: "Randomization", icon: "arrows-shuffle" }, { key: "protocol", label: "Protocol & Amendments", icon: "file-certificate" }] },
-  { title: "System", items: [{ key: "inventory", label: "Inventory", icon: "flask" }, { key: "audit", label: "Audit & Signatures", icon: "writing" }, { key: "billing", label: "Billing", icon: "receipt-2" }] },
+  { title: "Study setup", items: [
+    { key: "study", label: "Study Identity", icon: "id-badge-2" },
+    { key: "randomization", label: "Protocol Builder", icon: "list-check" },
+  ] },
+  { title: "Study management", items: [
+    { key: "roles", label: "Roles", icon: "shield-check" },
+    { key: "formperm", label: "Form permissions", icon: "forms" },
+    { key: "preferences", label: "Study Preferences", icon: "adjustments" },
+    { key: "protocol", label: "Protocol & Amendments", icon: "file-certificate" },
+    { key: "inventory", label: "Inventory", icon: "flask" },
+    { key: "audit", label: "Audit & Signatures", icon: "writing" },
+    { key: "billing", label: "Billing", icon: "receipt-2" },
+  ] },
 ];
 const NAV_ITEMS: NavItem[] = NAV_GROUPS.flatMap((g) => g.items);
 
 // Per-study randomization configuration (the real protocol design).
+// The three demo studies ship with a full seed; anything else is a NEW study created
+// from the studies list (code "NEW-xxxx", status "setup") and gets the empty setup flow.
+const SEEDED_STUDY_CODES = new Set(["BR-2502", "CA-0801", "PH-2401"]);
+const isSeededStudy = (code: string) => SEEDED_STUDY_CODES.has(code);
+
 function randConfig(code: string): RandConfig {
   if (code === "BR-2502") return {
     method: "blocked", blockSizes: [6, 9], blinding: "Open-label (no blinding)", stratScope: "site",
@@ -119,22 +134,24 @@ function studyMeta(code: string): StudyMeta {
   };
 }
 // Regulatory approvals seed (IACUC for all three animal studies).
-interface Approval { id: string; type: string; committee: string; number: string; approvalDate: string; expiryDate: string }
+interface Approval { id: string; type: string; committee: string; number: string; approvalDate: string; expiryDate: string; status: string; notes?: string }
+const APPROVAL_TYPES = ["IACUC", "FDA/CVM IND", "FDA/CVM NADA", "USDA/CVB", "EMA/CVMP", "IRB", "Other"];
+const APPROVAL_STATUSES = ["Active", "Expired", "Pending", "Withdrawn"];
 function approvalsSeed(code: string): Approval[] {
-  if (code === "CA-0801") return [{ id: "ap1", type: "IACUC", committee: "University of California Davis IACUC", number: "IACUC-2026-CA-0801", approvalDate: "2026-01-10", expiryDate: "2027-01-09" }];
-  if (code === "PH-2401") return [{ id: "ap1", type: "IACUC", committee: "Purdue University IACUC", number: "IACUC-2026-PH-2401", approvalDate: "2026-04-01", expiryDate: "2027-03-31" }];
-  return [{ id: "ap1", type: "IACUC", committee: "Colorado State University IACUC", number: "IACUC-2026-BR-0042", approvalDate: "2026-03-15", expiryDate: "2027-03-14" }];
+  if (code === "CA-0801") return [{ id: "ap1", type: "IACUC", committee: "UC Davis IACUC", number: "IACUC-2026-CA-0801", approvalDate: "2026-02-20", expiryDate: "2027-02-19", status: "Active" }];
+  if (code === "PH-2401") return [{ id: "ap1", type: "IACUC", committee: "Purdue University IACUC", number: "IACUC-2026-PH-2401", approvalDate: "2026-04-01", expiryDate: "2027-03-31", status: "Active" }];
+  if (code === "BR-2502") return [{ id: "ap1", type: "IACUC", committee: "Colorado State University IACUC", number: "IACUC-2026-BR-2502", approvalDate: "2026-03-15", expiryDate: "2027-03-14", status: "Active" }];
+  return []; // new / non-seeded study — no approval records yet
 }
-// Expiry proximity → status + colour (amber within 60 days, red past expiry).
-function approvalStatus(expiry: string): { label: string; badge: string; color: string } {
-  const days = Math.round((Date.parse(expiry) - Date.now()) / 86400000);
-  if (Number.isNaN(days)) return { label: "Active", badge: "set-badge-green", color: "var(--color-text-secondary)" };
-  if (days < 0) return { label: "Expired", badge: "set-badge-red", color: "var(--red-600)" };
-  if (days <= 60) return { label: "Pending renewal", badge: "set-badge-amber", color: "var(--amber-700)" };
-  return { label: "Active", badge: "set-badge-green", color: "var(--color-text-secondary)" };
+// Explicit status → chip colour (Active green, Expired red, Pending amber, Withdrawn slate).
+function approvalStatusChip(status: string): string {
+  if (status === "Expired") return "set-badge-red";
+  if (status === "Pending") return "set-badge-amber";
+  if (status === "Withdrawn") return "set-badge-slate";
+  return "set-badge-green"; // Active
 }
 
-interface HLevel { fixed: boolean; isSubject: boolean; value: string; options: string[]; optional?: boolean }
+interface HLevel { fixed: boolean; isSubject: boolean; value: string; options: string[]; optional?: boolean; strictOptions?: boolean }
 const ALL_LEVEL_OPTIONS = ["Site", "Barn", "Shed", "Paddock", "Feedlot", "Pasture", "Pen", "Stall", "Lot", "Group", "Run", "House", "Clinic ward", "Ward", "Unit", "Department", "Cage", "Kennel", "Room", "Crate", "Tank room", "Tank", "Pond", "Raceway", "Aquarium", "Building", "Wing", "Housing unit", "Animal", "Bovine", "Pig", "Sheep", "Horse", "Dog", "Cat", "Rabbit", "Fish", "Primate", "Patient", "Individual", "Subject"];
 // Default hierarchy per study type — selecting a type button resets to this.
 const HIERARCHY_PRESETS: Record<StudyTypeKey, HLevel[]> = {
@@ -215,10 +232,10 @@ function Sel({ value, opts, onChange }: { value: string; opts: string[]; onChang
   const list = opts.includes(value) ? opts : [value, ...opts];
   return <select className="set-select" style={{ width: "100%" }} value={value} onChange={(e) => onChange(e.target.value)}>{list.map((o) => <option key={o} value={o}>{o}</option>)}</select>;
 }
-function ToggleRow({ on, onToggle, label, desc }: { on: boolean; onToggle: () => void; label: string; desc: string }) {
+function ToggleRow({ on, onToggle, label, desc, disabled = false }: { on: boolean; onToggle: () => void; label: string; desc: string; disabled?: boolean }) {
   return (
     <div style={{ display: "flex", alignItems: "flex-start", gap: "var(--space-3)", padding: "var(--space-3) 0" }}>
-      <label className="set-toggle" style={{ flexShrink: 0, marginTop: 1 }}><input type="checkbox" checked={on} onChange={onToggle} /><span className="set-toggle-slider"></span></label>
+      <label className="set-toggle" style={{ flexShrink: 0, marginTop: 1, ...(disabled ? { pointerEvents: "none", opacity: 0.6, cursor: "not-allowed" } : null) }}><input type="checkbox" checked={on} disabled={disabled} onChange={onToggle} /><span className="set-toggle-slider"></span></label>
       <div style={{ flex: 1 }}><div className="settings-row-label">{label}</div><div className="settings-row-desc">{desc}</div></div>
     </div>
   );
@@ -413,41 +430,144 @@ function InventorySection({ studyCode, studyId, studyForms, dataset, onToast }: 
 // ─── Study settings section (4 cards, ported from 25-settings.html) ──────────
 // Remounted via key={studyCode} by the parent, so all state + uncontrolled
 // inputs reset to the active study when the topbar study switches.
-function StudySettingsSection({ studyCode, onToast }: { studyCode: string; onToast: (m: string) => void }) {
-  const meta = studyMeta(studyCode);
-  const cfg = getStudyTypeConfig(studyCode);
-  // Card 1 — Study information: committed values + edit drafts (Cancel reverts).
-  const [editInfo, setEditInfo] = useState(false);
-  const [title, setTitle] = useState(meta.title);
-  const [sponsor, setSponsor] = useState(meta.sponsor);
-  const [ind, setInd] = useState(meta.ind);
-  const [species, setSpecies] = useState(meta.species);
-  const [indication, setIndication] = useState(meta.indication);
-  const [dTitle, setDTitle] = useState(meta.title);
-  const [dSponsor, setDSponsor] = useState(meta.sponsor);
-  const [dInd, setDInd] = useState(meta.ind);
-  const [dSpecies, setDSpecies] = useState(meta.species);
-  const [dIndication, setDIndication] = useState(meta.indication);
-  function startEdit() { setDTitle(title); setDSponsor(sponsor); setDInd(ind); setDSpecies(species); setDIndication(indication); setEditInfo(true); }
-  function saveInfo() { setTitle(dTitle); setSponsor(dSponsor); setInd(dInd); setSpecies(dSpecies); setIndication(dIndication); setEditInfo(false); onToast("Study information saved"); }
+// Hard-lock wrapper — disables every control inside via a disabled <fieldset>.
+function LockFieldset({ locked, children }: { locked: boolean; children: ReactNode }) {
+  return locked ? <fieldset disabled className="settings-locked-fieldset">{children}</fieldset> : <>{children}</>;
+}
 
-  // Card — Regulatory approvals (IACUC/IRB/ethics records).
+// Regulatory & Approvals card (IACUC / FDA-CVM / ethics records) + its add/edit
+// modal. Shared by the seeded and new-study Study Identity flows so both render the
+// same card; seeded per study code (a non-seeded / new study starts empty).
+function RegulatoryApprovalsCard({ studyCode, editable, onToast }: { studyCode: string; editable: boolean; onToast: (m: string) => void }) {
   const [approvals, setApprovals] = useState<Approval[]>(() => approvalsSeed(studyCode));
   const [apOpen, setApOpen] = useState(false);
   const [apEdit, setApEdit] = useState<number | null>(null);
-  const [apType, setApType] = useState("IACUC"); const [apCommittee, setApCommittee] = useState(""); const [apNumber, setApNumber] = useState(""); const [apApproval, setApApproval] = useState(""); const [apExpiry, setApExpiry] = useState("");
+  const [apType, setApType] = useState("IACUC"); const [apCommittee, setApCommittee] = useState(""); const [apNumber, setApNumber] = useState(""); const [apApproval, setApApproval] = useState(""); const [apExpiry, setApExpiry] = useState(""); const [apStatus, setApStatus] = useState("Active"); const [apNotes, setApNotes] = useState("");
   function openApproval(idx: number | null) {
     setApEdit(idx);
-    if (idx == null) { setApType("IACUC"); setApCommittee(""); setApNumber(""); setApApproval(""); setApExpiry(""); }
-    else { const a = approvals[idx]; setApType(a.type); setApCommittee(a.committee); setApNumber(a.number); setApApproval(a.approvalDate); setApExpiry(a.expiryDate); }
+    if (idx == null) { setApType("IACUC"); setApCommittee(""); setApNumber(""); setApApproval(""); setApExpiry(""); setApStatus("Active"); setApNotes(""); }
+    else { const a = approvals[idx]; setApType(a.type); setApCommittee(a.committee); setApNumber(a.number); setApApproval(a.approvalDate); setApExpiry(a.expiryDate); setApStatus(a.status); setApNotes(a.notes ?? ""); }
     setApOpen(true);
   }
   function saveApproval() {
     if (!apCommittee.trim() || !apNumber.trim()) { onToast("Committee name and approval number are required"); return; }
-    const a: Approval = { id: apEdit != null ? approvals[apEdit].id : `ap-${crypto.randomUUID()}`, type: apType, committee: apCommittee.trim(), number: apNumber.trim(), approvalDate: apApproval.trim(), expiryDate: apExpiry.trim() };
+    const a: Approval = { id: apEdit != null ? approvals[apEdit].id : `ap-${crypto.randomUUID()}`, type: apType, committee: apCommittee.trim(), number: apNumber.trim(), approvalDate: apApproval.trim(), expiryDate: apExpiry.trim(), status: apStatus, notes: apNotes.trim() || undefined };
     setApprovals((p) => (apEdit != null ? p.map((x, i) => (i === apEdit ? a : x)) : [...p, a]));
     setApOpen(false); onToast("Regulatory approval saved");
   }
+  return (
+    <>
+      <div className="settings-card">
+        <div className="settings-card-header">
+          <div><div className="settings-card-title">Regulatory &amp; Approvals</div><div className="settings-card-desc">IACUC protocols, FDA/CVM submissions, and ethics committee approvals for this study.</div></div>
+          {editable && <button className="set-btn-secondary" type="button" onClick={() => openApproval(null)}><i className="ti ti-plus"></i> Add approval</button>}
+        </div>
+        <div className="settings-card-body" style={{ overflowX: "auto" }}>
+          {approvals.length === 0 ? <div style={{ fontSize: "var(--text-sm)", color: "var(--color-text-placeholder)" }}>No approval records.</div> : (
+            <table className="fee-table">
+              <thead><tr><th>Type</th><th>Committee</th><th>Approval no.</th><th>Approved</th><th>Expires</th><th>Status</th><th></th></tr></thead>
+              <tbody>
+                {approvals.map((a, i) => (
+                  <tr key={a.id}>
+                    <td><span className="set-badge set-badge-blue">{a.type}</span></td>
+                    <td>{a.committee}</td>
+                    <td style={{ fontFamily: "var(--font-mono)" }}>{a.number}</td>
+                    <td style={{ fontFamily: "var(--font-mono)" }}>{a.approvalDate || "—"}</td>
+                    <td style={{ fontFamily: "var(--font-mono)", color: a.status === "Expired" ? "var(--red-600)" : undefined, fontWeight: a.status === "Expired" ? 600 : undefined }}>{a.expiryDate || "—"}</td>
+                    <td><span className={`set-badge ${approvalStatusChip(a.status)}`}>{a.status}</span></td>
+                    <td style={{ textAlign: "right" }}>{editable && <button className="set-btn-icon" type="button" title="Edit approval" onClick={() => openApproval(i)}><i className="ti ti-pencil" style={{ fontSize: 13 }}></i></button>}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          )}
+        </div>
+      </div>
+      {apOpen && (
+        <div className="set-modal-overlay" onClick={(e) => { if (e.target === e.currentTarget) setApOpen(false); }}>
+          <div className="set-modal" role="dialog" aria-modal="true">
+            <div className="set-modal-header">
+              <div><div className="set-modal-title">{apEdit == null ? "Add regulatory approval" : "Edit regulatory approval"}</div><div style={{ fontSize: "var(--text-xs)", color: "var(--color-text-tertiary)", marginTop: 2 }}>Ethics / animal-use committee approval record</div></div>
+              <button className="set-modal-close" type="button" onClick={() => setApOpen(false)}><i className="ti ti-x"></i></button>
+            </div>
+            <div className="set-modal-body">
+              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "var(--space-3)" }}>
+                <div className="set-field"><div className="set-field-label">Type</div><select className="set-select" value={apType} onChange={(e) => setApType(e.target.value)}>{APPROVAL_TYPES.map((t) => <option key={t} value={t}>{t}</option>)}</select></div>
+                <div className="set-field"><div className="set-field-label">Approval number</div><input className="set-input" style={{ fontFamily: "var(--font-mono)" }} value={apNumber} onChange={(e) => setApNumber(e.target.value)} /></div>
+              </div>
+              <div className="set-field"><div className="set-field-label">Committee / authority</div><input className="set-input" value={apCommittee} onChange={(e) => setApCommittee(e.target.value)} /></div>
+              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "var(--space-3)" }}>
+                <div className="set-field"><div className="set-field-label">Approval date</div><input type="date" className="set-input" value={apApproval} onChange={(e) => setApApproval(e.target.value)} /></div>
+                <div className="set-field"><div className="set-field-label">Expiry date <span style={{ color: "var(--color-text-placeholder)", fontWeight: 400 }}>(optional)</span></div><input type="date" className="set-input" value={apExpiry} onChange={(e) => setApExpiry(e.target.value)} /></div>
+              </div>
+              <div className="set-field"><div className="set-field-label">Status</div><select className="set-select" value={apStatus} onChange={(e) => setApStatus(e.target.value)}>{APPROVAL_STATUSES.map((s) => <option key={s} value={s}>{s}</option>)}</select></div>
+              <div className="set-field"><div className="set-field-label">Notes <span style={{ color: "var(--color-text-placeholder)", fontWeight: 400 }}>(optional)</span></div><textarea className="set-input" rows={3} style={{ resize: "vertical" }} value={apNotes} onChange={(e) => setApNotes(e.target.value)} /></div>
+            </div>
+            <div className="set-modal-footer">
+              <button className="set-btn-secondary" type="button" onClick={() => setApOpen(false)}>Cancel</button>
+              <button className="set-btn-primary" type="button" onClick={saveApproval}><i className="ti ti-check"></i> Save</button>
+            </div>
+          </div>
+        </div>
+      )}
+    </>
+  );
+}
+
+function StudySettingsSection({ studyCode, onToast, onNavigate, locked = false, setup = false }: { studyCode: string; onToast: (m: string) => void; onNavigate?: (s: string) => void; locked?: boolean; setup?: boolean }) {
+  const meta = studyMeta(studyCode);
+  const cfg = getStudyTypeConfig(studyCode);
+  // Two-axis study configuration (Study category × Study type × Species × Enrollment).
+  // Seeded from config (SEEDED_TWO_AXIS); local-state + toast, matching this section's
+  // display-only pattern. DM/Admin editable; CRC/CRA/PI read-only.
+  const { activeRole } = useShell();
+  // Editable ONLY in setup (Study Identity locks entirely once the study leaves
+  // setup) and only for DM/Admin roles.
+  const canEditConfig = (activeRole === "DM" || activeRole === "Admin") && setup;
+  const twoAxis = SEEDED_TWO_AXIS[studyCode] ?? { speciesCategory: "livestock" as SpeciesCat, studyType: "efficacy" as StudyTypeK, species: "", enrollmentModel: "individual" as EnrollModel };
+  const [cfgCat, setCfgCat] = useState<SpeciesCat>(twoAxis.speciesCategory);
+  const [cfgType, setCfgType] = useState<StudyTypeK>(twoAxis.studyType);
+  const [cfgSpeciesSel, setCfgSpeciesSel] = useState<string>(NS_STANDARD_SPECIES.has(twoAxis.species) ? twoAxis.species : twoAxis.species ? "Other" : "");
+  const [cfgCustomSpecies, setCfgCustomSpecies] = useState<string>(twoAxis.species && !NS_STANDARD_SPECIES.has(twoAxis.species) ? twoAxis.species : "");
+  const [cfgEnroll, setCfgEnroll] = useState<EnrollModel>(twoAxis.enrollmentModel);
+  const [cfgBlinding, setCfgBlinding] = useState<string>(SEEDED_BLINDING[studyCode] ?? "open");
+  const cfgEffSpecies = cfgSpeciesSel === "Other" ? cfgCustomSpecies : cfgSpeciesSel;
+  const cfgTypeOpts = STUDY_TYPE_OPTS.filter((o) => cfgCat === "livestock" || !o.livestockOnly);
+  const cfgSpeciesOpts = NS_SPECIES_OPTS[cfgCat];
+  const cfgEnrollOpts = nsEnrollOptions(cfgCat, cfgType);
+  const cfgIsPoultry = cfgEffSpecies === "Poultry";
+  const cfgSubjLabel = nsSpeciesSubjectLabel(cfgEffSpecies, cfgEnroll);
+  const cfgShowTAS = nsShowTAS(cfgType);
+  const cfgShowWithdrawal = nsShowWithdrawal(cfgCat, cfgType);
+  const cfgShowCrossover = nsShowCrossover(cfgType);
+  function changeCfgCat(c: SpeciesCat) { if (!canEditConfig) return; setCfgCat(c); setCfgSpeciesSel(""); setCfgCustomSpecies(""); const t: StudyTypeK = c === "companion" && cfgType === "residue" ? "efficacy" : cfgType; setCfgType(t); setCfgEnroll(nsDefaultEnroll(c, t)); onToast(`Study category: ${c === "companion" ? "Companion animal" : "Livestock"}`); }
+  function changeCfgType(t: StudyTypeK) { if (!canEditConfig) return; setCfgType(t); setCfgEnroll(nsDefaultEnroll(cfgCat, t)); onToast("Study type updated"); }
+  function changeCfgSpecies(v: string) { if (!canEditConfig) return; setCfgSpeciesSel(v); if (v !== "Other") onToast(v ? `Species: ${v}` : "Species cleared"); }
+  function changeCfgEnroll(m: EnrollModel) { if (!canEditConfig) return; setCfgEnroll(m); onToast("Enrollment model updated"); }
+  // Card 1 — Study information: committed values + edit drafts (Cancel reverts).
+  const infoSeed = SEEDED_INFO[studyCode];
+  const seedSponsor = infoSeed?.sponsor ?? meta.sponsor;
+  const seedIndication = infoSeed?.indication ?? meta.indication;
+  const [editInfo, setEditInfo] = useState(false);
+  const [title, setTitle] = useState(meta.title);
+  const [sponsor, setSponsor] = useState(seedSponsor);
+  const [ind, setInd] = useState(meta.ind);
+  const [species, setSpecies] = useState(meta.species);
+  const [indication, setIndication] = useState(seedIndication);
+  const [dTitle, setDTitle] = useState(meta.title);
+  const [dSponsor, setDSponsor] = useState(seedSponsor);
+  const [dInd, setDInd] = useState(meta.ind);
+  const [dSpecies, setDSpecies] = useState(meta.species);
+  const [dIndication, setDIndication] = useState(seedIndication);
+  // Protocol number + version are DERIVED read-only from Protocol & Amendments —
+  // never editable here. No amendments on record → em-dash.
+  const protoSeed = SEEDED_PROTOCOL[studyCode] ?? EMPTY_PROTOCOL;
+  const hasPA = seedStudyAmendments(studyCode).length > 0;
+  const derivedProtoNumber = hasPA ? (protoSeed.protocolNumber || "—") : "—";
+  const derivedProtoVersion = hasPA ? (protoSeed.protocolVersion || "—") : "—";
+  function startEdit() { setDTitle(title); setDSponsor(sponsor); setDSpecies(species); setDIndication(indication); setEditInfo(true); }
+  function saveInfo() { setTitle(dTitle); setSponsor(dSponsor); setSpecies(dSpecies); setIndication(dIndication); setEditInfo(false); onToast("Study information saved"); }
+
 
   // Card 3a/3b — Study type, design fields (editable, initialized from the study-type
   // config defaults; overrides are component-local / display-only), and hierarchy.
@@ -507,25 +627,62 @@ function StudySettingsSection({ studyCode, onToast }: { studyCode: string; onToa
   return (
     <>
       <div className="section-header">
-        <h1 className="set-section-title">Study settings</h1>
-        <p className="section-desc">Core protocol configuration for {studyCode}</p>
+        <h1 className="set-section-title">Study Identity</h1>
+        <p className="section-desc">These decisions lock in regulatory requirements, mandatory roles, and audit event types for the entire study.</p>
       </div>
+      {locked && <div className="settings-locked-banner"><i className="ti ti-lock"></i> {LOCKED_BANNER_TEXT}</div>}
+      <LockFieldset locked={locked}>
 
-      {/* ── Card 1: Study information ── */}
+      {/* ── Card 1: Study information ──
+          In setup, every field renders directly in edit mode (inputs bound to the
+          committed values, autosaved on blur) — no Edit/Save button pattern. The
+          edit/save flow only applies to active studies where fields are locked and
+          a change requires a formal amendment. */}
       <div className="settings-card">
-        <div className="settings-card-header">
-          <div><div className="settings-card-title">Study information</div></div>
-          {!editInfo && <button className="set-btn-secondary" type="button" onClick={startEdit}><i className="ti ti-pencil"></i> Edit</button>}
+        <div className="card-header">
+          <div>
+            <div className="card-header-title">Study information</div>
+            <div className="card-header-desc">Core identifiers — cannot be changed after activation without a protocol amendment</div>
+          </div>
+          {!editInfo && !setup && !locked && <button className="set-btn-secondary" type="button" onClick={startEdit}><i className="ti ti-pencil"></i> Edit</button>}
         </div>
-        <div className="settings-card-body">
-          <div className="settings-row"><div><div className="settings-row-label">Study ID</div></div><div className="settings-row-value"><span style={{ fontFamily: "var(--font-mono)", fontWeight: 500 }}>{studyCode}</span></div></div>
-          <div className="settings-row"><div><div className="settings-row-label">Study title</div></div><div className="settings-row-value">{editInfo ? <input className="set-input" value={dTitle} onChange={(e) => setDTitle(e.target.value)} /> : title}</div></div>
-          <div className="settings-row"><div><div className="settings-row-label">Sponsor</div></div><div className="settings-row-value">{editInfo ? <input className="set-input" value={dSponsor} onChange={(e) => setDSponsor(e.target.value)} /> : sponsor}</div></div>
-          <div className="settings-row"><div><div className="settings-row-label">IND / NADA number</div></div><div className="settings-row-value">{editInfo ? <input className="set-input" style={{ fontFamily: "var(--font-mono)" }} value={dInd} onChange={(e) => setDInd(e.target.value)} /> : <span style={{ fontFamily: "var(--font-mono)" }}>{ind}</span>}</div></div>
-          <div className="settings-row"><div><div className="settings-row-label">Species</div></div><div className="settings-row-value">{editInfo ? <select className="set-select" style={{ maxWidth: 200 }} value={dSpecies} onChange={(e) => setDSpecies(e.target.value)}>{SPECIES_OPTS.map((s) => <option key={s} value={s}>{s}</option>)}</select> : species}</div></div>
-          <div className="settings-row"><div><div className="settings-row-label">Therapeutic indication / study objective</div></div><div className="settings-row-value">{editInfo ? <input className="set-input" value={dIndication} onChange={(e) => setDIndication(e.target.value)} /> : indication}</div></div>
-          <div className="settings-row"><div><div className="settings-row-label">Regulatory framework</div></div><div className="settings-row-value">{meta.framework.map((f, i) => <span key={f} className="set-badge set-badge-blue" style={i > 0 ? { marginLeft: 4 } : undefined}>{f}</span>)}</div></div>
-          {editInfo && (
+        <div className="card-body">
+          <div className="settings-row">
+            <div className="settings-row-label"><div className="settings-row-label-text">Study name</div></div>
+            <div className="settings-row-value">{editInfo || setup ? <input className="field-input" value={setup ? title : dTitle} onChange={(e) => (setup ? setTitle : setDTitle)(e.target.value)} onBlur={setup ? () => onToast("Study information saved") : undefined} /> : title}</div>
+          </div>
+          <div className="settings-row">
+            <div className="settings-row-label"><div className="settings-row-label-text">Study ID</div></div>
+            <div className="settings-row-value"><input className="field-input readonly" value={studyCode} readOnly tabIndex={-1} style={{ fontFamily: "var(--font-mono)", fontWeight: 500 }} /></div>
+          </div>
+          <div className="settings-row">
+            <div className="settings-row-label">
+              <div className="settings-row-label-text">Protocol number</div>
+              <div className="settings-row-label-desc">Pulled from Protocol &amp; Amendments</div>
+            </div>
+            <div className="settings-row-value"><span style={{ fontFamily: "var(--font-mono)", fontWeight: 400, color: derivedProtoNumber === "—" ? "var(--color-text-placeholder)" : "var(--color-text-secondary)" }}>{derivedProtoNumber}</span></div>
+          </div>
+          <div className="settings-row">
+            <div className="settings-row-label">
+              <div className="settings-row-label-text">Protocol version</div>
+              <div className="settings-row-label-desc">Pulled from Protocol &amp; Amendments</div>
+            </div>
+            <div className="settings-row-value">
+              <div style={{ display: "flex", alignItems: "center", gap: "var(--space-3)" }}>
+                <span style={{ fontFamily: "var(--font-mono)", fontWeight: 400, color: derivedProtoVersion === "—" ? "var(--color-text-placeholder)" : "var(--color-text-secondary)" }}>{derivedProtoVersion}</span>
+                {hasPA && <button type="button" onClick={() => onNavigate?.("protocol")} className="set-inline-link" style={{ flexShrink: 0 }}>Go to P&amp;A →</button>}
+              </div>
+            </div>
+          </div>
+          <div className="settings-row">
+            <div className="settings-row-label"><div className="settings-row-label-text">Sponsor</div></div>
+            <div className="settings-row-value">{editInfo || setup ? <input className="field-input" value={setup ? sponsor : dSponsor} onChange={(e) => (setup ? setSponsor : setDSponsor)(e.target.value)} onBlur={setup ? () => onToast("Study information saved") : undefined} /> : sponsor}</div>
+          </div>
+          <div className="settings-row">
+            <div className="settings-row-label"><div className="settings-row-label-text">Indication</div></div>
+            <div className="settings-row-value">{editInfo || setup ? <input className="field-input" value={setup ? indication : dIndication} onChange={(e) => (setup ? setIndication : setDIndication)(e.target.value)} onBlur={setup ? () => onToast("Study information saved") : undefined} /> : indication}</div>
+          </div>
+          {editInfo && !setup && (
             <div style={{ display: "flex", gap: "var(--space-2)", justifyContent: "flex-end", marginTop: "var(--space-4)" }}>
               <button className="set-btn-secondary" type="button" onClick={() => setEditInfo(false)}>Cancel</button>
               <button className="set-btn-primary" type="button" onClick={saveInfo}><i className="ti ti-check"></i> Save</button>
@@ -534,143 +691,15 @@ function StudySettingsSection({ studyCode, onToast }: { studyCode: string; onToa
         </div>
       </div>
 
-      {/* ── Card: Regulatory approvals ── */}
-      <div className="settings-card">
-        <div className="settings-card-header">
-          <div><div className="settings-card-title">Regulatory approvals</div><div className="settings-card-desc">IACUC, IRB, or ethics committee approval records for this study</div></div>
-          <button className="set-btn-secondary" type="button" onClick={() => openApproval(null)}><i className="ti ti-plus"></i> Add approval</button>
-        </div>
-        <div className="settings-card-body" style={{ overflowX: "auto" }}>
-          {approvals.length === 0 ? <div style={{ fontSize: "var(--text-sm)", color: "var(--color-text-placeholder)" }}>No approval records.</div> : (
-            <table className="fee-table">
-              <thead><tr><th>Type</th><th>Committee</th><th>Approval no.</th><th>Approved</th><th>Expires</th><th>Status</th><th></th></tr></thead>
-              <tbody>
-                {approvals.map((a, i) => {
-                  const st = approvalStatus(a.expiryDate);
-                  return (
-                    <tr key={a.id}>
-                      <td><span className={`set-badge ${a.type === "IRB" ? "set-badge-blue" : "set-badge-green"}`}>{a.type}</span></td>
-                      <td>{a.committee}</td>
-                      <td style={{ fontFamily: "var(--font-mono)" }}>{a.number}</td>
-                      <td style={{ fontFamily: "var(--font-mono)" }}>{a.approvalDate || "—"}</td>
-                      <td style={{ fontFamily: "var(--font-mono)", color: st.color, fontWeight: st.color === "var(--color-text-secondary)" ? undefined : 600 }}>{a.expiryDate || "—"}</td>
-                      <td><span className={`set-badge ${st.badge}`}>{st.label}</span></td>
-                      <td style={{ textAlign: "right" }}><button className="set-btn-icon" type="button" title="Edit approval" onClick={() => openApproval(i)}><i className="ti ti-pencil" style={{ fontSize: 13 }}></i></button></td>
-                    </tr>
-                  );
-                })}
-              </tbody>
-            </table>
-          )}
-        </div>
-      </div>
+      {/* ── Card: Study configuration (shared) ── */}
+      <StudyConfigCard category={cfgCat} type={cfgType} speciesSel={cfgSpeciesSel} customSpecies={cfgCustomSpecies} enroll={cfgEnroll} blinding={cfgBlinding} editable={canEditConfig} locked={locked} onCategory={changeCfgCat} onType={changeCfgType} onSpecies={changeCfgSpecies} onCustomSpecies={setCfgCustomSpecies} onCustomSpeciesBlur={() => onToast(cfgCustomSpecies ? `Species: ${cfgCustomSpecies}` : "Species saved")} onEnroll={changeCfgEnroll} onBlinding={(b) => { setCfgBlinding(b); onToast("Blinding design updated"); }} />
+      {cfgShowTAS && <TASBannerCard />}
+      {cfgShowWithdrawal && <WithdrawalPeriodCard species={cfgEffSpecies} onToast={onToast} />}
+      {cfgShowCrossover && <CrossoverNoteCard />}
 
-      {/* ── Regulatory approval modal ── */}
-      {apOpen && (
-        <div className="set-modal-overlay" onClick={(e) => { if (e.target === e.currentTarget) setApOpen(false); }}>
-          <div className="set-modal" role="dialog" aria-modal="true">
-            <div className="set-modal-header">
-              <div><div className="set-modal-title">{apEdit == null ? "Add regulatory approval" : "Edit regulatory approval"}</div><div style={{ fontSize: "var(--text-xs)", color: "var(--color-text-tertiary)", marginTop: 2 }}>Ethics / animal-use committee approval record</div></div>
-              <button className="set-modal-close" type="button" onClick={() => setApOpen(false)}><i className="ti ti-x"></i></button>
-            </div>
-            <div className="set-modal-body">
-              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "var(--space-3)" }}>
-                <div className="set-field"><div className="set-field-label">Approval type</div><select className="set-select" value={apType} onChange={(e) => setApType(e.target.value)}><option>IACUC</option><option>IRB</option><option>Ethics Committee</option><option>Other</option></select></div>
-                <div className="set-field"><div className="set-field-label">Approval number</div><input className="set-input" style={{ fontFamily: "var(--font-mono)" }} value={apNumber} onChange={(e) => setApNumber(e.target.value)} /></div>
-              </div>
-              <div className="set-field"><div className="set-field-label">Committee name</div><input className="set-input" value={apCommittee} onChange={(e) => setApCommittee(e.target.value)} /></div>
-              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "var(--space-3)" }}>
-                <div className="set-field"><div className="set-field-label">Approval date</div><input className="set-input" placeholder="YYYY-MM-DD" value={apApproval} onChange={(e) => setApApproval(e.target.value)} /></div>
-                <div className="set-field"><div className="set-field-label">Expiry date</div><input className="set-input" placeholder="YYYY-MM-DD" value={apExpiry} onChange={(e) => setApExpiry(e.target.value)} /></div>
-              </div>
-            </div>
-            <div className="set-modal-footer">
-              <button className="set-btn-secondary" type="button" onClick={() => setApOpen(false)}>Cancel</button>
-              <button className="set-btn-primary" type="button" onClick={saveApproval}><i className="ti ti-check"></i> Save</button>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* ── Card 2: Protocol & timeline ── */}
+      {/* ── Card: Subject hierarchy ── */}
       <div className="settings-card">
-        <div className="settings-card-header"><div><div className="settings-card-title">Protocol &amp; timeline</div></div></div>
-        <div className="settings-card-body">
-          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: "var(--space-4)", marginBottom: "var(--space-4)" }}>
-            <div className="set-field"><div className="set-field-label">Study start</div><input className="set-input" defaultValue={meta.protoStart} onBlur={() => onToast("Study start saved")} /></div>
-            <div className="set-field"><div className="set-field-label">{cfg.enrollmentCloseLabel}</div><input className="set-input" defaultValue={meta.protoEnroll} onBlur={() => onToast(`${cfg.enrollmentCloseLabel} saved`)} /></div>
-            <div className="set-field"><div className="set-field-label">Study end (planned)</div><input className="set-input" defaultValue={meta.protoEnd} onBlur={() => onToast("Study end saved")} /></div>
-          </div>
-          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "var(--space-4)" }}>
-            <div className="set-field"><div className="set-field-label">{cfg.enrollmentLabel}</div><input className="set-input" type="number" defaultValue={meta.protoTarget.replace(/\D.*$/, "") || meta.protoTarget} onBlur={() => onToast(`${cfg.enrollmentLabel} saved`)} /></div>
-            <div className="set-field"><div className="set-field-label">Protocol version</div><div style={{ display: "flex", alignItems: "center", gap: "var(--space-2)" }}><input className="set-input" defaultValue={meta.protoVersion} onBlur={() => onToast("Protocol version saved")} /><button className="set-btn-icon" type="button" title="Download protocol document" style={{ flexShrink: 0, width: 32, height: 36, border: "1px solid var(--color-border)" }}><i className="ti ti-download" style={{ fontSize: 15 }}></i></button></div></div>
-          </div>
-        </div>
-      </div>
-
-      {/* ── Card 3a: Study type & design ── */}
-      <div className="settings-card">
-        <div className="settings-card-header"><div><div className="settings-card-title">Study type &amp; design</div><div className="settings-card-desc">Study type pre-fills sensible defaults — all fields are overridable</div></div></div>
-        <div className="settings-card-body">
-          <div className="settings-row">
-            <div><div className="settings-row-label">Study type</div><div className="settings-row-desc">Pre-fills the design + hierarchy below</div></div>
-            <div className="settings-row-value">
-              <div style={{ display: "flex", gap: "var(--space-2)", flexWrap: "wrap" }}>
-                {TYPES.map((t) => (
-                  <button key={t.key} type="button" className={`study-type-btn${activeType === t.key ? " active" : ""}`} onClick={() => pickType(t.key)}><i className={`ti ti-${t.icon}`} style={{ fontSize: 16 }}></i> {t.label}</button>
-                ))}
-              </div>
-            </div>
-          </div>
-          <div className="settings-row">
-            <div><div className="settings-row-label">Enrollment model</div><div className="settings-row-desc">How subjects join the study</div></div>
-            <div className="settings-row-value">
-              <select className="set-select" style={{ maxWidth: 260 }} value={enrollModel} onChange={(e) => changeEnrollModel(e.target.value)}>
-                <option value="rolling">Rolling individual enrollment</option>
-                <option value="fixed_group">Fixed group setup</option>
-                <option value="single_cohort">Single cohort placement</option>
-              </select>
-            </div>
-          </div>
-          <div className="settings-row" style={{ borderBottom: "none", paddingBottom: 0 }}>
-            <div><div className="settings-row-label">Subject unit</div><div className="settings-row-desc">The experimental unit of analysis</div></div>
-            <div className="settings-row-value">
-              <select className="set-select" style={{ maxWidth: 200 }} value={subjectUnit} onChange={(e) => { setSubjectUnit(e.target.value); onToast("Subject unit updated"); }}>
-                <option value="animal">Animal</option>
-                <option value="pen">Pen</option>
-                <option value="tank">Tank</option>
-                <option value="cage">Cage</option>
-                <option value="hive">Hive</option>
-              </select>
-            </div>
-          </div>
-          <div style={{ fontSize: "var(--text-xs)", color: "var(--color-text-tertiary)", paddingBottom: "var(--space-3)", borderBottom: "1px solid var(--color-border-subtle)" }}>If your randomization unit differs from your subject unit (e.g. cluster randomization), configure it separately in Randomization settings.</div>
-          <ToggleRow
-            on={allowAdditions}
-            onToggle={() => { applyAdditions(!allowAdditions); onToast("Setting saved"); }}
-            label="Allow mid-study additions"
-            desc="When enabled, new subjects or units can be added after the study has started. When disabled, the study structure is locked once the study is initiated."
-          />
-          <div className="settings-row" style={{ borderBottom: "none", paddingBottom: 0 }}>
-            <div><div className="settings-row-label">Structure locked at</div><div className="settings-row-desc">When the subject structure becomes read-only</div></div>
-            <div className="settings-row-value">
-              {allowAdditions
-                ? <select className="set-select" style={{ maxWidth: 200 }} value={structureLockedAt} onChange={(e) => { setStructureLockedAt(e.target.value); onToast("Structure lock updated"); }}>
-                    <option value="first_enrollment">At first enrollment</option>
-                    <option value="manual">Manual lock</option>
-                  </select>
-                : <select className="set-select" style={{ maxWidth: 200 }} value="initiation" disabled>
-                    <option value="initiation">At study initiation</option>
-                  </select>}
-            </div>
-          </div>
-          <div style={{ fontSize: "var(--text-xs)", color: "var(--color-text-tertiary)", paddingTop: "var(--space-1)" }}>A protocol amendment can unlock structure changes — see Audit &amp; Signatures for amendment history.</div>
-        </div>
-      </div>
-
-      {/* ── Card 3b: Subject hierarchy ── */}
-      <div className="settings-card">
-        <div className="settings-card-header"><div><div className="settings-card-title">Subject hierarchy</div><div className="settings-card-desc">Study type pre-fills the hierarchy — you can rename each level</div></div></div>
+        <div className="settings-card-header"><div><div className="settings-card-title">Subject hierarchy</div><div className="settings-card-desc">Driven by the enrollment model — you can rename each level</div></div></div>
         <div className="settings-card-body">
           <div>
             <div style={{ fontSize: "var(--text-xs)", fontWeight: 500, textTransform: "uppercase", letterSpacing: "var(--tracking-caps)", color: "var(--color-text-tertiary)", marginTop: "var(--space-3)", marginBottom: "var(--space-3)" }}>Hierarchy levels <span style={{ fontWeight: 400, textTransform: "none", color: "var(--color-text-placeholder)" }}>(top = study, fixed)</span></div>
@@ -682,35 +711,616 @@ function StudySettingsSection({ studyCode, onToast }: { studyCode: string; onToa
                   <div style={{ fontSize: "var(--text-xs)", color: "var(--color-text-tertiary)", minWidth: 56 }}>{level.fixed ? "Fixed" : level.isSubject ? "Subject" : `Level ${i + 1}`}</div>
                   {level.fixed
                     ? <span style={{ fontSize: "var(--text-sm)", fontWeight: 500 }}>{level.value}</span>
-                    : <select className="set-select" style={{ minWidth: 160 }} value={level.value} onChange={(e) => setLevelName(i, e.target.value)}>{opts.map((o) => <option key={o} value={o}>{o}</option>)}</select>}
+                    : <select className="set-select" style={{ minWidth: 160 }} value={level.value} disabled={!canEditConfig} onChange={(e) => setLevelName(i, e.target.value)}>{opts.map((o) => <option key={o} value={o}>{o}</option>)}</select>}
                   {level.isSubject && <span className="set-badge set-badge-green">Subject level</span>}
                   {level.optional && <span style={{ fontSize: 10, color: "var(--color-text-placeholder)", fontStyle: "italic" }}>optional</span>}
-                  {!level.fixed && <button className="set-btn-icon" style={{ marginLeft: "auto" }} type="button" title="Remove level" onClick={() => removeLevel(i)}><i className="ti ti-trash" style={{ fontSize: 13 }}></i></button>}
+                  {/* The subject level is a fixed structural element — only its label can
+                      be renamed, never deleted. Intermediate levels keep their delete button. */}
+                  {!level.fixed && !level.isSubject && canEditConfig && <button className="set-btn-icon" style={{ marginLeft: "auto" }} type="button" title="Remove level" onClick={() => removeLevel(i)}><i className="ti ti-trash" style={{ fontSize: 13 }}></i></button>}
                 </div>
               );
             })}
-            {allowAdditions
-              ? <button className="set-btn-secondary" style={{ height: 28, fontSize: "var(--text-xs)", marginTop: "var(--space-3)" }} type="button" onClick={addLevel}><i className="ti ti-plus"></i> Add level</button>
+            {allowAdditions && !locked
+              ? canEditConfig && <button className="set-btn-secondary" style={{ height: 28, fontSize: "var(--text-xs)", marginTop: "var(--space-3)" }} type="button" onClick={addLevel}><i className="ti ti-plus"></i> Add level</button>
               : <div className="set-note" style={{ marginTop: "var(--space-3)" }}><i className="ti ti-lock" style={{ fontSize: 12, marginRight: 4 }}></i> Structure is locked. Hierarchy levels cannot be modified once the study is active.</div>}
+            <div className="set-note" style={{ marginTop: "var(--space-3)" }}><i className="ti ti-info-circle" style={{ fontSize: 12, marginRight: 4 }}></i> The subject level is fixed and determines what appears on subject records. Only the label can be renamed.</div>
           </div>
         </div>
       </div>
 
-      {/* ── Card 4: Drug & investigational product ── */}
+      {/* ── Section: Study timeline ── */}
+      <StudyTimelineSection seed={protoSeed} editable={canEditConfig} onToast={onToast} targetLabel={locked && cfgEnroll === "cohort_pen" ? "Target groups / pens" : locked && cfgEnroll === "dynamic_herd" ? "Target lots" : "Target enrollment"} />
+
+      {/* ── Section: Drug & Investigational Product ── */}
+      <DrugIPSection studyCode={studyCode} seed={SEEDED_IPS[studyCode] ?? []} editable={canEditConfig} blinding={cfgBlinding} locked={locked} onToast={onToast} />
+
+      </LockFieldset>
+
+      {/* ── Card: Regulatory approvals (editable exception — stays active on a locked study) ── */}
+      <RegulatoryApprovalsCard studyCode={studyCode} editable={canEditConfig} onToast={onToast} />
+
+      {/* ── Card: Consent & Production (editable exception — stays active on a locked study) ── */}
       <div className="settings-card">
-        <div className="settings-card-header"><div><div className="settings-card-title">Drug &amp; investigational product</div></div></div>
+        <div className="settings-card-header"><div><div className="settings-card-title">Consent &amp; Production</div></div></div>
         <div className="settings-card-body">
-          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "var(--space-4)", marginBottom: "var(--space-4)" }}>
-            <div className="set-field"><div className="set-field-label">Drug name</div><input className="set-input" defaultValue={meta.drugName} onBlur={() => onToast("Drug name saved")} /></div>
-            <div className="set-field"><div className="set-field-label">Formulation</div><input className="set-input" defaultValue={meta.drugFormulation} onBlur={() => onToast("Formulation saved")} /></div>
+          <ToggleRow on={true} onToggle={() => onToast("Setting saved")} disabled={locked} label={cfgCat === "companion" ? "Owner informed consent required" : "Farm manager / producer consent required"} desc="A signed consent record is required before a subject can be enrolled." />
+          {cfgCat === "livestock" && (
+            <div className="settings-row" style={{ borderBottom: "none", paddingBottom: 0 }}>
+              <div><div className="settings-row-label">Production phase tracking <i className="ti ti-info-circle" style={{ fontSize: 12, color: "var(--color-text-placeholder)" }} title="Multi-phase production tracking (e.g. Nursery → Finisher transitions) will be available in a future release."></i></div><div className="settings-row-desc">Multi-phase production tracking (e.g. Nursery → Finisher)</div></div>
+              <div className="settings-row-value" style={{ color: "var(--color-text-placeholder)", fontStyle: "italic" }}>Not configured — coming soon</div>
+            </div>
+          )}
+        </div>
+      </div>
+
+    </>
+  );
+}
+
+// ─── New-study setup flow (two-axis: Species category × Study type) ───────────
+// Empty, progressive setup for a study created from the studies list (no seed).
+// Both axes (speciesCategory + studyType) are persisted on the study record and
+// drive the enrollment-model default, the subject hierarchy, and the conditional
+// configuration sections below. Seeded studies keep the classic StudySettingsSection.
+type SpeciesCat = "companion" | "livestock";
+type StudyTypeK = "tas" | "efficacy" | "residue" | "bioequivalence" | "observational";
+type EnrollModel = "individual" | "cohort_pen" | "dam_litter" | "dynamic_herd";
+const NS_BARN_OPTS = ["Barn", "Shed", "Paddock", "Feedlot", "Pasture", "Building"];
+const NS_PEN_OPTS = ["Pen", "Stall", "Lot", "Group", "Run", "Cage"];
+const NS_SUBJECT_INDIVIDUAL = ["Animal", "Bovine", "Pig", "Sheep", "Goat", "Individual"];
+const NS_SUBJECT_COMPANION = ["Dog", "Cat", "Horse", "Rabbit", "Other"];
+const STUDY_TYPE_OPTS: { key: StudyTypeK; label: string; desc: string; livestockOnly?: boolean }[] = [
+  { key: "tas", label: "Target Animal Safety (TAS)", desc: "Toxicological limits and drug tolerance. High-frequency rigid temporal data capture." },
+  { key: "efficacy", label: "Efficacy / Field Trial", desc: "Real-world condition efficacy. Complex randomization, blinding, and multi-role access." },
+  { key: "residue", label: "Tissue Residue / Depletion", desc: "Withdrawal period determination. Livestock only. Exact time-of-collection tracking.", livestockOnly: true },
+  { key: "bioequivalence", label: "Bioequivalence", desc: "Generic vs pioneer drug comparison. Crossover design with washout phase configuration." },
+  { key: "observational", label: "Observational / Post-marketing", desc: "Post-marketing surveillance and real-world performance tracking." },
+];
+const ENROLL_LABELS: Record<EnrollModel, string> = { individual: "Individual", cohort_pen: "Cohort / Pen", dam_litter: "Dam / Litter", dynamic_herd: "Dynamic Herd / Flock" };
+const BLINDING_OPTS: { key: string; label: string }[] = [{ key: "open", label: "Open-label" }, { key: "single", label: "Single-blind" }, { key: "double", label: "Double-blind" }];
+const SEEDED_BLINDING: Record<string, string> = { "BR-2502": "open", "CA-0801": "double", "PH-2401": "open" };
+const ENROLL_DESC: Record<EnrollModel, string> = {
+  individual: "Each animal is enrolled and tracked as an independent subject.",
+  cohort_pen: "Animals are managed and dosed as a pen or cohort — the pen is the subject.",
+  dam_litter: "Hierarchical reproductive model. Dam → Litter → Offspring. Used for reproductive toxicity and production studies.",
+  dynamic_herd: "An open population (herd / flock) tracked as a lot; mortality is logged against the lot.",
+};
+function nsEnrollOptions(species: SpeciesCat, t: StudyTypeK): EnrollModel[] {
+  // Companion studies are individual by default but support Dam / Litter breeding
+  // designs (kennel whelping, feline reproductive toxicity).
+  if (species === "companion") return ["individual", "dam_litter"];
+  if (t === "residue") return ["individual", "cohort_pen", "dam_litter"];
+  // Bioequivalence defaults to Individual but allows all models (pen-level crossover
+  // trials exist in livestock BE); tas / efficacy / observational likewise.
+  return ["individual", "cohort_pen", "dam_litter", "dynamic_herd"];
+}
+const nsDefaultEnroll = (species: SpeciesCat, t: StudyTypeK): EnrollModel => nsEnrollOptions(species, t)[0];
+function nsHierarchy(species: SpeciesCat, m: EnrollModel): HLevel[] {
+  const site: HLevel = { fixed: true, isSubject: false, value: "Site", options: ["Site"] };
+  // Dam / Litter reproductive scaffold (both species): Site → Barn (optional) → Dam (subject).
+  if (m === "dam_litter") return [site, { fixed: false, isSubject: false, value: "Barn", options: NS_BARN_OPTS, optional: true }, { fixed: false, isSubject: true, value: "Dam", options: ["Dam", "Sow", "Doe", "Ewe"], strictOptions: true }];
+  if (species === "companion") return [site, { fixed: false, isSubject: true, value: "Animal", options: NS_SUBJECT_COMPANION }];
+  if (m === "cohort_pen") return [site, { fixed: false, isSubject: false, value: "Barn", options: NS_BARN_OPTS, optional: true }, { fixed: false, isSubject: true, value: "Pen", options: ["Pen", "Room", "Tank", "Kennel"] }];
+  if (m === "dynamic_herd") return [site, { fixed: false, isSubject: true, value: "Lot", options: ["Lot", "Flock", "Batch"] }];
+  return [site, { fixed: false, isSubject: false, value: "Barn", options: NS_BARN_OPTS, optional: true }, { fixed: false, isSubject: false, value: "Pen", options: NS_PEN_OPTS, optional: true }, { fixed: false, isSubject: true, value: "Animal", options: NS_SUBJECT_INDIVIDUAL }];
+}
+// Species dropdown driven by the study category. "Other" reveals a free-text field.
+const NS_SPECIES_OPTS: Record<SpeciesCat, string[]> = {
+  companion: ["Dog", "Cat", "Horse", "Rabbit", "Other"],
+  livestock: ["Cattle", "Swine", "Poultry", "Sheep", "Goat", "Other"],
+};
+const NS_STANDARD_SPECIES = new Set([...NS_SPECIES_OPTS.companion, ...NS_SPECIES_OPTS.livestock]);
+// Subject-level label a chosen species implies (null = leave the model's default).
+// The label depends on the enrollment model: Poultry is a "Bird" individually but a
+// "Flock" under dynamic-herd enrollment; cohort/pen (Pen) and dam/litter (Dam) keep
+// their structural subject label regardless of species.
+function nsSpeciesSubjectLabel(species: string, model: EnrollModel | null): string | null {
+  if (!species || species === "Other") return null;
+  if (model === "dynamic_herd") return species === "Poultry" ? "Flock" : null;
+  if (model === "cohort_pen" || model === "dam_litter") return null;
+  const map: Record<string, string> = { Cattle: "Animal", Swine: "Pig", Poultry: "Bird" };
+  return map[species] ?? species; // Dog/Cat/Horse/Rabbit/Sheep/Goat and custom names → themselves
+}
+
+// ─── Shared two-axis rules + conditional-config cards ────────────────────────
+// One source of truth for the conditional sections so the new-study flow
+// (NewStudySetup) and the seeded StudySettingsSection stay in lockstep.
+const nsShowWithdrawal = (sc: SpeciesCat | null, st: StudyTypeK | null) => sc === "livestock" && (st === "efficacy" || st === "residue");
+const nsShowCrossover = (st: StudyTypeK | null) => st === "bioequivalence";
+const nsShowTAS = (st: StudyTypeK | null) => st === "tas";
+const nsConsentLabel = (sc: SpeciesCat | null) => (sc === "companion" ? "Owner informed consent" : "Producer / farm manager consent");
+// Seeded two-axis config for the three portfolio studies (from study config, not a
+// schema change) — pre-populates the Study configuration section in StudySettingsSection.
+const SEEDED_TWO_AXIS: Record<string, { speciesCategory: SpeciesCat; studyType: StudyTypeK; species: string; enrollmentModel: EnrollModel }> = {
+  "BR-2502": { speciesCategory: "livestock", studyType: "efficacy", species: "Cattle", enrollmentModel: "individual" },
+  "CA-0801": { speciesCategory: "companion", studyType: "efficacy", species: "Dog", enrollmentModel: "individual" },
+  "PH-2401": { speciesCategory: "livestock", studyType: "efficacy", species: "Poultry", enrollmentModel: "cohort_pen" },
+};
+
+function TASBannerCard() {
+  return <div className="settings-card"><div className="settings-card-body"><div className="set-info-banner"><i className="ti ti-clock-hour-4" style={{ fontSize: 16, color: "var(--slate-600)", flexShrink: 0, marginTop: 1 }}></i><div><div style={{ fontWeight: 500, marginBottom: 2 }}>High-frequency data capture</div><div style={{ fontSize: "var(--text-xs)", color: "var(--color-text-tertiary)" }}>TAS studies may require high-frequency vitals collection (e.g. every 30 minutes post-dose). Configure visit frequency in the Schedule of Events.</div></div></div></div></div>;
+}
+
+function WithdrawalPeriodCard({ species, onToast }: { species: string; onToast: (m: string) => void }) {
+  return (
+    <div className="settings-card">
+      <div className="settings-card-header"><div><div className="settings-card-title">Withdrawal period</div><div className="settings-card-desc">Days from last dose before the animal is eligible for shipment — set per treatment arm in Randomization</div></div></div>
+      <div className="settings-card-body">
+        {(species === "Cattle" || species === "Swine") && (
+          <div className="set-info-banner" style={{ marginBottom: "var(--space-3)" }}>
+            <i className="ti ti-alert-triangle" style={{ fontSize: 16, color: "var(--amber-600)", flexShrink: 0, marginTop: 1 }}></i>
+            <div style={{ fontSize: "var(--text-xs)", color: "var(--color-text-tertiary)" }}>Withdrawal periods are typically required for {species} studies involving antimicrobials or growth promotants.</div>
           </div>
-          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: "var(--space-4)" }}>
-            <div className="set-field"><div className="set-field-label">Dose unit</div><input className="set-input" defaultValue={meta.drugDoseUnit} onBlur={() => onToast("Dose unit saved")} /></div>
-            <div className="set-field"><div className="set-field-label">Dose calculation</div><input className="set-input" defaultValue={meta.drugDoseCalc} onBlur={() => onToast("Dose calculation saved")} /></div>
-            <div className="set-field"><div className="set-field-label">Route</div><input className="set-input" defaultValue={meta.drugRoute} onBlur={() => onToast("Route saved")} /></div>
+        )}
+        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "var(--space-4)" }}>
+          <div className="set-field"><div className="set-field-label">Default withdrawal period (days)</div><input className="set-input" type="number" placeholder="e.g. 49" onBlur={() => onToast("Withdrawal period saved")} /></div>
+          <div className="set-field"><div className="set-field-label">Measured from</div><select className="set-select"><option>Last dose administered</option><option>Last treatment visit</option></select></div>
+        </div>
+        <div style={{ marginTop: "var(--space-3)" }}><ToggleRow on={true} onToggle={() => onToast("Setting saved")} label="Block shipment until withdrawal elapsed" desc="An animal cannot be marked eligible for slaughter/shipment until its withdrawal period has elapsed (food-safety hard block)." /></div>
+      </div>
+    </div>
+  );
+}
+
+// Brief crossover note for the Study Identity page — full crossover/washout design
+// lives in Protocol Builder.
+function CrossoverNoteCard() {
+  return (
+    <div className="settings-card"><div className="settings-card-body">
+      <div className="set-info-banner">
+        <i className="ti ti-arrows-exchange" style={{ fontSize: 16, color: "var(--slate-600)", flexShrink: 0, marginTop: 1 }}></i>
+        <div style={{ fontSize: "var(--text-xs)", color: "var(--color-text-tertiary)" }}>Bioequivalence studies require crossover configuration. Set up in Protocol Builder.</div>
+      </div>
+    </div></div>
+  );
+}
+
+function CrossoverWashoutCard({ onToast }: { onToast: (m: string) => void }) {
+  const [bePeriods, setBePeriods] = useState(2);
+  const [beGroups, setBeGroups] = useState<string[]>(["T01", "T02"]);
+  const [beMatrix, setBeMatrix] = useState<number[][]>([]);
+  const nGroups = beGroups.length;
+  const drugLabel = (i: number) => `Drug ${String.fromCharCode(65 + i)}`;
+  useEffect(() => {
+    // Rebuild the default Latin square whenever the period count or group COUNT changes.
+    setBeMatrix(Array.from({ length: bePeriods }, (_, p) => Array.from({ length: nGroups }, (_, g) => (nGroups ? (p + g) % nGroups : 0))));
+  }, [bePeriods, nGroups]);
+  const renameBeGroup = (i: number, v: string) => setBeGroups((g) => g.map((x, j) => (j === i ? v : x)));
+  const addBeGroup = () => setBeGroups((g) => [...g, `T${String(g.length + 1).padStart(2, "0")}`]);
+  const removeBeGroup = (i: number) => setBeGroups((g) => (g.length <= 1 ? g : g.filter((_, j) => j !== i)));
+  const setBeCell = (p: number, g: number, v: number) => setBeMatrix((m) => m.map((row, pi) => (pi === p ? row.map((c, gi) => (gi === g ? v : c)) : row)));
+  return (
+    <div className="settings-card">
+      <div className="settings-card-header"><div><div className="settings-card-title">Crossover &amp; washout</div><div className="settings-card-desc">Each subject receives multiple treatments across periods <span className="set-badge set-badge-slate">Coming soon</span></div></div></div>
+      <div className="settings-card-body">
+        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "var(--space-4)" }}>
+          <div className="set-field"><div className="set-field-label">Number of periods</div><input className="set-input" type="number" min={1} max={8} value={bePeriods} onChange={(e) => setBePeriods(Math.max(1, Math.min(8, Math.floor(Number(e.target.value) || 1))))} /></div>
+          <div className="set-field"><div className="set-field-label">Washout duration (days)</div><input className="set-input" type="number" placeholder="e.g. 14" onBlur={() => onToast("Washout saved")} /></div>
+        </div>
+        <div style={{ marginTop: "var(--space-3)" }}><ToggleRow on={true} onToggle={() => onToast("Setting saved")} label="Data entry locked during washout" desc="Clinical data entry is disabled during the washout phase between treatment periods." /></div>
+        <div style={{ marginTop: "var(--space-4)" }}>
+          <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: "var(--space-2)" }}>
+            <div style={{ fontSize: "var(--text-xs)", fontWeight: 500, textTransform: "uppercase", letterSpacing: "var(--tracking-caps)", color: "var(--color-text-tertiary)" }}>Period sequence <span style={{ fontWeight: 400, textTransform: "none", color: "var(--color-text-placeholder)" }}>· rows = periods · columns = treatment groups</span></div>
+            <button className="set-btn-secondary" style={{ height: 26, fontSize: "var(--text-xs)" }} type="button" onClick={addBeGroup}><i className="ti ti-plus"></i> Add group</button>
+          </div>
+          <div style={{ overflowX: "auto" }}>
+            <table className="rand-group-table">
+              <thead>
+                <tr>
+                  <th>Period</th>
+                  {beGroups.map((g, i) => (
+                    <th key={i}>
+                      <div style={{ display: "flex", alignItems: "center", gap: 4 }}>
+                        <input className="set-input" style={{ height: 28, width: 72, fontFamily: "var(--font-mono)" }} value={g} onChange={(e) => renameBeGroup(i, e.target.value)} />
+                        {beGroups.length > 1 && <button className="set-btn-icon" style={{ width: 20, height: 20 }} type="button" title="Remove group" onClick={() => removeBeGroup(i)}><i className="ti ti-x" style={{ fontSize: 12 }}></i></button>}
+                      </div>
+                    </th>
+                  ))}
+                </tr>
+              </thead>
+              <tbody>
+                {beMatrix.map((rowCells, p) => (
+                  <tr key={p}>
+                    <td style={{ fontWeight: 500, whiteSpace: "nowrap" }}>Period {p + 1}</td>
+                    {rowCells.map((cell, g) => (
+                      <td key={g}><select className="set-select" style={{ height: 30, minWidth: 92 }} value={cell} onChange={(e) => setBeCell(p, g, Number(e.target.value))}>{beGroups.map((_, di) => <option key={di} value={di}>{drugLabel(di)}</option>)}</select></td>
+                    ))}
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+          <div style={{ fontSize: "var(--text-xs)", color: "var(--color-text-tertiary)", marginTop: "var(--space-2)" }}><i className="ti ti-info-circle" style={{ fontSize: 12, marginRight: 4 }}></i> Resets to a Latin square when periods or groups change; override any cell manually.</div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ─── Protocol & Timeline + Drug & IP — shared sections (both flows) ──────────
+// Settings-local (local state + toast), matching the display-only settings pattern
+// — no session-store shape change, so no DATA_KEY bump. Seed values come from config.
+interface ProtocolTimeline { protocolNumber: string; protocolVersion: string; protocolDate: string; studyStart: string; estimatedEnd: string; enrollmentOpen: string; enrollmentClose: string; targetN: string }
+const EMPTY_PROTOCOL: ProtocolTimeline = { protocolNumber: "", protocolVersion: "", protocolDate: "", studyStart: "", estimatedEnd: "", enrollmentOpen: "", enrollmentClose: "", targetN: "" };
+const SEEDED_PROTOCOL: Record<string, ProtocolTimeline> = {
+  "BR-2502": { protocolNumber: "BR-2502-PROT-001", protocolVersion: "v2.1", protocolDate: "2025-11-14", studyStart: "2026-07-08", estimatedEnd: "2026-12-31", enrollmentOpen: "2026-06-15", enrollmentClose: "2026-07-15", targetN: "12" },
+  "CA-0801": { protocolNumber: "CA-0801-PROT-001", protocolVersion: "v1.3", protocolDate: "2025-09-02", studyStart: "2026-06-01", estimatedEnd: "2026-11-30", enrollmentOpen: "2026-05-15", enrollmentClose: "2026-06-30", targetN: "8" },
+  "PH-2401": { protocolNumber: "PH-2401-PROT-001", protocolVersion: "v1.0", protocolDate: "2026-01-10", studyStart: "2026-07-01", estimatedEnd: "2026-10-31", enrollmentOpen: "2026-06-20", enrollmentClose: "2026-07-10", targetN: "4" },
+};
+// Study information seed overrides (sponsor = manufacturer, cleaned-up indication).
+const SEEDED_INFO: Record<string, { sponsor: string; indication: string }> = {
+  "BR-2502": { sponsor: "Elanco Animal Health", indication: "Bovine Respiratory Disease (BRD)" },
+  "CA-0801": { sponsor: "VetDerm Therapeutics", indication: "Canine Atopic Dermatitis" },
+  "PH-2401": { sponsor: "PhytoNutra Animal Health", indication: "Broiler Growth Performance" },
+};
+
+function StudyTimelineSection({ seed, editable, onToast, targetLabel = "Target enrollment", onPersist }: { seed: ProtocolTimeline; editable: boolean; onToast: (m: string) => void; targetLabel?: string; onPersist?: (p: Partial<StudyRow>) => void }) {
+  const [sstart, setSstart] = useState(seed.studyStart);
+  const [send, setSend] = useState(seed.estimatedEnd);
+  const [eopen, setEopen] = useState(seed.enrollmentOpen);
+  const [eclose, setEclose] = useState(seed.enrollmentClose);
+  const [target, setTarget] = useState(seed.targetN);
+  const ro = !editable;
+  return (
+    <div className="settings-card">
+      <div className="settings-card-header"><div><div className="settings-card-title">Study timeline</div></div></div>
+      <div className="settings-card-body">
+        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "var(--space-4)", marginBottom: "var(--space-4)" }}>
+          <div className="set-field"><div className="set-field-label">Study start</div><input type="date" className="set-input" value={sstart} disabled={ro} onChange={(e) => setSstart(e.target.value)} onBlur={() => { onPersist?.({ study_start: sstart }); onToast("Study start saved"); }} /></div>
+          <div className="set-field"><div className="set-field-label">Study end (planned)</div><input type="date" className="set-input" value={send} disabled={ro} onChange={(e) => setSend(e.target.value)} onBlur={() => onToast("Study end saved")} /></div>
+        </div>
+        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: "var(--space-4)" }}>
+          <div className="set-field"><div className="set-field-label">Enrollment start</div><input type="date" className="set-input" value={eopen} disabled={ro} onChange={(e) => setEopen(e.target.value)} onBlur={() => onToast("Enrollment start saved")} /></div>
+          <div className="set-field"><div className="set-field-label">Enrollment close</div><input type="date" className="set-input" value={eclose} disabled={ro} onChange={(e) => setEclose(e.target.value)} onBlur={() => onToast("Enrollment close saved")} /></div>
+          <div className="set-field"><div className="set-field-label">{targetLabel}</div><input type="number" className="set-input" value={target} disabled={ro} onChange={(e) => setTarget(e.target.value)} onBlur={() => { onPersist?.({ enrollment_target: Number(target) || null }); onToast(`${targetLabel} saved`); }} /></div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// IP data model + per-arm seeds + shared store live in @/lib/ip-registry-store.
+const IP_ROUTES = ["Oral", "Injectable (SC)", "Injectable (IM)", "Injectable (IV)", "Topical", "Transdermal", "Intranasal", "Intramammary", "In-feed", "Other"];
+const IP_TYPES: { key: IPType; label: string; badge: string; help: string }[] = [
+  { key: "drug", label: "Drug", badge: "set-badge-blue", help: "Small-molecule pharmaceutical product." },
+  { key: "biologic", label: "Biologic", badge: "set-badge-green", help: "Vaccine, antibody, or other biologically-derived product." },
+  { key: "device", label: "Device", badge: "set-badge-slate", help: "Medical device or delivery apparatus." },
+  { key: "supplement", label: "Dietary supplement", badge: "set-badge-amber", help: "Feed additive or nutritional supplement." },
+  { key: "placebo", label: "Placebo", badge: "set-badge-slate", help: "Placebo or vehicle control — no active ingredient." },
+];
+const IP_CONTROLLED_HELP = "DEA Schedule registration required at the site level.";
+// IND/NADA label + placeholder (regulatory number for the product).
+const ipNadaLabel = () => "IND / NADA number";
+const ipNadaPlaceholder = () => "e.g. IND 012-788 or NADA 141-244";
+function DrugIPSection({ studyCode, seed, editable, blinding, locked = false, onToast }: { studyCode: string; seed: IPProduct[]; editable: boolean; blinding: string; locked?: boolean; onToast: (m: string) => void }) {
+  const ips = useIps(studyCode, seed);
+  const [collapsed, setCollapsed] = useState<Record<number, boolean>>({});
+  // The Product type seg-control is <div>-based, so a parent disabled <fieldset>
+  // won't block it — fold the section lock into `ro` and guard onClick.
+  const ro = !editable || locked;
+  const isOpenLabel = blinding === "open";
+  const upd = (i: number, patch: Partial<IPProduct>) => updateIp(studyCode, i, patch);
+  const add = () => { addIp(studyCode); onToast("Investigational product added"); };
+  const del = (i: number) => { removeIp(studyCode, i); onToast("Investigational product removed"); };
+  const toggle = (i: number) => setCollapsed((c) => ({ ...c, [i]: !c[i] }));
+  return (
+    <div className="settings-card" id="ip-registry">
+      <div className="settings-card-header"><div><div className="settings-card-title">Drug &amp; Investigational Product</div><div className="settings-card-desc">Define the investigational products used in this study.</div></div>{editable && <button className="set-btn-secondary" type="button" onClick={add}><i className="ti ti-plus"></i> Add investigational product</button>}</div>
+      <div className="settings-card-body">
+        {ips.map((ip, i) => {
+          const tm = IP_TYPES.find((x) => x.key === ip.type) ?? IP_TYPES[0];
+          const isOpen = !collapsed[i];
+          return (
+            <div key={i} style={{ border: "1px solid var(--color-border)", borderRadius: "var(--radius-md)", marginBottom: i < ips.length - 1 ? "var(--space-3)" : 0, overflow: "hidden" }}>
+              <div style={{ display: "flex", alignItems: "center", gap: "var(--space-2)", padding: "var(--space-3)", cursor: "pointer", background: "var(--slate-50)" }} onClick={() => toggle(i)}>
+                <i className={`ti ti-chevron-${isOpen ? "down" : "right"}`} style={{ fontSize: 15, color: "var(--color-text-tertiary)" }}></i>
+                <span style={{ fontSize: "var(--text-sm)", fontWeight: 500 }}>{ip.name || "New investigational product"}</span>
+                <span className={`set-badge ${tm.badge}`} style={{ marginLeft: 4 }}>{tm.label}</span>
+                {editable && i > 0 && <button className="set-btn-icon" style={{ marginLeft: "auto" }} type="button" title="Remove product" onClick={(e) => { e.stopPropagation(); del(i); }}><i className="ti ti-trash" style={{ fontSize: 13 }}></i></button>}
+              </div>
+              {isOpen && (
+                <div style={{ padding: "var(--space-4)", borderTop: "1px solid var(--color-border-subtle)" }}>
+                  {/* Product type — single-select segmented control (seg-control pattern) */}
+                  <div className="set-field">
+                    <div className="set-field-label">Product type</div>
+                    <div className="seg-control" style={{ width: "fit-content" }}>
+                      {IP_TYPES.map((t) => <div key={t.key} className={`seg-option${ip.type === t.key ? " active" : ""}${ro ? " disabled" : ""}`} onClick={() => { if (!ro) { upd(i, { type: t.key }); onToast("Product type updated"); } }}>{t.label}</div>)}
+                    </div>
+                    <div className="settings-row-desc" style={{ marginTop: "var(--space-2)" }}>{tm.help}</div>
+                  </div>
+                  {/* Controlled substance */}
+                  <div className="set-field" style={{ marginTop: "var(--space-4)" }}>
+                    <label style={{ display: "flex", alignItems: "center", gap: "var(--space-2)", fontSize: "var(--text-sm)", cursor: ro ? "default" : "pointer" }}>
+                      <input type="checkbox" checked={ip.controlledSubstance} disabled={ro} onChange={(e) => { upd(i, { controlledSubstance: e.target.checked }); onToast(e.target.checked ? "Marked controlled substance" : "Controlled substance cleared"); }} />
+                      Controlled substance (DEA Schedule II–V)
+                    </label>
+                    {ip.controlledSubstance && (
+                      <div style={{ marginTop: "var(--space-2)" }}>
+                        <div style={{ display: "flex", alignItems: "center", gap: "var(--space-2)" }}>
+                          <span style={{ fontSize: "var(--text-xs)", color: "var(--color-text-tertiary)" }}>DEA Schedule</span>
+                          <select className="set-select" style={{ maxWidth: 160 }} value={ip.deaSchedule} disabled={ro} onChange={(e) => { upd(i, { deaSchedule: e.target.value }); onToast("DEA Schedule updated"); }}>
+                            <option value="II">Schedule II</option><option value="III">Schedule III</option><option value="IV">Schedule IV</option><option value="V">Schedule V</option>
+                          </select>
+                        </div>
+                        <div className="settings-row-desc" style={{ marginTop: 4 }}>{IP_CONTROLLED_HELP}</div>
+                      </div>
+                    )}
+                  </div>
+                  {/* Remaining fields */}
+                  <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "var(--space-4)", marginTop: "var(--space-4)" }}>
+                    <div className="set-field"><div className="set-field-label">Product name</div><input className="set-input" value={ip.name} disabled={ro} onChange={(e) => upd(i, { name: e.target.value })} onBlur={() => onToast("Product name saved")} /></div>
+                    <div className="set-field"><div className="set-field-label">{ipNadaLabel()}</div><input className="set-input" style={{ fontFamily: "var(--font-mono)" }} placeholder={ipNadaPlaceholder()} value={ip.indNada} disabled={ro} onChange={(e) => upd(i, { indNada: e.target.value })} onBlur={() => onToast(`${ipNadaLabel()} saved`)} /></div>
+                    <div className="set-field"><div className="set-field-label">Drug class / formulation</div><input className="set-input" placeholder="e.g. Antimicrobial · Injectable solution" value={ip.drugClass} disabled={ro} onChange={(e) => upd(i, { drugClass: e.target.value })} onBlur={() => onToast("Drug class saved")} /></div>
+                    <div className="set-field"><div className="set-field-label">Route of administration</div><select className="set-select" value={ip.route} disabled={ro} onChange={(e) => { upd(i, { route: e.target.value }); onToast("Route saved"); }}>{IP_ROUTES.map((r) => <option key={r} value={r}>{r}</option>)}</select></div>
+                    <div className="set-field"><div className="set-field-label">Dose unit</div><input className="set-input" placeholder="e.g. mg/kg · mL · mg/head" value={ip.doseUnit} disabled={ro} onChange={(e) => upd(i, { doseUnit: e.target.value })} onBlur={() => onToast("Dose unit saved")} /></div>
+                    <div className="set-field"><div className="set-field-label">Sponsor / manufacturer</div><input className="set-input" value={ip.sponsor} disabled={ro} onChange={(e) => upd(i, { sponsor: e.target.value })} onBlur={() => onToast("Sponsor saved")} /></div>
+                    {/* Treatment code + Blinded label — drive the treatment-group row in
+                        Protocol Builder (Randomization) reactively (1 IP card ↔ 1 group). */}
+                    <div className="set-field"><div className="set-field-label">Treatment code</div><input className="set-input" style={{ fontFamily: "var(--font-mono)" }} placeholder="e.g. T01, T02, ARM-A" value={ip.code} disabled={ro} onChange={(e) => upd(i, { code: e.target.value })} onBlur={() => onToast("Treatment code saved")} /><div className="settings-row-desc" style={{ marginTop: 4 }}>Appears in the treatment group row, Animals list, Audit Trail and Reports.</div></div>
+                    <div className="set-field"><div className="set-field-label">Blinded label <span style={{ color: "var(--color-text-tertiary)", fontWeight: 400 }}>(optional)</span></div><input className="set-input" placeholder="e.g. Group 1, Group A" value={ip.blindedLabel} disabled={ro || isOpenLabel} onChange={(e) => upd(i, { blindedLabel: e.target.value })} onBlur={() => onToast("Blinded label saved")} /><div className="settings-row-desc" style={{ marginTop: 4 }}>{isOpenLabel ? "Not required — study is open-label" : "Shown instead of the treatment name when blinding is active"}</div></div>
+                  </div>
+                </div>
+              )}
+            </div>
+          );
+        })}
+      </div>
+    </div>
+  );
+}
+
+// ─── Shared Study configuration card (category × type × species × enrollment) ──
+// Used by both the seeded StudySettingsSection and the new-study flow. Rows reveal
+// progressively: study type appears once a category is chosen, species + enrollment
+// once a type is chosen — so existing studies (all set) show everything, new studies
+// disclose step by step.
+function StudyConfigCard({ category, type, speciesSel, customSpecies, enroll, blinding, editable, locked = false, onCategory, onType, onSpecies, onCustomSpecies, onCustomSpeciesBlur, onEnroll, onBlinding }: {
+  category: SpeciesCat | null; type: StudyTypeK | null; speciesSel: string; customSpecies: string; enroll: EnrollModel | null; blinding: string; editable: boolean; locked?: boolean;
+  onCategory: (c: SpeciesCat) => void; onType: (t: StudyTypeK) => void; onSpecies: (v: string) => void; onCustomSpecies: (v: string) => void; onCustomSpeciesBlur?: () => void; onEnroll: (m: EnrollModel) => void; onBlinding: (b: string) => void;
+}) {
+  // Effective read-only = role can't edit OR the section is status-locked. The
+  // seg-controls are <div>s (not form controls), so a parent disabled <fieldset>
+  // won't catch them — guard onClick + apply the .disabled class explicitly.
+  const ro = !editable || locked;
+  const typeOpts = STUDY_TYPE_OPTS.filter((o) => category === "livestock" || !o.livestockOnly);
+  const speciesOpts = category ? NS_SPECIES_OPTS[category] : [];
+  const enrollOpts = category && type ? nsEnrollOptions(category, type) : [];
+  const segCls = (active: boolean) => `seg-option${active ? " active" : ""}${ro ? " disabled" : ""}`;
+  return (
+    <div className="settings-card" id="study-configuration">
+      <div className="card-header">
+        <div>
+          <div className="card-header-title">Study configuration</div>
+          <div className="card-header-desc">Determines available study types, enrollment models, and conditional sections{!editable ? " — read-only for your role" : ""}</div>
+        </div>
+      </div>
+      <div className="card-body">
+        <div className="settings-row" style={!category ? { borderBottom: "none", paddingBottom: 0 } : undefined}>
+          <div className="settings-row-label"><div className="settings-row-label-text">Study category</div></div>
+          <div className="settings-row-value">
+            <div className="seg-control">
+              <div className={segCls(category === "companion")} onClick={() => { if (!ro) onCategory("companion"); }}>Companion animal</div>
+              <div className={segCls(category === "livestock")} onClick={() => { if (!ro) onCategory("livestock"); }}>Livestock</div>
+            </div>
+          </div>
+        </div>
+        {category && (
+          <div className="settings-row" style={!type ? { borderBottom: "none", paddingBottom: 0 } : undefined}>
+            <div className="settings-row-label"><div className="settings-row-label-text">Study type</div></div>
+            <div className="settings-row-value"><select className="field-select" value={type ?? ""} disabled={ro} onChange={(e) => onType(e.target.value as StudyTypeK)}><option value="" disabled>Select study type…</option>{typeOpts.map((o) => <option key={o.key} value={o.key}>{o.label}</option>)}</select></div>
+          </div>
+        )}
+        {category && type && (
+          <div className="settings-row">
+            <div className="settings-row-label"><div className="settings-row-label-text">Species</div></div>
+            <div className="settings-row-value">
+              <div style={{ display: "flex", gap: "var(--space-2)", alignItems: "center", flexWrap: "wrap" }}>
+                <select className="field-select" style={{ maxWidth: 200 }} value={speciesSel} disabled={ro} onChange={(e) => onSpecies(e.target.value)}><option value="">Select species…</option>{speciesOpts.map((s) => <option key={s} value={s}>{s}</option>)}</select>
+                {speciesSel === "Other" && <input className="field-input" style={{ maxWidth: 200 }} placeholder="Custom species name" value={customSpecies} disabled={ro} onChange={(e) => onCustomSpecies(e.target.value)} onBlur={onCustomSpeciesBlur} />}
+              </div>
+            </div>
+          </div>
+        )}
+        {category && type && enrollOpts.length > 0 && (
+          <div className="settings-row">
+            <div className="settings-row-label"><div className="settings-row-label-text">Enrollment model</div></div>
+            <div className="settings-row-value">
+              <div className="seg-control">
+                {enrollOpts.map((m) => <div key={m} className={segCls(enroll === m)} onClick={() => { if (!ro) onEnroll(m); }}>{ENROLL_LABELS[m]}</div>)}
+              </div>
+            </div>
+          </div>
+        )}
+        {category && type && (
+          <div className="settings-row" style={{ borderBottom: "none", paddingBottom: 0 }}>
+            <div className="settings-row-label"><div className="settings-row-label-text">Blinding design</div></div>
+            <div className="settings-row-value">
+              <div className="seg-control">
+                {BLINDING_OPTS.map((b) => <div key={b.key} className={segCls(blinding === b.key)} onClick={() => { if (!ro) onBlinding(b.key); }}>{b.label}</div>)}
+              </div>
+            </div>
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
+function NewStudySetup({ study, onToast, onNavigate }: { study: { id: string; code: string; name: string }; onToast: (m: string) => void; onNavigate?: (s: string) => void }) {
+  const { dataset, update } = useStudySession();
+  const row = dataset.studies.find((s) => s.id === study.id);
+  const speciesCategory = (row?.speciesCategory ?? null) as SpeciesCat | null;
+  const studyType = (row?.studyType ?? null) as StudyTypeK | null;
+  const enrollmentModel = (row?.enrollmentModel ?? null) as EnrollModel | null;
+  const name = row?.name ?? study.name ?? "";
+  const patch = (p: Partial<StudyRow>) => update((d) => { const s = d.studies.find((x) => x.id === study.id); if (s) Object.assign(s, p); });
+
+  const [hierarchy, setHierarchy] = useState<HLevel[]>(() => (speciesCategory && enrollmentModel ? nsHierarchy(speciesCategory, enrollmentModel) : []));
+  // Species: category-driven dropdown + free-text for "Other". Persisted species is the
+  // effective name (the custom text when "Other" is chosen, else the selected option).
+  const initSpecies = row?.species ?? "";
+  const [speciesSel, setSpeciesSel] = useState<string>(() => (initSpecies ? (NS_STANDARD_SPECIES.has(initSpecies) ? initSpecies : "Other") : ""));
+  const [customSpecies, setCustomSpecies] = useState<string>(() => (initSpecies && !NS_STANDARD_SPECIES.has(initSpecies) ? initSpecies : ""));
+  const effectiveSpecies = speciesSel === "Other" ? customSpecies : speciesSel;
+  const speciesOpts = speciesCategory ? NS_SPECIES_OPTS[speciesCategory] : [];
+  const isPoultry = effectiveSpecies === "Poultry";
+  // Apply the species-implied subject label to the subject level (adding it to the level's
+  // options if absent so the <select> shows it). No-op when the species implies no change.
+  const applyLabel = (h: HLevel[], model: EnrollModel | null, eff: string): HLevel[] => {
+    const label = nsSpeciesSubjectLabel(eff, model);
+    return label ? h.map((l) => (l.isSubject ? { ...l, value: label, options: l.options.includes(label) ? l.options : [label, ...l.options] } : l)) : h;
+  };
+  const [sponsor, setSponsor] = useState(row?.sponsor ?? "");
+  // Protocol number + version are DERIVED read-only from Protocol & Amendments —
+  // a brand-new study has none yet, so both show an em-dash until an amendment exists.
+  const hasPA = seedStudyAmendments(study.code).length > 0;
+  const [blinding, setBlinding] = useState("open");
+  const [indication, setIndication] = useState(row?.description ?? "");
+
+  const typeOpts = STUDY_TYPE_OPTS.filter((o) => speciesCategory === "livestock" || !o.livestockOnly);
+  const enrollOpts = speciesCategory && studyType ? nsEnrollOptions(speciesCategory, studyType) : [];
+  const isLivestock = speciesCategory === "livestock";
+  const showWithdrawal = nsShowWithdrawal(speciesCategory, studyType);
+  const showCrossover = nsShowCrossover(studyType);
+  const showTasBanner = nsShowTAS(studyType);
+  const maxInter = enrollmentModel === "individual" ? 4 : 2;
+  const interCount = hierarchy.filter((l) => !l.fixed && !l.isSubject).length;
+
+  function pickSpecies(s: SpeciesCat) { patch({ speciesCategory: s, studyType: undefined, enrollmentModel: undefined, species: "" }); setHierarchy([]); setSpeciesSel(""); setCustomSpecies(""); onToast(`Study category: ${s === "companion" ? "Companion animal" : "Livestock"}`); }
+  function pickType(t: StudyTypeK) { if (!speciesCategory) return; const em = nsDefaultEnroll(speciesCategory, t); patch({ studyType: t, enrollmentModel: em }); setHierarchy(applyLabel(nsHierarchy(speciesCategory, em), em, effectiveSpecies)); onToast("Study type set"); }
+  function changeEnroll(m: EnrollModel) { if (!speciesCategory) return; patch({ enrollmentModel: m }); setHierarchy(applyLabel(nsHierarchy(speciesCategory, m), m, effectiveSpecies)); onToast("Enrollment model updated — hierarchy reset"); }
+  function pickSpeciesValue(v: string) { setSpeciesSel(v); const eff = v === "Other" ? customSpecies : v; patch({ species: eff }); setHierarchy((h) => applyLabel(h, enrollmentModel, eff)); if (v !== "Other") onToast(v ? `Species: ${v}` : "Species cleared"); }
+  function commitCustomSpecies() { patch({ species: customSpecies }); setHierarchy((h) => applyLabel(h, enrollmentModel, customSpecies)); onToast(customSpecies ? `Species: ${customSpecies}` : "Species saved"); }
+  function setLevelName(i: number, val: string) { setHierarchy((h) => h.map((l, j) => (j === i ? { ...l, value: val } : l))); }
+  function removeLevel(i: number) { setHierarchy((h) => (h[i].fixed || h[i].isSubject ? h : h.filter((_, j) => j !== i))); onToast("Level removed"); }
+  function addLevel() { if (interCount >= maxInter) return; setHierarchy((h) => { const idx = h.findIndex((l) => l.isSubject); const nl: HLevel = { fixed: false, isSubject: false, value: "Room", options: ALL_LEVEL_OPTIONS, optional: true }; const copy = h.slice(); copy.splice(idx > -1 ? idx : copy.length, 0, nl); return copy; }); onToast("Level added"); }
+
+  return (
+    <>
+      <div className="section-header">
+        <h1 className="set-section-title">Study Identity &amp; Regulatory Frame</h1>
+        <p className="section-desc">{!speciesCategory ? "Start by entering a study name and selecting a study category." : !studyType ? "Now choose a study type." : `Configure ${name.trim() || "your new study"} — all defaults are overridable.`}</p>
+      </div>
+
+      {/* 1 — Study information — structurally identical to the existing-study card
+          (same card-header/card-body/field-input rows), but every field is
+          editable (new studies are in setup, so nothing is locked). */}
+      <div className="settings-card">
+        <div className="card-header">
+          <div>
+            <div className="card-header-title">Study information</div>
+            <div className="card-header-desc">Core identifiers — cannot be changed after activation without a protocol amendment</div>
+          </div>
+        </div>
+        <div className="card-body">
+          <div className="settings-row">
+            <div className="settings-row-label"><div className="settings-row-label-text">Study name</div></div>
+            <div className="settings-row-value"><input className="field-input" placeholder="e.g. Bovine Respiratory Disease Trial" value={name} onChange={(e) => patch({ name: e.target.value })} onBlur={() => onToast("Study name saved")} /></div>
+          </div>
+          <div className="settings-row">
+            <div className="settings-row-label"><div className="settings-row-label-text">Study ID</div></div>
+            <div className="settings-row-value"><input className="field-input readonly" value={study.code} readOnly tabIndex={-1} style={{ fontFamily: "var(--font-mono)", fontWeight: 500 }} /></div>
+          </div>
+          <div className="settings-row">
+            <div className="settings-row-label">
+              <div className="settings-row-label-text">Protocol number</div>
+              <div className="settings-row-label-desc">Pulled from Protocol &amp; Amendments</div>
+            </div>
+            <div className="settings-row-value"><span style={{ fontFamily: "var(--font-mono)", fontWeight: 400, color: "var(--color-text-placeholder)" }}>—</span></div>
+          </div>
+          <div className="settings-row">
+            <div className="settings-row-label">
+              <div className="settings-row-label-text">Protocol version</div>
+              <div className="settings-row-label-desc">Pulled from Protocol &amp; Amendments</div>
+            </div>
+            <div className="settings-row-value">
+              <div style={{ display: "flex", alignItems: "center", gap: "var(--space-3)" }}>
+                <span style={{ fontFamily: "var(--font-mono)", fontWeight: 400, color: "var(--color-text-placeholder)" }}>—</span>
+                {hasPA && <button type="button" onClick={() => onNavigate?.("protocol")} className="set-inline-link" style={{ flexShrink: 0 }}>Go to P&amp;A →</button>}
+              </div>
+            </div>
+          </div>
+          <div className="settings-row">
+            <div className="settings-row-label"><div className="settings-row-label-text">Sponsor</div></div>
+            <div className="settings-row-value"><input className="field-input" value={sponsor} onChange={(e) => setSponsor(e.target.value)} onBlur={() => { patch({ sponsor }); onToast("Sponsor saved"); }} /></div>
+          </div>
+          <div className="settings-row">
+            <div className="settings-row-label"><div className="settings-row-label-text">Indication</div></div>
+            <div className="settings-row-value"><input className="field-input" value={indication} onChange={(e) => setIndication(e.target.value)} onBlur={() => { patch({ description: indication }); onToast("Indication saved"); }} /></div>
           </div>
         </div>
       </div>
+
+      {/* 2 — Study configuration (shared card; reveals type → species → enrollment progressively) */}
+      <StudyConfigCard category={speciesCategory} type={studyType} speciesSel={speciesSel} customSpecies={customSpecies} enroll={enrollmentModel} blinding={blinding} editable={true} onCategory={pickSpecies} onType={pickType} onSpecies={pickSpeciesValue} onCustomSpecies={setCustomSpecies} onCustomSpeciesBlur={commitCustomSpecies} onEnroll={changeEnroll} onBlinding={(b) => { setBlinding(b); onToast("Blinding design updated"); }} />
+
+      {/* All cards below always render (blank in setup) — structurally identical to an
+          existing study; no progressive/reduced layout. */}
+      {(
+        <>
+          {showTasBanner && <TASBannerCard />}
+          {showWithdrawal && <WithdrawalPeriodCard species={effectiveSpecies} onToast={onToast} />}
+          {showCrossover && <CrossoverNoteCard />}
+
+          {/* 3 — Subject hierarchy — driven by enrollment model */}
+          <div className="settings-card">
+            <div className="settings-card-header"><div><div className="settings-card-title">Subject hierarchy</div><div className="settings-card-desc">Rename each level; Site and the subject level are fixed by the enrollment model</div></div></div>
+            <div className="settings-card-body">
+              {hierarchy.map((level, i) => {
+                const opts = level.strictOptions ? level.options : Array.from(new Set([...level.options, ...ALL_LEVEL_OPTIONS]));
+                return (
+                  <div key={i} className="hierarchy-level">
+                    <div className="hier-num">{i + 1}</div>
+                    <div style={{ fontSize: "var(--text-xs)", color: "var(--color-text-tertiary)", minWidth: 56 }}>{level.fixed ? "Fixed" : level.isSubject ? "Subject" : `Level ${i + 1}`}</div>
+                    {level.fixed ? <span style={{ fontSize: "var(--text-sm)", fontWeight: 500 }}>{level.value}</span> : <select className="set-select" style={{ minWidth: 160 }} value={level.value} onChange={(e) => setLevelName(i, e.target.value)}>{opts.map((o) => <option key={o} value={o}>{o}</option>)}</select>}
+                    {level.isSubject && <span className="set-badge set-badge-green">Subject level</span>}
+                    {level.optional && <span style={{ fontSize: 10, color: "var(--color-text-placeholder)", fontStyle: "italic" }}>optional</span>}
+                    {!level.fixed && !level.isSubject && <button className="set-btn-icon" style={{ marginLeft: "auto" }} type="button" title="Remove level" onClick={() => removeLevel(i)}><i className="ti ti-trash" style={{ fontSize: 13 }}></i></button>}
+                  </div>
+                );
+              })}
+              {enrollmentModel !== "dynamic_herd" && enrollmentModel !== "dam_litter" && interCount < maxInter && <button className="set-btn-secondary" style={{ height: 28, fontSize: "var(--text-xs)", marginTop: "var(--space-3)" }} type="button" onClick={addLevel}><i className="ti ti-plus"></i> Add level</button>}
+              {enrollmentModel === "dam_litter" && (
+                <div className="set-info-banner" style={{ marginTop: "var(--space-4)" }}>
+                  <i className="ti ti-sitemap" style={{ fontSize: 16, color: "var(--slate-600)", flexShrink: 0, marginTop: 1 }}></i>
+                  <div>
+                    <div style={{ fontWeight: 500, marginBottom: 2, display: "flex", alignItems: "center", gap: "var(--space-2)" }}>Litter &amp; offspring tracking <span className="set-badge set-badge-slate">Coming soon</span></div>
+                    <div style={{ fontSize: "var(--text-xs)", color: "var(--color-text-tertiary)" }}>Each Dam record links to Litter records → Offspring records. Litter and offspring tracking within Dam records will be available in a future release.</div>
+                  </div>
+                </div>
+              )}
+              {enrollmentModel === "dynamic_herd" && (
+                <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "var(--space-4)", marginTop: "var(--space-4)" }}>
+                  <div className="set-field"><div className="set-field-label">Initial stock count</div><input className="set-input" type="number" placeholder="e.g. 5000" onBlur={() => onToast("Initial stock count saved")} /></div>
+                  <div className="set-field"><div className="set-field-label">Lot number</div><input className="set-input" style={{ fontFamily: "var(--font-mono)" }} placeholder="e.g. LOT-001" onBlur={() => onToast("Lot number saved")} /></div>
+                  <div style={{ gridColumn: "1 / -1", fontSize: "var(--text-xs)", color: "var(--color-text-tertiary)" }}><i className="ti ti-info-circle" style={{ fontSize: 12, marginRight: 4 }}></i> Depletion tracking: mortality is logged against the lot.</div>
+                </div>
+              )}
+            </div>
+          </div>
+
+          {/* 4 — Study timeline · 5 — Drug & IP (all editable for a new study) */}
+          <StudyTimelineSection seed={EMPTY_PROTOCOL} editable={true} onToast={onToast} onPersist={patch} />
+          <DrugIPSection studyCode={study.code} seed={[]} editable={true} blinding={blinding} onToast={onToast} />
+
+          {/* Regulatory & Approvals — same shared card as an existing study (starts empty) */}
+          <RegulatoryApprovalsCard studyCode={study.code} editable={true} onToast={onToast} />
+
+          {/* Consent (label adapts) + production phase placeholder (livestock) */}
+          <div className="settings-card">
+            <div className="settings-card-header"><div><div className="settings-card-title">Consent &amp; production</div></div></div>
+            <div className="settings-card-body">
+              <ToggleRow on={true} onToggle={() => onToast("Setting saved")} label={speciesCategory === "companion" ? "Owner informed consent required" : "Farm manager / producer consent required"} desc="A signed consent record is required before a subject can be enrolled." />
+              {isLivestock && (
+                <div className="settings-row" style={{ borderBottom: "none", paddingBottom: 0 }}>
+                  <div><div className="settings-row-label">Production phase tracking <i className="ti ti-info-circle" style={{ fontSize: 12, color: "var(--color-text-placeholder)" }} title="Multi-phase production tracking (e.g. Nursery → Finisher transitions) will be available in a future release."></i></div><div className="settings-row-desc">Multi-phase production tracking (e.g. Nursery → Finisher)</div></div>
+                  <div className="settings-row-value" style={{ color: "var(--color-text-placeholder)", fontStyle: "italic" }}>Not configured — coming soon</div>
+                </div>
+              )}
+            </div>
+          </div>
+        </>
+      )}
     </>
   );
 }
@@ -721,7 +1331,9 @@ interface Amend { id: string; version: string; date: string; summary: string; im
 function seedStudyAmendments(code: string): Amend[] {
   if (code === "CA-0801") return [{ id: "A01", version: "v2.1", date: "2026-01-10", summary: "Added CADESI-04 scoring requirement at all visits", impact: "No impact — ongoing subjects unaffected" }];
   if (code === "PH-2401") return [{ id: "A01", version: "v1.0", date: "2026-04-01", summary: "Initial protocol approval", impact: "No impact — study initiation" }];
-  return [{ id: "A01", version: "v1.0", date: "2026-03-01", summary: "Initial protocol approval", impact: "No impact — study initiation" }]; // BR-2502
+  if (code === "BR-2502") return [{ id: "A01", version: "v1.0", date: "2026-03-01", summary: "Initial protocol approval", impact: "No impact — study initiation" }];
+  // New / non-seeded study: no amendments on record — render an empty section, no stub.
+  return [];
 }
 // A single amendment / addendum row.
 function AmendRow({ a }: { a: Amend }) {
@@ -739,12 +1351,6 @@ function AmendRow({ a }: { a: Amend }) {
 
 function ProtocolAmendmentsSection({ studyCode, studyId, dataset, onToast }: { studyCode: string; studyId: string; dataset: Dataset; onToast: (m: string) => void }) {
   const router = useRouter();
-  const meta = studyMeta(studyCode);
-  // Current protocol — read version + effective date from the SAME source as Study
-  // Settings Card 2 (studyMeta.protoVersion, format "v1.0 — 2026-03-01") so they stay in sync.
-  const [vPart, dPart] = meta.protoVersion.split("—").map((s) => s.trim());
-  const protoVersion = vPart || meta.protoVersion;
-  const effectiveDate = dPart || "—";
 
   const sites = useMemo(() => dataset.sites.filter((s) => s.study_id === studyId).slice().sort((a, b) => a.code.localeCompare(b.code)), [dataset.sites, studyId]);
   const subjectsBySite = useMemo(() => {
@@ -784,6 +1390,11 @@ function ProtocolAmendmentsSection({ studyCode, studyId, dataset, onToast }: { s
 
   // Study-level amendments stay component-state seeded with their own add modal.
   const [amendments, setAmendments] = useState<Amend[]>(() => seedStudyAmendments(studyCode));
+  // Current protocol version + effective date are DERIVED from the latest amendment —
+  // no amendments on record → em-dash (new studies show nothing until one exists).
+  const currentAmend = amendments.length ? amendments[amendments.length - 1] : null;
+  const protoVersion = currentAmend?.version ?? "—";
+  const effectiveDate = currentAmend?.date ?? "—";
   const [modalOpen, setModalOpen] = useState(false);
   const [mVer, setMVer] = useState(""); const [mDate, setMDate] = useState(""); const [mSum, setMSum] = useState(""); const [mImpact, setMImpact] = useState(""); const [mStruct, setMStruct] = useState(false);
   function openModal() { setMVer(""); setMDate(""); setMSum(""); setMImpact(""); setMStruct(false); setModalOpen(true); }
@@ -1830,25 +2441,36 @@ function BillingSection({ studyCode, onToast }: { studyCode: string; onToast: (m
   );
 }
 
-// Study-status badge + Admin-only demo status changer (top of the Settings nav).
-function StatusControl({ studyCode, status, onChange, isAdmin, onToast }: { studyCode: string; status: StudyStatus; onChange: (s: StudyStatus) => void; isAdmin: boolean; onToast: (m: string) => void }) {
+// Study-status badge + status changer + activation gate (top of the Settings nav).
+// Only Admin/DM (canManage) can change status. A setup study can only be activated
+// once Study Identity + Protocol Builder are complete (canActivate).
+function StatusControl({ studyCode, status, onChange, canManage, canActivate, onToast }: { studyCode: string; status: StudyStatus; onChange: (s: StudyStatus) => void; canManage: boolean; canActivate: boolean; onToast: (m: string) => void }) {
   const [open, setOpen] = useState(false);
   const meta = STATUS_META[status];
+  const activateTip = "Complete Study Identity and Protocol Builder before activating.";
   return (
     <div style={{ padding: "0 var(--space-4) var(--space-3)", marginBottom: "var(--space-3)", borderBottom: "1px solid var(--color-border-subtle)", position: "relative" }}>
       <div style={{ fontSize: "var(--text-xs)", fontWeight: 500, color: "var(--color-text-secondary)", fontFamily: "var(--font-mono)", marginBottom: 4 }}>{studyCode}</div>
-      <button type="button" disabled={!isAdmin} onClick={() => setOpen((o) => !o)} title={isAdmin ? "Change study status (demo)" : "Study status"} style={{ display: "inline-flex", alignItems: "center", gap: 4, border: "none", background: "none", padding: 0, cursor: isAdmin ? "pointer" : "default" }}>
+      <button type="button" disabled={!canManage} onClick={() => setOpen((o) => !o)} title={canManage ? "Change study status" : "Study status"} style={{ display: "inline-flex", alignItems: "center", gap: 4, border: "none", background: "none", padding: 0, cursor: canManage ? "pointer" : "default" }}>
         <span className={`set-badge ${meta.badge}`}>{meta.icon && <i className={`ti ti-${meta.icon}`} style={{ fontSize: 10, marginRight: 3 }}></i>}{meta.label}</span>
-        {isAdmin && <i className={`ti ti-chevron-${open ? "up" : "down"}`} style={{ fontSize: 12, color: "var(--color-text-tertiary)" }}></i>}
+        {canManage && <i className={`ti ti-chevron-${open ? "up" : "down"}`} style={{ fontSize: 12, color: "var(--color-text-tertiary)" }}></i>}
       </button>
-      {open && isAdmin && (
+      {open && canManage && (
         <div className="settings-status-dropdown">
-          {STATUS_ORDER.map((s) => (
-            <button key={s} type="button" onClick={() => { onChange(s); setOpen(false); onToast(`Study status changed to ${STATUS_META[s].label}`); }} style={s === status ? { fontWeight: 600 } : undefined}>
-              <span className={`set-badge ${STATUS_META[s].badge}`} style={{ marginRight: 6 }}>{STATUS_META[s].label}</span>
-            </button>
-          ))}
+          {STATUS_ORDER.map((s) => {
+            const blocked = s === "active" && status === "setup" && !canActivate;
+            return (
+              <button key={s} type="button" disabled={blocked} title={blocked ? activateTip : undefined} onClick={() => { if (blocked) return; onChange(s); setOpen(false); onToast(`Study status changed to ${STATUS_META[s].label}`); }} style={{ ...(s === status ? { fontWeight: 600 } : undefined), ...(blocked ? { opacity: 0.5, cursor: "not-allowed" } : undefined) }}>
+                <span className={`set-badge ${STATUS_META[s].badge}`} style={{ marginRight: 6 }}>{STATUS_META[s].label}</span>
+              </button>
+            );
+          })}
         </div>
+      )}
+      {status === "setup" && canManage && (
+        <button type="button" className="set-btn-primary" disabled={!canActivate} title={canActivate ? "Activate this study" : activateTip} onClick={() => { onChange("active"); onToast("Study activated"); }} style={{ marginTop: "var(--space-2)", width: "100%", height: 30, fontSize: "var(--text-xs)", justifyContent: "center", ...(canActivate ? undefined : { opacity: 0.5, cursor: "not-allowed" }) }}>
+          <i className="ti ti-rocket" style={{ fontSize: 13 }}></i> Activate study
+        </button>
       )}
     </div>
   );
@@ -1860,8 +2482,9 @@ export default function StudySettingsPage() {
   const cfg = useMemo(() => randConfig(study.code), [study.code]);
   // Study status lifecycle — seeded per study; the demo control (Admin) overrides
   // it in component state to demonstrate the read-only gating on locked studies.
-  const [status, setStatus] = useState<StudyStatus>(() => getStudyStatus(study.code));
-  useEffect(() => { setStatus(getStudyStatus(study.code)); }, [study.code]);
+  // New studies start in Setup (seeded studies keep their lifecycle status).
+  const [status, setStatus] = useState<StudyStatus>(() => (isSeededStudy(study.code) ? getStudyStatus(study.code) : "setup"));
+  useEffect(() => { setStatus(isSeededStudy(study.code) ? getStudyStatus(study.code) : "setup"); }, [study.code]);
   const isAdmin = activeRole === "Admin";
   const typeCfg = getStudyTypeConfig(study.code); // study-type design flags (rand unit, timing)
   const isGroupRand = typeCfg.randomizationUnit === "group";
@@ -1872,17 +2495,37 @@ export default function StudySettingsPage() {
   useEffect(() => { const s = sp.get("section"); if (s && NAV_ITEMS.some((n) => n.key === s)) setSection(s); }, [sp]);
   const [method, setMethod] = useState<Method>(cfg.method);
   const [blockSizes, setBlockSizes] = useState<number[]>(cfg.blockSizes); // selected valid block sizes
+  // Treatment groups: ratio + color are randomization-local; Code, Blinded label and
+  // Name are derived (by index) from the study's IP cards in Study Identity, so edits
+  // there reflect here reactively (1 IP card ↔ 1 group).
+  // `groups` holds only the randomization-local ratio + color per arm (seeded). The
+  // treatment groups shown are DERIVED from the Investigational Products (1 IP ↔ 1
+  // group): adding an IP in Study Identity → Drug & Investigational Product adds a
+  // group here; removing one removes it. Ratio/color come from `groups` by index
+  // (defaulted for IPs added after the seed). A blank IP (no name + no code) doesn't
+  // form a group yet.
   const [groups, setGroups] = useState<Group[]>(cfg.groups);
+  const ips = useIps(study.code, SEEDED_IPS[study.code] ?? []);
+  const GROUP_COLORS = ["#1760A8", "#1A6B47", "#6D7480", "#534AB7", "#B85C35", "#A33A08"];
+  const displayGroups = ips
+    .map((ip, i) => ({
+      idx: i,
+      ip,
+      code: ip.code || groups[i]?.code || `T${String(i + 1).padStart(2, "0")}`,
+      name: ip.name || groups[i]?.name || "",
+      blindedLabel: (ip.blindedLabel || "").trim() || undefined,
+      ratio: groups[i]?.ratio ?? 1,
+      color: groups[i]?.color ?? GROUP_COLORS[i % GROUP_COLORS.length],
+    }))
+    .filter((g) => g.name.trim() !== "" || (g.ip.code || "").trim() !== "");
   const [blinding, setBlinding] = useState(cfg.blinding);
   const [assignmentTiming, setAssignmentTiming] = useState<string>(typeCfg.groupAssignmentTiming);
-  // Treatment-group add/edit modal
+  // Treatment-group edit modal — ratio only (Name is read-only, from the IP card;
+  // Code + Blinded label are edited on the IP card in Study Identity). Groups can't
+  // be created or deleted here — they're derived from the IP registry.
   const [gOpen, setGOpen] = useState(false);
-  const [gEdit, setGEdit] = useState<string | null>(null); // code being edited, or null for a new group
-  const [gName, setGName] = useState("");
-  const [gDescription, setGDescription] = useState("");
-  const [gCode, setGCode] = useState("");
+  const [gEditIdx, setGEditIdx] = useState<number | null>(null); // index of the group being edited
   const [gRatio, setGRatio] = useState("1");
-  const [gBlinded, setGBlinded] = useState("");
   const [stratScope, setStratScope] = useState<"site" | "study">(cfg.stratScope);
   const [factors, setFactors] = useState<StratFactor[]>(cfg.stratFactors);
   const [toast, setToast] = useState<string | null>(null);
@@ -1918,17 +2561,32 @@ export default function StudySettingsPage() {
     return () => clearTimeout(t);
   }, [toast]);
 
-  // ── Reactive randomization derivations (all recompute when `groups` change) ──
-  const ratioTotal = groups.reduce((s, g) => s + g.ratio, 0);
+  // ── Reactive randomization derivations (recompute when IPs or ratios change) ──
+  const ratioTotal = displayGroups.reduce((s, g) => s + g.ratio, 0);
   const showBlock = method === "blocked"; // block sizes only apply to blocked randomization
   const showGenerated = method === "generated";
   // Valid block sizes = multiples of the ratio total, ratioTotal×1 … ratioTotal×6.
   const validBlockSizes = ratioTotal > 0 ? [1, 2, 3, 4, 5, 6].map((k) => ratioTotal * k) : [];
-  const ratiosEqual = groups.length > 0 && groups.every((g) => g.ratio === groups[0].ratio);
-  const ratioString = groups.map((g) => `${g.code} ${g.ratio}`).join(" : ") + (ratiosEqual && groups.length > 0 ? " (equal allocation)" : "");
+  const ratiosEqual = displayGroups.length > 0 && displayGroups.every((g) => g.ratio === displayGroups[0].ratio);
+  const ratioString = displayGroups.map((g) => `${g.code} ${g.ratio}`).join(" : ") + (ratiosEqual && displayGroups.length > 0 ? " (equal allocation)" : "");
   // Config edits are DM/Admin-only, and only while the study is setup/active (the
   // section is otherwise wrapped in a disabled fieldset).
   const canEditRand = (activeRole === "DM" || activeRole === "Admin") && isSectionEditable(status, "randomization");
+  // Protocol Builder is locked (read-only) in every status except setup.
+  const randLocked = status !== "setup";
+  // ── Activation gate ── Only Admin/DM can change status. A setup study can activate
+  // only when Study Identity + Protocol Builder are complete. (Completeness checks the
+  // fields accessible here: persisted study-identity fields + the live randomization
+  // design. Study start / target N / SoE live in child-local state and aren't gated —
+  // see the note in the PR; extending them would require a DATA_KEY bump.)
+  const studyRow = dataset.studies.find((s) => s.id === study.id);
+  const canManageStatus = activeRole === "Admin" || activeRole === "DM";
+  // protocol_number is no longer captured here (derived read-only from P&A), so it
+  // isn't part of the identity-complete gate.
+  const identityComplete = !!(studyRow?.name && studyRow?.sponsor && studyRow?.speciesCategory && studyRow?.studyType && studyRow?.species && studyRow?.enrollmentModel && studyRow?.study_start && studyRow?.enrollment_target);
+  const protocolComplete = displayGroups.length >= 1 && !!method && !!blinding;
+  const canActivate = identityComplete && protocolComplete;
+  const sectionComplete = (key: string) => (key === "study" ? identityComplete : key === "randomization" ? protocolComplete : false);
   // When the ratio total changes (groups edited), deselect any block size no longer valid.
   useEffect(() => {
     setBlockSizes((prev) => {
@@ -1939,32 +2597,25 @@ export default function StudySettingsPage() {
 
   const toggleBlockSize = (b: number) => setBlockSizes((prev) => (prev.includes(b) ? prev.filter((x) => x !== b) : [...prev, b].sort((x, y) => x - y)));
 
-  // Treatment-group modal handlers.
-  const GROUP_COLORS = ["#1760A8", "#1A6B47", "#6D7480", "#534AB7", "#B85C35", "#A33A08"];
-  function openAddGroup() {
-    setGEdit(null); setGName(""); setGDescription(""); setGCode(""); setGRatio("1"); setGBlinded(""); setGOpen(true);
-  }
-  function openEditGroup(g: Group) {
-    setGEdit(g.code); setGName(g.name); setGDescription(g.description ?? ""); setGCode(g.code); setGRatio(String(g.ratio)); setGBlinded(g.blindedLabel ?? ""); setGOpen(true);
-  }
+  // Treatment-group modal handlers — edit ratio only (by index).
+  function openEditGroup(i: number) { setGEditIdx(i); setGRatio(String(groups[i]?.ratio ?? 1)); setGOpen(true); }
   function saveGroup() {
-    const name = gName.trim(), code = gCode.trim();
-    if (!name) { setToast("Treatment name is required"); return; }
-    if (!code) { setToast("Code is required"); return; }
-    if (groups.some((g) => g.code === code && g.code !== gEdit)) { setToast(`Code ${code} is already used`); return; }
+    if (gEditIdx == null) { setGOpen(false); return; }
     const ratio = Math.max(1, Math.floor(Number(gRatio) || 1));
-    const blindedLabel = gBlinded.trim() || undefined;
-    const description = gDescription.trim() || undefined;
-    if (gEdit) {
-      setGroups(groups.map((g) => (g.code === gEdit ? { ...g, code, name, description, ratio, blindedLabel } : g)));
-      setToast("Group updated");
-    } else {
-      setGroups([...groups, { code, name, description, ratio, blindedLabel, arm: code, lot: "—", color: GROUP_COLORS[groups.length % GROUP_COLORS.length] }]);
-      setToast("Group added");
-    }
+    setGroups((prev) => {
+      // Ensure a ratio/color slot exists at this index — IPs added after the seed
+      // have no `groups` entry yet.
+      const next = prev.slice();
+      while (next.length <= gEditIdx!) {
+        const j = next.length;
+        next.push({ code: "", name: "", ratio: 1, arm: "", lot: "—", color: GROUP_COLORS[j % GROUP_COLORS.length] });
+      }
+      next[gEditIdx!] = { ...next[gEditIdx!], ratio };
+      return next;
+    });
+    setToast("Ratio updated");
     setGOpen(false);
   }
-  function deleteGroup(code: string) { setGroups(groups.filter((g) => g.code !== code)); setToast("Group removed"); }
 
   function openAddModal() {
     setEditKey(null); setSfName(""); setSfSource("site");
@@ -1993,15 +2644,22 @@ export default function StudySettingsPage() {
     <div className="settings-wrap">
       {/* Nav sidebar — grouped */}
       <nav className="settings-nav" aria-label="Settings sections">
-        <StatusControl studyCode={study.code} status={status} onChange={setStatus} isAdmin={isAdmin} onToast={setToast} />
+        <StatusControl studyCode={study.code} status={status} onChange={setStatus} canManage={canManageStatus} canActivate={canActivate} onToast={setToast} />
         {NAV_GROUPS.map((grp, gi) => (
           <div key={grp.title}>
             <div className="settings-nav-title" style={gi > 0 ? { marginTop: "var(--space-4)" } : undefined}>{grp.title}</div>
-            {grp.items.map((n) => (
-              <button key={n.key} className={`settings-nav-item${section === n.key ? " active" : ""}`} onClick={() => setSection(n.key)} type="button">
-                <i className={`ti ti-${n.icon}`} aria-hidden="true"></i> {n.label}
-              </button>
-            ))}
+            {grp.items.map((n) => {
+              const navLocked = isSectionLocked(n.key, status);
+              const navComplete = status === "setup" && sectionComplete(n.key);
+              return (
+                <button key={n.key} className={`settings-nav-item${section === n.key ? " active" : ""}`} onClick={() => setSection(n.key)} type="button">
+                  <i className={`ti ti-${n.icon}`} aria-hidden="true"></i>
+                  {n.label}
+                  {navComplete && <i className="ti ti-circle-check" title="Complete" style={{ marginLeft: "auto", color: "var(--green-600)", fontSize: 15 }}></i>}
+                  {navLocked && <i className="ti ti-lock" title="Locked — study is active" style={{ marginLeft: navComplete ? 6 : "auto", color: "var(--color-text-tertiary)", fontSize: 14 }}></i>}
+                </button>
+              );
+            })}
           </div>
         ))}
       </nav>
@@ -2010,36 +2668,56 @@ export default function StudySettingsPage() {
       <div className="settings-content">
         {(() => { const sectionEl = section === "randomization" ? (
           <>
+            <div className="section-header">
+              <h1 className="set-section-title">Protocol Builder</h1>
+            </div>
             {/* ══ SECTION 1 — Treatment groups ══ */}
             <div className="settings-card">
               <div className="settings-card-header">
-                <div><div className="settings-card-title">Treatment groups</div><div className="settings-card-desc">Define treatment arms before configuring randomization</div></div>
-                {canEditRand && groups.length > 0 && <button className="set-btn-secondary" type="button" onClick={openAddGroup}><i className="ti ti-plus"></i> Add group</button>}
+                <div><div className="settings-card-title">Treatment groups</div><div className="settings-card-desc">Derived from your Investigational Products — set each group&apos;s allocation ratio</div></div>
               </div>
               <div className="settings-card-body">
-                {groups.length === 0 ? (
-                  <div className="set-level-empty" style={{ padding: "var(--space-5)" }}>
-                    No treatment groups defined. Add your first group to begin.
-                    {canEditRand && <div style={{ marginTop: "var(--space-3)" }}><button className="set-btn-secondary" type="button" onClick={openAddGroup}><i className="ti ti-plus"></i> Add group</button></div>}
+                {displayGroups.length > 0 && (
+                  // Groups can't be created/removed here — they mirror the IP registry.
+                  <div className="set-info-banner" style={{ marginBottom: "var(--space-4)" }}>
+                    <i className="ti ti-info-circle" style={{ fontSize: 16, color: "var(--slate-600)", flexShrink: 0, marginTop: 1 }}></i>
+                    <div style={{ fontSize: "var(--text-xs)", color: "var(--color-text-tertiary)" }}>Treatment groups are derived from your Investigational Products configuration. To add or remove a group, update the IP Registry in Study Identity. {!randLocked && <button type="button" className="set-inline-link" onClick={() => { setSection("study"); setTimeout(() => document.getElementById("ip-registry")?.scrollIntoView({ behavior: "smooth", block: "start" }), 80); }}>Go to Study Identity →</button>}</div>
+                  </div>
+                )}
+                {displayGroups.length === 0 ? (
+                  // Groups are derived from the study's Investigational Products — they
+                  // can't be created directly here. Point the user to the IP Registry in
+                  // Study Identity instead of offering an "Add group" button.
+                  <div style={{ display: "flex", flexDirection: "column", alignItems: "center", textAlign: "center", gap: "var(--space-3)", padding: "var(--space-7) var(--space-5)" }}>
+                    <i className="ti ti-pill" style={{ fontSize: 32, color: "var(--color-text-placeholder)" }} aria-hidden="true"></i>
+                    <div style={{ fontSize: "var(--text-lg)", fontWeight: 500, color: "var(--color-text-secondary)" }}>No treatment groups yet</div>
+                    <div style={{ fontSize: "var(--text-sm)", color: "var(--color-text-tertiary)", maxWidth: 460, lineHeight: 1.5 }}>Treatment groups are created automatically from your Investigational Products. Add your IPs in Study Identity first, then return here to configure ratios and randomization.</div>
+                    <button type="button" className="set-inline-link" onClick={() => window.location.reload()}>Already added IPs? Refresh to see your groups.</button>
                   </div>
                 ) : (
                   <table className="rand-group-table">
-                    <thead><tr><th>Code</th><th>Name</th><th>Ratio</th><th>Blinded label</th>{canEditRand && <th style={{ textAlign: "right" }}>Actions</th>}</tr></thead>
+                    <thead><tr><th>Group</th><th>Ratio</th><th>Blinded label</th><th>Code</th>{canEditRand && <th style={{ textAlign: "right" }}></th>}</tr></thead>
                     <tbody>
-                      {groups.map((g) => (
-                        <tr key={g.code}>
-                          <td><span className="group-color-dot" style={{ background: g.color, display: "inline-block", marginRight: 6, verticalAlign: "middle" }} /><span style={{ fontFamily: "var(--font-mono)", fontWeight: 500 }}>{g.code}</span></td>
-                          <td>{g.name}{g.description ? <span style={{ color: "var(--color-text-tertiary)" }}> · {g.description}</span> : null}</td>
+                      {displayGroups.map((g) => {
+                        const tm = IP_TYPES.find((x) => x.key === g.ip.type);
+                        return (
+                        <tr key={g.idx}>
+                          <td>
+                            <span className="group-color-dot" style={{ background: g.color, display: "inline-block", marginRight: 6, verticalAlign: "middle" }} />
+                            <span style={{ fontWeight: 500 }}>{g.name}</span>
+                            {tm && <span className={`set-badge ${tm.badge}`} style={{ marginLeft: 6 }}>{tm.label}</span>}
+                          </td>
                           <td style={{ fontFamily: "var(--font-mono)" }}>{g.ratio}</td>
                           <td style={{ color: g.blindedLabel ? undefined : "var(--color-text-placeholder)" }}>{g.blindedLabel || "—"}</td>
+                          <td style={{ fontFamily: "var(--font-mono)", fontWeight: 500 }}>{g.code || "—"}</td>
                           {canEditRand && (
                             <td style={{ textAlign: "right", whiteSpace: "nowrap" }}>
-                              <button className="set-btn-icon" title="Edit group" type="button" onClick={() => openEditGroup(g)}><i className="ti ti-pencil" style={{ fontSize: 13 }}></i></button>
-                              <button className="set-btn-icon" title="Delete group" type="button" onClick={() => deleteGroup(g.code)}><i className="ti ti-trash" style={{ fontSize: 13 }}></i></button>
+                              <button className="set-btn-icon" title="Edit ratio" type="button" onClick={() => openEditGroup(g.idx)}><i className="ti ti-pencil" style={{ fontSize: 13 }}></i></button>
                             </td>
                           )}
                         </tr>
-                      ))}
+                        );
+                      })}
                     </tbody>
                   </table>
                 )}
@@ -2081,7 +2759,7 @@ export default function StudySettingsPage() {
                 {/* ROW 3 — Allocation ratio (display only, derived from group ratios) */}
                 <div className="settings-row">
                   <div><div className="settings-row-label">Allocation ratio</div><div className="settings-row-desc">Derived from treatment group ratios</div></div>
-                  <div className="settings-row-value" style={{ fontSize: "var(--text-sm)", fontFamily: "var(--font-mono)", color: "var(--color-text-secondary)" }}>{groups.length ? ratioString : "—"}</div>
+                  <div className="settings-row-value" style={{ fontSize: "var(--text-sm)", fontFamily: "var(--font-mono)", color: "var(--color-text-secondary)" }}>{displayGroups.length ? ratioString : "—"}</div>
                 </div>
 
                 {/* ROW 4 — Group assignment timing */}
@@ -2096,13 +2774,15 @@ export default function StudySettingsPage() {
                   </div>
                 </div>
 
-                {/* ROW 5 — Blinding */}
+                {/* ROW 5 — Blinding design (read-only) — configured in Study Identity →
+                    Study configuration; shown here for reference only. */}
                 <div className="settings-row">
-                  <div><div className="settings-row-label">Blinding</div><div className="settings-row-desc">Who knows the treatment assignment</div></div>
+                  <div><div className="settings-row-label">Blinding design</div><div className="settings-row-desc">Set in Study Identity → Study configuration</div></div>
                   <div className="settings-row-value">
-                    <select className="set-select" style={{ maxWidth: 200 }} value={blinding} onChange={(e) => { setBlinding(e.target.value); setToast("Blinding updated"); }}>
-                      <option>Open-label (no blinding)</option><option>Single-blind</option><option>Double-blind</option>
-                    </select>
+                    <div style={{ display: "flex", alignItems: "center", gap: "var(--space-3)" }}>
+                      <span style={{ fontSize: "var(--text-sm)", fontWeight: 500 }}>{BLINDING_OPTS.find((b) => b.key === (SEEDED_BLINDING[study.code] ?? "open"))?.label ?? "Open-label"}</span>
+                      {!randLocked && <button type="button" className="set-inline-link" onClick={() => { setSection("study"); setTimeout(() => document.getElementById("study-configuration")?.scrollIntoView({ behavior: "smooth", block: "start" }), 80); }}>Change in Study Identity →</button>}
+                    </div>
                   </div>
                 </div>
 
@@ -2120,7 +2800,9 @@ export default function StudySettingsPage() {
                   <div style={{ display: "flex", flexDirection: "column", gap: "var(--space-2)", marginBottom: "var(--space-3)" }}>
                     {factors.map((f) => (
                       <div className="strat-factor-card" key={f.key}>
-                        <i className="ti ti-grip-vertical" style={{ fontSize: 14, color: "var(--color-text-placeholder)", cursor: "grab", flexShrink: 0 }}></i>
+                        {/* Read-only (locked) hides the drag handle + edit/remove controls;
+                            the card content stays visible. */}
+                        {!randLocked && <i className="ti ti-grip-vertical" style={{ fontSize: 14, color: "var(--color-text-placeholder)", cursor: "grab", flexShrink: 0 }}></i>}
                         <div style={{ flex: 1, minWidth: 0 }}>
                           <div style={{ display: "flex", alignItems: "center", gap: "var(--space-2)", marginBottom: 3 }}>
                             <span style={{ fontSize: "var(--text-sm)", fontWeight: 500 }}>{f.name}</span>
@@ -2128,11 +2810,13 @@ export default function StudySettingsPage() {
                           </div>
                           <div style={{ fontSize: "var(--text-xs)", color: "var(--color-text-tertiary)" }}>{factorDetail(f)}</div>
                         </div>
-                        <div style={{ display: "flex", alignItems: "center", gap: 2, flexShrink: 0 }}>
-                          <button className="set-btn-icon" title="Edit factor" type="button" onClick={() => openEditModal(f)}><i className="ti ti-pencil" style={{ fontSize: 13 }}></i></button>
-                          {/* The built-in Site factor is always present and cannot be removed. */}
-                          {f.source !== "site" && <button className="set-btn-icon" title="Remove factor" type="button" onClick={() => { setFactors(factors.filter((x) => x.key !== f.key)); setToast("Factor removed"); }}><i className="ti ti-trash" style={{ fontSize: 13 }}></i></button>}
-                        </div>
+                        {!randLocked && (
+                          <div style={{ display: "flex", alignItems: "center", gap: 2, flexShrink: 0 }}>
+                            <button className="set-btn-icon" title="Edit factor" type="button" onClick={() => openEditModal(f)}><i className="ti ti-pencil" style={{ fontSize: 13 }}></i></button>
+                            {/* The built-in Site factor is always present and cannot be removed. */}
+                            {f.source !== "site" && <button className="set-btn-icon" title="Remove factor" type="button" onClick={() => { setFactors(factors.filter((x) => x.key !== f.key)); setToast("Factor removed"); }}><i className="ti ti-trash" style={{ fontSize: 13 }}></i></button>}
+                          </div>
+                        )}
                       </div>
                     ))}
                     {factors.length === 0 && (method === "stratified" || method === "minimization") && (
@@ -2142,7 +2826,7 @@ export default function StudySettingsPage() {
                       <div style={{ fontSize: "var(--text-sm)", color: "var(--color-text-placeholder)" }}>No stratification factors defined.</div>
                     )}
                   </div>
-                  <button className="set-btn-secondary" style={{ height: 28, fontSize: "var(--text-xs)" }} type="button" onClick={openAddModal}><i className="ti ti-plus"></i> Add factor</button>
+                  {!randLocked && <button className="set-btn-secondary" style={{ height: 28, fontSize: "var(--text-xs)" }} type="button" onClick={openAddModal}><i className="ti ti-plus"></i> Add factor</button>}
                 </div>
 
                 {method === "minimization" && (
@@ -2180,7 +2864,9 @@ export default function StudySettingsPage() {
         ) : section === "inventory" ? (
           <InventorySection studyCode={study.code} studyId={study.id} studyForms={studyForms} dataset={dataset} onToast={setToast} />
         ) : section === "study" ? (
-          <StudySettingsSection key={study.code} studyCode={study.code} onToast={setToast} />
+          isSeededStudy(study.code)
+            ? <StudySettingsSection key={study.code} studyCode={study.code} onToast={setToast} onNavigate={setSection} locked={isSectionLocked("study", status)} setup={status === "setup"} />
+            : <NewStudySetup key={study.code} study={study} onToast={setToast} onNavigate={setSection} />
         ) : section === "protocol" ? (
           <ProtocolAmendmentsSection key={study.code} studyCode={study.code} studyId={study.id} dataset={dataset} onToast={setToast} />
         ) : section === "formperm" ? (
@@ -2207,56 +2893,51 @@ export default function StudySettingsPage() {
           </>
         );
         // Status gate — when the study status locks this section, disable every
-        // control (fieldset) and show a read-only banner.
-        if (isSectionEditable(status, section)) return sectionEl;
+        // control (fieldset) and show a read-only banner. The Study Identity ("study")
+        // section manages its own lock internally so Regulatory & Approvals stays
+        // editable (passed the `locked` prop), so it's excluded here.
+        if (section === "study" || !isSectionLocked(section, status)) return sectionEl;
         return (
           <>
-            <div className="settings-locked-banner"><i className="ti ti-lock"></i> Locked — study status: {STATUS_META[status].label}. This section is read-only.</div>
+            <div className="settings-locked-banner"><i className="ti ti-lock"></i> {LOCKED_BANNER_TEXT}</div>
             <fieldset disabled className="settings-locked-fieldset">{sectionEl}</fieldset>
           </>
         );
         })()}
       </div>
 
-      {/* ── Add / Edit treatment group modal ── */}
-      {gOpen && (
+      {/* ── Edit treatment-group ratio modal ── Name is read-only (from the IP card);
+          Code + Blinded label are edited on the IP card in Study Identity. */}
+      {gOpen && (() => {
+        const gName = (gEditIdx != null ? displayGroups.find((g) => g.idx === gEditIdx)?.name : "") || "";
+        return (
         <div className="set-modal-overlay" onClick={(e) => { if (e.target === e.currentTarget) setGOpen(false); }}>
           <div className="set-modal" role="dialog" aria-modal="true">
             <div className="set-modal-header">
-              <div><div className="set-modal-title">{gEdit ? "Edit treatment group" : "Add treatment group"}</div>
-                <div style={{ fontSize: "var(--text-xs)", color: "var(--color-text-tertiary)", marginTop: 2 }}>Define a treatment arm and its allocation ratio</div></div>
+              <div><div className="set-modal-title">Edit ratio — {gName}</div>
+                <div style={{ fontSize: "var(--text-xs)", color: "var(--color-text-tertiary)", marginTop: 2 }}>Set this group&apos;s allocation ratio</div></div>
               <button className="set-modal-close" type="button" onClick={() => setGOpen(false)}><i className="ti ti-x"></i></button>
             </div>
             <div className="set-modal-body">
               <div className="set-field">
-                <div className="set-field-label">Treatment name</div>
-                <input className="set-input" placeholder="e.g. Tulathromycin 2.5 mg/kg" value={gName} onChange={(e) => setGName(e.target.value)} />
-              </div>
-              <div className="set-field">
-                <div className="set-field-label">Description <span style={{ color: "var(--color-text-tertiary)", fontWeight: 400 }}>(optional)</span></div>
-                <input className="set-input" placeholder="e.g. Basal feed, Saline placebo, Treatment A" value={gDescription} onChange={(e) => setGDescription(e.target.value)} />
-              </div>
-              <div className="set-field">
-                <div className="set-field-label">Code</div>
-                <input className="set-input" placeholder="e.g. T01, T02, ARM-A" value={gCode} onChange={(e) => setGCode(e.target.value)} />
+                <div className="set-field-label">Name</div>
+                <div className="set-input set-input-ro" style={{ display: "flex", alignItems: "center" }}>{gName}</div>
+                <div style={{ fontSize: "var(--text-xs)", color: "var(--color-text-tertiary)", marginTop: 4 }}>Set on the IP card in Study Identity.</div>
               </div>
               <div className="set-field">
                 <div className="set-field-label">Ratio</div>
                 <input type="number" min={1} className="set-input" value={gRatio} onChange={(e) => setGRatio(e.target.value)} />
                 <div style={{ fontSize: "var(--text-xs)", color: "var(--color-text-tertiary)", marginTop: 4 }}>Relative number of subjects allocated to this group (min 1).</div>
               </div>
-              <div className="set-field">
-                <div className="set-field-label">Blinded label <span style={{ color: "var(--color-text-tertiary)", fontWeight: 400 }}>(optional)</span></div>
-                <input className="set-input" placeholder="e.g. Treatment A" value={gBlinded} onChange={(e) => setGBlinded(e.target.value)} />
-              </div>
             </div>
             <div className="set-modal-footer">
               <button className="set-btn-secondary" type="button" onClick={() => setGOpen(false)}>Cancel</button>
-              <button className="set-btn-primary" type="button" onClick={saveGroup}><i className="ti ti-check"></i> Save group</button>
+              <button className="set-btn-primary" type="button" onClick={saveGroup}><i className="ti ti-check"></i> Save ratio</button>
             </div>
           </div>
         </div>
-      )}
+        );
+      })()}
 
       {/* ── Add / Edit stratification factor modal ── */}
       {modalOpen && (
