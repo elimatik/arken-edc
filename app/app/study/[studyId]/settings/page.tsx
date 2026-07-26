@@ -24,6 +24,7 @@ import { getStudyTypeConfig } from "@/lib/study-type-config";
 import { getFormPermDefaults, setFormPermDefault, setFormPermDefaultsFor, rolePresetPerms, useFormPermDefaults } from "@/lib/form-perm-defaults";
 import { type StudyStatus, STATUS_ORDER, STATUS_META, getStudyStatus, isSectionEditable, isSectionLocked, LOCKED_BANNER_TEXT } from "@/lib/study-status";
 import { type IPType, type IPProduct, SEEDED_IPS, useIps, updateIp, addIp, removeIp } from "@/lib/ip-registry-store";
+import { enrollmentModelLabel } from "@/lib/enrollment-labels";
 import "./settings.css";
 
 type Method = "blocked" | "simple" | "stratified" | "minimization" | "generated";
@@ -105,7 +106,6 @@ interface StudyMeta {
   type: StudyTypeKey;
   drugName: string; drugFormulation: string; drugDoseUnit: string; drugDoseCalc: string; drugRoute: string;
 }
-const SPECIES_OPTS = ["Cattle", "Canine", "Poultry", "Swine", "Equine", "Feline", "Ovine", "Aquatic", "Other"];
 function studyMeta(code: string): StudyMeta {
   if (code === "CA-0801") return {
     title: "DermAlliv™ Canine Atopic Dermatitis Study", sponsor: "DermAlliv Therapeutics",
@@ -532,11 +532,6 @@ function StudySettingsSection({ studyCode, onToast, onNavigate, locked = false, 
   const [cfgEnroll, setCfgEnroll] = useState<EnrollModel>(twoAxis.enrollmentModel);
   const [cfgBlinding, setCfgBlinding] = useState<string>(SEEDED_BLINDING[studyCode] ?? "open");
   const cfgEffSpecies = cfgSpeciesSel === "Other" ? cfgCustomSpecies : cfgSpeciesSel;
-  const cfgTypeOpts = STUDY_TYPE_OPTS.filter((o) => cfgCat === "livestock" || !o.livestockOnly);
-  const cfgSpeciesOpts = NS_SPECIES_OPTS[cfgCat];
-  const cfgEnrollOpts = nsEnrollOptions(cfgCat, cfgType);
-  const cfgIsPoultry = cfgEffSpecies === "Poultry";
-  const cfgSubjLabel = nsSpeciesSubjectLabel(cfgEffSpecies, cfgEnroll);
   const cfgShowTAS = nsShowTAS(cfgType);
   const cfgShowWithdrawal = nsShowWithdrawal(cfgCat, cfgType);
   const cfgShowCrossover = nsShowCrossover(cfgType);
@@ -551,12 +546,10 @@ function StudySettingsSection({ studyCode, onToast, onNavigate, locked = false, 
   const [editInfo, setEditInfo] = useState(false);
   const [title, setTitle] = useState(meta.title);
   const [sponsor, setSponsor] = useState(seedSponsor);
-  const [ind, setInd] = useState(meta.ind);
   const [species, setSpecies] = useState(meta.species);
   const [indication, setIndication] = useState(seedIndication);
   const [dTitle, setDTitle] = useState(meta.title);
   const [dSponsor, setDSponsor] = useState(seedSponsor);
-  const [dInd, setDInd] = useState(meta.ind);
   const [dSpecies, setDSpecies] = useState(meta.species);
   const [dIndication, setDIndication] = useState(seedIndication);
   // Protocol number + version are DERIVED read-only from Protocol & Amendments —
@@ -571,40 +564,8 @@ function StudySettingsSection({ studyCode, onToast, onNavigate, locked = false, 
 
   // Card 3a/3b — Study type, design fields (editable, initialized from the study-type
   // config defaults; overrides are component-local / display-only), and hierarchy.
-  const [activeType, setActiveType] = useState<StudyTypeKey>(meta.type);
-  const [enrollModel, setEnrollModel] = useState<string>(cfg.enrollmentModel);
-  const [subjectUnit, setSubjectUnit] = useState<string>(cfg.subjectUnit);
-  const [structureLockedAt, setStructureLockedAt] = useState<string>(cfg.structureLockedAt);
-  const [allowAdditions, setAllowAdditions] = useState(cfg.allowMidStudyAdditions);
+  const [allowAdditions] = useState(cfg.allowMidStudyAdditions);
   const [hierarchy, setHierarchy] = useState<HLevel[]>(() => studyHierarchy(studyCode));
-  // Sensible design defaults per study type — applied when a type is (re)selected.
-  const TYPE_DESIGN_DEFAULTS: Record<StudyTypeKey, { enrollModel: string; subjectUnit: string; structureLockedAt: string; allow: boolean }> = {
-    livestock: { enrollModel: "rolling", subjectUnit: "animal", structureLockedAt: "first_enrollment", allow: true },
-    companion: { enrollModel: "rolling", subjectUnit: "animal", structureLockedAt: "first_enrollment", allow: true },
-    aquatic: { enrollModel: "rolling", subjectUnit: "tank", structureLockedAt: "first_enrollment", allow: true },
-    custom: { enrollModel: "rolling", subjectUnit: "animal", structureLockedAt: "manual", allow: true },
-  };
-  function pickType(t: StudyTypeKey) {
-    setActiveType(t);
-    const d = TYPE_DESIGN_DEFAULTS[t];
-    setEnrollModel(d.enrollModel); setSubjectUnit(d.subjectUnit); setStructureLockedAt(d.structureLockedAt); setAllowAdditions(d.allow);
-    setHierarchy(HIERARCHY_PRESETS[t].map((l) => ({ ...l })));
-    onToast("Study type updated — design & hierarchy pre-filled");
-  }
-  // Additions ⇄ structure-lock invariant: OFF locks the structure "at study
-  // initiation" (and the select is read-only); ON defaults the lock to "at first
-  // enrollment" (then editable between first-enrollment / manual).
-  function applyAdditions(on: boolean) {
-    setAllowAdditions(on);
-    setStructureLockedAt(on ? "first_enrollment" : "initiation");
-  }
-  // Enrollment model auto-sets mid-study additions (Fixed group / Single cohort → OFF,
-  // Rolling → ON); still manually overridable via the toggle.
-  function changeEnrollModel(v: string) {
-    setEnrollModel(v);
-    applyAdditions(v === "rolling");
-    onToast("Enrollment model updated");
-  }
   function setLevelName(i: number, val: string) { setHierarchy((h) => h.map((l, j) => (j === i ? { ...l, value: val } : l))); onToast("Hierarchy updated"); }
   function removeLevel(i: number) { setHierarchy((h) => (h[i].fixed || h[i].isSubject ? h : h.filter((_, j) => j !== i))); onToast("Level removed"); }
   function addLevel() {
@@ -617,12 +578,6 @@ function StudySettingsSection({ studyCode, onToast, onNavigate, locked = false, 
     onToast("Level added");
   }
 
-  const TYPES: { key: StudyTypeKey; label: string; icon: string }[] = [
-    { key: "livestock", label: "Livestock", icon: "cow" },
-    { key: "companion", label: "Companion animal", icon: "paw" },
-    { key: "aquatic", label: "Aquatic", icon: "fish" },
-    { key: "custom", label: "Custom", icon: "settings" },
-  ];
 
   return (
     <>
@@ -653,7 +608,7 @@ function StudySettingsSection({ studyCode, onToast, onNavigate, locked = false, 
           </div>
           <div className="settings-row">
             <div className="settings-row-label"><div className="settings-row-label-text">Study ID</div></div>
-            <div className="settings-row-value"><input className="field-input readonly" value={studyCode} readOnly tabIndex={-1} style={{ fontFamily: "var(--font-mono)", fontWeight: 500 }} /></div>
+            <div className="settings-row-value"><input className="field-input readonly" value={studyCode} readOnly tabIndex={-1} style={{ fontFamily: "var(--font-mono)" }} /></div>
           </div>
           <div className="settings-row">
             <div className="settings-row-label">
@@ -776,15 +731,8 @@ const STUDY_TYPE_OPTS: { key: StudyTypeK; label: string; desc: string; livestock
   { key: "bioequivalence", label: "Bioequivalence", desc: "Generic vs pioneer drug comparison. Crossover design with washout phase configuration." },
   { key: "observational", label: "Observational / Post-marketing", desc: "Post-marketing surveillance and real-world performance tracking." },
 ];
-const ENROLL_LABELS: Record<EnrollModel, string> = { individual: "Individual", cohort_pen: "Cohort / Pen", dam_litter: "Dam / Litter", dynamic_herd: "Dynamic Herd / Flock" };
 const BLINDING_OPTS: { key: string; label: string }[] = [{ key: "open", label: "Open-label" }, { key: "single", label: "Single-blind" }, { key: "double", label: "Double-blind" }];
 const SEEDED_BLINDING: Record<string, string> = { "BR-2502": "open", "CA-0801": "double", "PH-2401": "open" };
-const ENROLL_DESC: Record<EnrollModel, string> = {
-  individual: "Each animal is enrolled and tracked as an independent subject.",
-  cohort_pen: "Animals are managed and dosed as a pen or cohort — the pen is the subject.",
-  dam_litter: "Hierarchical reproductive model. Dam → Litter → Offspring. Used for reproductive toxicity and production studies.",
-  dynamic_herd: "An open population (herd / flock) tracked as a lot; mortality is logged against the lot.",
-};
 function nsEnrollOptions(species: SpeciesCat, t: StudyTypeK): EnrollModel[] {
   // Companion studies are individual by default but support Dam / Litter breeding
   // designs (kennel whelping, feline reproductive toxicity).
@@ -807,7 +755,7 @@ function nsHierarchy(species: SpeciesCat, m: EnrollModel): HLevel[] {
 // Species dropdown driven by the study category. "Other" reveals a free-text field.
 const NS_SPECIES_OPTS: Record<SpeciesCat, string[]> = {
   companion: ["Dog", "Cat", "Horse", "Rabbit", "Other"],
-  livestock: ["Cattle", "Swine", "Poultry", "Sheep", "Goat", "Other"],
+  livestock: ["Cattle", "Swine", "Poultry", "Sheep", "Goat", "Fish", "Other"],
 };
 const NS_STANDARD_SPECIES = new Set([...NS_SPECIES_OPTS.companion, ...NS_SPECIES_OPTS.livestock]);
 // Subject-level label a chosen species implies (null = leave the model's default).
@@ -828,7 +776,6 @@ function nsSpeciesSubjectLabel(species: string, model: EnrollModel | null): stri
 const nsShowWithdrawal = (sc: SpeciesCat | null, st: StudyTypeK | null) => sc === "livestock" && (st === "efficacy" || st === "residue");
 const nsShowCrossover = (st: StudyTypeK | null) => st === "bioequivalence";
 const nsShowTAS = (st: StudyTypeK | null) => st === "tas";
-const nsConsentLabel = (sc: SpeciesCat | null) => (sc === "companion" ? "Owner informed consent" : "Producer / farm manager consent");
 // Seeded two-axis config for the three portfolio studies (from study config, not a
 // schema change) — pre-populates the Study configuration section in StudySettingsSection.
 const SEEDED_TWO_AXIS: Record<string, { speciesCategory: SpeciesCat; studyType: StudyTypeK; species: string; enrollmentModel: EnrollModel }> = {
@@ -872,68 +819,6 @@ function CrossoverNoteCard() {
         <div style={{ fontSize: "var(--text-xs)", color: "var(--color-text-tertiary)" }}>Bioequivalence studies require crossover configuration. Set up in Protocol Builder.</div>
       </div>
     </div></div>
-  );
-}
-
-function CrossoverWashoutCard({ onToast }: { onToast: (m: string) => void }) {
-  const [bePeriods, setBePeriods] = useState(2);
-  const [beGroups, setBeGroups] = useState<string[]>(["T01", "T02"]);
-  const [beMatrix, setBeMatrix] = useState<number[][]>([]);
-  const nGroups = beGroups.length;
-  const drugLabel = (i: number) => `Drug ${String.fromCharCode(65 + i)}`;
-  useEffect(() => {
-    // Rebuild the default Latin square whenever the period count or group COUNT changes.
-    setBeMatrix(Array.from({ length: bePeriods }, (_, p) => Array.from({ length: nGroups }, (_, g) => (nGroups ? (p + g) % nGroups : 0))));
-  }, [bePeriods, nGroups]);
-  const renameBeGroup = (i: number, v: string) => setBeGroups((g) => g.map((x, j) => (j === i ? v : x)));
-  const addBeGroup = () => setBeGroups((g) => [...g, `T${String(g.length + 1).padStart(2, "0")}`]);
-  const removeBeGroup = (i: number) => setBeGroups((g) => (g.length <= 1 ? g : g.filter((_, j) => j !== i)));
-  const setBeCell = (p: number, g: number, v: number) => setBeMatrix((m) => m.map((row, pi) => (pi === p ? row.map((c, gi) => (gi === g ? v : c)) : row)));
-  return (
-    <div className="settings-card">
-      <div className="settings-card-header"><div><div className="settings-card-title">Crossover &amp; washout</div><div className="settings-card-desc">Each subject receives multiple treatments across periods <span className="set-badge set-badge-slate">Coming soon</span></div></div></div>
-      <div className="settings-card-body">
-        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "var(--space-4)" }}>
-          <div className="set-field"><div className="set-field-label">Number of periods</div><input className="set-input" type="number" min={1} max={8} value={bePeriods} onChange={(e) => setBePeriods(Math.max(1, Math.min(8, Math.floor(Number(e.target.value) || 1))))} /></div>
-          <div className="set-field"><div className="set-field-label">Washout duration (days)</div><input className="set-input" type="number" placeholder="e.g. 14" onBlur={() => onToast("Washout saved")} /></div>
-        </div>
-        <div style={{ marginTop: "var(--space-3)" }}><ToggleRow on={true} onToggle={() => onToast("Setting saved")} label="Data entry locked during washout" desc="Clinical data entry is disabled during the washout phase between treatment periods." /></div>
-        <div style={{ marginTop: "var(--space-4)" }}>
-          <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: "var(--space-2)" }}>
-            <div style={{ fontSize: "var(--text-xs)", fontWeight: 500, textTransform: "uppercase", letterSpacing: "var(--tracking-caps)", color: "var(--color-text-tertiary)" }}>Period sequence <span style={{ fontWeight: 400, textTransform: "none", color: "var(--color-text-placeholder)" }}>· rows = periods · columns = treatment groups</span></div>
-            <button className="set-btn-secondary" style={{ height: 26, fontSize: "var(--text-xs)" }} type="button" onClick={addBeGroup}><i className="ti ti-plus"></i> Add group</button>
-          </div>
-          <div style={{ overflowX: "auto" }}>
-            <table className="rand-group-table">
-              <thead>
-                <tr>
-                  <th>Period</th>
-                  {beGroups.map((g, i) => (
-                    <th key={i}>
-                      <div style={{ display: "flex", alignItems: "center", gap: 4 }}>
-                        <input className="set-input" style={{ height: 28, width: 72, fontFamily: "var(--font-mono)" }} value={g} onChange={(e) => renameBeGroup(i, e.target.value)} />
-                        {beGroups.length > 1 && <button className="set-btn-icon" style={{ width: 20, height: 20 }} type="button" title="Remove group" onClick={() => removeBeGroup(i)}><i className="ti ti-x" style={{ fontSize: 12 }}></i></button>}
-                      </div>
-                    </th>
-                  ))}
-                </tr>
-              </thead>
-              <tbody>
-                {beMatrix.map((rowCells, p) => (
-                  <tr key={p}>
-                    <td style={{ fontWeight: 500, whiteSpace: "nowrap" }}>Period {p + 1}</td>
-                    {rowCells.map((cell, g) => (
-                      <td key={g}><select className="set-select" style={{ height: 30, minWidth: 92 }} value={cell} onChange={(e) => setBeCell(p, g, Number(e.target.value))}>{beGroups.map((_, di) => <option key={di} value={di}>{drugLabel(di)}</option>)}</select></td>
-                    ))}
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-          <div style={{ fontSize: "var(--text-xs)", color: "var(--color-text-tertiary)", marginTop: "var(--space-2)" }}><i className="ti ti-info-circle" style={{ fontSize: 12, marginRight: 4 }}></i> Resets to a Latin square when periods or groups change; override any cell manually.</div>
-        </div>
-      </div>
-    </div>
   );
 }
 
@@ -1085,6 +970,7 @@ function StudyConfigCard({ category, type, speciesSel, customSpecies, enroll, bl
   const typeOpts = STUDY_TYPE_OPTS.filter((o) => category === "livestock" || !o.livestockOnly);
   const speciesOpts = category ? NS_SPECIES_OPTS[category] : [];
   const enrollOpts = category && type ? nsEnrollOptions(category, type) : [];
+  const effSpecies = speciesSel === "Other" ? customSpecies : speciesSel; // drives species-aware enrollment labels
   const segCls = (active: boolean) => `seg-option${active ? " active" : ""}${ro ? " disabled" : ""}`;
   return (
     <div className="settings-card" id="study-configuration">
@@ -1126,7 +1012,7 @@ function StudyConfigCard({ category, type, speciesSel, customSpecies, enroll, bl
             <div className="settings-row-label"><div className="settings-row-label-text">Enrollment model</div></div>
             <div className="settings-row-value">
               <div className="seg-control">
-                {enrollOpts.map((m) => <div key={m} className={segCls(enroll === m)} onClick={() => { if (!ro) onEnroll(m); }}>{ENROLL_LABELS[m]}</div>)}
+                {enrollOpts.map((m) => <div key={m} className={segCls(enroll === m)} onClick={() => { if (!ro) onEnroll(m); }}>{enrollmentModelLabel(m, effSpecies)}</div>)}
               </div>
             </div>
           </div>
@@ -1162,8 +1048,6 @@ function NewStudySetup({ study, onToast, onNavigate }: { study: { id: string; co
   const [speciesSel, setSpeciesSel] = useState<string>(() => (initSpecies ? (NS_STANDARD_SPECIES.has(initSpecies) ? initSpecies : "Other") : ""));
   const [customSpecies, setCustomSpecies] = useState<string>(() => (initSpecies && !NS_STANDARD_SPECIES.has(initSpecies) ? initSpecies : ""));
   const effectiveSpecies = speciesSel === "Other" ? customSpecies : speciesSel;
-  const speciesOpts = speciesCategory ? NS_SPECIES_OPTS[speciesCategory] : [];
-  const isPoultry = effectiveSpecies === "Poultry";
   // Apply the species-implied subject label to the subject level (adding it to the level's
   // options if absent so the <select> shows it). No-op when the species implies no change.
   const applyLabel = (h: HLevel[], model: EnrollModel | null, eff: string): HLevel[] => {
@@ -1177,8 +1061,6 @@ function NewStudySetup({ study, onToast, onNavigate }: { study: { id: string; co
   const [blinding, setBlinding] = useState("open");
   const [indication, setIndication] = useState(row?.description ?? "");
 
-  const typeOpts = STUDY_TYPE_OPTS.filter((o) => speciesCategory === "livestock" || !o.livestockOnly);
-  const enrollOpts = speciesCategory && studyType ? nsEnrollOptions(speciesCategory, studyType) : [];
   const isLivestock = speciesCategory === "livestock";
   const showWithdrawal = nsShowWithdrawal(speciesCategory, studyType);
   const showCrossover = nsShowCrossover(studyType);
@@ -1219,7 +1101,7 @@ function NewStudySetup({ study, onToast, onNavigate }: { study: { id: string; co
           </div>
           <div className="settings-row">
             <div className="settings-row-label"><div className="settings-row-label-text">Study ID</div></div>
-            <div className="settings-row-value"><input className="field-input readonly" value={study.code} readOnly tabIndex={-1} style={{ fontFamily: "var(--font-mono)", fontWeight: 500 }} /></div>
+            <div className="settings-row-value"><input className="field-input readonly" value={study.code} readOnly tabIndex={-1} style={{ fontFamily: "var(--font-mono)" }} /></div>
           </div>
           <div className="settings-row">
             <div className="settings-row-label">
@@ -2485,7 +2367,6 @@ export default function StudySettingsPage() {
   // New studies start in Setup (seeded studies keep their lifecycle status).
   const [status, setStatus] = useState<StudyStatus>(() => (isSeededStudy(study.code) ? getStudyStatus(study.code) : "setup"));
   useEffect(() => { setStatus(isSeededStudy(study.code) ? getStudyStatus(study.code) : "setup"); }, [study.code]);
-  const isAdmin = activeRole === "Admin";
   const typeCfg = getStudyTypeConfig(study.code); // study-type design flags (rand unit, timing)
   const isGroupRand = typeCfg.randomizationUnit === "group";
 

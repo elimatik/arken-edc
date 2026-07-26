@@ -727,7 +727,6 @@ export function SubjectRecord({ studyId, subjectId, initialFormId, initialPanelF
   // (the query panel isn't gated by read-only) so a DM can resolve open items.
   const subjectClosed = subject.status === "completed" || subject.status === "withdrawn";
   const subjectWithdrawn = subject.status === "withdrawn";
-  const subjectCompleted = subject.status === "completed";
   const isEosForm = selectedForm?.name === "End of Study / Final Disposition";
   // Does the active form have any collected data (a saved value or a documented "Not done")?
   const activeInstIds = new Set(dataset.formInstances.filter((i) => i.subject_id === subjectId && i.form_id === activeFormId).map((i) => i.id));
