@@ -1,5 +1,6 @@
 import type { NextRequest } from 'next/server';
 import { NextResponse } from 'next/server';
+import { hmacMatches } from '@/lib/auth/gate';
 
 export const config = {
   // Run on every route EXCEPT:
@@ -45,8 +46,9 @@ function serveGate(req: NextRequest) {
 }
 
 /**
- * Accepts a token if it matches the HMAC for the CURRENT hour
- * OR the PREVIOUS hour (gives a ~1h grace window either side of rollover).
+ * Accepts a token if it matches the HMAC for the CURRENT hour OR the PREVIOUS
+ * hour (gives a ~1h grace window either side of rollover). The constant-time
+ * comparison lives inside hmacMatches (lib/auth/gate).
  */
 async function isValidToken(token: string, secret: string): Promise<boolean> {
   const hour = Math.floor(Date.now() / 1000 / 3600);
@@ -54,43 +56,4 @@ async function isValidToken(token: string, secret: string): Promise<boolean> {
     (await hmacMatches(token, secret, hour)) ||
     (await hmacMatches(token, secret, hour - 1))
   );
-}
-
-async function hmacMatches(
-  token: string,
-  secret: string,
-  hour: number
-): Promise<boolean> {
-  try {
-    const message = `arken:${hour}`;
-    const key = await crypto.subtle.importKey(
-      'raw',
-      new TextEncoder().encode(secret),
-      { name: 'HMAC', hash: 'SHA-256' },
-      false,
-      ['sign']
-    );
-    const sig = await crypto.subtle.sign(
-      'HMAC',
-      key,
-      new TextEncoder().encode(message)
-    );
-    const expected = btoa(String.fromCharCode(...new Uint8Array(sig)))
-      .replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
-    // Constant-time comparison
-    return timingSafeEqual(token, expected);
-  } catch {
-    return false;
-  }
-}
-
-function timingSafeEqual(a: string, b: string): boolean {
-  const ea = new TextEncoder().encode(a);
-  const eb = new TextEncoder().encode(b);
-  const len = Math.max(ea.length, eb.length);
-  let diff = ea.length ^ eb.length;
-  for (let i = 0; i < len; i++) {
-    diff |= (ea[i] ?? 0) ^ (eb[i] ?? 0);
-  }
-  return diff === 0;
 }

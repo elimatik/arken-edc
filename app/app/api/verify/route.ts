@@ -1,5 +1,6 @@
 import type { NextRequest } from 'next/server';
 import { NextResponse } from 'next/server';
+import { makeToken, timingSafeEqual } from '@/lib/auth/gate';
 
 export const runtime = 'edge';
 
@@ -49,48 +50,4 @@ export async function POST(req: NextRequest) {
   } catch {
     return NextResponse.json({ error: 'Bad request.' }, { status: 400 });
   }
-}
-
-// ---------------------------------------------------------------------------
-// Helpers
-// ---------------------------------------------------------------------------
-
-/**
- * Constant-time string comparison so an attacker can't
- * infer password length from response timing.
- */
-function timingSafeEqual(a: string, b: string): boolean {
-  const ea = new TextEncoder().encode(a);
-  const eb = new TextEncoder().encode(b);
-  // Pad shorter one so lengths always match
-  const len = Math.max(ea.length, eb.length);
-  let diff = ea.length ^ eb.length; // non-zero if lengths differ
-  for (let i = 0; i < len; i++) {
-    diff |= (ea[i] ?? 0) ^ (eb[i] ?? 0);
-  }
-  return diff === 0;
-}
-
-/**
- * HMAC-SHA256 token = base64url(HMAC(secret, "arken:" + flooredHour))
- * Tokens naturally expire when the floored-hour changes AND the cookie
- * maxAge has elapsed. Middleware verifies by recomputing the same HMAC.
- */
-export async function makeToken(secret: string): Promise<string> {
-  const hour = Math.floor(Date.now() / 1000 / 3600); // changes every hour
-  const message = `arken:${hour}`;
-  const key = await crypto.subtle.importKey(
-    'raw',
-    new TextEncoder().encode(secret),
-    { name: 'HMAC', hash: 'SHA-256' },
-    false,
-    ['sign']
-  );
-  const sig = await crypto.subtle.sign(
-    'HMAC',
-    key,
-    new TextEncoder().encode(message)
-  );
-  return btoa(String.fromCharCode(...new Uint8Array(sig)))
-    .replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
 }
