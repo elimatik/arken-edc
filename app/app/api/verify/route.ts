@@ -14,6 +14,8 @@ const COOKIE_NAME = 'arken_session';
 const COOKIE_MAX_AGE = 60 * 60 * 8; // 8 hours
 
 export async function POST(req: NextRequest) {
+  console.log('[verify] POST received, password length:',
+    (await req.clone().json())?.password?.length ?? 'no body');
   try {
     const body = await req.json();
     const supplied: string = (body?.password ?? '').trim();

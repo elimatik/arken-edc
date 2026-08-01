@@ -2,12 +2,7 @@
 
 import { useState, type KeyboardEvent } from "react";
 import { useRouter } from "next/navigation";
-import { supabase } from "@/lib/supabase";
-import { OWNER_CODES } from "@/lib/constants";
 import "./login.css";
-
-// One-time-per-tab portfolio agreement. Stored alongside name/company/timestamp.
-const NDA_KEY = "arken_nda_v1";
 
 export default function LoginPage() {
   const router = useRouter();
@@ -19,13 +14,6 @@ export default function LoginPage() {
   const [inlineError, setInlineError] = useState(false);
   const [generalError, setGeneralError] = useState(false);
   const [loading, setLoading] = useState(false);
-
-  // Access-agreement (NDA) modal — shown once per tab after credentials validate.
-  const [ndaOpen, setNdaOpen] = useState(false);
-  const [ndaName, setNdaName] = useState("");
-  const [ndaCompany, setNdaCompany] = useState("");
-  const [ndaAgree, setNdaAgree] = useState(false);
-  const ndaCanContinue = ndaName.trim().length > 0 && ndaAgree;
 
   function attemptLogin() {
     // Clear previous errors
@@ -46,56 +34,9 @@ export default function LoginPage() {
         setGeneralError(true);
         return;
       }
-      // The credential entered is the access code. Owner codes bypass the
-      // agreement entirely (no modal, no record); every other code must accept
-      // it. The gate is presented on each login — we intentionally do NOT skip
-      // it from a prior sessionStorage record, since normal in-app navigation
-      // never returns through /login, so this won't nag while browsing.
-      const code = password.trim();
-      if (OWNER_CODES.includes(code)) {
-        router.push("/studies");
-        return;
-      }
-      setNdaOpen(true);
+      // The access agreement is handled by the gate now — go straight to the app.
+      router.push("/studies");
     }, 1100);
-  }
-
-  async function confirmNda() {
-    if (!ndaCanContinue) return;
-    const agreedAt = new Date().toISOString();
-    const accessCode = password.trim();
-    const fullName = ndaName.trim();
-    const company = ndaCompany.trim() || null;
-
-    // Audit record — written straight to Supabase (NOT the session store).
-    // Best-effort: a failure (e.g. table not yet migrated) must not block entry.
-    try {
-      const { error } = await supabase
-        .from("nda_agreements")
-        .insert({ full_name: fullName, company, access_code: accessCode, agreed_at: agreedAt });
-      if (error) console.warn("nda_agreements insert failed:", error.message);
-    } catch (e) {
-      console.warn("nda_agreements insert error:", e);
-    }
-
-    try {
-      sessionStorage.setItem(
-        NDA_KEY,
-        JSON.stringify({ name: fullName, company, agreedAt, accessCode }),
-      );
-    } catch {
-      /* ignore quota / unavailable storage */
-    }
-    setNdaOpen(false);
-    router.push("/studies");
-  }
-
-  function cancelNda() {
-    // Return to the login screen (it's still underneath); reset the form.
-    setNdaOpen(false);
-    setNdaName("");
-    setNdaCompany("");
-    setNdaAgree(false);
   }
 
   function onLoginKey(e: KeyboardEvent<HTMLInputElement>) {
@@ -275,81 +216,6 @@ export default function LoginPage() {
           </div>
         </div>
       </div>
-
-      {/* One-time access agreement (NDA) — shown after credentials validate */}
-      {ndaOpen && (
-        <div className="nda-overlay" role="dialog" aria-modal="true" aria-labelledby="nda-title">
-          <div className="nda-card">
-            <div className="nda-brand">
-              <div className="brand-logo-mark"><span>Ar</span></div>
-              <div className="nda-brand-name">Arken EDC</div>
-            </div>
-
-            <h2 className="nda-title" id="nda-title">Confidentiality Agreement &amp; Demo Access</h2>
-            <p className="nda-subtitle">
-              This is a portfolio demonstration of Arken EDC. In production, access is managed via
-              institutional credentials and role assignment by the study administrator.
-            </p>
-
-            <p className="nda-body">
-              This project contains original work created by Elisa Tron, including UX design,
-              product architecture, clinical data system patterns, and interaction design solutions
-              developed for Arken EDC. By typing your name below you confirm that you will not
-              reproduce, copy, redistribute, or claim as your own any design, concept, pattern, or
-              intellectual property contained in this project. This work is shared exclusively for
-              portfolio evaluation purposes. Unauthorized use or reproduction of any part of this
-              work is prohibited.
-            </p>
-
-            <form autoComplete="off" data-form-type="other" onSubmit={(e) => e.preventDefault()}>
-            <div className="nda-field">
-              <label className="nda-label" htmlFor="nda-name">Full name <span className="nda-req">*</span></label>
-              <input
-                id="nda-name"
-                name="arken-visitor-name"
-                className="nda-input"
-                value={ndaName}
-                onChange={(e) => setNdaName(e.target.value)}
-                placeholder="Your full name"
-                autoComplete="off"
-                data-lpignore="true"
-                data-1p-ignore="true"
-                autoFocus
-              />
-            </div>
-
-            <div className="nda-field">
-              <label className="nda-label" htmlFor="nda-company">Company / Organization</label>
-              <input
-                id="nda-company"
-                name="arken-visitor-org"
-                className="nda-input"
-                value={ndaCompany}
-                onChange={(e) => setNdaCompany(e.target.value)}
-                placeholder="Company or organization"
-                autoComplete="off"
-                data-lpignore="true"
-                data-1p-ignore="true"
-              />
-            </div>
-            </form>
-
-            <label className="nda-check">
-              <input type="checkbox" checked={ndaAgree} onChange={(e) => setNdaAgree(e.target.checked)} />
-              <span>I have read and agree to the above terms</span>
-            </label>
-
-            <button className="nda-btn" onClick={confirmNda} disabled={!ndaCanContinue} type="button">
-              Continue to project
-            </button>
-            <button className="nda-cancel" onClick={cancelNda} type="button">Cancel</button>
-
-            <div className="nda-foot">
-              Your name and the date of access are recorded with your session.
-            </div>
-          </div>
-        </div>
-      )}
     </div>
   );
 }
