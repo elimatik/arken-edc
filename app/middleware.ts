@@ -38,11 +38,14 @@ export async function middleware(req: NextRequest) {
 // ---------------------------------------------------------------------------
 
 function serveGate(req: NextRequest) {
-  // If already on /gate, don't loop
-  if (req.nextUrl.pathname === '/gate') return NextResponse.next();
+  // Redirect to the STATIC public/gate.html (served directly by Next — no
+  // serverless function, no fs read; safe on Vercel). The matcher already
+  // excludes anything starting with "gate", so /gate.html is never intercepted;
+  // this guard is belt-and-suspenders against loops.
+  if (req.nextUrl.pathname === '/gate.html') return NextResponse.next();
   const url = req.nextUrl.clone();
-  url.pathname = '/gate';
-  return NextResponse.rewrite(url);
+  url.pathname = '/gate.html';
+  return NextResponse.redirect(url);
 }
 
 /**
