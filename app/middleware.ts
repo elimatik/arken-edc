@@ -16,6 +16,13 @@ export const config = {
 const COOKIE_NAME = 'arken_session';
 
 export async function middleware(req: NextRequest) {
+  // ── Access gate TEMPORARILY DISABLED — all routes pass through freely. ──
+  // To re-enable the gate, flip this flag back to `true`. The gate logic and
+  // helpers (serveGate / isValidToken / hmacMatches) below stay wired up, so
+  // nothing else needs to change.
+  const GATE_ENABLED = false;
+  if (!GATE_ENABLED) return NextResponse.next();
+
   const token = req.cookies.get(COOKIE_NAME)?.value;
   const secret = process.env.ARKEN_PASSWORD ?? '';
 
