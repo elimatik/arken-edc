@@ -25,6 +25,11 @@
     .lead{font-size:14.5px;line-height:1.65;color:var(--ink-2);margin-bottom:4px}
     .deskline{display:flex;align-items:center;gap:8px;margin-top:10px;font-size:13px;color:var(--mute)}
     .deskline svg{flex-shrink:0;color:var(--accent-ink)}
+    .desknote{display:flex;gap:11px;align-items:flex-start;margin:16px 0 4px;padding:13px 15px;border-radius:12px;
+      background:color-mix(in srgb,var(--warm) 45%,transparent);border:1px solid color-mix(in srgb,var(--accent) 22%,transparent)}
+    .desknote svg{flex-shrink:0;margin-top:1px;color:var(--accent-ink)}
+    .desknote div{font-size:13px;line-height:1.55;color:var(--ink-2)}
+    .desknote b{color:var(--ink);font-weight:600}
     .body p{font-size:14.5px;line-height:1.65;color:var(--ink-2);margin-bottom:14px}
     .body p strong{color:var(--ink);font-weight:600}
     form{margin-top:22px}
@@ -64,6 +69,12 @@
     <!-- Confidentiality agreement — shown immediately (no password step) -->
     <section id="ndaView">
       <h1>Confidentiality Agreement</h1>
+      <div class="desknote">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+          <rect x="2" y="3" width="20" height="14" rx="2"/><path d="M8 21h8M12 17v4"/>
+        </svg>
+        <div><b>Desktop only.</b> Arken EDC is currently available for desktop only. Mobile and tablet are not supported at this time.</div>
+      </div>
       <div class="body">
         <p>This is a portfolio demonstration of Arken EDC. In production, access is managed via institutional
           credentials and role assignment by the study administrator.</p>
